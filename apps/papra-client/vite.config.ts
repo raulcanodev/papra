@@ -15,10 +15,10 @@ export default defineConfig({
     cleanDemoAssetsPlugin(),
   ],
   server: {
-    port: 3000,
+    port: Number(env.PORT || 3000),
     proxy: {
       '/api/': {
-        target: 'http://localhost:1221',
+        target: env.VITE_API_URL || 'http://localhost:1221',
       },
     },
   },

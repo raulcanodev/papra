@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/solid-query';
 import { createEffect, on, Show } from 'solid-js';
 import { useConfig } from '@/modules/config/config.provider';
 import { DocumentUploadProvider } from '@/modules/documents/components/document-import-status.component';
+import { useFeatureFlags } from '@/modules/feature-flags/feature-flags.provider';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { fetchOrganization, fetchOrganizations } from '@/modules/organizations/organizations.services';
 import { queryClient } from '@/modules/shared/query/query-client';
@@ -71,6 +72,7 @@ const OrganizationLayoutSideNav: Component = () => {
   const navigate = useNavigate();
   const params = useParams();
   const { t } = useI18n();
+  const { hasFlag } = useFeatureFlags();
 
   const getMainMenuItems = () => [
     {
@@ -104,6 +106,13 @@ const OrganizationLayoutSideNav: Component = () => {
       icon: 'i-tabler-users',
       href: `/organizations/${params.organizationId}/members`,
     },
+    ...(hasFlag('llc_finances')
+      ? [{
+          label: 'Finances',
+          icon: 'i-tabler-report-money',
+          href: `/organizations/${params.organizationId}/finances`,
+        }]
+      : []),
   ];
 
   const getFooterMenuItems = () => [

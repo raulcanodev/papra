@@ -50,6 +50,8 @@ import { UserSettingsPage } from './modules/users/pages/user-settings.page';
 import { CreateWebhookPage } from './modules/webhooks/pages/create-webhook.page';
 import { EditWebhookPage } from './modules/webhooks/pages/edit-webhook.page';
 import { WebhooksPage } from './modules/webhooks/pages/webhooks.page';
+import { FeatureFlagsProvider } from './modules/feature-flags/feature-flags.provider';
+import { FinancesPage } from './modules/finances/pages/finances.page';
 
 export const routes: RouteDefinition[] = [
   {
@@ -58,7 +60,11 @@ export const routes: RouteDefinition[] = [
     children: [
       {
         path: '/',
-        component: () => {
+        component: FeatureFlagsProvider,
+        children: [
+          {
+            path: '/',
+            component: () => {
           const { getLatestOrganizationId } = useLastOrganization();
 
           const query = useQuery(() => ({
@@ -175,6 +181,10 @@ export const routes: RouteDefinition[] = [
                     component: MembersPage,
                   },
                   {
+                    path: '/finances',
+                    component: FinancesPage,
+                  },
+                  {
                     path: '/invite',
                     component: InviteMemberPage,
                   },
@@ -232,27 +242,29 @@ export const routes: RouteDefinition[] = [
         ],
       },
       adminRoutes,
-    ],
-  },
-  {
-    path: '/',
-    component: SettingsLayout,
-    children: [
       {
-        path: '/settings',
-        component: UserSettingsPage,
+        path: '/',
+        component: SettingsLayout,
+        children: [
+          {
+            path: '/settings',
+            component: UserSettingsPage,
+          },
+          {
+            path: '/api-keys',
+            component: ApiKeysPage,
+          },
+          {
+            path: '/api-keys/create',
+            component: CreateApiKeyPage,
+          },
+          {
+            path: '/invitations',
+            component: InvitationsPage,
+          },
+        ],
       },
-      {
-        path: '/api-keys',
-        component: ApiKeysPage,
-      },
-      {
-        path: '/api-keys/create',
-        component: CreateApiKeyPage,
-      },
-      {
-        path: '/invitations',
-        component: InvitationsPage,
+        ],
       },
     ],
   },

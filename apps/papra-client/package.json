@@ -15,7 +15,7 @@
   },
   "scripts": {
     "start": "vite",
-    "dev": "vite",
+    "dev": "PORT=3002 vite",
     "build": "vite build",
     "serve": "vite preview",
     "lint": "eslint .",
