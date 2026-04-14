@@ -45,6 +45,9 @@ function cleanDemoAssetsPlugin(): Plugin {
       if (!isDemoMode) {
         const startedAt = Date.now();
         const distDir = path.resolve(__dirname, 'dist/assets');
+        if (!fs.existsSync(distDir)) {
+          return;
+        }
         const files = fs.readdirSync(distDir);
 
         const demoPdfPattern = /\d{3}\.demo-document\.file-.+$/;
