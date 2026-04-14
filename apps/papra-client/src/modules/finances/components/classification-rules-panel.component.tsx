@@ -150,7 +150,7 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
             onClick={() => autoClassifyMut.mutate()}
             disabled={autoClassifyMut.isPending}
           >
-            <div class={cn('i-tabler-sparkles size-4 mr-1', autoClassifyMut.isPending && 'animate-pulse')} />
+            <div class={cn('i-tabler-rocket size-4 mr-1', autoClassifyMut.isPending && 'animate-pulse')} />
             {autoClassifyMut.isPending ? 'Classifying...' : 'Run Rules'}
           </Button>
           <Button size="sm" onClick={() => { resetForm(); setIsAddOpen(true); }}>
