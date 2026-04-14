@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { createToast } from '@/modules/ui/components/sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
 import { AddBankConnectionDialog } from '../components/add-bank-connection-dialog.component';
+import { EditBankConnectionDialog } from '../components/edit-bank-connection-dialog.component';
 import { fetchBankConnections, fetchTransactions, syncBankConnection, updateTransactionClassification } from '../finances.services';
 
 const classificationOptions = [
@@ -51,6 +52,7 @@ export const FinancesPage: Component = () => {
   const [getPagination, setPagination] = createParamSynchronizedPagination();
   const [getFilterConnection, setFilterConnection] = createSignal<string | undefined>();
   const [getFilterClassification, setFilterClassification] = createSignal<string | undefined>();
+  const [getEditingConnection, setEditingConnection] = createSignal<string | undefined>();
 
   const connectionsQuery = useQuery(() => ({
     queryKey: ['organizations', params.organizationId, 'finances', 'bank-connections'],
@@ -104,7 +106,9 @@ export const FinancesPage: Component = () => {
           <h2 class="text-xl font-bold">LLC Finances</h2>
           <p class="text-muted-foreground text-sm mt-1">Bank transactions & Form 5472 classification</p>
         </div>
-        <AddBankConnectionDialog organizationId={params.organizationId} />
+        <Show when={(connectionsQuery.data?.bankConnections?.length ?? 0) > 0}>
+          <AddBankConnectionDialog organizationId={params.organizationId} />
+        </Show>
       </div>
 
       {/* Bank connections */}
@@ -120,6 +124,13 @@ export const FinancesPage: Component = () => {
                 </div>
                 <Button
                   size="sm"
+                  variant="ghost"
+                  onClick={() => setEditingConnection(connection.id)}
+                >
+                  <div class="i-tabler-pencil size-4" />
+                </Button>
+                <Button
+                  size="sm"
                   variant="outline"
                   onClick={() => syncMutation.mutate(connection.id)}
                   disabled={syncMutation.isPending}
@@ -130,6 +141,27 @@ export const FinancesPage: Component = () => {
             )}
           </For>
         </div>
+      </Show>
+
+      <Show when={getEditingConnection() !== undefined}>
+        {(_) => {
+          const conn = () => connectionsQuery.data?.bankConnections?.find(c => c.id === getEditingConnection());
+          return (
+            <Show when={conn()}>
+              {(c) => (
+                <EditBankConnectionDialog
+                  organizationId={params.organizationId}
+                  bankConnectionId={c().id}
+                  initialName={c().name}
+                  initialAccountId={c().providerAccountId}
+                  provider={c().provider}
+                  isOpen={true}
+                  onClose={() => setEditingConnection(undefined)}
+                />
+              )}
+            </Show>
+          );
+        }}
       </Show>
 
       {/* Filters */}

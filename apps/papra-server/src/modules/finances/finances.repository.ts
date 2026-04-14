@@ -1,14 +1,34 @@
 import type { Database } from '../app/database/database.types';
 import type { TransactionClassification } from './finances.constants';
+import { Buffer } from 'node:buffer';
+import { createHash } from 'node:crypto';
 import { injectArguments } from '@corentinth/chisels';
 import { and, desc, eq, sql } from 'drizzle-orm';
+import { decrypt, encrypt } from '../shared/crypto/encryption';
 import { withPagination } from '../shared/db/pagination';
 import { createBankConnectionNotFoundError, createTransactionNotFoundError } from './finances.errors';
 import { bankConnectionsTable, transactionsTable } from './finances.table';
 
+function deriveKey(secret: string): Buffer {
+  // AUTH_SECRET can be any length; derive a fixed 32-byte key with SHA-256
+  return createHash('sha256').update(secret).digest();
+}
+
+function encryptApiKey(apiKey: string, secret: string): string {
+  const key = deriveKey(secret);
+  const encrypted = encrypt({ key, value: Buffer.from(apiKey, 'utf8') });
+  return encrypted.toString('base64');
+}
+
+function decryptApiKey(encryptedApiKey: string, secret: string): string {
+  const key = deriveKey(secret);
+  const decrypted = decrypt({ encryptedValue: Buffer.from(encryptedApiKey, 'base64'), key });
+  return decrypted.toString('utf8');
+}
+
 export type FinancesRepository = ReturnType<typeof createFinancesRepository>;
 
-export function createFinancesRepository({ db }: { db: Database }) {
+export function createFinancesRepository({ db, authSecret }: { db: Database; authSecret: string }) {
   return injectArguments(
     {
       createBankConnection,
@@ -16,18 +36,20 @@ export function createFinancesRepository({ db }: { db: Database }) {
       getBankConnectionById,
       deleteBankConnection,
       updateBankConnectionSyncTime,
+      updateBankConnection,
       upsertTransactions,
       getTransactions,
       getTransactionById,
       updateTransactionClassification,
       getTransactionsCount,
     },
-    { db },
+    { db, authSecret },
   );
 }
 
-async function createBankConnection({ db, bankConnection }: {
+async function createBankConnection({ db, authSecret, bankConnection }: {
   db: Database;
+  authSecret: string;
   bankConnection: {
     organizationId: string;
     provider: string;
@@ -36,7 +58,10 @@ async function createBankConnection({ db, bankConnection }: {
     providerAccountId?: string;
   };
 }) {
-  const [result] = await db.insert(bankConnectionsTable).values(bankConnection).returning();
+  const [result] = await db.insert(bankConnectionsTable).values({
+    ...bankConnection,
+    apiKey: encryptApiKey(bankConnection.apiKey, authSecret),
+  }).returning();
   return { bankConnection: result };
 }
 
@@ -55,8 +80,9 @@ async function getBankConnections({ db, organizationId }: { db: Database; organi
   return { bankConnections: connections };
 }
 
-async function getBankConnectionById({ db, bankConnectionId, organizationId }: {
+async function getBankConnectionById({ db, authSecret, bankConnectionId, organizationId }: {
   db: Database;
+  authSecret: string;
   bankConnectionId: string;
   organizationId: string;
 }) {
@@ -70,7 +96,47 @@ async function getBankConnectionById({ db, bankConnectionId, organizationId }: {
     throw createBankConnectionNotFoundError();
   }
 
-  return { bankConnection: connection };
+  return {
+    bankConnection: {
+      ...connection,
+      apiKey: decryptApiKey(connection.apiKey, authSecret),
+    },
+  };
+}
+
+async function updateBankConnection({ db, authSecret, bankConnectionId, organizationId, name, providerAccountId, apiKey }: {
+  db: Database;
+  authSecret: string;
+  bankConnectionId: string;
+  organizationId: string;
+  name?: string;
+  providerAccountId?: string | null;
+  apiKey?: string;
+}) {
+  const updates: Partial<typeof bankConnectionsTable.$inferInsert> = { updatedAt: new Date() };
+  if (name !== undefined) {
+    updates.name = name;
+  }
+  if (providerAccountId !== undefined) {
+    updates.providerAccountId = providerAccountId;
+  }
+  if (apiKey !== undefined) {
+    updates.apiKey = encryptApiKey(apiKey, authSecret);
+  }
+
+  const [updated] = await db.update(bankConnectionsTable)
+    .set(updates)
+    .where(and(
+      eq(bankConnectionsTable.id, bankConnectionId),
+      eq(bankConnectionsTable.organizationId, organizationId),
+    ))
+    .returning();
+
+  if (!updated) {
+    throw createBankConnectionNotFoundError();
+  }
+
+  return { bankConnection: updated };
 }
 
 async function deleteBankConnection({ db, bankConnectionId, organizationId }: {

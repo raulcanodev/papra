@@ -22,6 +22,20 @@ export async function createBankConnection({ organizationId, provider, name, api
   });
 }
 
+export async function updateBankConnection({ organizationId, bankConnectionId, name, accountId, apiKey }: {
+  organizationId: string;
+  bankConnectionId: string;
+  name?: string;
+  accountId?: string | null;
+  apiKey?: string;
+}) {
+  return apiClient<{ bankConnection: BankConnection }>({
+    method: 'PATCH',
+    path: `/api/organizations/${organizationId}/finances/bank-connections/${bankConnectionId}`,
+    body: { name, accountId, apiKey },
+  });
+}
+
 export async function deleteBankConnection({ organizationId, bankConnectionId }: {
   organizationId: string;
   bankConnectionId: string;

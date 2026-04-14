@@ -15,6 +15,7 @@ import { getBankProviderAdapter } from './providers/provider.registry';
 export function registerFinancesRoutes(context: RouteDefinitionContext) {
   setupGetBankConnectionsRoute(context);
   setupCreateBankConnectionRoute(context);
+  setupUpdateBankConnectionRoute(context);
   setupDeleteBankConnectionRoute(context);
   setupSyncBankConnectionRoute(context);
   setupGetTransactionsRoute(context);
@@ -22,7 +23,7 @@ export function registerFinancesRoutes(context: RouteDefinitionContext) {
   setupGetBankProviderAccountsRoute(context);
 }
 
-function setupGetBankConnectionsRoute({ app, db }: RouteDefinitionContext) {
+function setupGetBankConnectionsRoute({ app, db, config }: RouteDefinitionContext) {
   app.get(
     '/api/organizations/:organizationId/finances/bank-connections',
     requireAuthentication(),
@@ -35,7 +36,7 @@ function setupGetBankConnectionsRoute({ app, db }: RouteDefinitionContext) {
       const organizationsRepository = createOrganizationsRepository({ db });
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
-      const financesRepository = createFinancesRepository({ db });
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
       const { bankConnections } = await financesRepository.getBankConnections({ organizationId });
 
       return context.json({ bankConnections });
@@ -43,7 +44,7 @@ function setupGetBankConnectionsRoute({ app, db }: RouteDefinitionContext) {
   );
 }
 
-function setupCreateBankConnectionRoute({ app, db }: RouteDefinitionContext) {
+function setupCreateBankConnectionRoute({ app, db, config }: RouteDefinitionContext) {
   app.post(
     '/api/organizations/:organizationId/finances/bank-connections',
     requireAuthentication(),
@@ -63,7 +64,7 @@ function setupCreateBankConnectionRoute({ app, db }: RouteDefinitionContext) {
       const organizationsRepository = createOrganizationsRepository({ db });
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
-      const financesRepository = createFinancesRepository({ db });
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
       const { bankConnection } = await addBankConnection({
         organizationId,
         provider,
@@ -86,7 +87,43 @@ function setupCreateBankConnectionRoute({ app, db }: RouteDefinitionContext) {
   );
 }
 
-function setupDeleteBankConnectionRoute({ app, db }: RouteDefinitionContext) {
+function setupUpdateBankConnectionRoute({ app, db, config }: RouteDefinitionContext) {
+  app.patch(
+    '/api/organizations/:organizationId/finances/bank-connections/:bankConnectionId',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({
+      organizationId: organizationIdSchema,
+      bankConnectionId: z.string(),
+    })),
+    legacyValidateJsonBody(z.object({
+      name: z.string().min(1).max(100).optional(),
+      accountId: z.string().nullable().optional(),
+      apiKey: z.string().min(1).optional(),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, bankConnectionId } = context.req.valid('param');
+      const { name, accountId, apiKey } = context.req.valid('json');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      const { bankConnection } = await financesRepository.updateBankConnection({
+        bankConnectionId,
+        organizationId,
+        name,
+        providerAccountId: accountId,
+        apiKey,
+      });
+
+      return context.json({ bankConnection });
+    },
+  );
+}
+
+function setupDeleteBankConnectionRoute({ app, db, config }: RouteDefinitionContext) {
   app.delete(
     '/api/organizations/:organizationId/finances/bank-connections/:bankConnectionId',
     requireAuthentication(),
@@ -102,7 +139,7 @@ function setupDeleteBankConnectionRoute({ app, db }: RouteDefinitionContext) {
       const organizationsRepository = createOrganizationsRepository({ db });
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
-      const financesRepository = createFinancesRepository({ db });
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
       await financesRepository.deleteBankConnection({ bankConnectionId, organizationId });
 
       return context.json({ success: true });
@@ -110,7 +147,7 @@ function setupDeleteBankConnectionRoute({ app, db }: RouteDefinitionContext) {
   );
 }
 
-function setupSyncBankConnectionRoute({ app, db }: RouteDefinitionContext) {
+function setupSyncBankConnectionRoute({ app, db, config }: RouteDefinitionContext) {
   app.post(
     '/api/organizations/:organizationId/finances/bank-connections/:bankConnectionId/sync',
     requireAuthentication(),
@@ -126,7 +163,7 @@ function setupSyncBankConnectionRoute({ app, db }: RouteDefinitionContext) {
       const organizationsRepository = createOrganizationsRepository({ db });
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
-      const financesRepository = createFinancesRepository({ db });
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
       const { insertedCount } = await syncBankTransactions({
         bankConnectionId,
         organizationId,
@@ -138,7 +175,7 @@ function setupSyncBankConnectionRoute({ app, db }: RouteDefinitionContext) {
   );
 }
 
-function setupGetTransactionsRoute({ app, db }: RouteDefinitionContext) {
+function setupGetTransactionsRoute({ app, db, config }: RouteDefinitionContext) {
   app.get(
     '/api/organizations/:organizationId/finances/transactions',
     requireAuthentication(),
@@ -158,7 +195,7 @@ function setupGetTransactionsRoute({ app, db }: RouteDefinitionContext) {
       const organizationsRepository = createOrganizationsRepository({ db });
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
-      const financesRepository = createFinancesRepository({ db });
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
 
       const [{ transactions }, { count: transactionsCount }] = await Promise.all([
         financesRepository.getTransactions({ organizationId, pageIndex, pageSize, bankConnectionId, classification }),
@@ -170,7 +207,7 @@ function setupGetTransactionsRoute({ app, db }: RouteDefinitionContext) {
   );
 }
 
-function setupUpdateTransactionClassificationRoute({ app, db }: RouteDefinitionContext) {
+function setupUpdateTransactionClassificationRoute({ app, db, config }: RouteDefinitionContext) {
   app.patch(
     '/api/organizations/:organizationId/finances/transactions/:transactionId',
     requireAuthentication(),
@@ -190,7 +227,7 @@ function setupUpdateTransactionClassificationRoute({ app, db }: RouteDefinitionC
       const organizationsRepository = createOrganizationsRepository({ db });
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
-      const financesRepository = createFinancesRepository({ db });
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
       const { transaction } = await financesRepository.updateTransactionClassification({
         transactionId,
         organizationId,
