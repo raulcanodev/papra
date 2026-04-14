@@ -52,9 +52,22 @@ export function createFinancesRepository({ db, authSecret }: { db: Database; aut
       createClassificationRule,
       updateClassificationRule,
       deleteClassificationRule,
+      getAllActiveBankConnections,
     },
     { db, authSecret },
   );
+}
+
+async function getAllActiveBankConnections({ db }: { db: Database }) {
+  const connections = await db.select({
+    id: bankConnectionsTable.id,
+    organizationId: bankConnectionsTable.organizationId,
+    provider: bankConnectionsTable.provider,
+    name: bankConnectionsTable.name,
+  }).from(bankConnectionsTable)
+    .where(eq(bankConnectionsTable.isActive, true));
+
+  return { bankConnections: connections };
 }
 
 async function createBankConnection({ db, authSecret, bankConnection }: {
@@ -296,13 +309,16 @@ async function createClassificationRule({ db, rule }: {
     organizationId: string;
     name: string;
     classification: string;
-    field: string;
-    operator: string;
-    value: string;
+    conditions: Array<{ field: string; operator: string; value: string }>;
+    conditionMatchMode?: string;
     priority?: number;
   };
 }) {
-  const [result] = await db.insert(classificationRulesTable).values(rule).returning();
+  const [result] = await db.insert(classificationRulesTable).values({
+    ...rule,
+    conditions: JSON.stringify(rule.conditions),
+    conditionMatchMode: rule.conditionMatchMode ?? 'all',
+  }).returning();
   return { rule: result };
 }
 
@@ -313,15 +329,18 @@ async function updateClassificationRule({ db, ruleId, organizationId, updates }:
   updates: {
     name?: string;
     classification?: string;
-    field?: string;
-    operator?: string;
-    value?: string;
+    conditions?: Array<{ field: string; operator: string; value: string }>;
+    conditionMatchMode?: string;
     priority?: number;
     isActive?: boolean;
   };
 }) {
+  const dbUpdates: Record<string, unknown> = { ...updates, updatedAt: new Date() };
+  if (updates.conditions) {
+    dbUpdates.conditions = JSON.stringify(updates.conditions);
+  }
   const [updated] = await db.update(classificationRulesTable)
-    .set({ ...updates, updatedAt: new Date() })
+    .set(dbUpdates)
     .where(and(
       eq(classificationRulesTable.id, ruleId),
       eq(classificationRulesTable.organizationId, organizationId),

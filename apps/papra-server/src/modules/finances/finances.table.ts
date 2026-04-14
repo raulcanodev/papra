@@ -48,9 +48,8 @@ export const classificationRulesTable = sqliteTable('classification_rules', {
   organizationId: text('organization_id').notNull().references(() => organizationsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
   name: text('name').notNull(),
   classification: text('classification').notNull(),
-  field: text('field').notNull(), // 'counterparty' | 'description' | 'amount'
-  operator: text('operator').notNull(), // 'contains' | 'equals' | 'starts_with' | 'gt' | 'lt'
-  value: text('value').notNull(),
+  conditions: text('conditions').notNull().default('[]'), // JSON array of { field, operator, value }
+  conditionMatchMode: text('condition_match_mode').notNull().default('all'), // 'all' | 'any'
   priority: integer('priority').notNull().default(0),
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
 }, t => [

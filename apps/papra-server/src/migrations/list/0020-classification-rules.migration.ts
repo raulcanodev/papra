@@ -15,9 +15,8 @@ export const classificationRulesMigration: Migration = {
           "organization_id" text NOT NULL REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE,
           "name" text NOT NULL,
           "classification" text NOT NULL,
-          "field" text NOT NULL,
-          "operator" text NOT NULL,
-          "value" text NOT NULL,
+          "conditions" text NOT NULL DEFAULT '[]',
+          "condition_match_mode" text NOT NULL DEFAULT 'all',
           "priority" integer NOT NULL DEFAULT 0,
           "is_active" integer NOT NULL DEFAULT 1
         )

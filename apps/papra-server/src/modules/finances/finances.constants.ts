@@ -9,7 +9,7 @@ export const TRANSACTION_ID_REGEX = createPrefixedIdRegex({ prefix: TRANSACTION_
 export const CLASSIFICATION_RULE_ID_PREFIX = 'clr';
 export const CLASSIFICATION_RULE_ID_REGEX = createPrefixedIdRegex({ prefix: CLASSIFICATION_RULE_ID_PREFIX });
 
-export const TRANSACTION_CLASSIFICATIONS = ['expense', 'income', 'owner_transfer'] as const;
+export const TRANSACTION_CLASSIFICATIONS = ['expense', 'income', 'owner_transfer', 'internal_transfer'] as const;
 export type TransactionClassification = typeof TRANSACTION_CLASSIFICATIONS[number];
 
 export const BANK_PROVIDERS = ['mercury', 'wise'] as const;

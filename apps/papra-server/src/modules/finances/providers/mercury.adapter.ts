@@ -21,45 +21,60 @@ export function createMercuryAdapter(): BankProviderAdapter {
     },
 
     fetchTransactions: async ({ apiKey, accountId, fromDate }) => {
-      const params = new URLSearchParams();
-      if (fromDate) {
-        params.set('start', fromDate.toISOString().split('T')[0]!);
+      // Default to 2 years ago for first sync to get full history
+      const startDate = fromDate ?? new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000);
+
+      const allTransactions: ProviderTransaction[] = [];
+      let offset = 0;
+      const limit = 500;
+
+      while (true) {
+        const params = new URLSearchParams();
+        params.set('start', startDate.toISOString().split('T')[0]!);
+        params.set('limit', String(limit));
+        params.set('offset', String(offset));
+
+        const url = `${baseUrl}/account/${accountId}/transactions?${params.toString()}`;
+        const response = await fetch(url, {
+          headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Mercury API error: ${response.status}`);
+        }
+
+        const data = await response.json() as {
+          total: number;
+          transactions: Array<{
+            id: string;
+            amount: number;
+            createdAt: string;
+            note: string;
+            counterpartyName: string;
+            status: string;
+            details: Record<string, unknown>;
+          }>;
+        };
+
+        const transactions: ProviderTransaction[] = data.transactions.map(t => ({
+          externalId: t.id,
+          date: new Date(t.createdAt),
+          description: t.note || t.counterpartyName || 'No description',
+          amount: t.amount,
+          currency: 'USD',
+          counterparty: t.counterpartyName ?? undefined,
+          status: t.status === 'pending' ? 'pending' : 'posted',
+          rawData: t as unknown as Record<string, unknown>,
+        }));
+
+        allTransactions.push(...transactions);
+
+        // If we got fewer than limit, we've reached the end
+        if (data.transactions.length < limit) break;
+        offset += limit;
       }
-      params.set('limit', '500');
 
-      const url = `${baseUrl}/account/${accountId}/transactions?${params.toString()}`;
-      const response = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Mercury API error: ${response.status}`);
-      }
-
-      const data = await response.json() as {
-        transactions: Array<{
-          id: string;
-          amount: number;
-          createdAt: string;
-          note: string;
-          counterpartyName: string;
-          status: string;
-          details: Record<string, unknown>;
-        }>;
-      };
-
-      const transactions: ProviderTransaction[] = data.transactions.map(t => ({
-        externalId: t.id,
-        date: new Date(t.createdAt),
-        description: t.note || t.counterpartyName || 'No description',
-        amount: t.amount,
-        currency: 'USD',
-        counterparty: t.counterpartyName ?? undefined,
-        status: t.status === 'pending' ? 'pending' : 'posted',
-        rawData: t as unknown as Record<string, unknown>,
-      }));
-
-      return { transactions };
+      return { transactions: allTransactions };
     },
 
     validateApiKey: async ({ apiKey }) => {

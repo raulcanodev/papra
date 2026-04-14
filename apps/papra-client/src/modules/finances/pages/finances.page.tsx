@@ -2,6 +2,7 @@ import type { Component } from 'solid-js';
 import { useParams } from '@solidjs/router';
 import { createMutation, keepPreviousData, useQuery, useQueryClient } from '@tanstack/solid-query';
 import { createSignal, For, Show } from 'solid-js';
+import { useConfirmModal } from '@/modules/shared/confirm';
 import { createParamSynchronizedPagination } from '@/modules/shared/pagination/query-synchronized-pagination';
 import { PaginationControls } from '@/modules/shared/pagination/pagination-controls.component';
 import { cn } from '@/modules/shared/style/cn';
@@ -21,12 +22,14 @@ const classificationOptions = [
   { value: 'expense', label: 'Expense' },
   { value: 'income', label: 'Income' },
   { value: 'owner_transfer', label: 'Owner Transfer' },
+  { value: 'internal_transfer', label: 'Internal Transfer' },
 ];
 
 const classificationColors: Record<string, string> = {
   expense: 'bg-red-500/10 text-red-600 border-red-500/20',
   income: 'bg-green-500/10 text-green-600 border-green-500/20',
   owner_transfer: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+  internal_transfer: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
 };
 
 const providerIcons: Record<string, string> = {
@@ -53,6 +56,7 @@ function formatDate(date: Date | string) {
 export const FinancesPage: Component = () => {
   const params = useParams();
   const queryClient = useQueryClient();
+  const { confirm } = useConfirmModal();
   const [getPagination, setPagination] = createParamSynchronizedPagination();
   const [getFilterConnection, setFilterConnection] = createSignal<string | undefined>();
   const [getFilterClassification, setFilterClassification] = createSignal<string | undefined>();
@@ -125,6 +129,7 @@ export const FinancesPage: Component = () => {
         <div>
           <h2 class="text-xl font-bold">LLC Finances</h2>
           <p class="text-muted-foreground text-sm mt-1">Bank transactions & Form 5472 classification</p>
+          <p class="text-muted-foreground text-xs mt-0.5">Accounts sync automatically every day at 2:00 AM</p>
         </div>
         <Show when={(connectionsQuery.data?.bankConnections?.length ?? 0) > 0}>
           <div class="flex gap-2">
@@ -167,10 +172,13 @@ export const FinancesPage: Component = () => {
                   size="sm"
                   variant="ghost"
                   class="text-destructive hover:text-destructive"
-                  onClick={() => {
-                    if (confirm(`Delete "${connection.name}"? This will also delete all its transactions.`)) {
-                      deleteMutation.mutate(connection.id);
-                    }
+                  onClick={async () => {
+                    const ok = await confirm({
+                      title: 'Delete bank connection',
+                      message: `Delete "${connection.name}"? This will also delete all its transactions.`,
+                      confirmButton: { text: 'Delete', variant: 'destructive' },
+                    });
+                    if (ok) deleteMutation.mutate(connection.id);
                   }}
                   disabled={deleteMutation.isPending}
                 >

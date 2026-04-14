@@ -85,30 +85,30 @@ export async function addBankConnection({
   return { bankConnection };
 }
 
-function doesRuleMatch(rule: { field: string; operator: string; value: string }, transaction: { description: string; counterparty: string | null; amount: number }): boolean {
+function doesConditionMatch(condition: { field: string; operator: string; value: string }, transaction: { description: string; counterparty: string | null; amount: number }): boolean {
   let fieldValue: string;
 
-  if (rule.field === 'counterparty') {
+  if (condition.field === 'counterparty') {
     fieldValue = (transaction.counterparty ?? '').toLowerCase();
   }
-  else if (rule.field === 'description') {
+  else if (condition.field === 'description') {
     fieldValue = transaction.description.toLowerCase();
   }
-  else if (rule.field === 'amount') {
-    const ruleNum = Number.parseFloat(rule.value);
+  else if (condition.field === 'amount') {
+    const ruleNum = Number.parseFloat(condition.value);
     if (Number.isNaN(ruleNum)) return false;
-    if (rule.operator === 'gt') return transaction.amount > ruleNum;
-    if (rule.operator === 'lt') return transaction.amount < ruleNum;
-    if (rule.operator === 'equals') return transaction.amount === ruleNum;
+    if (condition.operator === 'gt') return transaction.amount > ruleNum;
+    if (condition.operator === 'lt') return transaction.amount < ruleNum;
+    if (condition.operator === 'equals') return transaction.amount === ruleNum;
     return false;
   }
   else {
     return false;
   }
 
-  const ruleValue = rule.value.toLowerCase();
+  const ruleValue = condition.value.toLowerCase();
 
-  switch (rule.operator) {
+  switch (condition.operator) {
     case 'contains':
       return fieldValue.includes(ruleValue);
     case 'equals':
@@ -118,6 +118,21 @@ function doesRuleMatch(rule: { field: string; operator: string; value: string },
     default:
       return false;
   }
+}
+
+function doesRuleMatch(rule: { conditions: string; conditionMatchMode: string }, transaction: { description: string; counterparty: string | null; amount: number }): boolean {
+  const conditions = JSON.parse(rule.conditions) as Array<{ field: string; operator: string; value: string }>;
+
+  if (conditions.length === 0) {
+    return true;
+  }
+
+  if (rule.conditionMatchMode === 'any') {
+    return conditions.some(c => doesConditionMatch(c, transaction));
+  }
+
+  // Default: 'all' — all conditions must match
+  return conditions.every(c => doesConditionMatch(c, transaction));
 }
 
 export async function autoClassifyTransactions({

@@ -272,6 +272,13 @@ function setupGetBankProviderAccountsRoute({ app, db }: RouteDefinitionContext) 
 
 const RULE_FIELDS = ['counterparty', 'description', 'amount'] as const;
 const RULE_OPERATORS = ['contains', 'equals', 'starts_with', 'gt', 'lt'] as const;
+const CONDITION_MATCH_MODES = ['all', 'any'] as const;
+
+const conditionSchema = z.object({
+  field: z.enum(RULE_FIELDS),
+  operator: z.enum(RULE_OPERATORS),
+  value: z.string().min(1),
+});
 
 function setupGetClassificationRulesRoute({ app, db, config }: RouteDefinitionContext) {
   app.get(
@@ -303,9 +310,8 @@ function setupCreateClassificationRuleRoute({ app, db, config }: RouteDefinition
     legacyValidateJsonBody(z.object({
       name: z.string().min(1).max(100),
       classification: z.enum(TRANSACTION_CLASSIFICATIONS),
-      field: z.enum(RULE_FIELDS),
-      operator: z.enum(RULE_OPERATORS),
-      value: z.string().min(1),
+      conditions: z.array(conditionSchema).min(1),
+      conditionMatchMode: z.enum(CONDITION_MATCH_MODES).default('all'),
       priority: z.number().int().min(0).default(0),
     })),
     async (context) => {
@@ -338,9 +344,8 @@ function setupUpdateClassificationRuleRoute({ app, db, config }: RouteDefinition
     legacyValidateJsonBody(z.object({
       name: z.string().min(1).max(100).optional(),
       classification: z.enum(TRANSACTION_CLASSIFICATIONS).optional(),
-      field: z.enum(RULE_FIELDS).optional(),
-      operator: z.enum(RULE_OPERATORS).optional(),
-      value: z.string().min(1).optional(),
+      conditions: z.array(conditionSchema).min(1).optional(),
+      conditionMatchMode: z.enum(CONDITION_MATCH_MODES).optional(),
       priority: z.number().int().min(0).optional(),
       isActive: z.boolean().optional(),
     })),

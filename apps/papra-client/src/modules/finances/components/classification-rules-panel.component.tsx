@@ -1,6 +1,7 @@
 import type { Component } from 'solid-js';
 import { createMutation, useQuery, useQueryClient } from '@tanstack/solid-query';
 import { createSignal, For, Show } from 'solid-js';
+import { useConfirmModal } from '@/modules/shared/confirm';
 import { cn } from '@/modules/shared/style/cn';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
@@ -19,6 +20,7 @@ const classificationOptions = [
   { value: 'expense', label: 'Expense' },
   { value: 'income', label: 'Income' },
   { value: 'owner_transfer', label: 'Owner Transfer' },
+  { value: 'internal_transfer', label: 'Internal Transfer' },
 ];
 
 const fieldOptions = [
@@ -49,10 +51,12 @@ const classificationColors: Record<string, string> = {
   expense: 'bg-red-500/10 text-red-600 border-red-500/20',
   income: 'bg-green-500/10 text-green-600 border-green-500/20',
   owner_transfer: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+  internal_transfer: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
 };
 
 export const ClassificationRulesPanel: Component<{ organizationId: string }> = (props) => {
   const queryClient = useQueryClient();
+  const { confirm } = useConfirmModal();
   const [isAddOpen, setIsAddOpen] = createSignal(false);
   const [ruleName, setRuleName] = createSignal('');
   const [ruleClassification, setRuleClassification] = createSignal<string>('expense');
@@ -161,10 +165,13 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
                   size="sm"
                   variant="ghost"
                   class="text-destructive hover:text-destructive"
-                  onClick={() => {
-                    if (confirm(`Delete rule "${rule.name}"?`)) {
-                      deleteMut.mutate(rule.id);
-                    }
+                  onClick={async () => {
+                    const ok = await confirm({
+                      title: 'Delete classification rule',
+                      message: `Delete rule "${rule.name}"? This cannot be undone.`,
+                      confirmButton: { text: 'Delete', variant: 'destructive' },
+                    });
+                    if (ok) deleteMut.mutate(rule.id);
                   }}
                 >
                   <div class="i-tabler-trash size-4" />
