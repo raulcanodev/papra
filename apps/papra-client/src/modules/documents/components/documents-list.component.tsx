@@ -15,9 +15,8 @@ import { For, Match, Show, Switch } from 'solid-js';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cn } from '@/modules/shared/style/cn';
+import { PaginationControls } from '@/modules/shared/pagination/pagination-controls.component';
 import { DocumentTagsList } from '@/modules/tags/components/tag-list.component';
-import { Button } from '@/modules/ui/components/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/modules/ui/components/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
 import { getDocumentIcon, getDocumentNameExtension, getDocumentNameWithoutExtension } from '../document.models';
 import { DocumentManagementDropdown } from './document-management-dropdown.component';
@@ -188,77 +187,13 @@ export const DocumentsPaginatedList: Component<{
           </Table>
 
           <Show when={props.showPagination ?? true}>
-            <div class="flex flex-col-reverse items-center gap-4 sm:flex-row sm:justify-end mt-4">
-              <div class="flex items-center space-x-2">
-                <p class="whitespace-nowrap text-sm font-medium">
-                  {t('common.tables.rows-per-page')}
-                </p>
-                <Select
-                  value={table.getState().pagination.pageSize}
-                  onChange={value => value && table.setPageSize(value)}
-                  options={[15, 50, 100]}
-                  itemComponent={props => (
-                    <SelectItem item={props.item}>
-                      {props.item.rawValue}
-                    </SelectItem>
-                  )}
-                >
-                  <SelectTrigger class="h-8 w-[4.5rem]">
-                    <SelectValue<string>>
-                      {state => state.selectedOption()}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent />
-                </Select>
-              </div>
-              <div class="flex items-center justify-center whitespace-nowrap text-sm font-medium">
-                {t('common.tables.pagination-info', {
-                  currentPage: table.getState().pagination.pageIndex + 1,
-                  totalPages: table.getPageCount(),
-                })}
-              </div>
-              <div class="flex items-center space-x-2">
-                <Button
-                  aria-label="Go to first page"
-                  variant="outline"
-                  class="flex size-8 p-0"
-                  onClick={() => table.setPageIndex(0)}
-                  disabled={!table.getCanPreviousPage()}
-                >
-                  <div class="size-4 i-tabler-chevrons-left" />
-                </Button>
-                <Button
-                  aria-label="Go to previous page"
-                  variant="outline"
-                  size="icon"
-                  class="size-8"
-                  onClick={() => table.previousPage()}
-                  disabled={!table.getCanPreviousPage()}
-                >
-                  <div class="size-4 i-tabler-chevron-left" />
-                </Button>
-                <Button
-                  aria-label="Go to next page"
-                  variant="outline"
-                  size="icon"
-                  class="size-8"
-                  onClick={() => table.nextPage()}
-                  disabled={!table.getCanNextPage()}
-                >
-                  <div class="size-4 i-tabler-chevron-right" />
-                </Button>
-                <Button
-                  aria-label="Go to last page"
-                  variant="outline"
-                  size="icon"
-                  class="flex size-8"
-                  onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-                  disabled={!table.getCanNextPage()}
-                >
-                  <div class="size-4 i-tabler-chevrons-right" />
-                </Button>
-              </div>
-            </div>
+            <Show when={props.getPagination && props.setPagination}>
+              <PaginationControls
+                getPagination={props.getPagination!}
+                setPagination={props.setPagination!}
+                totalCount={props.documentsCount}
+              />
+            </Show>
           </Show>
         </Match>
       </Switch>
