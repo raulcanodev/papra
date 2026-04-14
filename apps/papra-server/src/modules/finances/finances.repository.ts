@@ -21,9 +21,15 @@ function encryptApiKey(apiKey: string, secret: string): string {
 }
 
 function decryptApiKey(encryptedApiKey: string, secret: string): string {
-  const key = deriveKey(secret);
-  const decrypted = decrypt({ encryptedValue: Buffer.from(encryptedApiKey, 'base64'), key });
-  return decrypted.toString('utf8');
+  try {
+    const key = deriveKey(secret);
+    const decrypted = decrypt({ encryptedValue: Buffer.from(encryptedApiKey, 'base64'), key });
+    return decrypted.toString('utf8');
+  }
+  catch {
+    // Value was stored before encryption was introduced — return as-is (plaintext)
+    return encryptedApiKey;
+  }
 }
 
 export type FinancesRepository = ReturnType<typeof createFinancesRepository>;

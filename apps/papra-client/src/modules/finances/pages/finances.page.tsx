@@ -11,7 +11,7 @@ import { createToast } from '@/modules/ui/components/sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
 import { AddBankConnectionDialog } from '../components/add-bank-connection-dialog.component';
 import { EditBankConnectionDialog } from '../components/edit-bank-connection-dialog.component';
-import { fetchBankConnections, fetchTransactions, syncBankConnection, updateTransactionClassification } from '../finances.services';
+import { deleteBankConnection, fetchBankConnections, fetchTransactions, syncBankConnection, updateTransactionClassification } from '../finances.services';
 
 const classificationOptions = [
   { value: 'expense', label: 'Expense' },
@@ -84,6 +84,20 @@ export const FinancesPage: Component = () => {
     },
   }));
 
+  const deleteMutation = createMutation(() => ({
+    mutationFn: (bankConnectionId: string) => deleteBankConnection({
+      organizationId: params.organizationId,
+      bankConnectionId,
+    }),
+    onSuccess: () => {
+      createToast({ message: 'Bank connection deleted', type: 'success' });
+      queryClient.invalidateQueries({ queryKey: ['organizations', params.organizationId, 'finances'] });
+    },
+    onError: () => {
+      createToast({ message: 'Failed to delete bank connection', type: 'error' });
+    },
+  }));
+
   const classifyMutation = createMutation(() => ({
     mutationFn: ({ transactionId, classification }: { transactionId: string; classification: string | null }) =>
       updateTransactionClassification({
@@ -136,6 +150,19 @@ export const FinancesPage: Component = () => {
                   disabled={syncMutation.isPending}
                 >
                   <div class={cn('i-tabler-refresh size-4', syncMutation.isPending && 'animate-spin')} />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  class="text-destructive hover:text-destructive"
+                  onClick={() => {
+                    if (confirm(`Delete "${connection.name}"? This will also delete all its transactions.`)) {
+                      deleteMutation.mutate(connection.id);
+                    }
+                  }}
+                  disabled={deleteMutation.isPending}
+                >
+                  <div class="i-tabler-trash size-4" />
                 </Button>
               </div>
             )}
