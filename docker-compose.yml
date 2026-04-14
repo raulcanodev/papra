@@ -1,7 +1,9 @@
 services:
   papra:
     container_name: papra
-    image: ghcr.io/papra-hq/papra:latest
+    build:
+      context: .
+      dockerfile: packages/app/Dockerfile
     restart: unless-stopped
     ports:
       - "1221:1221"
