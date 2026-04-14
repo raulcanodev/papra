@@ -161,9 +161,13 @@ function setupSyncBankConnectionRoute({ app, db, config }: RouteDefinitionContex
       organizationId: organizationIdSchema,
       bankConnectionId: z.string(),
     })),
+    legacyValidateQuery(z.object({
+      fullSync: z.coerce.boolean().optional().default(false),
+    })),
     async (context) => {
       const { userId } = getUser({ context });
       const { organizationId, bankConnectionId } = context.req.valid('param');
+      const { fullSync } = context.req.valid('query');
 
       const organizationsRepository = createOrganizationsRepository({ db });
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
@@ -173,6 +177,7 @@ function setupSyncBankConnectionRoute({ app, db, config }: RouteDefinitionContex
         bankConnectionId,
         organizationId,
         financesRepository,
+        fullSync,
       });
 
       return context.json({ insertedCount });

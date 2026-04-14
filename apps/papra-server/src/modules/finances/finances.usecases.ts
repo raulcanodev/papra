@@ -7,10 +7,12 @@ export async function syncBankTransactions({
   bankConnectionId,
   organizationId,
   financesRepository,
+  fullSync = false,
 }: {
   bankConnectionId: string;
   organizationId: string;
   financesRepository: FinancesRepository;
+  fullSync?: boolean;
 }) {
   const { bankConnection } = await financesRepository.getBankConnectionById({ bankConnectionId, organizationId });
   const adapter = getBankProviderAdapter({ provider: bankConnection.provider as BankProvider });
@@ -19,7 +21,7 @@ export async function syncBankTransactions({
     const { transactions: providerTransactions } = await adapter.fetchTransactions({
       apiKey: bankConnection.apiKey,
       accountId: bankConnection.providerAccountId ?? undefined,
-      fromDate: bankConnection.lastSyncedAt ?? undefined,
+      fromDate: fullSync ? undefined : (bankConnection.lastSyncedAt ?? undefined),
     });
 
     const transactionsToInsert = providerTransactions.map(t => ({

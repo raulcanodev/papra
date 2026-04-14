@@ -15,6 +15,7 @@ import {
   createClassificationRule,
   deleteClassificationRule,
   fetchClassificationRules,
+  updateClassificationRule,
 } from '../finances.services';
 
 const classificationOptions = [
@@ -60,17 +61,35 @@ const defaultCondition = (): RuleCondition => ({ field: 'counterparty', operator
 export const ClassificationRulesPanel: Component<{ organizationId: string }> = (props) => {
   const queryClient = useQueryClient();
   const { confirm } = useConfirmModal();
-  const [isAddOpen, setIsAddOpen] = createSignal(false);
+  const [isDialogOpen, setIsDialogOpen] = createSignal(false);
+  const [editingRuleId, setEditingRuleId] = createSignal<string | null>(null);
   const [ruleName, setRuleName] = createSignal('');
   const [ruleClassification, setRuleClassification] = createSignal<string>('expense');
   const [conditionMatchMode, setConditionMatchMode] = createSignal<'all' | 'any'>('all');
   const [conditions, setConditions] = createSignal<RuleCondition[]>([defaultCondition()]);
 
+  const isEditing = () => editingRuleId() !== null;
+
   const resetForm = () => {
+    setEditingRuleId(null);
     setRuleName('');
     setRuleClassification('expense');
     setConditionMatchMode('all');
     setConditions([defaultCondition()]);
+  };
+
+  const openAddDialog = () => {
+    resetForm();
+    setIsDialogOpen(true);
+  };
+
+  const openEditDialog = (rule: { id: string; name: string; classification: string; conditions: RuleCondition[]; conditionMatchMode: string }) => {
+    setEditingRuleId(rule.id);
+    setRuleName(rule.name);
+    setRuleClassification(rule.classification);
+    setConditionMatchMode((rule.conditionMatchMode as 'all' | 'any') ?? 'all');
+    setConditions(rule.conditions.length > 0 ? [...rule.conditions] : [defaultCondition()]);
+    setIsDialogOpen(true);
   };
 
   const updateCondition = (index: number, patch: Partial<RuleCondition>) => {
@@ -107,11 +126,33 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
     onSuccess: () => {
       createToast({ message: 'Rule created', type: 'success' });
       queryClient.invalidateQueries({ queryKey: ['organizations', props.organizationId, 'finances', 'classification-rules'] });
-      setIsAddOpen(false);
+      setIsDialogOpen(false);
       resetForm();
     },
     onError: () => {
       createToast({ message: 'Failed to create rule', type: 'error' });
+    },
+  }));
+
+  const updateMut = createMutation(() => ({
+    mutationFn: () => updateClassificationRule({
+      organizationId: props.organizationId,
+      ruleId: editingRuleId()!,
+      updates: {
+        name: ruleName(),
+        classification: ruleClassification(),
+        conditions: conditions(),
+        conditionMatchMode: conditionMatchMode(),
+      },
+    }),
+    onSuccess: () => {
+      createToast({ message: 'Rule updated', type: 'success' });
+      queryClient.invalidateQueries({ queryKey: ['organizations', props.organizationId, 'finances', 'classification-rules'] });
+      setIsDialogOpen(false);
+      resetForm();
+    },
+    onError: () => {
+      createToast({ message: 'Failed to update rule', type: 'error' });
     },
   }));
 
@@ -153,7 +194,7 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
             <div class={cn('i-tabler-rocket size-4 mr-1', autoClassifyMut.isPending && 'animate-pulse')} />
             {autoClassifyMut.isPending ? 'Classifying...' : 'Run Rules'}
           </Button>
-          <Button size="sm" onClick={() => { resetForm(); setIsAddOpen(true); }}>
+          <Button size="sm" onClick={openAddDialog}>
             <div class="i-tabler-plus size-4 mr-1" />
             Add Rule
           </Button>
@@ -191,31 +232,41 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
                     </For>
                   </div>
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  class="text-destructive hover:text-destructive shrink-0"
-                  onClick={async () => {
-                    const ok = await confirm({
-                      title: 'Delete classification rule',
-                      message: `Delete rule "${rule.name}"? This cannot be undone.`,
-                      confirmButton: { text: 'Delete', variant: 'destructive' },
-                    });
-                    if (ok) deleteMut.mutate(rule.id);
-                  }}
-                >
-                  <div class="i-tabler-trash size-4" />
-                </Button>
+                <div class="flex shrink-0 gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    class="shrink-0"
+                    onClick={() => openEditDialog(rule)}
+                  >
+                    <div class="i-tabler-pencil size-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    class="text-destructive hover:text-destructive shrink-0"
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: 'Delete classification rule',
+                        message: `Delete rule "${rule.name}"? This cannot be undone.`,
+                        confirmButton: { text: 'Delete', variant: 'destructive' },
+                      });
+                      if (ok) deleteMut.mutate(rule.id);
+                    }}
+                  >
+                    <div class="i-tabler-trash size-4" />
+                  </Button>
+                </div>
               </div>
             )}
           </For>
         </div>
       </Show>
 
-      <Dialog open={isAddOpen()} onOpenChange={(v) => { setIsAddOpen(v); if (!v) resetForm(); }}>
+      <Dialog open={isDialogOpen()} onOpenChange={(v) => { setIsDialogOpen(v); if (!v) resetForm(); }}>
         <DialogContent class="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add Classification Rule</DialogTitle>
+            <DialogTitle>{isEditing() ? 'Edit Classification Rule' : 'Add Classification Rule'}</DialogTitle>
           </DialogHeader>
           <div class="flex flex-col gap-4 mt-4">
             {/* Rule name */}
@@ -333,13 +384,15 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
             </div>
 
             <div class="flex gap-2 mt-2">
-              <Button variant="outline" class="flex-1" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+              <Button variant="outline" class="flex-1" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
               <Button
                 class="flex-1"
-                onClick={() => createMut.mutate()}
-                disabled={createMut.isPending || !isFormValid()}
+                onClick={() => isEditing() ? updateMut.mutate() : createMut.mutate()}
+                disabled={(isEditing() ? updateMut.isPending : createMut.isPending) || !isFormValid()}
               >
-                {createMut.isPending ? 'Creating...' : 'Create Rule'}
+                {isEditing()
+                  ? (updateMut.isPending ? 'Saving...' : 'Save Changes')
+                  : (createMut.isPending ? 'Creating...' : 'Create Rule')}
               </Button>
             </div>
           </div>

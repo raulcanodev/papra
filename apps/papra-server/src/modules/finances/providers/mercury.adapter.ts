@@ -26,7 +26,7 @@ export function createMercuryAdapter(): BankProviderAdapter {
 
       const allTransactions: ProviderTransaction[] = [];
       let offset = 0;
-      const limit = 500;
+      const limit = 1000;
 
       while (true) {
         const params = new URLSearchParams();

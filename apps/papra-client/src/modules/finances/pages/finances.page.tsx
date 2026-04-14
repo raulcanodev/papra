@@ -81,9 +81,10 @@ export const FinancesPage: Component = () => {
   }));
 
   const syncMutation = createMutation(() => ({
-    mutationFn: (bankConnectionId: string) => syncBankConnection({
+    mutationFn: ({ bankConnectionId, fullSync }: { bankConnectionId: string; fullSync?: boolean }) => syncBankConnection({
       organizationId: params.organizationId,
       bankConnectionId,
+      fullSync,
     }),
     onSuccess: (data) => {
       createToast({ message: `Synced ${data.insertedCount} new transactions`, type: 'success' });
@@ -163,10 +164,20 @@ export const FinancesPage: Component = () => {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => syncMutation.mutate(connection.id)}
+                  onClick={() => syncMutation.mutate({ bankConnectionId: connection.id })}
                   disabled={syncMutation.isPending}
+                  title="Sync new transactions"
                 >
                   <div class={cn('i-tabler-refresh size-4', syncMutation.isPending && 'animate-spin')} />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => syncMutation.mutate({ bankConnectionId: connection.id, fullSync: true })}
+                  disabled={syncMutation.isPending}
+                  title="Full sync — re-fetch all transactions"
+                >
+                  <div class={cn('i-tabler-cloud-download size-4', syncMutation.isPending && 'animate-spin')} />
                 </Button>
                 <Button
                   size="sm"

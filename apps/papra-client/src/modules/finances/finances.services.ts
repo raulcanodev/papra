@@ -46,13 +46,14 @@ export async function deleteBankConnection({ organizationId, bankConnectionId }:
   });
 }
 
-export async function syncBankConnection({ organizationId, bankConnectionId }: {
+export async function syncBankConnection({ organizationId, bankConnectionId, fullSync = false }: {
   organizationId: string;
   bankConnectionId: string;
+  fullSync?: boolean;
 }) {
   return apiClient<{ insertedCount: number }>({
     method: 'POST',
-    path: `/api/organizations/${organizationId}/finances/bank-connections/${bankConnectionId}/sync`,
+    path: `/api/organizations/${organizationId}/finances/bank-connections/${bankConnectionId}/sync${fullSync ? '?fullSync=true' : ''}`,
   });
 }
 
