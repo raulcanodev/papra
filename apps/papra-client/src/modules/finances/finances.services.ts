@@ -103,7 +103,7 @@ export async function fetchClassificationRules({ organizationId }: { organizatio
 
 export async function createClassificationRule({ organizationId, rule }: {
   organizationId: string;
-  rule: { name: string; classification: string; field: string; operator: string; value: string; priority?: number };
+  rule: { name: string; classification: string; conditions: Array<{ field: string; operator: string; value: string }>; conditionMatchMode?: 'all' | 'any'; priority?: number };
 }) {
   return apiClient<{ rule: ClassificationRule }>({
     method: 'POST',
@@ -115,7 +115,7 @@ export async function createClassificationRule({ organizationId, rule }: {
 export async function updateClassificationRule({ organizationId, ruleId, updates }: {
   organizationId: string;
   ruleId: string;
-  updates: Partial<{ name: string; classification: string; field: string; operator: string; value: string; priority: number; isActive: boolean }>;
+  updates: Partial<{ name: string; classification: string; conditions: Array<{ field: string; operator: string; value: string }>; conditionMatchMode: 'all' | 'any'; priority: number; isActive: boolean }>;
 }) {
   return apiClient<{ rule: ClassificationRule }>({
     method: 'PATCH',

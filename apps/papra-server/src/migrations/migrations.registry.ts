@@ -20,6 +20,7 @@ import { documentsDateMigration } from './list/0017-documents-date.migration';
 import { customPropertiesMigration } from './list/0018-custom-properties.migration';
 import { financesMigration } from './list/0019-finances.migration';
 import { classificationRulesMigration } from './list/0020-classification-rules.migration';
+import { classificationRulesConditionsMigration } from './list/0021-classification-rules-conditions.migration';
 
 export const migrations: Migration[] = [
   initialSchemaSetupMigration,
@@ -42,4 +43,5 @@ export const migrations: Migration[] = [
   customPropertiesMigration,
   financesMigration,
   classificationRulesMigration,
+  classificationRulesConditionsMigration,
 ];

@@ -1,6 +1,7 @@
 import type { Component } from 'solid-js';
+import type { RuleCondition } from '../finances.types';
 import { createMutation, useQuery, useQueryClient } from '@tanstack/solid-query';
-import { createSignal, For, Show } from 'solid-js';
+import { createSignal, For, Index, Show } from 'solid-js';
 import { useConfirmModal } from '@/modules/shared/confirm';
 import { cn } from '@/modules/shared/style/cn';
 import { Badge } from '@/modules/ui/components/badge';
@@ -31,19 +32,19 @@ const fieldOptions = [
 
 const operatorOptions: Record<string, Array<{ value: string; label: string }>> = {
   counterparty: [
-    { value: 'contains', label: 'Contains' },
-    { value: 'equals', label: 'Equals' },
-    { value: 'starts_with', label: 'Starts with' },
+    { value: 'contains', label: 'contains' },
+    { value: 'equals', label: 'equals' },
+    { value: 'starts_with', label: 'starts with' },
   ],
   description: [
-    { value: 'contains', label: 'Contains' },
-    { value: 'equals', label: 'Equals' },
-    { value: 'starts_with', label: 'Starts with' },
+    { value: 'contains', label: 'contains' },
+    { value: 'equals', label: 'equals' },
+    { value: 'starts_with', label: 'starts with' },
   ],
   amount: [
-    { value: 'gt', label: 'Greater than' },
-    { value: 'lt', label: 'Less than' },
-    { value: 'equals', label: 'Equals' },
+    { value: 'gt', label: 'greater than' },
+    { value: 'lt', label: 'less than' },
+    { value: 'equals', label: 'equals' },
   ],
 };
 
@@ -54,15 +55,39 @@ const classificationColors: Record<string, string> = {
   internal_transfer: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
 };
 
+const defaultCondition = (): RuleCondition => ({ field: 'counterparty', operator: 'contains', value: '' });
+
 export const ClassificationRulesPanel: Component<{ organizationId: string }> = (props) => {
   const queryClient = useQueryClient();
   const { confirm } = useConfirmModal();
   const [isAddOpen, setIsAddOpen] = createSignal(false);
   const [ruleName, setRuleName] = createSignal('');
   const [ruleClassification, setRuleClassification] = createSignal<string>('expense');
-  const [ruleField, setRuleField] = createSignal<string>('counterparty');
-  const [ruleOperator, setRuleOperator] = createSignal<string>('contains');
-  const [ruleValue, setRuleValue] = createSignal('');
+  const [conditionMatchMode, setConditionMatchMode] = createSignal<'all' | 'any'>('all');
+  const [conditions, setConditions] = createSignal<RuleCondition[]>([defaultCondition()]);
+
+  const resetForm = () => {
+    setRuleName('');
+    setRuleClassification('expense');
+    setConditionMatchMode('all');
+    setConditions([defaultCondition()]);
+  };
+
+  const updateCondition = (index: number, patch: Partial<RuleCondition>) => {
+    setConditions(prev => prev.map((c, i) => {
+      if (i !== index) return c;
+      const updated = { ...c, ...patch };
+      // Reset operator when field changes
+      if (patch.field && patch.field !== c.field) {
+        updated.operator = operatorOptions[patch.field]?.[0]?.value ?? 'contains';
+      }
+      return updated;
+    }));
+  };
+
+  const addCondition = () => setConditions(prev => [...prev, defaultCondition()]);
+
+  const removeCondition = (index: number) => setConditions(prev => prev.filter((_, i) => i !== index));
 
   const rulesQuery = useQuery(() => ({
     queryKey: ['organizations', props.organizationId, 'finances', 'classification-rules'],
@@ -75,17 +100,15 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
       rule: {
         name: ruleName(),
         classification: ruleClassification(),
-        field: ruleField(),
-        operator: ruleOperator(),
-        value: ruleValue(),
+        conditions: conditions(),
+        conditionMatchMode: conditionMatchMode(),
       },
     }),
     onSuccess: () => {
       createToast({ message: 'Rule created', type: 'success' });
       queryClient.invalidateQueries({ queryKey: ['organizations', props.organizationId, 'finances', 'classification-rules'] });
       setIsAddOpen(false);
-      setRuleName('');
-      setRuleValue('');
+      resetForm();
     },
     onError: () => {
       createToast({ message: 'Failed to create rule', type: 'error' });
@@ -111,7 +134,7 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
     },
   }));
 
-  const currentOperators = () => operatorOptions[ruleField()] ?? operatorOptions.counterparty;
+  const isFormValid = () => ruleName().trim().length > 0 && conditions().every(c => c.value.trim().length > 0);
 
   return (
     <div class="border rounded-lg p-4 mb-6">
@@ -130,7 +153,7 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
             <div class={cn('i-tabler-sparkles size-4 mr-1', autoClassifyMut.isPending && 'animate-pulse')} />
             {autoClassifyMut.isPending ? 'Classifying...' : 'Run Rules'}
           </Button>
-          <Button size="sm" onClick={() => setIsAddOpen(true)}>
+          <Button size="sm" onClick={() => { resetForm(); setIsAddOpen(true); }}>
             <div class="i-tabler-plus size-4 mr-1" />
             Add Rule
           </Button>
@@ -143,28 +166,35 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
         <div class="flex flex-col gap-2">
           <For each={rulesQuery.data?.rules}>
             {rule => (
-              <div class="flex items-center gap-3 p-2.5 bg-muted/30 rounded-lg text-sm">
+              <div class="flex items-start gap-3 p-2.5 bg-muted/30 rounded-lg text-sm">
                 <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2">
+                  <div class="flex items-center gap-2 flex-wrap">
                     <span class="font-medium">{rule.name}</span>
                     <Badge class={cn('text-xs', classificationColors[rule.classification])}>
                       {classificationOptions.find(c => c.value === rule.classification)?.label}
                     </Badge>
                   </div>
-                  <div class="text-xs text-muted-foreground mt-0.5">
-                    When
-                    {' '}
-                    <span class="font-mono">{rule.field}</span>
-                    {' '}
-                    {rule.operator.replace('_', ' ')}
-                    {' '}
-                    <span class="font-mono">"{rule.value}"</span>
+                  <div class="text-xs text-muted-foreground mt-1 flex flex-col gap-0.5">
+                    <For each={rule.conditions}>
+                      {(cond, idx) => (
+                        <span>
+                          <span class="text-muted-foreground/60">
+                            {idx() === 0 ? 'When ' : (rule.conditionMatchMode === 'any' ? 'or ' : 'and ')}
+                          </span>
+                          <span class="font-mono">{cond.field}</span>
+                          {' '}
+                          <span>{operatorOptions[cond.field]?.find(o => o.value === cond.operator)?.label ?? cond.operator}</span>
+                          {' '}
+                          <span class="font-mono">"{cond.value}"</span>
+                        </span>
+                      )}
+                    </For>
                   </div>
                 </div>
                 <Button
                   size="sm"
                   variant="ghost"
-                  class="text-destructive hover:text-destructive"
+                  class="text-destructive hover:text-destructive shrink-0"
                   onClick={async () => {
                     const ok = await confirm({
                       title: 'Delete classification rule',
@@ -182,23 +212,25 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
         </div>
       </Show>
 
-      <Dialog open={isAddOpen()} onOpenChange={setIsAddOpen}>
-        <DialogContent>
+      <Dialog open={isAddOpen()} onOpenChange={(v) => { setIsAddOpen(v); if (!v) resetForm(); }}>
+        <DialogContent class="max-w-lg">
           <DialogHeader>
             <DialogTitle>Add Classification Rule</DialogTitle>
           </DialogHeader>
           <div class="flex flex-col gap-4 mt-4">
+            {/* Rule name */}
             <div>
               <label class="text-sm font-medium mb-1.5 block">Rule Name</label>
               <TextFieldRoot>
                 <TextField
-                  placeholder="e.g. Revolut transfers = owner transfer"
+                  placeholder="e.g. Revolut transfers"
                   value={ruleName()}
                   onInput={e => setRuleName(e.currentTarget.value)}
                 />
               </TextFieldRoot>
             </div>
 
+            {/* Classify as */}
             <div>
               <label class="text-sm font-medium mb-1.5 block">Classify as</label>
               <Select
@@ -216,56 +248,88 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
               </Select>
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="text-sm font-medium mb-1.5 block">Field</label>
-                <Select
-                  options={fieldOptions}
-                  optionValue="value"
-                  optionTextValue="label"
-                  value={fieldOptions.find(f => f.value === ruleField())}
-                  onChange={(v) => {
-                    if (v) {
-                      setRuleField(v.value);
-                      const ops = operatorOptions[v.value];
-                      if (ops?.[0]) setRuleOperator(ops[0].value);
-                    }
-                  }}
-                  itemComponent={prps => <SelectItem item={prps.item}>{prps.item.rawValue.label}</SelectItem>}
-                >
-                  <SelectTrigger>
-                    <SelectValue<typeof fieldOptions[0]>>{state => state.selectedOption()?.label}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent />
-                </Select>
-              </div>
-              <div>
-                <label class="text-sm font-medium mb-1.5 block">Operator</label>
-                <Select
-                  options={currentOperators()}
-                  optionValue="value"
-                  optionTextValue="label"
-                  value={currentOperators().find(o => o.value === ruleOperator())}
-                  onChange={v => v && setRuleOperator(v.value)}
-                  itemComponent={prps => <SelectItem item={prps.item}>{prps.item.rawValue.label}</SelectItem>}
-                >
-                  <SelectTrigger>
-                    <SelectValue<{ value: string; label: string }>>{state => state.selectedOption()?.label}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent />
-                </Select>
-              </div>
-            </div>
-
+            {/* Conditions */}
             <div>
-              <label class="text-sm font-medium mb-1.5 block">Value</label>
-              <TextFieldRoot>
-                <TextField
-                  placeholder={ruleField() === 'amount' ? 'e.g. 1000' : 'e.g. Revolut'}
-                  value={ruleValue()}
-                  onInput={e => setRuleValue(e.currentTarget.value)}
-                />
-              </TextFieldRoot>
+              <div class="flex items-center justify-between mb-2">
+                <label class="text-sm font-medium">Conditions</label>
+                <Show when={conditions().length > 1}>
+                  <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span>Match</span>
+                    <button
+                      type="button"
+                      class={cn('px-2 py-0.5 rounded border text-xs font-medium transition-colors', conditionMatchMode() === 'all' ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-muted')}
+                      onClick={() => setConditionMatchMode('all')}
+                    >
+                      all
+                    </button>
+                    <button
+                      type="button"
+                      class={cn('px-2 py-0.5 rounded border text-xs font-medium transition-colors', conditionMatchMode() === 'any' ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-muted')}
+                      onClick={() => setConditionMatchMode('any')}
+                    >
+                      any
+                    </button>
+                  </div>
+                </Show>
+              </div>
+
+              <div class="flex flex-col gap-2">
+                <Index each={conditions()}>
+                  {(condition, index) => {
+                    const ops = () => operatorOptions[condition().field] ?? operatorOptions.counterparty;
+                    return (
+                      <div class="flex items-center gap-2">
+                        <span class="text-xs text-muted-foreground w-8 shrink-0 text-right">
+                          {index === 0 ? 'When' : (conditionMatchMode() === 'any' ? 'or' : 'and')}
+                        </span>
+                        <Select
+                          options={fieldOptions}
+                          optionValue="value"
+                          optionTextValue="label"
+                          value={fieldOptions.find(f => f.value === condition().field)}
+                          onChange={v => v && updateCondition(index, { field: v.value })}
+                          itemComponent={prps => <SelectItem item={prps.item}>{prps.item.rawValue.label}</SelectItem>}
+                        >
+                          <SelectTrigger class="flex-1 min-w-0">
+                            <SelectValue<typeof fieldOptions[0]>>{state => state.selectedOption()?.label}</SelectValue>
+                          </SelectTrigger>
+                          <SelectContent />
+                        </Select>
+                        <Select
+                          options={ops()}
+                          optionValue="value"
+                          optionTextValue="label"
+                          value={ops().find(o => o.value === condition().operator)}
+                          onChange={v => v && updateCondition(index, { operator: v.value })}
+                          itemComponent={prps => <SelectItem item={prps.item}>{prps.item.rawValue.label}</SelectItem>}
+                        >
+                          <SelectTrigger class="flex-1 min-w-0">
+                            <SelectValue<{ value: string; label: string }>>{state => state.selectedOption()?.label}</SelectValue>
+                          </SelectTrigger>
+                          <SelectContent />
+                        </Select>
+                        <TextFieldRoot class="flex-1 min-w-0">
+                          <TextField
+                            placeholder={condition().field === 'amount' ? '1000' : 'value'}
+                            value={condition().value}
+                            onInput={e => updateCondition(index, { value: e.currentTarget.value })}
+                          />
+                        </TextFieldRoot>
+                        <Show when={conditions().length > 1}>
+                          <Button size="icon" variant="ghost" class="size-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => removeCondition(index)}>
+                            <div class="i-tabler-x size-3.5" />
+                          </Button>
+                        </Show>
+                      </div>
+                    );
+                  }}
+                </Index>
+              </div>
+
+              <Button size="sm" variant="outline" class="mt-2 w-full" onClick={addCondition}>
+                <div class="i-tabler-plus size-3.5 mr-1" />
+                Add condition
+              </Button>
             </div>
 
             <div class="flex gap-2 mt-2">
@@ -273,7 +337,7 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
               <Button
                 class="flex-1"
                 onClick={() => createMut.mutate()}
-                disabled={createMut.isPending || !ruleName() || !ruleValue()}
+                disabled={createMut.isPending || !isFormValid()}
               >
                 {createMut.isPending ? 'Creating...' : 'Create Rule'}
               </Button>
