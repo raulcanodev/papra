@@ -1,4 +1,4 @@
-import type { BankConnection, ProviderAccount, Transaction } from './finances.types';
+import type { BankConnection, ClassificationRule, ProviderAccount, Transaction } from './finances.types';
 import { apiClient } from '../shared/http/api-client';
 
 export async function fetchBankConnections({ organizationId }: { organizationId: string }) {
@@ -91,5 +91,52 @@ export async function fetchBankProviderAccounts({ organizationId, provider, apiK
     method: 'POST',
     path: `/api/organizations/${organizationId}/finances/bank-connections/accounts`,
     body: { provider, apiKey },
+  });
+}
+
+export async function fetchClassificationRules({ organizationId }: { organizationId: string }) {
+  return apiClient<{ rules: ClassificationRule[] }>({
+    method: 'GET',
+    path: `/api/organizations/${organizationId}/finances/classification-rules`,
+  });
+}
+
+export async function createClassificationRule({ organizationId, rule }: {
+  organizationId: string;
+  rule: { name: string; classification: string; field: string; operator: string; value: string; priority?: number };
+}) {
+  return apiClient<{ rule: ClassificationRule }>({
+    method: 'POST',
+    path: `/api/organizations/${organizationId}/finances/classification-rules`,
+    body: rule,
+  });
+}
+
+export async function updateClassificationRule({ organizationId, ruleId, updates }: {
+  organizationId: string;
+  ruleId: string;
+  updates: Partial<{ name: string; classification: string; field: string; operator: string; value: string; priority: number; isActive: boolean }>;
+}) {
+  return apiClient<{ rule: ClassificationRule }>({
+    method: 'PATCH',
+    path: `/api/organizations/${organizationId}/finances/classification-rules/${ruleId}`,
+    body: updates,
+  });
+}
+
+export async function deleteClassificationRule({ organizationId, ruleId }: {
+  organizationId: string;
+  ruleId: string;
+}) {
+  return apiClient<{ success: boolean }>({
+    method: 'DELETE',
+    path: `/api/organizations/${organizationId}/finances/classification-rules/${ruleId}`,
+  });
+}
+
+export async function autoClassifyTransactions({ organizationId }: { organizationId: string }) {
+  return apiClient<{ classifiedCount: number }>({
+    method: 'POST',
+    path: `/api/organizations/${organizationId}/finances/auto-classify`,
   });
 }

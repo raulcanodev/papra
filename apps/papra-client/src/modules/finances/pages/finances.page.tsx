@@ -10,8 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { createToast } from '@/modules/ui/components/sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
 import { AddBankConnectionDialog } from '../components/add-bank-connection-dialog.component';
+import { ClassificationRulesPanel } from '../components/classification-rules-panel.component';
 import { EditBankConnectionDialog } from '../components/edit-bank-connection-dialog.component';
+import { TransactionDetailDialog } from '../components/transaction-detail-dialog.component';
 import { deleteBankConnection, fetchBankConnections, fetchTransactions, syncBankConnection, updateTransactionClassification } from '../finances.services';
+import type { Transaction } from '../finances.types';
 
 const classificationOptions = [
   { value: 'expense', label: 'Expense' },
@@ -53,6 +56,8 @@ export const FinancesPage: Component = () => {
   const [getFilterConnection, setFilterConnection] = createSignal<string | undefined>();
   const [getFilterClassification, setFilterClassification] = createSignal<string | undefined>();
   const [getEditingConnection, setEditingConnection] = createSignal<string | undefined>();
+  const [getDetailTransaction, setDetailTransaction] = createSignal<Transaction | null>(null);
+  const [showRules, setShowRules] = createSignal(false);
 
   const connectionsQuery = useQuery(() => ({
     queryKey: ['organizations', params.organizationId, 'finances', 'bank-connections'],
@@ -121,7 +126,13 @@ export const FinancesPage: Component = () => {
           <p class="text-muted-foreground text-sm mt-1">Bank transactions & Form 5472 classification</p>
         </div>
         <Show when={(connectionsQuery.data?.bankConnections?.length ?? 0) > 0}>
-          <AddBankConnectionDialog organizationId={params.organizationId} />
+          <div class="flex gap-2">
+            <Button variant="outline" onClick={() => setShowRules(v => !v)}>
+              <div class="i-tabler-settings size-4 mr-1" />
+              {showRules() ? 'Hide Rules' : 'Rules'}
+            </Button>
+            <AddBankConnectionDialog organizationId={params.organizationId} />
+          </div>
         </Show>
       </div>
 
@@ -228,6 +239,11 @@ export const FinancesPage: Component = () => {
         </div>
       </Show>
 
+      {/* Classification rules panel */}
+      <Show when={showRules()}>
+        <ClassificationRulesPanel organizationId={params.organizationId} />
+      </Show>
+
       {/* Transactions table */}
       <Show
         when={(transactionsQuery.data?.transactions?.length ?? 0) > 0}
@@ -246,6 +262,7 @@ export const FinancesPage: Component = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead class="w-8" />
                 <TableHead>Date</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Counterparty</TableHead>
@@ -258,6 +275,16 @@ export const FinancesPage: Component = () => {
               <For each={transactionsQuery.data?.transactions}>
                 {transaction => (
                   <TableRow>
+                    <TableCell class="px-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        class="size-7 p-0"
+                        onClick={() => setDetailTransaction(transaction)}
+                      >
+                        <div class="i-tabler-eye size-4 text-muted-foreground" />
+                      </Button>
+                    </TableCell>
                     <TableCell class="text-muted-foreground whitespace-nowrap">
                       {formatDate(transaction.date)}
                     </TableCell>
@@ -328,32 +355,111 @@ export const FinancesPage: Component = () => {
         </div>
 
         {/* Pagination */}
-        <div class="flex items-center justify-between mt-4">
-          <div class="text-sm text-muted-foreground">
-            {transactionsQuery.data?.transactionsCount ?? 0}
-            {' '}
-            transactions
-          </div>
-          <div class="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={getPagination().pageIndex === 0}
-              onClick={() => setPagination(p => ({ ...p, pageIndex: p.pageIndex - 1 }))}
-            >
-              Previous
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={(getPagination().pageIndex + 1) * getPagination().pageSize >= (transactionsQuery.data?.transactionsCount ?? 0)}
-              onClick={() => setPagination(p => ({ ...p, pageIndex: p.pageIndex + 1 }))}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
+        {(() => {
+          const totalCount = () => transactionsQuery.data?.transactionsCount ?? 0;
+          const pageSize = () => getPagination().pageSize;
+          const pageIndex = () => getPagination().pageIndex;
+          const totalPages = () => Math.max(1, Math.ceil(totalCount() / pageSize()));
+          const pageNumbers = () => {
+            const current = pageIndex();
+            const total = totalPages();
+            const pages: number[] = [];
+            const start = Math.max(0, current - 2);
+            const end = Math.min(total - 1, current + 2);
+            for (let i = start; i <= end; i++) { pages.push(i); }
+            return pages;
+          };
+
+          return (
+            <div class="flex items-center justify-between mt-4">
+              <div class="flex items-center gap-3">
+                <span class="text-sm text-muted-foreground">
+                  {totalCount()}
+                  {' '}
+                  transactions
+                </span>
+                <Select
+                  options={[
+                    { value: 25, label: '25 / page' },
+                    { value: 50, label: '50 / page' },
+                    { value: 100, label: '100 / page' },
+                  ]}
+                  optionValue="value"
+                  optionTextValue="label"
+                  value={{ value: pageSize(), label: `${pageSize()} / page` }}
+                  onChange={(v) => {
+                    if (v) setPagination({ pageIndex: 0, pageSize: v.value });
+                  }}
+                  itemComponent={prps => <SelectItem item={prps.item}>{prps.item.rawValue.label}</SelectItem>}
+                >
+                  <SelectTrigger class="w-28 h-8 text-xs">
+                    <SelectValue<{ value: number; label: string }>>
+                      {state => state.selectedOption()?.label}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent />
+                </Select>
+              </div>
+              <div class="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  class="h-8 w-8 p-0"
+                  disabled={pageIndex() === 0}
+                  onClick={() => setPagination(p => ({ ...p, pageIndex: 0 }))}
+                >
+                  <div class="i-tabler-chevrons-left size-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  class="h-8 w-8 p-0"
+                  disabled={pageIndex() === 0}
+                  onClick={() => setPagination(p => ({ ...p, pageIndex: p.pageIndex - 1 }))}
+                >
+                  <div class="i-tabler-chevron-left size-4" />
+                </Button>
+                <For each={pageNumbers()}>
+                  {page => (
+                    <Button
+                      size="sm"
+                      variant={page === pageIndex() ? 'default' : 'outline'}
+                      class="h-8 w-8 p-0 text-xs"
+                      onClick={() => setPagination(p => ({ ...p, pageIndex: page }))}
+                    >
+                      {page + 1}
+                    </Button>
+                  )}
+                </For>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  class="h-8 w-8 p-0"
+                  disabled={(pageIndex() + 1) >= totalPages()}
+                  onClick={() => setPagination(p => ({ ...p, pageIndex: p.pageIndex + 1 }))}
+                >
+                  <div class="i-tabler-chevron-right size-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  class="h-8 w-8 p-0"
+                  disabled={(pageIndex() + 1) >= totalPages()}
+                  onClick={() => setPagination(p => ({ ...p, pageIndex: totalPages() - 1 }))}
+                >
+                  <div class="i-tabler-chevrons-right size-4" />
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
       </Show>
+
+      <TransactionDetailDialog
+        transaction={getDetailTransaction()}
+        isOpen={getDetailTransaction() !== null}
+        onClose={() => setDetailTransaction(null)}
+      />
     </div>
   );
 };

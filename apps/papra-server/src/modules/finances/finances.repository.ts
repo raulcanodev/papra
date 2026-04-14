@@ -3,11 +3,11 @@ import type { TransactionClassification } from './finances.constants';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { injectArguments } from '@corentinth/chisels';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { decrypt, encrypt } from '../shared/crypto/encryption';
 import { withPagination } from '../shared/db/pagination';
 import { createBankConnectionNotFoundError, createTransactionNotFoundError } from './finances.errors';
-import { bankConnectionsTable, transactionsTable } from './finances.table';
+import { bankConnectionsTable, classificationRulesTable, transactionsTable } from './finances.table';
 
 function deriveKey(secret: string): Buffer {
   // AUTH_SECRET can be any length; derive a fixed 32-byte key with SHA-256
@@ -48,6 +48,10 @@ export function createFinancesRepository({ db, authSecret }: { db: Database; aut
       getTransactionById,
       updateTransactionClassification,
       getTransactionsCount,
+      getClassificationRules,
+      createClassificationRule,
+      updateClassificationRule,
+      deleteClassificationRule,
     },
     { db, authSecret },
   );
@@ -195,11 +199,15 @@ async function getTransactions({ db, organizationId, pageIndex, pageSize, bankCo
   bankConnectionId?: string;
   classification?: string;
 }) {
+  const classificationFilter = classification === '__unclassified__'
+    ? isNull(transactionsTable.classification)
+    : classification ? eq(transactionsTable.classification, classification) : undefined;
+
   const query = db.select().from(transactionsTable)
     .where(and(
       eq(transactionsTable.organizationId, organizationId),
       bankConnectionId ? eq(transactionsTable.bankConnectionId, bankConnectionId) : undefined,
-      classification ? eq(transactionsTable.classification, classification) : undefined,
+      classificationFilter,
     ))
     .$dynamic();
 
@@ -218,11 +226,15 @@ async function getTransactionsCount({ db, organizationId, bankConnectionId, clas
   bankConnectionId?: string;
   classification?: string;
 }) {
+  const classificationFilter = classification === '__unclassified__'
+    ? isNull(transactionsTable.classification)
+    : classification ? eq(transactionsTable.classification, classification) : undefined;
+
   const [result] = await db.select({ count: sql<number>`count(*)` }).from(transactionsTable)
     .where(and(
       eq(transactionsTable.organizationId, organizationId),
       bankConnectionId ? eq(transactionsTable.bankConnectionId, bankConnectionId) : undefined,
-      classification ? eq(transactionsTable.classification, classification) : undefined,
+      classificationFilter,
     ));
 
   return { count: result?.count ?? 0 };
@@ -265,4 +277,68 @@ async function updateTransactionClassification({ db, transactionId, organization
   }
 
   return { transaction: updated };
+}
+
+async function getClassificationRules({ db, organizationId }: {
+  db: Database;
+  organizationId: string;
+}) {
+  const rules = await db.select().from(classificationRulesTable)
+    .where(eq(classificationRulesTable.organizationId, organizationId))
+    .orderBy(desc(classificationRulesTable.priority));
+
+  return { rules };
+}
+
+async function createClassificationRule({ db, rule }: {
+  db: Database;
+  rule: {
+    organizationId: string;
+    name: string;
+    classification: string;
+    field: string;
+    operator: string;
+    value: string;
+    priority?: number;
+  };
+}) {
+  const [result] = await db.insert(classificationRulesTable).values(rule).returning();
+  return { rule: result };
+}
+
+async function updateClassificationRule({ db, ruleId, organizationId, updates }: {
+  db: Database;
+  ruleId: string;
+  organizationId: string;
+  updates: {
+    name?: string;
+    classification?: string;
+    field?: string;
+    operator?: string;
+    value?: string;
+    priority?: number;
+    isActive?: boolean;
+  };
+}) {
+  const [updated] = await db.update(classificationRulesTable)
+    .set({ ...updates, updatedAt: new Date() })
+    .where(and(
+      eq(classificationRulesTable.id, ruleId),
+      eq(classificationRulesTable.organizationId, organizationId),
+    ))
+    .returning();
+
+  return { rule: updated };
+}
+
+async function deleteClassificationRule({ db, ruleId, organizationId }: {
+  db: Database;
+  ruleId: string;
+  organizationId: string;
+}) {
+  await db.delete(classificationRulesTable)
+    .where(and(
+      eq(classificationRulesTable.id, ruleId),
+      eq(classificationRulesTable.organizationId, organizationId),
+    ));
 }

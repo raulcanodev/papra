@@ -19,9 +19,22 @@ export type Transaction = {
   classification: string | null;
   provider: string;
   bankConnectionId: string;
+  rawData: string | null;
 };
 
 export type ProviderAccount = {
   id: string;
   name: string;
+};
+
+export type ClassificationRule = {
+  id: string;
+  name: string;
+  classification: string;
+  field: string;
+  operator: string;
+  value: string;
+  priority: number;
+  isActive: boolean;
+  createdAt: Date;
 };

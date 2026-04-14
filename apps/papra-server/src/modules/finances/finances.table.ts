@@ -1,7 +1,7 @@
 import { index, integer, real, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
 import { organizationsTable } from '../organizations/organizations.table';
 import { createPrimaryKeyField, createTimestampColumns } from '../shared/db/columns.helpers';
-import { BANK_CONNECTION_ID_PREFIX, TRANSACTION_ID_PREFIX } from './finances.constants';
+import { BANK_CONNECTION_ID_PREFIX, CLASSIFICATION_RULE_ID_PREFIX, TRANSACTION_ID_PREFIX } from './finances.constants';
 
 export const bankConnectionsTable = sqliteTable('bank_connections', {
   ...createPrimaryKeyField({ prefix: BANK_CONNECTION_ID_PREFIX }),
@@ -39,4 +39,20 @@ export const transactionsTable = sqliteTable('transactions', {
   index('transactions_bank_connection_id_index').on(t.bankConnectionId),
   index('transactions_date_index').on(t.date),
   unique('transactions_external_id_bank_connection_unique').on(t.externalId, t.bankConnectionId),
+]);
+
+export const classificationRulesTable = sqliteTable('classification_rules', {
+  ...createPrimaryKeyField({ prefix: CLASSIFICATION_RULE_ID_PREFIX }),
+  ...createTimestampColumns(),
+
+  organizationId: text('organization_id').notNull().references(() => organizationsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+  name: text('name').notNull(),
+  classification: text('classification').notNull(),
+  field: text('field').notNull(), // 'counterparty' | 'description' | 'amount'
+  operator: text('operator').notNull(), // 'contains' | 'equals' | 'starts_with' | 'gt' | 'lt'
+  value: text('value').notNull(),
+  priority: integer('priority').notNull().default(0),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+}, t => [
+  index('classification_rules_organization_id_index').on(t.organizationId),
 ]);

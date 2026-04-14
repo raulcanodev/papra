@@ -9,7 +9,7 @@ import { ensureUserIsInOrganization } from '../organizations/organizations.useca
 import { legacyValidateJsonBody, legacyValidateParams, legacyValidateQuery } from '../shared/validation/validation.legacy';
 import { BANK_PROVIDERS, TRANSACTION_CLASSIFICATIONS } from './finances.constants';
 import { createFinancesRepository } from './finances.repository';
-import { addBankConnection, syncBankTransactions } from './finances.usecases';
+import { addBankConnection, autoClassifyTransactions, syncBankTransactions } from './finances.usecases';
 import { getBankProviderAdapter } from './providers/provider.registry';
 
 export function registerFinancesRoutes(context: RouteDefinitionContext) {
@@ -21,6 +21,11 @@ export function registerFinancesRoutes(context: RouteDefinitionContext) {
   setupGetTransactionsRoute(context);
   setupUpdateTransactionClassificationRoute(context);
   setupGetBankProviderAccountsRoute(context);
+  setupGetClassificationRulesRoute(context);
+  setupCreateClassificationRuleRoute(context);
+  setupUpdateClassificationRuleRoute(context);
+  setupDeleteClassificationRuleRoute(context);
+  setupAutoClassifyRoute(context);
 }
 
 function setupGetBankConnectionsRoute({ app, db, config }: RouteDefinitionContext) {
@@ -261,6 +266,145 @@ function setupGetBankProviderAccountsRoute({ app, db }: RouteDefinitionContext) 
       const { accounts } = await adapter.fetchAccounts({ apiKey });
 
       return context.json({ accounts });
+    },
+  );
+}
+
+const RULE_FIELDS = ['counterparty', 'description', 'amount'] as const;
+const RULE_OPERATORS = ['contains', 'equals', 'starts_with', 'gt', 'lt'] as const;
+
+function setupGetClassificationRulesRoute({ app, db, config }: RouteDefinitionContext) {
+  app.get(
+    '/api/organizations/:organizationId/finances/classification-rules',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({ organizationId: organizationIdSchema })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId } = context.req.valid('param');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      const { rules } = await financesRepository.getClassificationRules({ organizationId });
+
+      return context.json({ rules });
+    },
+  );
+}
+
+function setupCreateClassificationRuleRoute({ app, db, config }: RouteDefinitionContext) {
+  app.post(
+    '/api/organizations/:organizationId/finances/classification-rules',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({ organizationId: organizationIdSchema })),
+    legacyValidateJsonBody(z.object({
+      name: z.string().min(1).max(100),
+      classification: z.enum(TRANSACTION_CLASSIFICATIONS),
+      field: z.enum(RULE_FIELDS),
+      operator: z.enum(RULE_OPERATORS),
+      value: z.string().min(1),
+      priority: z.number().int().min(0).default(0),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId } = context.req.valid('param');
+      const body = context.req.valid('json');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      const { rule } = await financesRepository.createClassificationRule({
+        rule: { ...body, organizationId },
+      });
+
+      return context.json({ rule }, 201);
+    },
+  );
+}
+
+function setupUpdateClassificationRuleRoute({ app, db, config }: RouteDefinitionContext) {
+  app.patch(
+    '/api/organizations/:organizationId/finances/classification-rules/:ruleId',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({
+      organizationId: organizationIdSchema,
+      ruleId: z.string(),
+    })),
+    legacyValidateJsonBody(z.object({
+      name: z.string().min(1).max(100).optional(),
+      classification: z.enum(TRANSACTION_CLASSIFICATIONS).optional(),
+      field: z.enum(RULE_FIELDS).optional(),
+      operator: z.enum(RULE_OPERATORS).optional(),
+      value: z.string().min(1).optional(),
+      priority: z.number().int().min(0).optional(),
+      isActive: z.boolean().optional(),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, ruleId } = context.req.valid('param');
+      const updates = context.req.valid('json');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      const { rule } = await financesRepository.updateClassificationRule({
+        ruleId,
+        organizationId,
+        updates,
+      });
+
+      return context.json({ rule });
+    },
+  );
+}
+
+function setupDeleteClassificationRuleRoute({ app, db, config }: RouteDefinitionContext) {
+  app.delete(
+    '/api/organizations/:organizationId/finances/classification-rules/:ruleId',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({
+      organizationId: organizationIdSchema,
+      ruleId: z.string(),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, ruleId } = context.req.valid('param');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      await financesRepository.deleteClassificationRule({ ruleId, organizationId });
+
+      return context.json({ success: true });
+    },
+  );
+}
+
+function setupAutoClassifyRoute({ app, db, config }: RouteDefinitionContext) {
+  app.post(
+    '/api/organizations/:organizationId/finances/auto-classify',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({ organizationId: organizationIdSchema })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId } = context.req.valid('param');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      const { classifiedCount } = await autoClassifyTransactions({ organizationId, financesRepository });
+
+      return context.json({ classifiedCount });
     },
   );
 }
