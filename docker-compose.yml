@@ -13,5 +13,5 @@ services:
       - DOCUMENT_STORAGE_DRIVER=${DOCUMENT_STORAGE_DRIVER}
       - EMAILS_DRIVER=${EMAILS_DRIVER}
     volumes:
-      - ./app-data:/app/app-data
+      - ${PAPRA_DATA_DIR:-./app-data}:/app/app-data
 
