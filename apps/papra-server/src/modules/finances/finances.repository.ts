@@ -296,9 +296,14 @@ async function getClassificationRules({ db, organizationId }: {
   db: Database;
   organizationId: string;
 }) {
-  const rules = await db.select().from(classificationRulesTable)
+  const rows = await db.select().from(classificationRulesTable)
     .where(eq(classificationRulesTable.organizationId, organizationId))
     .orderBy(desc(classificationRulesTable.priority));
+
+  const rules = rows.map(r => ({
+    ...r,
+    conditions: JSON.parse(r.conditions as unknown as string) as Array<{ field: string; operator: string; value: string }>,
+  }));
 
   return { rules };
 }
@@ -319,7 +324,8 @@ async function createClassificationRule({ db, rule }: {
     conditions: JSON.stringify(rule.conditions),
     conditionMatchMode: rule.conditionMatchMode ?? 'all',
   }).returning();
-  return { rule: result };
+  if (!result) throw new Error('Failed to insert classification rule');
+  return { rule: { ...result, conditions: JSON.parse(result.conditions as unknown as string) } };
 }
 
 async function updateClassificationRule({ db, ruleId, organizationId, updates }: {
@@ -346,8 +352,8 @@ async function updateClassificationRule({ db, ruleId, organizationId, updates }:
       eq(classificationRulesTable.organizationId, organizationId),
     ))
     .returning();
-
-  return { rule: updated };
+  if (!updated) throw new Error('Classification rule not found');
+  return { rule: { ...updated, conditions: JSON.parse(updated.conditions as unknown as string) } };
 }
 
 async function deleteClassificationRule({ db, ruleId, organizationId }: {

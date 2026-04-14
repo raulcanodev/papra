@@ -120,8 +120,10 @@ function doesConditionMatch(condition: { field: string; operator: string; value:
   }
 }
 
-function doesRuleMatch(rule: { conditions: string; conditionMatchMode: string }, transaction: { description: string; counterparty: string | null; amount: number }): boolean {
-  const conditions = JSON.parse(rule.conditions) as Array<{ field: string; operator: string; value: string }>;
+function doesRuleMatch(rule: { conditions: Array<{ field: string; operator: string; value: string }> | string; conditionMatchMode: string }, transaction: { description: string; counterparty: string | null; amount: number }): boolean {
+  const conditions = typeof rule.conditions === 'string'
+    ? JSON.parse(rule.conditions) as Array<{ field: string; operator: string; value: string }>
+    : rule.conditions;
 
   if (conditions.length === 0) {
     return true;
