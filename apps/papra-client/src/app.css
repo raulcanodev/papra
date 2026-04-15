@@ -98,11 +98,22 @@ input[type="search"]::-webkit-search-cancel-button {
   -webkit-appearance: none;
 }
 
-/* Prevent iOS Safari auto-zoom on focus for inputs, selects and textareas */
-@media screen and (-webkit-min-device-pixel-ratio: 0) {
-  input,
-  textarea,
-  select {
-    font-size: max(16px, 1em);
-  }
+/* Prevent iOS Safari auto-zoom on focus (font-size < 16px triggers zoom) */
+input[type="color"],
+input[type="date"],
+input[type="datetime"],
+input[type="datetime-local"],
+input[type="email"],
+input[type="month"],
+input[type="number"],
+input[type="password"],
+input[type="search"],
+input[type="tel"],
+input[type="text"],
+input[type="time"],
+input[type="url"],
+input[type="week"],
+select:focus,
+textarea {
+  font-size: 16px;
 }
