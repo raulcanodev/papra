@@ -97,3 +97,12 @@ body {
 input[type="search"]::-webkit-search-cancel-button {
   -webkit-appearance: none;
 }
+
+/* Prevent iOS Safari auto-zoom on focus for inputs, selects and textareas */
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+}
