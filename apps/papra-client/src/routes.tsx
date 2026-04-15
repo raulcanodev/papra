@@ -3,6 +3,7 @@ import { Navigate, useParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { Match, Show, Suspense, Switch } from 'solid-js';
 import { adminRoutes } from './modules/admin/admin.routes';
+import { AiAssistantPage } from './modules/ai-assistant/pages/ai-assistant.page';
 import { ApiKeysPage } from './modules/api-keys/pages/api-keys.page';
 import { CreateApiKeyPage } from './modules/api-keys/pages/create-api-key.page';
 import { authPagesPaths } from './modules/auth/auth.constants';
@@ -20,6 +21,10 @@ import { DeletedDocumentsPage } from './modules/documents/pages/deleted-document
 import { DocumentPdfViewerPage } from './modules/documents/pages/document-pdf-viewer.page';
 import { DocumentPage } from './modules/documents/pages/document.page';
 import { DocumentsPage } from './modules/documents/pages/documents.page';
+import { FeatureFlagsProvider } from './modules/feature-flags/feature-flags.provider';
+import { OverviewPage } from './modules/finances/pages/overview.page';
+import { SubscriptionsPage } from './modules/finances/pages/subscriptions.page';
+import { TransactionsPage } from './modules/finances/pages/transactions.page';
 import { IntakeEmailsPage } from './modules/intake-emails/pages/intake-emails.page';
 import { InvitationsPage } from './modules/invitations/pages/invitations.page';
 import { useLastOrganization } from './modules/organizations/composables/use-last-organization';
@@ -31,7 +36,6 @@ import { InvitationsListPage } from './modules/organizations/pages/invitations-l
 import { InviteMemberPage } from './modules/organizations/pages/invite-member.page';
 import { MembersPage } from './modules/organizations/pages/members.page';
 import { OrganizationUsagePage } from './modules/organizations/pages/organization-usage.page';
-import { OrganizationPage } from './modules/organizations/pages/organization.page';
 import { OrganizationsSettingsPage } from './modules/organizations/pages/organizations-settings.page';
 import { OrganizationsPage } from './modules/organizations/pages/organizations.page';
 import { AboutPage } from './modules/shared/pages/about.page';
@@ -50,11 +54,6 @@ import { UserSettingsPage } from './modules/users/pages/user-settings.page';
 import { CreateWebhookPage } from './modules/webhooks/pages/create-webhook.page';
 import { EditWebhookPage } from './modules/webhooks/pages/edit-webhook.page';
 import { WebhooksPage } from './modules/webhooks/pages/webhooks.page';
-import { FeatureFlagsProvider } from './modules/feature-flags/feature-flags.provider';
-import { OverviewPage } from './modules/finances/pages/overview.page';
-import { SubscriptionsPage } from './modules/finances/pages/subscriptions.page';
-import { TransactionsPage } from './modules/finances/pages/transactions.page';
-import { AiAssistantPage } from './modules/ai-assistant/pages/ai-assistant.page';
 
 export const routes: RouteDefinition[] = [
   {
@@ -68,226 +67,226 @@ export const routes: RouteDefinition[] = [
           {
             path: '/',
             component: () => {
-          const { getLatestOrganizationId } = useLastOrganization();
+              const { getLatestOrganizationId } = useLastOrganization();
 
-          const query = useQuery(() => ({
-            queryKey: ['organizations'],
-            queryFn: fetchOrganizations,
-          }));
+              const query = useQuery(() => ({
+                queryKey: ['organizations'],
+                queryFn: fetchOrganizations,
+              }));
 
-          return (
-            <>
-              <Suspense>
-                <Show when={query.data?.organizations}>
-                  {getOrgs => (
-                    <Switch>
-                      <Match when={getLatestOrganizationId() && getOrgs().some(org => org.id === getLatestOrganizationId())}>
-                        <Navigate href={`/organizations/${getLatestOrganizationId()}`} />
-                      </Match>
+              return (
+                <>
+                  <Suspense>
+                    <Show when={query.data?.organizations}>
+                      {getOrgs => (
+                        <Switch>
+                          <Match when={getLatestOrganizationId() && getOrgs().some(org => org.id === getLatestOrganizationId())}>
+                            <Navigate href={`/organizations/${getLatestOrganizationId()}`} />
+                          </Match>
 
-                      <Match when={getOrgs().length === 1}>
-                        <Navigate href={`/organizations/${getOrgs()[0]?.id ?? ''}`} />
-                      </Match>
+                          <Match when={getOrgs().length === 1}>
+                            <Navigate href={`/organizations/${getOrgs()[0]?.id ?? ''}`} />
+                          </Match>
 
-                      <Match when={getOrgs().length > 0}>
-                        <Navigate href="/organizations" />
-                      </Match>
+                          <Match when={getOrgs().length > 0}>
+                            <Navigate href="/organizations" />
+                          </Match>
 
-                      <Match when={getOrgs().length === 0}>
-                        <Navigate href="/organizations/first" />
-                      </Match>
-                    </Switch>
-                  )}
-                </Show>
-              </Suspense>
-            </>
+                          <Match when={getOrgs().length === 0}>
+                            <Navigate href="/organizations/first" />
+                          </Match>
+                        </Switch>
+                      )}
+                    </Show>
+                  </Suspense>
+                </>
 
-          );
-        },
-      },
-      {
-        path: '/organizations',
-        children: [
-          {
-            path: '/',
-            component: OrganizationsPage,
+              );
+            },
           },
           {
-            path: '/deleted',
-            component: DeletedOrganizationsPage,
-          },
-          {
-            path: '/:organizationId',
-            matchFilters: {
-              organizationId: /^org_[a-zA-Z0-9]+$/,
-            },
-            component: (props) => {
-              const params = useParams();
-              const { setLatestOrganizationId } = useLastOrganization();
-
-              setLatestOrganizationId(params.organizationId);
-
-              return <>{props.children}</>;
-            },
+            path: '/organizations',
             children: [
               {
-                // Routes with the organization layout
                 path: '/',
-                component: OrganizationLayout,
+                component: OrganizationsPage,
+              },
+              {
+                path: '/deleted',
+                component: DeletedOrganizationsPage,
+              },
+              {
+                path: '/:organizationId',
+                matchFilters: {
+                  organizationId: /^org_[a-zA-Z0-9]+$/,
+                },
+                component: (props) => {
+                  const params = useParams();
+                  const { setLatestOrganizationId } = useLastOrganization();
+
+                  setLatestOrganizationId(params.organizationId);
+
+                  return <>{props.children}</>;
+                },
                 children: [
                   {
+                    // Routes with the organization layout
                     path: '/',
-                    component: () => <Navigate href="ai-assistant" />,
-                  },
-                  {
-                    path: '/documents',
-                    component: DocumentsPage,
-                  },
-                  {
-                    path: '/documents/:documentId',
-                    component: DocumentPage,
-                  },
-                  {
-                    path: '/deleted',
-                    component: DeletedDocumentsPage,
-                  },
-                  {
-                    path: '/tags',
-                    component: TagsPage,
-                  },
-                  {
-                    path: '/custom-properties',
-                    component: CustomPropertiesPage,
-                  },
-                  {
-                    path: '/custom-properties/create',
-                    component: CreateCustomPropertyPage,
-                  },
-                  {
-                    path: '/custom-properties/:propertyDefinitionId',
-                    component: UpdateCustomPropertyPage,
-                  },
-                  {
-                    path: '/tagging-rules',
-                    component: TaggingRulesPage,
-                  },
-                  {
-                    path: '/tagging-rules/create',
-                    component: CreateTaggingRulePage,
-                  },
-                  {
-                    path: '/tagging-rules/:taggingRuleId',
-                    component: UpdateTaggingRulePage,
-                  },
-                  {
-                    path: '/members',
-                    component: MembersPage,
-                  },
-                  {
-                    path: '/finances',
+                    component: OrganizationLayout,
                     children: [
                       {
                         path: '/',
-                        component: () => <Navigate href="overview" />,
+                        component: () => <Navigate href="ai-assistant" />,
                       },
                       {
-                        path: '/overview',
-                        component: OverviewPage,
+                        path: '/documents',
+                        component: DocumentsPage,
                       },
                       {
-                        path: '/transactions',
-                        component: TransactionsPage,
+                        path: '/documents/:documentId',
+                        component: DocumentPage,
                       },
                       {
-                        path: '/subscriptions',
-                        component: SubscriptionsPage,
+                        path: '/deleted',
+                        component: DeletedDocumentsPage,
                       },
+                      {
+                        path: '/tags',
+                        component: TagsPage,
+                      },
+                      {
+                        path: '/custom-properties',
+                        component: CustomPropertiesPage,
+                      },
+                      {
+                        path: '/custom-properties/create',
+                        component: CreateCustomPropertyPage,
+                      },
+                      {
+                        path: '/custom-properties/:propertyDefinitionId',
+                        component: UpdateCustomPropertyPage,
+                      },
+                      {
+                        path: '/tagging-rules',
+                        component: TaggingRulesPage,
+                      },
+                      {
+                        path: '/tagging-rules/create',
+                        component: CreateTaggingRulePage,
+                      },
+                      {
+                        path: '/tagging-rules/:taggingRuleId',
+                        component: UpdateTaggingRulePage,
+                      },
+                      {
+                        path: '/members',
+                        component: MembersPage,
+                      },
+                      {
+                        path: '/finances',
+                        children: [
+                          {
+                            path: '/',
+                            component: () => <Navigate href="overview" />,
+                          },
+                          {
+                            path: '/overview',
+                            component: OverviewPage,
+                          },
+                          {
+                            path: '/transactions',
+                            component: TransactionsPage,
+                          },
+                          {
+                            path: '/subscriptions',
+                            component: SubscriptionsPage,
+                          },
+                        ],
+                      },
+                      {
+                        path: '/ai-assistant',
+                        component: AiAssistantPage,
+                      },
+                      {
+                        path: '/invite',
+                        component: InviteMemberPage,
+                      },
+                      {
+                        path: '/invitations',
+                        component: InvitationsListPage,
+                      },
+
                     ],
                   },
                   {
-                    path: '/ai-assistant',
-                    component: AiAssistantPage,
+                    path: '/documents/:documentId/pdf-viewer',
+                    component: DocumentPdfViewerPage,
                   },
-                  {
-                    path: '/invite',
-                    component: InviteMemberPage,
-                  },
-                  {
-                    path: '/invitations',
-                    component: InvitationsListPage,
-                  },
-
                 ],
               },
               {
-                path: '/documents/:documentId/pdf-viewer',
-                component: DocumentPdfViewerPage,
+                path: '/:organizationId/settings',
+                component: OrganizationSettingsLayout,
+                children: [
+                  {
+                    path: '/',
+                    component: OrganizationsSettingsPage,
+                  },
+                  {
+                    path: '/usage',
+                    component: OrganizationUsagePage,
+                  },
+                  {
+                    path: '/webhooks/create',
+                    component: CreateWebhookPage,
+                  },
+                  {
+                    path: '/webhooks/:webhookId',
+                    component: EditWebhookPage,
+                  },
+                  {
+                    path: '/intake-emails',
+                    component: IntakeEmailsPage,
+                  },
+                  {
+                    path: '/webhooks',
+                    component: WebhooksPage,
+                  },
+                ],
+              },
+              {
+                path: '/create',
+                component: CreateOrganizationPage,
+              },
+              {
+                path: '/first',
+                component: CreateFirstOrganizationPage,
               },
             ],
           },
+          adminRoutes,
           {
-            path: '/:organizationId/settings',
-            component: OrganizationSettingsLayout,
+            path: '/',
+            component: SettingsLayout,
             children: [
               {
-                path: '/',
-                component: OrganizationsSettingsPage,
+                path: '/settings',
+                component: UserSettingsPage,
               },
               {
-                path: '/usage',
-                component: OrganizationUsagePage,
+                path: '/api-keys',
+                component: ApiKeysPage,
               },
               {
-                path: '/webhooks/create',
-                component: CreateWebhookPage,
+                path: '/api-keys/create',
+                component: CreateApiKeyPage,
               },
               {
-                path: '/webhooks/:webhookId',
-                component: EditWebhookPage,
-              },
-              {
-                path: '/intake-emails',
-                component: IntakeEmailsPage,
-              },
-              {
-                path: '/webhooks',
-                component: WebhooksPage,
+                path: '/invitations',
+                component: InvitationsPage,
               },
             ],
           },
-          {
-            path: '/create',
-            component: CreateOrganizationPage,
-          },
-          {
-            path: '/first',
-            component: CreateFirstOrganizationPage,
-          },
-        ],
-      },
-      adminRoutes,
-      {
-        path: '/',
-        component: SettingsLayout,
-        children: [
-          {
-            path: '/settings',
-            component: UserSettingsPage,
-          },
-          {
-            path: '/api-keys',
-            component: ApiKeysPage,
-          },
-          {
-            path: '/api-keys/create',
-            component: CreateApiKeyPage,
-          },
-          {
-            path: '/invitations',
-            component: InvitationsPage,
-          },
-        ],
-      },
         ],
       },
     ],

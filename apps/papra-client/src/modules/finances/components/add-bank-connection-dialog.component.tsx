@@ -1,13 +1,13 @@
 import type { Component } from 'solid-js';
+import type { ProviderAccount } from '../finances.types';
 import { createMutation, useQueryClient } from '@tanstack/solid-query';
 import { createSignal, For, Show } from 'solid-js';
 import { Button } from '@/modules/ui/components/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/modules/ui/components/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/modules/ui/components/select';
-import { TextField, TextFieldRoot } from '@/modules/ui/components/textfield';
 import { createToast } from '@/modules/ui/components/sonner';
+import { TextField, TextFieldRoot } from '@/modules/ui/components/textfield';
 import { createBankConnection, fetchBankProviderAccounts } from '../finances.services';
-import type { ProviderAccount } from '../finances.types';
 
 const providers = [
   { value: 'mercury', label: 'Mercury' },
@@ -67,7 +67,14 @@ export const AddBankConnectionDialog: Component<{ organizationId: string }> = (p
   }));
 
   return (
-    <Dialog open={isOpen()} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
+    <Dialog
+      open={isOpen()}
+      onOpenChange={(open) => {
+        setIsOpen(open); if (!open) {
+          resetForm();
+        }
+      }}
+    >
       <DialogTrigger as={Button}>
         <div class="i-tabler-plus size-4 mr-1" />
         Connect Bank

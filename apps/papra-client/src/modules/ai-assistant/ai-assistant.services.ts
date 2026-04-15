@@ -1,5 +1,5 @@
-import { apiClient } from '../shared/http/api-client';
 import { buildTimeConfig } from '../config/config';
+import { apiClient } from '../shared/http/api-client';
 
 export type ChatMessage = {
   role: 'user' | 'assistant' | 'system';

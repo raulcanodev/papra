@@ -5,8 +5,8 @@ import type { Organization } from '@/modules/organizations/organizations.types';
 import { useNavigate, useParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { createEffect, on, Show } from 'solid-js';
-import { useConfig } from '@/modules/config/config.provider';
 import { useCommandPalette } from '@/modules/command-palette/command-palette.provider';
+import { useConfig } from '@/modules/config/config.provider';
 import { DocumentUploadProvider } from '@/modules/documents/components/document-import-status.component';
 import { useFeatureFlags } from '@/modules/feature-flags/feature-flags.provider';
 import { useI18n } from '@/modules/i18n/i18n.provider';
@@ -254,7 +254,8 @@ const OrganizationLayoutSideNav: Component = () => {
               <div class="i-tabler-search size-4 shrink-0" />
               <span class="flex-1 text-left">{t('layout.search.placeholder')}</span>
               <kbd class="inline-flex items-center gap-1 rounded border bg-muted px-1.5 py-0.5 text-xs font-medium shrink-0">
-                <span class="text-[1rem] leading-none">⌘</span><span class="font-mono">K</span>
+                <span class="text-[1rem] leading-none">⌘</span>
+                <span class="font-mono">K</span>
               </kbd>
             </button>
 

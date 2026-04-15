@@ -11,12 +11,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { deleteChatSession, fetchAiModels, fetchChatSession, fetchChatSessions, streamChatMessage } from '../ai-assistant.services';
 
 const PLACEHOLDER_SUGGESTION_CONFIG = [
-  { icon: 'i-tabler-files',       key: 'ai-assistant.suggestion.documents-overview' as const },
+  { icon: 'i-tabler-files', key: 'ai-assistant.suggestion.documents-overview' as const },
   { icon: 'i-tabler-file-search', key: 'ai-assistant.suggestion.find-invoices' as const },
-  { icon: 'i-tabler-chart-bar',   key: 'ai-assistant.suggestion.financial-summary' as const },
-  { icon: 'i-tabler-transfer',    key: 'ai-assistant.suggestion.transfer-rules' as const },
-  { icon: 'i-tabler-tag',         key: 'ai-assistant.suggestion.classify-rules' as const },
-  { icon: 'i-tabler-help',        key: 'ai-assistant.suggestion.unclassified' as const },
+  { icon: 'i-tabler-chart-bar', key: 'ai-assistant.suggestion.financial-summary' as const },
+  { icon: 'i-tabler-transfer', key: 'ai-assistant.suggestion.transfer-rules' as const },
+  { icon: 'i-tabler-tag', key: 'ai-assistant.suggestion.classify-rules' as const },
+  { icon: 'i-tabler-help', key: 'ai-assistant.suggestion.unclassified' as const },
 ];
 
 const MessageBubble: Component<{ message: ChatMessage; isStreaming?: boolean }> = (props) => {

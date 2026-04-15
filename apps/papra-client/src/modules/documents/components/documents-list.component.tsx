@@ -14,8 +14,8 @@ import {
 import { For, Match, Show, Switch } from 'solid-js';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
-import { cn } from '@/modules/shared/style/cn';
 import { PaginationControls } from '@/modules/shared/pagination/pagination-controls.component';
+import { cn } from '@/modules/shared/style/cn';
 import { DocumentTagsList } from '@/modules/tags/components/tag-list.component';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
 import { getDocumentIcon, getDocumentNameExtension, getDocumentNameWithoutExtension } from '../document.models';

@@ -3,8 +3,8 @@ import { createMutation, useQueryClient } from '@tanstack/solid-query';
 import { createEffect, createSignal } from 'solid-js';
 import { Button } from '@/modules/ui/components/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/modules/ui/components/dialog';
-import { TextField, TextFieldRoot } from '@/modules/ui/components/textfield';
 import { createToast } from '@/modules/ui/components/sonner';
+import { TextField, TextFieldRoot } from '@/modules/ui/components/textfield';
 import { updateBankConnection } from '../finances.services';
 
 export const EditBankConnectionDialog: Component<{

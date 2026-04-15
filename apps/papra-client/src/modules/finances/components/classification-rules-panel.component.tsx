@@ -4,13 +4,14 @@ import { createMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { createSignal, For, Index, Show } from 'solid-js';
 import { useConfirmModal } from '@/modules/shared/confirm';
 import { cn } from '@/modules/shared/style/cn';
+import { DocumentTagPicker } from '@/modules/tags/components/tag-picker.component';
+import { fetchTags } from '@/modules/tags/tags.services';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/modules/ui/components/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/modules/ui/components/select';
-import { TextField, TextFieldRoot } from '@/modules/ui/components/textfield';
 import { createToast } from '@/modules/ui/components/sonner';
-import { DocumentTagPicker } from '@/modules/tags/components/tag-picker.component';
+import { TextField, TextFieldRoot } from '@/modules/ui/components/textfield';
 import {
   autoClassifyTransactions,
   createClassificationRule,
@@ -18,7 +19,6 @@ import {
   fetchClassificationRules,
   updateClassificationRule,
 } from '../finances.services';
-import { fetchTags } from '@/modules/tags/tags.services';
 
 const classificationOptions = [
   { value: 'expense', label: 'Expense' },
@@ -99,7 +99,9 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
 
   const updateCondition = (index: number, patch: Partial<RuleCondition>) => {
     setConditions(prev => prev.map((c, i) => {
-      if (i !== index) return c;
+      if (i !== index) {
+        return c;
+      }
       const updated = { ...c, ...patch };
       // Reset operator when field changes
       if (patch.field && patch.field !== c.field) {
@@ -221,9 +223,12 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
         </div>
       </div>
 
-      <Show when={(rulesQuery.data?.rules?.length ?? 0) > 0} fallback={
-        <p class="text-sm text-muted-foreground text-center py-4">No rules yet. Add a rule to auto-classify transactions.</p>
-      }>
+      <Show
+        when={(rulesQuery.data?.rules?.length ?? 0) > 0}
+        fallback={
+          <p class="text-sm text-muted-foreground text-center py-4">No rules yet. Add a rule to auto-classify transactions.</p>
+        }
+      >
         <div class="flex flex-col gap-2">
           <For each={rulesQuery.data?.rules}>
             {rule => (
@@ -235,7 +240,7 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
                       {classificationOptions.find(c => c.value === rule.classification)?.label}
                     </Badge>
                     <For each={rule.tagIds ?? []}>
-                      {tagId => {
+                      {(tagId) => {
                         const tag = () => tagsMap().get(tagId);
                         return (
                           <Show when={tag()}>
@@ -259,7 +264,11 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
                           {' '}
                           <span>{operatorOptions[cond.field]?.find(o => o.value === cond.operator)?.label ?? cond.operator}</span>
                           {' '}
-                          <span class="font-mono">"{cond.value}"</span>
+                          <span class="font-mono">
+                            "
+                            {cond.value}
+                            "
+                          </span>
                         </span>
                       )}
                     </For>
@@ -284,7 +293,9 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
                         message: `Delete rule "${rule.name}"? This cannot be undone.`,
                         confirmButton: { text: 'Delete', variant: 'destructive' },
                       });
-                      if (ok) deleteMut.mutate(rule.id);
+                      if (ok) {
+                        deleteMut.mutate(rule.id);
+                      }
                     }}
                   >
                     <div class="i-tabler-trash size-4" />
@@ -296,7 +307,14 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
         </div>
       </Show>
 
-      <Dialog open={isDialogOpen()} onOpenChange={(v) => { setIsDialogOpen(v); if (!v) resetForm(); }}>
+      <Dialog
+        open={isDialogOpen()}
+        onOpenChange={(v) => {
+          setIsDialogOpen(v); if (!v) {
+            resetForm();
+          }
+        }}
+      >
         <DialogContent class="max-w-lg">
           <DialogHeader>
             <DialogTitle>{isEditing() ? 'Edit Classification Rule' : 'Add Classification Rule'}</DialogTitle>

@@ -1,8 +1,8 @@
 import type { Component } from 'solid-js';
+import type { Transaction } from '../finances.types';
 import { For, Show } from 'solid-js';
 import { Badge } from '@/modules/ui/components/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/modules/ui/components/dialog';
-import type { Transaction } from '../finances.types';
 
 const classificationColors: Record<string, string> = {
   expense: 'bg-red-500/10 text-red-600 border-red-500/20',
@@ -32,11 +32,14 @@ export const TransactionDetailDialog: Component<{
   onClose: () => void;
 }> = (props) => {
   const rawDataParsed = () => {
-    if (!props.transaction?.rawData) return null;
+    if (!props.transaction?.rawData) {
+      return null;
+    }
     try {
       return JSON.parse(props.transaction.rawData) as Record<string, unknown>;
+    } catch {
+      return null;
     }
-    catch { return null; }
   };
 
   return (
@@ -47,7 +50,7 @@ export const TransactionDetailDialog: Component<{
         </DialogHeader>
 
         <Show when={props.transaction}>
-          {(txn) => (
+          {txn => (
             <div class="flex flex-col gap-3 mt-4">
               <div class="grid grid-cols-2 gap-3">
                 <div>
@@ -87,7 +90,7 @@ export const TransactionDetailDialog: Component<{
               </div>
 
               <Show when={rawDataParsed()}>
-                {(data) => (
+                {data => (
                   <div>
                     <div class="text-xs text-muted-foreground mb-1.5 mt-2">Raw Provider Data</div>
                     <div class="bg-muted rounded-lg p-3 max-h-60 overflow-y-auto">

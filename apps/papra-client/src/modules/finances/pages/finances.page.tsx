@@ -1,10 +1,11 @@
 import type { Component } from 'solid-js';
+import type { Transaction } from '../finances.types';
 import { useParams } from '@solidjs/router';
 import { createMutation, keepPreviousData, useQuery, useQueryClient } from '@tanstack/solid-query';
 import { createSignal, For, Show } from 'solid-js';
 import { useConfirmModal } from '@/modules/shared/confirm';
-import { createParamSynchronizedPagination } from '@/modules/shared/pagination/query-synchronized-pagination';
 import { PaginationControls } from '@/modules/shared/pagination/pagination-controls.component';
+import { createParamSynchronizedPagination } from '@/modules/shared/pagination/query-synchronized-pagination';
 import { cn } from '@/modules/shared/style/cn';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
@@ -16,7 +17,6 @@ import { ClassificationRulesPanel } from '../components/classification-rules-pan
 import { EditBankConnectionDialog } from '../components/edit-bank-connection-dialog.component';
 import { TransactionDetailDialog } from '../components/transaction-detail-dialog.component';
 import { deleteBankConnection, fetchBankConnections, fetchTransactions, syncBankConnection, updateTransactionClassification } from '../finances.services';
-import type { Transaction } from '../finances.types';
 
 const classificationOptions = [
   { value: 'expense', label: 'Expense' },
@@ -189,7 +189,9 @@ export const FinancesPage: Component = () => {
                       message: `Delete "${connection.name}"? This will also delete all its transactions.`,
                       confirmButton: { text: 'Delete', variant: 'destructive' },
                     });
-                    if (ok) deleteMutation.mutate(connection.id);
+                    if (ok) {
+                      deleteMutation.mutate(connection.id);
+                    }
                   }}
                   disabled={deleteMutation.isPending}
                 >
@@ -206,7 +208,7 @@ export const FinancesPage: Component = () => {
           const conn = () => connectionsQuery.data?.bankConnections?.find(c => c.id === getEditingConnection());
           return (
             <Show when={conn()}>
-              {(c) => (
+              {c => (
                 <EditBankConnectionDialog
                   organizationId={params.organizationId}
                   bankConnectionId={c().id}
@@ -267,7 +269,7 @@ export const FinancesPage: Component = () => {
       {/* Transactions table */}
       <Show
         when={(transactionsQuery.data?.transactions?.length ?? 0) > 0}
-        fallback={
+        fallback={(
           <Show when={(connectionsQuery.data?.bankConnections?.length ?? 0) === 0}>
             <div class="text-center py-16">
               <div class="i-tabler-building-bank size-12 mx-auto text-muted-foreground opacity-40 mb-4" />
@@ -276,7 +278,7 @@ export const FinancesPage: Component = () => {
               <AddBankConnectionDialog organizationId={params.organizationId} />
             </div>
           </Show>
-        }
+        )}
       >
         <div class="border rounded-lg">
           <Table>
