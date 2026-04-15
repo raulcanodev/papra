@@ -70,7 +70,8 @@ export const AddBankConnectionDialog: Component<{ organizationId: string }> = (p
     <Dialog
       open={isOpen()}
       onOpenChange={(open) => {
-        setIsOpen(open); if (!open) {
+        setIsOpen(open);
+        if (!open) {
           resetForm();
         }
       }}

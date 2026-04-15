@@ -194,7 +194,7 @@ export const OverviewPage: Component = () => {
                         <span class="text-sm font-medium w-20 text-right shrink-0">{formatCurrency(entry.total)}</span>
                         <span class="text-xs text-muted-foreground w-8 text-right shrink-0">
                           {pct()}
-                          {'%'}
+                          %
                         </span>
                       </div>
                     );

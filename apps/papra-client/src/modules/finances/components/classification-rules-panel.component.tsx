@@ -310,7 +310,8 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
       <Dialog
         open={isDialogOpen()}
         onOpenChange={(v) => {
-          setIsDialogOpen(v); if (!v) {
+          setIsDialogOpen(v);
+          if (!v) {
             resetForm();
           }
         }}
