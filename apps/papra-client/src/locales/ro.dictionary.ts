@@ -1089,4 +1089,20 @@ export const translations: Partial<TranslationsDictionary> = {
   'socials.x': 'X',
   'socials.reddit': 'Reddit',
   'socials.linkedin': 'LinkedIn',
+
+  // AI Assistant page
+  'ai-assistant.history.title': 'Istoric',
+  'ai-assistant.history.empty': 'Niciun chat anterior',
+  'ai-assistant.subtitle': 'Asistent inteligent',
+  'ai-assistant.new-chat': 'Chat nou',
+  'ai-assistant.welcome.description': 'Analizează documente și tranzacții, descoperă tipare și creează reguli de clasificare cu AI.',
+  'ai-assistant.input.placeholder': 'Trimite un mesaj către Papra AI...',
+  'ai-assistant.model.select': 'Selectează modelul',
+  'ai-assistant.disclaimer': 'Papra AI poate face greșeli. Verifică informațiile importante.',
+  'ai-assistant.suggestion.documents-overview': 'Despre ce sunt documentele mele?',
+  'ai-assistant.suggestion.find-invoices': 'Găsește facturile și spune-mi sumele totale',
+  'ai-assistant.suggestion.financial-summary': 'Arată-mi un rezumat financiar al tranzacțiilor mele',
+  'ai-assistant.suggestion.transfer-rules': 'Găsește toate transferurile între proprietari și creează o regulă',
+  'ai-assistant.suggestion.classify-rules': 'Analizează tranzacțiile mele și sugerează reguli de clasificare',
+  'ai-assistant.suggestion.unclassified': 'Care sunt tranzacțiile mele neclasificate?',
 };

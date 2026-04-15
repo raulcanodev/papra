@@ -1,7 +1,7 @@
 import { index, integer, real, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
 import { organizationsTable } from '../organizations/organizations.table';
 import { createPrimaryKeyField, createTimestampColumns } from '../shared/db/columns.helpers';
-import { BANK_CONNECTION_ID_PREFIX, CLASSIFICATION_RULE_ID_PREFIX, TRANSACTION_ID_PREFIX } from './finances.constants';
+import { BANK_CONNECTION_ID_PREFIX, CLASSIFICATION_RULE_ID_PREFIX, SUBSCRIPTION_ID_PREFIX, TRANSACTION_ID_PREFIX } from './finances.constants';
 
 export const bankConnectionsTable = sqliteTable('bank_connections', {
   ...createPrimaryKeyField({ prefix: BANK_CONNECTION_ID_PREFIX }),
@@ -50,8 +50,26 @@ export const classificationRulesTable = sqliteTable('classification_rules', {
   classification: text('classification').notNull(),
   conditions: text('conditions').notNull().default('[]'), // JSON array of { field, operator, value }
   conditionMatchMode: text('condition_match_mode').notNull().default('all'), // 'all' | 'any'
+  tagIds: text('tag_ids').notNull().default('[]'), // JSON array of tag IDs to apply when rule matches
   priority: integer('priority').notNull().default(0),
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
 }, t => [
   index('classification_rules_organization_id_index').on(t.organizationId),
+]);
+
+export const subscriptionsTable = sqliteTable('finance_subscriptions', {
+  ...createPrimaryKeyField({ prefix: SUBSCRIPTION_ID_PREFIX }),
+  ...createTimestampColumns(),
+
+  organizationId: text('organization_id').notNull().references(() => organizationsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+  name: text('name').notNull(),
+  amount: real('amount').notNull(),
+  currency: text('currency').notNull().default('USD'),
+  billingCycle: text('billing_cycle').notNull().default('monthly'),
+  nextPaymentAt: integer('next_payment_at', { mode: 'timestamp_ms' }),
+  category: text('category'),
+  notes: text('notes'),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+}, t => [
+  index('finance_subscriptions_organization_id_index').on(t.organizationId),
 ]);

@@ -1089,4 +1089,20 @@ export const translations: Partial<TranslationsDictionary> = {
   'socials.x': 'X',
   'socials.reddit': 'Reddit',
   'socials.linkedin': 'LinkedIn',
+
+  // AI Assistant page
+  'ai-assistant.history.title': '历史记录',
+  'ai-assistant.history.empty': '没有之前的聊天',
+  'ai-assistant.subtitle': '智能助手',
+  'ai-assistant.new-chat': '新聊天',
+  'ai-assistant.welcome.description': '分析文档和交易，发现模式，并使用 AI 创建分类规则。',
+  'ai-assistant.input.placeholder': '向 Papra AI 发送消息...',
+  'ai-assistant.model.select': '选择模型',
+  'ai-assistant.disclaimer': 'Papra AI 可能会出错。请核实重要信息。',
+  'ai-assistant.suggestion.documents-overview': '我的文档主要讲什么？',
+  'ai-assistant.suggestion.find-invoices': '查找发票并告诉我总金额',
+  'ai-assistant.suggestion.financial-summary': '给我显示我的交易财务摘要',
+  'ai-assistant.suggestion.transfer-rules': '查找所有所有者之间的转账并创建规则',
+  'ai-assistant.suggestion.classify-rules': '分析我的交易并建议分类规则',
+  'ai-assistant.suggestion.unclassified': '哪些交易还没有分类？',
 };

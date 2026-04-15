@@ -1,4 +1,4 @@
-import type { BankConnection, ClassificationRule, ProviderAccount, Transaction } from './finances.types';
+import type { BankConnection, ClassificationRule, OverviewStats, ProviderAccount, Subscription, Transaction } from './finances.types';
 import { apiClient } from '../shared/http/api-client';
 
 export async function fetchBankConnections({ organizationId }: { organizationId: string }) {
@@ -104,7 +104,7 @@ export async function fetchClassificationRules({ organizationId }: { organizatio
 
 export async function createClassificationRule({ organizationId, rule }: {
   organizationId: string;
-  rule: { name: string; classification: string; conditions: Array<{ field: string; operator: string; value: string }>; conditionMatchMode?: 'all' | 'any'; priority?: number };
+  rule: { name: string; classification: string; conditions: Array<{ field: string; operator: string; value: string }>; conditionMatchMode?: 'all' | 'any'; tagIds?: string[]; priority?: number };
 }) {
   return apiClient<{ rule: ClassificationRule }>({
     method: 'POST',
@@ -116,7 +116,7 @@ export async function createClassificationRule({ organizationId, rule }: {
 export async function updateClassificationRule({ organizationId, ruleId, updates }: {
   organizationId: string;
   ruleId: string;
-  updates: Partial<{ name: string; classification: string; conditions: Array<{ field: string; operator: string; value: string }>; conditionMatchMode: 'all' | 'any'; priority: number; isActive: boolean }>;
+  updates: Partial<{ name: string; classification: string; conditions: Array<{ field: string; operator: string; value: string }>; conditionMatchMode: 'all' | 'any'; tagIds: string[]; priority: number; isActive: boolean }>;
 }) {
   return apiClient<{ rule: ClassificationRule }>({
     method: 'PATCH',
@@ -139,5 +139,69 @@ export async function autoClassifyTransactions({ organizationId }: { organizatio
   return apiClient<{ classifiedCount: number }>({
     method: 'POST',
     path: `/api/organizations/${organizationId}/finances/auto-classify`,
+  });
+}
+
+export async function fetchOverviewStats({ organizationId }: { organizationId: string }) {
+  return apiClient<OverviewStats>({
+    method: 'GET',
+    path: `/api/organizations/${organizationId}/finances/overview`,
+  });
+}
+
+export async function fetchSubscriptions({ organizationId }: { organizationId: string }) {
+  return apiClient<{ subscriptions: Subscription[] }>({
+    method: 'GET',
+    path: `/api/organizations/${organizationId}/finances/subscriptions`,
+  });
+}
+
+export async function createSubscription({ organizationId, subscription }: {
+  organizationId: string;
+  subscription: {
+    name: string;
+    amount: number;
+    currency: string;
+    billingCycle: string;
+    nextPaymentAt?: Date | null;
+    category?: string | null;
+    notes?: string | null;
+  };
+}) {
+  return apiClient<{ subscription: Subscription }>({
+    method: 'POST',
+    path: `/api/organizations/${organizationId}/finances/subscriptions`,
+    body: subscription,
+  });
+}
+
+export async function updateSubscription({ organizationId, subscriptionId, updates }: {
+  organizationId: string;
+  subscriptionId: string;
+  updates: Partial<{
+    name: string;
+    amount: number;
+    currency: string;
+    billingCycle: string;
+    nextPaymentAt: Date | null;
+    category: string | null;
+    notes: string | null;
+    isActive: boolean;
+  }>;
+}) {
+  return apiClient<{ subscription: Subscription }>({
+    method: 'PATCH',
+    path: `/api/organizations/${organizationId}/finances/subscriptions/${subscriptionId}`,
+    body: updates,
+  });
+}
+
+export async function deleteSubscription({ organizationId, subscriptionId }: {
+  organizationId: string;
+  subscriptionId: string;
+}) {
+  return apiClient<{ success: boolean }>({
+    method: 'DELETE',
+    path: `/api/organizations/${organizationId}/finances/subscriptions/${subscriptionId}`,
   });
 }

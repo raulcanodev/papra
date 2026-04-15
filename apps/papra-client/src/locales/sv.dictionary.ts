@@ -1089,4 +1089,20 @@ export const translations: Partial<TranslationsDictionary> = {
   'socials.x': 'X',
   'socials.reddit': 'Reddit',
   'socials.linkedin': 'LinkedIn',
+
+  // AI Assistant page
+  'ai-assistant.history.title': 'Historik',
+  'ai-assistant.history.empty': 'Inga tidigare chattar',
+  'ai-assistant.subtitle': 'Intelligent assistent',
+  'ai-assistant.new-chat': 'Ny chatt',
+  'ai-assistant.welcome.description': 'Analysera dokument och transaktioner, upptäck mönster och skapa klassificeringsregler med AI.',
+  'ai-assistant.input.placeholder': 'Skicka ett meddelande till Papra AI...',
+  'ai-assistant.model.select': 'Välj modell',
+  'ai-assistant.disclaimer': 'Papra AI kan göra misstag. Verifiera viktig information.',
+  'ai-assistant.suggestion.documents-overview': 'Vad handlar mina dokument om?',
+  'ai-assistant.suggestion.find-invoices': 'Hitta fakturor och berätta totalsummorna',
+  'ai-assistant.suggestion.financial-summary': 'Visa mig en ekonomisk sammanfattning av mina transaktioner',
+  'ai-assistant.suggestion.transfer-rules': 'Hitta alla överföringar mellan ägare och skapa en regel',
+  'ai-assistant.suggestion.classify-rules': 'Analysera mina transaktioner och föreslå klassificeringsregler',
+  'ai-assistant.suggestion.unclassified': 'Vilka av mina transaktioner är oklassificerade?',
 };

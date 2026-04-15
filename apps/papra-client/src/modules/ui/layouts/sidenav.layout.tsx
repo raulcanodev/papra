@@ -1,16 +1,12 @@
 import type { Component, ParentComponent } from 'solid-js';
-import { A, useParams } from '@solidjs/router';
+import { useParams } from '@solidjs/router';
 import { For, Show, Suspense } from 'solid-js';
-
-import { useCommandPalette } from '@/modules/command-palette/command-palette.provider';
 
 import { useDocumentUpload } from '@/modules/documents/components/document-import-status.component';
 import { GlobalDropArea } from '@/modules/documents/components/global-drop-area.component';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { UsageWarningCard } from '@/modules/subscriptions/components/usage-warning-card';
 import { Button } from '@/modules/ui/components/button';
-import { UserSettingsDropdown } from '@/modules/users/components/user-settings.component';
-import { useCurrentUser } from '@/modules/users/composables/useCurrentUser';
 import { DropdownMenuRadioGroup, DropdownMenuRadioItem } from '../components/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger } from '../components/sheet';
 
@@ -45,14 +41,9 @@ export const LanguageSwitcher: Component = () => {
 
 export const SidenavLayout: ParentComponent<{
   sideNav: Component;
-  showSearch?: boolean;
 }> = (props) => {
   const params = useParams();
-  const { openCommandPalette } = useCommandPalette();
-  const { t } = useI18n();
-  const { hasPermission } = useCurrentUser();
-
-  const { promptImport, uploadDocuments } = useDocumentUpload();
+  const { uploadDocuments } = useDocumentUpload();
 
   return (
     <div class="flex flex-row h-screen min-h-0">
@@ -64,49 +55,21 @@ export const SidenavLayout: ParentComponent<{
       <div class="flex-1 min-h-0 flex flex-col">
         <UsageWarningCard organizationId={params.organizationId} />
 
-        <div class="flex justify-between px-6 pt-4">
-
-          <div class="flex items-center">
-            <Sheet>
-              <SheetTrigger>
-                <Button variant="ghost" size="icon" class="lg:hidden mr-2">
-                  <div class="i-tabler-menu-2 size-6" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" class="bg-card p-0!">
-                <props.sideNav />
-              </SheetContent>
-            </Sheet>
-
-            {(props.showSearch ?? true) && (
-              <Button variant="outline" class="lg:min-w-64  justify-start" onClick={openCommandPalette}>
-                <div class="i-tabler-search size-4 mr-2" />
-                {t('layout.search.placeholder')}
+        <div class="flex items-center px-4 pt-3 lg:hidden">
+          <Sheet>
+            <SheetTrigger>
+              <Button variant="ghost" size="icon" class="mr-2">
+                <div class="i-tabler-menu-2 size-6" />
               </Button>
-            )}
-          </div>
-
-          <div class="flex items-center gap-2">
-
-            <GlobalDropArea onFilesDrop={uploadDocuments} />
-            <Button onClick={promptImport}>
-              <div class="i-tabler-upload size-4" />
-              <span class="hidden sm:inline ml-2">
-                {t('layout.menu.import-document')}
-              </span>
-            </Button>
-
-            <Show when={hasPermission('bo:access')}>
-              <Button as={A} href="/admin" variant="outline" class="hidden sm:flex gap-2">
-                <div class="i-tabler-settings size-4" />
-                {t('layout.menu.admin')}
-              </Button>
-            </Show>
-
-            <UserSettingsDropdown class="hidden sm:flex" />
-
-          </div>
+            </SheetTrigger>
+            <SheetContent side="left" class="bg-card p-0!">
+              <props.sideNav />
+            </SheetContent>
+          </Sheet>
         </div>
+
+        <GlobalDropArea onFilesDrop={uploadDocuments} />
+
         <div class="flex-1 overflow-auto max-w-screen">
           <Suspense>
             {props.children}

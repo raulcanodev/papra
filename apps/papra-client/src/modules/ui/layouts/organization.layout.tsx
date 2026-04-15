@@ -6,6 +6,7 @@ import { useNavigate, useParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { createEffect, on, Show } from 'solid-js';
 import { useConfig } from '@/modules/config/config.provider';
+import { useCommandPalette } from '@/modules/command-palette/command-palette.provider';
 import { DocumentUploadProvider } from '@/modules/documents/components/document-import-status.component';
 import { useFeatureFlags } from '@/modules/feature-flags/feature-flags.provider';
 import { useI18n } from '@/modules/i18n/i18n.provider';
@@ -15,6 +16,8 @@ import { getErrorStatus } from '@/modules/shared/utils/errors';
 import { UpgradeDialog } from '@/modules/subscriptions/components/upgrade-dialog.component';
 import { fetchOrganizationSubscription } from '@/modules/subscriptions/subscriptions.services';
 import { SideNav } from '@/modules/ui/components/sidenav';
+import { UserSettingsDropdown } from '@/modules/users/components/user-settings.component';
+import { useCurrentUser } from '@/modules/users/composables/useCurrentUser';
 import { Button } from '../components/button';
 import {
   Select,
@@ -73,13 +76,17 @@ const OrganizationLayoutSideNav: Component = () => {
   const params = useParams();
   const { t } = useI18n();
   const { hasFlag } = useFeatureFlags();
+  const { openCommandPalette } = useCommandPalette();
+  const { user, hasPermission } = useCurrentUser();
 
   const getMainMenuItems = () => [
-    {
-      label: t('layout.menu.home'),
-      icon: 'i-tabler-home',
-      href: `/organizations/${params.organizationId}`,
-    },
+    ...(hasFlag('llc_finances')
+      ? [{
+          label: 'Chat',
+          icon: 'i-tabler-message-circle',
+          href: `/organizations/${params.organizationId}/ai-assistant`,
+        }]
+      : []),
     {
       label: t('layout.menu.documents'),
       icon: 'i-tabler-file-text',
@@ -110,7 +117,23 @@ const OrganizationLayoutSideNav: Component = () => {
       ? [{
           label: 'Finances',
           icon: 'i-tabler-report-money',
-          href: `/organizations/${params.organizationId}/finances`,
+          children: [
+            {
+              label: 'Overview',
+              icon: 'i-tabler-chart-bar',
+              href: `/organizations/${params.organizationId}/finances/overview`,
+            },
+            {
+              label: 'Transactions',
+              icon: 'i-tabler-arrows-exchange',
+              href: `/organizations/${params.organizationId}/finances/transactions`,
+            },
+            {
+              label: 'Subscriptions',
+              icon: 'i-tabler-repeat',
+              href: `/organizations/${params.organizationId}/finances/subscriptions`,
+            },
+          ],
         }]
       : []),
   ];
@@ -126,6 +149,13 @@ const OrganizationLayoutSideNav: Component = () => {
       icon: 'i-tabler-settings',
       href: `/organizations/${params.organizationId}/settings`,
     },
+    ...(hasPermission('bo:access')
+      ? [{
+          label: t('layout.menu.admin'),
+          icon: 'i-tabler-shield-lock',
+          href: '/admin',
+        }]
+      : []),
   ];
 
   const organizationsQuery = useQuery(() => ({
@@ -158,7 +188,12 @@ const OrganizationLayoutSideNav: Component = () => {
     <SideNav
       mainMenu={getMainMenuItems()}
       footerMenu={getFooterMenuItems()}
-      footer={() => <UpgradeCTAFooter organizationId={params.organizationId} />}
+      preFooter={() => <UpgradeCTAFooter organizationId={params.organizationId} />}
+      footer={() => (
+        <div class="px-4 pb-4 pt-2 border-t border-border">
+          <UserSettingsDropdown userName={user.name} userEmail={user.email} />
+        </div>
+      )}
       header={() =>
         (
           <div class="p-4 pb-0 min-w-0 max-w-full">
@@ -210,6 +245,18 @@ const OrganizationLayoutSideNav: Component = () => {
 
               <SelectContent />
             </Select>
+
+            <button
+              type="button"
+              onClick={openCommandPalette}
+              class="mt-3 flex items-center gap-2 w-full rounded-lg border bg-background px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors"
+            >
+              <div class="i-tabler-search size-4 shrink-0" />
+              <span class="flex-1 text-left">{t('layout.search.placeholder')}</span>
+              <kbd class="inline-flex items-center gap-1 rounded border bg-muted px-1.5 py-0.5 text-xs font-medium shrink-0">
+                <span class="text-[1rem] leading-none">⌘</span><span class="font-mono">K</span>
+              </kbd>
+            </button>
 
           </div>
         )}

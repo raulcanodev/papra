@@ -1,6 +1,7 @@
 import {
   defineConfig,
   presetIcons,
+  presetTypography,
   presetWebFonts,
   presetWind4,
   transformerDirectives,
@@ -25,6 +26,7 @@ export default defineConfig({
       prefix: '',
     }),
     presetAnimations(),
+    presetTypography(),
     presetWebFonts({
       provider: 'bunny',
       fonts: {
@@ -117,6 +119,8 @@ export default defineConfig({
     },
   },
   safelist: [
+    'i-tabler-files',
+    'i-tabler-file-search',
     ...new Set([
       DEFAULT_DOCUMENT_ICON,
       ...socials.map(({ icon }) => icon),

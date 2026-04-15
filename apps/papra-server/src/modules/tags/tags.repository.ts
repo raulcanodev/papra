@@ -8,7 +8,7 @@ import { omitUndefined } from '../shared/objects';
 import { isDefined } from '../shared/utils';
 import { createDocumentAlreadyHasTagError, createTagAlreadyExistsError } from './tags.errors';
 import { normalizeTagName } from './tags.repository.models';
-import { documentsTagsTable, tagsTable } from './tags.table';
+import { documentsTagsTable, tagsTable, transactionTagsTable } from './tags.table';
 
 export type TagsRepository = ReturnType<typeof createTagsRepository>;
 
@@ -26,6 +26,11 @@ export function createTagsRepository({ db }: { db: Database }) {
       addTagsToDocument,
       removeTagFromDocument,
       removeAllTagsFromDocument,
+      getTagsByTransactionIds,
+      addTagToTransaction,
+      addTagsToTransaction,
+      removeTagFromTransaction,
+      removeAllTagsFromTransaction,
     },
     { db },
   );
@@ -179,4 +184,57 @@ async function removeTagFromDocument({ tagId, documentId, db }: { tagId: string;
 
 async function removeAllTagsFromDocument({ documentId, db }: { documentId: string; db: Database }) {
   await db.delete(documentsTagsTable).where(eq(documentsTagsTable.documentId, documentId));
+}
+
+async function getTagsByTransactionIds({ transactionIds, db }: { transactionIds: string[]; db: Database }): Promise<{ tagsByTransactionId: Record<string, Tag[]> }> {
+  if (transactionIds.length === 0) {
+    return { tagsByTransactionId: {} };
+  }
+
+  const rows = await db
+    .select({
+      transactionId: transactionTagsTable.transactionId,
+      ...getTableColumns(tagsTable),
+    })
+    .from(transactionTagsTable)
+    .innerJoin(tagsTable, eq(tagsTable.id, transactionTagsTable.tagId))
+    .where(inArray(transactionTagsTable.transactionId, transactionIds));
+
+  const tagsByTransactionId: Record<string, Tag[]> = {};
+
+  for (const { transactionId, ...tag } of rows) {
+    (tagsByTransactionId[transactionId] ??= []).push(tag);
+  }
+
+  return { tagsByTransactionId };
+}
+
+async function addTagToTransaction({ tagId, transactionId, db }: { tagId: string; transactionId: string; db: Database }) {
+  const [_, error] = await safely(db.insert(transactionTagsTable).values({ tagId, transactionId }));
+
+  if (error && isUniqueConstraintError({ error })) {
+    throw createDocumentAlreadyHasTagError();
+  }
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function addTagsToTransaction({ tagIds, transactionId, db }: { tagIds: string[]; transactionId: string; db: Database }) {
+  if (tagIds.length === 0) return;
+  await db.insert(transactionTagsTable).values(tagIds.map(tagId => ({ tagId, transactionId })));
+}
+
+async function removeTagFromTransaction({ tagId, transactionId, db }: { tagId: string; transactionId: string; db: Database }) {
+  await db.delete(transactionTagsTable).where(
+    and(
+      eq(transactionTagsTable.tagId, tagId),
+      eq(transactionTagsTable.transactionId, transactionId),
+    ),
+  );
+}
+
+async function removeAllTagsFromTransaction({ transactionId, db }: { transactionId: string; db: Database }) {
+  await db.delete(transactionTagsTable).where(eq(transactionTagsTable.transactionId, transactionId));
 }

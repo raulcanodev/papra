@@ -24,6 +24,7 @@ import { tagsConfig } from '../tags/tags.config';
 import { tasksConfig } from '../tasks/tasks.config';
 import { trackingConfig } from '../tracking/tracking.config';
 import { webhookConfig } from '../webhooks/webhooks.config';
+import { aiAssistantConfig } from '../ai-assistant/ai-assistant.config';
 import { exitProcessDueToConfigError, validateParsedConfig } from './config.models';
 import { appSchemeSchema, booleanishSchema, coercedUrlListSchema, urlSchema } from './config.schemas';
 import { getCommitInfo } from './config.usecases';
@@ -159,6 +160,7 @@ export const configDefinition = {
   customProperties: customPropertiesConfig,
   tracking: trackingConfig,
   webhooks: webhookConfig,
+  aiAssistant: aiAssistantConfig,
 } as const satisfies AppConfigDefinition;
 
 const logger = createLogger({ namespace: 'config' });

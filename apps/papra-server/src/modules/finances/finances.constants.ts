@@ -14,3 +14,9 @@ export type TransactionClassification = typeof TRANSACTION_CLASSIFICATIONS[numbe
 
 export const BANK_PROVIDERS = ['mercury', 'wise'] as const;
 export type BankProvider = typeof BANK_PROVIDERS[number];
+
+export const SUBSCRIPTION_ID_PREFIX = 'sub';
+export const SUBSCRIPTION_ID_REGEX = createPrefixedIdRegex({ prefix: SUBSCRIPTION_ID_PREFIX });
+
+export const BILLING_CYCLES = ['weekly', 'monthly', 'quarterly', 'yearly'] as const;
+export type BillingCycle = typeof BILLING_CYCLES[number];

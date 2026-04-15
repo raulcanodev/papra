@@ -1089,4 +1089,20 @@ export const translations: Partial<TranslationsDictionary> = {
   'socials.x': 'X',
   'socials.reddit': 'Reddit',
   'socials.linkedin': 'LinkedIn',
+
+  // AI Assistant page
+  'ai-assistant.history.title': 'Ιστορικό',
+  'ai-assistant.history.empty': 'Δεν υπάρχουν προηγούμενες συνομιλίες',
+  'ai-assistant.subtitle': 'Έξυπνος βοηθός',
+  'ai-assistant.new-chat': 'Νέα συνομιλία',
+  'ai-assistant.welcome.description': 'Ανάλυσε έγγραφα και συναλλαγές, ανακάλυψε μοτίβα και δημιούργησε κανόνες ταξινόμησης με AI.',
+  'ai-assistant.input.placeholder': 'Στείλε μήνυμα στο Papra AI...',
+  'ai-assistant.model.select': 'Επιλογή μοντέλου',
+  'ai-assistant.disclaimer': 'Το Papra AI μπορεί να κάνει λάθη. Επαλήθευσε τις σημαντικές πληροφορίες.',
+  'ai-assistant.suggestion.documents-overview': 'Τι αφορούν τα έγγραφά μου;',
+  'ai-assistant.suggestion.find-invoices': 'Βρες τιμολόγια και πες μου τα συνολικά ποσά',
+  'ai-assistant.suggestion.financial-summary': 'Δείξε μου μια οικονομική σύνοψη των συναλλαγών μου',
+  'ai-assistant.suggestion.transfer-rules': 'Βρες όλες τις μεταφορές μεταξύ ιδιοκτητών και δημιούργησε έναν κανόνα',
+  'ai-assistant.suggestion.classify-rules': 'Ανάλυσε τις συναλλαγές μου και πρότεινε κανόνες ταξινόμησης',
+  'ai-assistant.suggestion.unclassified': 'Ποιες συναλλαγές μου είναι αταξινόμητες;',
 };

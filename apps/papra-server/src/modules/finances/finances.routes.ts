@@ -7,10 +7,13 @@ import { organizationIdSchema } from '../organizations/organization.schemas.lega
 import { createOrganizationsRepository } from '../organizations/organizations.repository';
 import { ensureUserIsInOrganization } from '../organizations/organizations.usecases';
 import { legacyValidateJsonBody, legacyValidateParams, legacyValidateQuery } from '../shared/validation/validation.legacy';
-import { BANK_PROVIDERS, TRANSACTION_CLASSIFICATIONS } from './finances.constants';
+import { BANK_PROVIDERS, BILLING_CYCLES, TRANSACTION_CLASSIFICATIONS } from './finances.constants';
 import { createFinancesRepository } from './finances.repository';
 import { addBankConnection, autoClassifyTransactions, syncBankTransactions } from './finances.usecases';
 import { getBankProviderAdapter } from './providers/provider.registry';
+import { createTagsRepository } from '../tags/tags.repository';
+import { createTagNotFoundError } from '../tags/tags.errors';
+import { createCustomPropertiesRepository } from '../custom-properties/custom-properties.repository';
 
 export function registerFinancesRoutes(context: RouteDefinitionContext) {
   setupGetBankConnectionsRoute(context);
@@ -26,6 +29,17 @@ export function registerFinancesRoutes(context: RouteDefinitionContext) {
   setupUpdateClassificationRuleRoute(context);
   setupDeleteClassificationRuleRoute(context);
   setupAutoClassifyRoute(context);
+  setupGetOverviewRoute(context);
+  setupGetSubscriptionsRoute(context);
+  setupCreateSubscriptionRoute(context);
+  setupUpdateSubscriptionRoute(context);
+  setupDeleteSubscriptionRoute(context);
+  setupGetTransactionTagsRoute(context);
+  setupAddTransactionTagRoute(context);
+  setupRemoveTransactionTagRoute(context);
+  setupGetTransactionCustomPropertiesRoute(context);
+  setupSetTransactionCustomPropertyRoute(context);
+  setupDeleteTransactionCustomPropertyRoute(context);
 }
 
 function setupGetBankConnectionsRoute({ app, db, config }: RouteDefinitionContext) {
@@ -317,6 +331,7 @@ function setupCreateClassificationRuleRoute({ app, db, config }: RouteDefinition
       classification: z.enum(TRANSACTION_CLASSIFICATIONS),
       conditions: z.array(conditionSchema).min(1),
       conditionMatchMode: z.enum(CONDITION_MATCH_MODES).default('all'),
+      tagIds: z.array(z.string()).default([]),
       priority: z.number().int().min(0).default(0),
     })),
     async (context) => {
@@ -351,6 +366,7 @@ function setupUpdateClassificationRuleRoute({ app, db, config }: RouteDefinition
       classification: z.enum(TRANSACTION_CLASSIFICATIONS).optional(),
       conditions: z.array(conditionSchema).min(1).optional(),
       conditionMatchMode: z.enum(CONDITION_MATCH_MODES).optional(),
+      tagIds: z.array(z.string()).optional(),
       priority: z.number().int().min(0).optional(),
       isActive: z.boolean().optional(),
     })),
@@ -412,9 +428,356 @@ function setupAutoClassifyRoute({ app, db, config }: RouteDefinitionContext) {
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
       const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
-      const { classifiedCount } = await autoClassifyTransactions({ organizationId, financesRepository });
+      const tagsRepository = createTagsRepository({ db });
+      const { classifiedCount } = await autoClassifyTransactions({ organizationId, financesRepository, tagsRepository });
 
       return context.json({ classifiedCount });
+    },
+  );
+}
+
+function setupGetOverviewRoute({ app, db, config }: RouteDefinitionContext) {
+  app.get(
+    '/api/organizations/:organizationId/finances/overview',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({ organizationId: organizationIdSchema })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId } = context.req.valid('param');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      const stats = await financesRepository.getOverviewStats({ organizationId });
+
+      return context.json(stats);
+    },
+  );
+}
+
+function setupGetSubscriptionsRoute({ app, db, config }: RouteDefinitionContext) {
+  app.get(
+    '/api/organizations/:organizationId/finances/subscriptions',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({ organizationId: organizationIdSchema })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId } = context.req.valid('param');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      const { subscriptions } = await financesRepository.getSubscriptions({ organizationId });
+
+      return context.json({ subscriptions });
+    },
+  );
+}
+
+function setupCreateSubscriptionRoute({ app, db, config }: RouteDefinitionContext) {
+  app.post(
+    '/api/organizations/:organizationId/finances/subscriptions',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({ organizationId: organizationIdSchema })),
+    legacyValidateJsonBody(z.object({
+      name: z.string().min(1).max(100),
+      amount: z.number().positive(),
+      currency: z.string().length(3).default('USD'),
+      billingCycle: z.enum(BILLING_CYCLES).default('monthly'),
+      nextPaymentAt: z.coerce.date().nullable().optional(),
+      category: z.enum(TRANSACTION_CLASSIFICATIONS).nullable().optional(),
+      notes: z.string().max(500).nullable().optional(),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId } = context.req.valid('param');
+      const body = context.req.valid('json');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      const { subscription } = await financesRepository.createSubscription({
+        subscription: { ...body, organizationId },
+      });
+
+      return context.json({ subscription }, 201);
+    },
+  );
+}
+
+function setupUpdateSubscriptionRoute({ app, db, config }: RouteDefinitionContext) {
+  app.patch(
+    '/api/organizations/:organizationId/finances/subscriptions/:subscriptionId',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({
+      organizationId: organizationIdSchema,
+      subscriptionId: z.string(),
+    })),
+    legacyValidateJsonBody(z.object({
+      name: z.string().min(1).max(100).optional(),
+      amount: z.number().positive().optional(),
+      currency: z.string().length(3).optional(),
+      billingCycle: z.enum(BILLING_CYCLES).optional(),
+      nextPaymentAt: z.coerce.date().nullable().optional(),
+      category: z.enum(TRANSACTION_CLASSIFICATIONS).nullable().optional(),
+      notes: z.string().max(500).nullable().optional(),
+      isActive: z.boolean().optional(),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, subscriptionId } = context.req.valid('param');
+      const updates = context.req.valid('json');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      const { subscription } = await financesRepository.updateSubscription({
+        subscriptionId,
+        organizationId,
+        updates,
+      });
+
+      return context.json({ subscription });
+    },
+  );
+}
+
+function setupDeleteSubscriptionRoute({ app, db, config }: RouteDefinitionContext) {
+  app.delete(
+    '/api/organizations/:organizationId/finances/subscriptions/:subscriptionId',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({
+      organizationId: organizationIdSchema,
+      subscriptionId: z.string(),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, subscriptionId } = context.req.valid('param');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      await financesRepository.deleteSubscription({ subscriptionId, organizationId });
+
+      return context.json({ success: true });
+    },
+  );
+}
+
+// --- Transaction Tags Routes ---
+
+function setupGetTransactionTagsRoute({ app, db, config }: RouteDefinitionContext) {
+  app.get(
+    '/api/organizations/:organizationId/finances/transactions/:transactionId/tags',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({
+      organizationId: organizationIdSchema,
+      transactionId: z.string(),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, transactionId } = context.req.valid('param');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      await financesRepository.getTransactionById({ transactionId, organizationId });
+
+      const tagsRepository = createTagsRepository({ db });
+      const { tagsByTransactionId } = await tagsRepository.getTagsByTransactionIds({ transactionIds: [transactionId] });
+
+      return context.json({ tags: tagsByTransactionId[transactionId] ?? [] });
+    },
+  );
+}
+
+function setupAddTransactionTagRoute({ app, db, config }: RouteDefinitionContext) {
+  app.post(
+    '/api/organizations/:organizationId/finances/transactions/:transactionId/tags',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({
+      organizationId: organizationIdSchema,
+      transactionId: z.string(),
+    })),
+    legacyValidateJsonBody(z.object({
+      tagId: z.string(),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, transactionId } = context.req.valid('param');
+      const { tagId } = context.req.valid('json');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      await financesRepository.getTransactionById({ transactionId, organizationId });
+
+      const tagsRepository = createTagsRepository({ db });
+      const { tag } = await tagsRepository.getTagById({ tagId, organizationId });
+
+      if (!tag) {
+        throw createTagNotFoundError();
+      }
+
+      await tagsRepository.addTagToTransaction({ tagId, transactionId });
+
+      return context.json({ tag }, 201);
+    },
+  );
+}
+
+function setupRemoveTransactionTagRoute({ app, db, config }: RouteDefinitionContext) {
+  app.delete(
+    '/api/organizations/:organizationId/finances/transactions/:transactionId/tags/:tagId',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({
+      organizationId: organizationIdSchema,
+      transactionId: z.string(),
+      tagId: z.string(),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, transactionId, tagId } = context.req.valid('param');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      await financesRepository.getTransactionById({ transactionId, organizationId });
+
+      const tagsRepository = createTagsRepository({ db });
+      const { tag } = await tagsRepository.getTagById({ tagId, organizationId });
+
+      if (!tag) {
+        throw createTagNotFoundError();
+      }
+
+      await tagsRepository.removeTagFromTransaction({ tagId, transactionId });
+
+      return context.body(null, 204);
+    },
+  );
+}
+
+// --- Transaction Custom Properties Routes ---
+
+function setupGetTransactionCustomPropertiesRoute({ app, db, config }: RouteDefinitionContext) {
+  app.get(
+    '/api/organizations/:organizationId/finances/transactions/:transactionId/custom-properties',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({
+      organizationId: organizationIdSchema,
+      transactionId: z.string(),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, transactionId } = context.req.valid('param');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      await financesRepository.getTransactionById({ transactionId, organizationId });
+
+      const customPropertiesRepository = createCustomPropertiesRepository({ db });
+      const { values } = await customPropertiesRepository.getTransactionCustomPropertyValues({ transactionId });
+
+      return context.json({ values });
+    },
+  );
+}
+
+function setupSetTransactionCustomPropertyRoute({ app, db, config }: RouteDefinitionContext) {
+  app.put(
+    '/api/organizations/:organizationId/finances/transactions/:transactionId/custom-properties/:propertyDefinitionId',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({
+      organizationId: organizationIdSchema,
+      transactionId: z.string(),
+      propertyDefinitionId: z.string(),
+    })),
+    legacyValidateJsonBody(z.object({
+      values: z.array(z.object({
+        textValue: z.string().nullable().optional(),
+        numberValue: z.number().nullable().optional(),
+        dateValue: z.string().datetime().nullable().optional(),
+        booleanValue: z.boolean().nullable().optional(),
+        selectOptionId: z.string().nullable().optional(),
+      })).min(1),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, transactionId, propertyDefinitionId } = context.req.valid('param');
+      const { values } = context.req.valid('json');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      await financesRepository.getTransactionById({ transactionId, organizationId });
+
+      const customPropertiesRepository = createCustomPropertiesRepository({ db });
+      const { definition } = await customPropertiesRepository.getPropertyDefinitionById({ propertyDefinitionId, organizationId });
+
+      if (!definition) {
+        throw new Error('Property definition not found');
+      }
+
+      await customPropertiesRepository.setTransactionCustomPropertyValue({
+        transactionId,
+        propertyDefinitionId,
+        values: values.map(v => ({
+          ...v,
+          dateValue: v.dateValue ? new Date(v.dateValue) : null,
+        })),
+      });
+
+      return context.json({ success: true });
+    },
+  );
+}
+
+function setupDeleteTransactionCustomPropertyRoute({ app, db, config }: RouteDefinitionContext) {
+  app.delete(
+    '/api/organizations/:organizationId/finances/transactions/:transactionId/custom-properties/:propertyDefinitionId',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({
+      organizationId: organizationIdSchema,
+      transactionId: z.string(),
+      propertyDefinitionId: z.string(),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, transactionId, propertyDefinitionId } = context.req.valid('param');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      await financesRepository.getTransactionById({ transactionId, organizationId });
+
+      const customPropertiesRepository = createCustomPropertiesRepository({ db });
+      await customPropertiesRepository.deleteTransactionCustomPropertyValue({ transactionId, propertyDefinitionId });
+
+      return context.body(null, 204);
     },
   );
 }

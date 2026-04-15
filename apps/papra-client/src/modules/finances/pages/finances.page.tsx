@@ -357,11 +357,7 @@ export const FinancesPage: Component = () => {
                           caretIcon={<div class="i-tabler-chevron-down size-3 opacity-50" />}
                         >
                           <SelectValue<{ value: string | null; label: string }>>
-                            {state => (
-                              <span class={cn(classificationColors[state.selectedOption()?.value ?? ''])}>
-                                {state.selectedOption()?.label ?? 'Unclassified'}
-                              </span>
-                            )}
+                            {state => state.selectedOption()?.label ?? 'Unclassified'}
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent />

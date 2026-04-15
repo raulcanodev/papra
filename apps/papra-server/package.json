@@ -40,6 +40,8 @@
     "maintenance:migrate-document-storage": "tsx --env-file-if-exists=.env src/scripts/migrate-document-storage.script.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.69",
+    "@ai-sdk/openai": "^3.0.53",
     "@aws-sdk/client-s3": "^3.835.0",
     "@aws-sdk/lib-storage": "^3.835.0",
     "@azure/storage-blob": "^12.27.0",
@@ -61,6 +63,7 @@
     "@papra/webhooks": "workspace:*",
     "@paralleldrive/cuid2": "^2.2.2",
     "@sindresorhus/slugify": "^3.0.0",
+    "ai": "^6.0.161",
     "better-auth": "catalog:",
     "busboy": "^1.6.0",
     "c12": "^3.0.4",

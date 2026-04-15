@@ -1,5 +1,6 @@
 import type { RouteDefinitionContext } from './server.types';
 import { registerAdminRoutes } from '../admin/admin.routes';
+import { registerAiAssistantRoutes } from '../ai-assistant/ai-assistant.routes';
 import { registerApiKeysRoutes } from '../api-keys/api-keys.routes';
 import { registerConfigRoutes } from '../config/config.routes';
 import { registerCustomPropertiesRoutes } from '../custom-properties/custom-properties.routes';
@@ -37,4 +38,5 @@ export function registerRoutes(context: RouteDefinitionContext) {
   registerAdminRoutes(context);
   registerFeatureFlagsRoutes(context);
   registerFinancesRoutes(context);
+  registerAiAssistantRoutes(context);
 }

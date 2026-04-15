@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/modules/ui/c
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/modules/ui/components/select';
 import { TextField, TextFieldRoot } from '@/modules/ui/components/textfield';
 import { createToast } from '@/modules/ui/components/sonner';
+import { DocumentTagPicker } from '@/modules/tags/components/tag-picker.component';
 import {
   autoClassifyTransactions,
   createClassificationRule,
@@ -17,6 +18,7 @@ import {
   fetchClassificationRules,
   updateClassificationRule,
 } from '../finances.services';
+import { fetchTags } from '@/modules/tags/tags.services';
 
 const classificationOptions = [
   { value: 'expense', label: 'Expense' },
@@ -67,6 +69,7 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
   const [ruleClassification, setRuleClassification] = createSignal<string>('expense');
   const [conditionMatchMode, setConditionMatchMode] = createSignal<'all' | 'any'>('all');
   const [conditions, setConditions] = createSignal<RuleCondition[]>([defaultCondition()]);
+  const [ruleTagIds, setRuleTagIds] = createSignal<string[]>([]);
 
   const isEditing = () => editingRuleId() !== null;
 
@@ -76,6 +79,7 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
     setRuleClassification('expense');
     setConditionMatchMode('all');
     setConditions([defaultCondition()]);
+    setRuleTagIds([]);
   };
 
   const openAddDialog = () => {
@@ -83,12 +87,13 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
     setIsDialogOpen(true);
   };
 
-  const openEditDialog = (rule: { id: string; name: string; classification: string; conditions: RuleCondition[]; conditionMatchMode: string }) => {
+  const openEditDialog = (rule: { id: string; name: string; classification: string; conditions: RuleCondition[]; conditionMatchMode: string; tagIds?: string[] }) => {
     setEditingRuleId(rule.id);
     setRuleName(rule.name);
     setRuleClassification(rule.classification);
     setConditionMatchMode((rule.conditionMatchMode as 'all' | 'any') ?? 'all');
     setConditions(rule.conditions.length > 0 ? [...rule.conditions] : [defaultCondition()]);
+    setRuleTagIds(rule.tagIds ?? []);
     setIsDialogOpen(true);
   };
 
@@ -113,6 +118,19 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
     queryFn: () => fetchClassificationRules({ organizationId: props.organizationId }),
   }));
 
+  const tagsQuery = useQuery(() => ({
+    queryKey: ['organizations', props.organizationId, 'tags'],
+    queryFn: () => fetchTags({ organizationId: props.organizationId }),
+  }));
+
+  const tagsMap = () => {
+    const map = new Map<string, { name: string; color: string | null }>();
+    for (const tag of tagsQuery.data?.tags ?? []) {
+      map.set(tag.id, { name: tag.name, color: tag.color });
+    }
+    return map;
+  };
+
   const createMut = createMutation(() => ({
     mutationFn: () => createClassificationRule({
       organizationId: props.organizationId,
@@ -121,6 +139,7 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
         classification: ruleClassification(),
         conditions: conditions(),
         conditionMatchMode: conditionMatchMode(),
+        tagIds: ruleTagIds(),
       },
     }),
     onSuccess: () => {
@@ -143,6 +162,7 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
         classification: ruleClassification(),
         conditions: conditions(),
         conditionMatchMode: conditionMatchMode(),
+        tagIds: ruleTagIds(),
       },
     }),
     onSuccess: () => {
@@ -214,6 +234,19 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
                     <Badge class={cn('text-xs', classificationColors[rule.classification])}>
                       {classificationOptions.find(c => c.value === rule.classification)?.label}
                     </Badge>
+                    <For each={rule.tagIds ?? []}>
+                      {tagId => {
+                        const tag = () => tagsMap().get(tagId);
+                        return (
+                          <Show when={tag()}>
+                            <Badge variant="outline" class="text-xs">
+                              <div class="size-2 rounded-full mr-1" style={{ background: tag()!.color ?? '#888' }} />
+                              {tag()!.name}
+                            </Badge>
+                          </Show>
+                        );
+                      }}
+                    </For>
                   </div>
                   <div class="text-xs text-muted-foreground mt-1 flex flex-col gap-0.5">
                     <For each={rule.conditions}>
@@ -297,6 +330,17 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
                 </SelectTrigger>
                 <SelectContent />
               </Select>
+            </div>
+
+            {/* Apply tags */}
+            <div>
+              <label class="text-sm font-medium mb-1.5 block">Apply tags (optional)</label>
+              <p class="text-xs text-muted-foreground mb-1.5">Tags will be added to transactions when this rule matches</p>
+              <DocumentTagPicker
+                organizationId={props.organizationId}
+                tagIds={ruleTagIds()}
+                onTagsChange={({ tags }) => setRuleTagIds(tags.map(t => t.id))}
+              />
             </div>
 
             {/* Conditions */}

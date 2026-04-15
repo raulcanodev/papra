@@ -5,10 +5,12 @@ import { documentsTable } from '../documents/documents.table';
 import { organizationsTable } from '../organizations/organizations.table';
 import { createPrimaryKeyField, createTimestampColumns } from '../shared/db/columns.helpers';
 import { usersTable } from '../users/users.table';
+import { transactionsTable } from '../finances/finances.table';
 import {
   CUSTOM_PROPERTY_DEFINITION_ID_PREFIX,
   CUSTOM_PROPERTY_TYPES_LIST,
   DOCUMENT_CUSTOM_PROPERTY_VALUE_ID_PREFIX,
+  TRANSACTION_CUSTOM_PROPERTY_VALUE_ID_PREFIX,
 } from './custom-properties.constants';
 import { customPropertySelectOptionsTable } from './options/custom-properties-options.table';
 
@@ -44,5 +46,22 @@ export const documentCustomPropertyValuesTable = sqliteTable(
     selectOptionId: text('select_option_id').references(() => customPropertySelectOptionsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
     userId: text('user_id').references(() => usersTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
     relatedDocumentId: text('related_document_id').references(() => documentsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+  },
+);
+
+export const transactionCustomPropertyValuesTable = sqliteTable(
+  'transaction_custom_property_values',
+  {
+    ...createPrimaryKeyField({ prefix: TRANSACTION_CUSTOM_PROPERTY_VALUE_ID_PREFIX }),
+    ...createTimestampColumns(),
+
+    transactionId: text('transaction_id').notNull().references(() => transactionsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    propertyDefinitionId: text('property_definition_id').notNull().references(() => customPropertyDefinitionsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+
+    textValue: text('text_value'),
+    numberValue: real('number_value'),
+    dateValue: integer('date_value', { mode: 'timestamp_ms' }),
+    booleanValue: integer('boolean_value', { mode: 'boolean' }),
+    selectOptionId: text('select_option_id').references(() => customPropertySelectOptionsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
   },
 );

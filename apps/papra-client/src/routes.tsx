@@ -51,7 +51,10 @@ import { CreateWebhookPage } from './modules/webhooks/pages/create-webhook.page'
 import { EditWebhookPage } from './modules/webhooks/pages/edit-webhook.page';
 import { WebhooksPage } from './modules/webhooks/pages/webhooks.page';
 import { FeatureFlagsProvider } from './modules/feature-flags/feature-flags.provider';
-import { FinancesPage } from './modules/finances/pages/finances.page';
+import { OverviewPage } from './modules/finances/pages/overview.page';
+import { SubscriptionsPage } from './modules/finances/pages/subscriptions.page';
+import { TransactionsPage } from './modules/finances/pages/transactions.page';
+import { AiAssistantPage } from './modules/ai-assistant/pages/ai-assistant.page';
 
 export const routes: RouteDefinition[] = [
   {
@@ -134,7 +137,7 @@ export const routes: RouteDefinition[] = [
                 children: [
                   {
                     path: '/',
-                    component: OrganizationPage,
+                    component: () => <Navigate href="ai-assistant" />,
                   },
                   {
                     path: '/documents',
@@ -182,7 +185,28 @@ export const routes: RouteDefinition[] = [
                   },
                   {
                     path: '/finances',
-                    component: FinancesPage,
+                    children: [
+                      {
+                        path: '/',
+                        component: () => <Navigate href="overview" />,
+                      },
+                      {
+                        path: '/overview',
+                        component: OverviewPage,
+                      },
+                      {
+                        path: '/transactions',
+                        component: TransactionsPage,
+                      },
+                      {
+                        path: '/subscriptions',
+                        component: SubscriptionsPage,
+                      },
+                    ],
+                  },
+                  {
+                    path: '/ai-assistant',
+                    component: AiAssistantPage,
                   },
                   {
                     path: '/invite',

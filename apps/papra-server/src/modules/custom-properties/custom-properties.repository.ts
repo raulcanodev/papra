@@ -11,7 +11,7 @@ import { isDefined, isNil } from '../shared/utils';
 import { usersTable } from '../users/users.table';
 import { createCustomPropertyDefinitionAlreadyExistsError } from './custom-properties.errors';
 import { generatePropertyKey } from './custom-properties.repository.models';
-import { customPropertyDefinitionsTable, documentCustomPropertyValuesTable } from './custom-properties.table';
+import { customPropertyDefinitionsTable, documentCustomPropertyValuesTable, transactionCustomPropertyValuesTable } from './custom-properties.table';
 import { customPropertySelectOptionsTable } from './options/custom-properties-options.table';
 
 export type CustomPropertiesRepository = ReturnType<typeof createCustomPropertiesRepository>;
@@ -30,6 +30,11 @@ export function createCustomPropertiesRepository({ db }: { db: Database }) {
       getCustomPropertyValuesByDocumentIds,
       setDocumentCustomPropertyValue,
       deleteDocumentCustomPropertyValue,
+
+      getTransactionCustomPropertyValues,
+      getCustomPropertyValuesByTransactionIds,
+      setTransactionCustomPropertyValue,
+      deleteTransactionCustomPropertyValue,
     },
     { db },
   );
@@ -362,6 +367,122 @@ async function deleteDocumentCustomPropertyValue({ documentId, propertyDefinitio
       and(
         eq(documentCustomPropertyValuesTable.documentId, documentId),
         eq(documentCustomPropertyValuesTable.propertyDefinitionId, propertyDefinitionId),
+      ),
+    );
+}
+
+async function getTransactionCustomPropertyValues({ transactionId, db }: { transactionId: string; db: Database }) {
+  const values = await db
+    .select({
+      value: {
+        id: transactionCustomPropertyValuesTable.id,
+        propertyDefinitionId: transactionCustomPropertyValuesTable.propertyDefinitionId,
+        textValue: transactionCustomPropertyValuesTable.textValue,
+        numberValue: transactionCustomPropertyValuesTable.numberValue,
+        dateValue: transactionCustomPropertyValuesTable.dateValue,
+        booleanValue: transactionCustomPropertyValuesTable.booleanValue,
+        selectOptionId: transactionCustomPropertyValuesTable.selectOptionId,
+      },
+      definition: {
+        id: customPropertyDefinitionsTable.id,
+        name: customPropertyDefinitionsTable.name,
+        key: customPropertyDefinitionsTable.key,
+        type: customPropertyDefinitionsTable.type,
+      },
+      option: {
+        id: customPropertySelectOptionsTable.id,
+        name: customPropertySelectOptionsTable.name,
+      },
+    })
+    .from(transactionCustomPropertyValuesTable)
+    .innerJoin(customPropertyDefinitionsTable, eq(transactionCustomPropertyValuesTable.propertyDefinitionId, customPropertyDefinitionsTable.id))
+    .leftJoin(customPropertySelectOptionsTable, eq(transactionCustomPropertyValuesTable.selectOptionId, customPropertySelectOptionsTable.id))
+    .where(eq(transactionCustomPropertyValuesTable.transactionId, transactionId));
+
+  return { values };
+}
+
+async function getCustomPropertyValuesByTransactionIds({ transactionIds, db }: { transactionIds: string[]; db: Database }) {
+  if (transactionIds.length === 0) {
+    return { valuesByTransactionId: {} as Record<string, { value: { id: string; propertyDefinitionId: string; textValue: string | null; numberValue: number | null; dateValue: Date | null; booleanValue: boolean | null; selectOptionId: string | null }; definition: { id: string; name: string; key: string; type: string }; option: { id: string; name: string } | null }[]> };
+  }
+
+  const rows = await db
+    .select({
+      transactionId: transactionCustomPropertyValuesTable.transactionId,
+      value: {
+        id: transactionCustomPropertyValuesTable.id,
+        propertyDefinitionId: transactionCustomPropertyValuesTable.propertyDefinitionId,
+        textValue: transactionCustomPropertyValuesTable.textValue,
+        numberValue: transactionCustomPropertyValuesTable.numberValue,
+        dateValue: transactionCustomPropertyValuesTable.dateValue,
+        booleanValue: transactionCustomPropertyValuesTable.booleanValue,
+        selectOptionId: transactionCustomPropertyValuesTable.selectOptionId,
+      },
+      definition: {
+        id: customPropertyDefinitionsTable.id,
+        name: customPropertyDefinitionsTable.name,
+        key: customPropertyDefinitionsTable.key,
+        type: customPropertyDefinitionsTable.type,
+      },
+      option: {
+        id: customPropertySelectOptionsTable.id,
+        name: customPropertySelectOptionsTable.name,
+      },
+    })
+    .from(transactionCustomPropertyValuesTable)
+    .innerJoin(customPropertyDefinitionsTable, eq(transactionCustomPropertyValuesTable.propertyDefinitionId, customPropertyDefinitionsTable.id))
+    .leftJoin(customPropertySelectOptionsTable, eq(transactionCustomPropertyValuesTable.selectOptionId, customPropertySelectOptionsTable.id))
+    .where(inArray(transactionCustomPropertyValuesTable.transactionId, transactionIds));
+
+  const valuesByTransactionId: Record<string, { value: typeof rows[0]['value']; definition: typeof rows[0]['definition']; option: typeof rows[0]['option'] }[]> = {};
+
+  for (const { transactionId, ...rest } of rows) {
+    (valuesByTransactionId[transactionId] ??= []).push(rest);
+  }
+
+  return { valuesByTransactionId };
+}
+
+async function setTransactionCustomPropertyValue({ transactionId, propertyDefinitionId, values, db }: {
+  transactionId: string;
+  propertyDefinitionId: string;
+  values: {
+    textValue?: string | null;
+    numberValue?: number | null;
+    dateValue?: Date | null;
+    booleanValue?: boolean | null;
+    selectOptionId?: string | null;
+  }[];
+  db: Database;
+}) {
+  await db
+    .delete(transactionCustomPropertyValuesTable)
+    .where(
+      and(
+        eq(transactionCustomPropertyValuesTable.transactionId, transactionId),
+        eq(transactionCustomPropertyValuesTable.propertyDefinitionId, propertyDefinitionId),
+      ),
+    );
+
+  if (values.length > 0) {
+    await db
+      .insert(transactionCustomPropertyValuesTable)
+      .values(values.map(v => ({
+        transactionId,
+        propertyDefinitionId,
+        ...v,
+      })));
+  }
+}
+
+async function deleteTransactionCustomPropertyValue({ transactionId, propertyDefinitionId, db }: { transactionId: string; propertyDefinitionId: string; db: Database }) {
+  await db
+    .delete(transactionCustomPropertyValuesTable)
+    .where(
+      and(
+        eq(transactionCustomPropertyValuesTable.transactionId, transactionId),
+        eq(transactionCustomPropertyValuesTable.propertyDefinitionId, propertyDefinitionId),
       ),
     );
 }

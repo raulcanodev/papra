@@ -1089,4 +1089,20 @@ export const translations: Partial<TranslationsDictionary> = {
   'socials.x': 'X',
   'socials.reddit': 'Reddit',
   'socials.linkedin': 'LinkedIn',
+
+  // AI Assistant page
+  'ai-assistant.history.title': 'История',
+  'ai-assistant.history.empty': 'Нет предыдущих чатов',
+  'ai-assistant.subtitle': 'Умный помощник',
+  'ai-assistant.new-chat': 'Новый чат',
+  'ai-assistant.welcome.description': 'Анализируйте документы и транзакции, находите закономерности и создавайте правила классификации с помощью ИИ.',
+  'ai-assistant.input.placeholder': 'Сообщение для Papra AI...',
+  'ai-assistant.model.select': 'Выбрать модель',
+  'ai-assistant.disclaimer': 'Papra AI может ошибаться. Проверяйте важную информацию.',
+  'ai-assistant.suggestion.documents-overview': 'О чем мои документы?',
+  'ai-assistant.suggestion.find-invoices': 'Найди счета и скажи мне общие суммы',
+  'ai-assistant.suggestion.financial-summary': 'Покажи финансовую сводку по моим транзакциям',
+  'ai-assistant.suggestion.transfer-rules': 'Найди все переводы между владельцами и создай правило',
+  'ai-assistant.suggestion.classify-rules': 'Проанализируй мои транзакции и предложи правила классификации',
+  'ai-assistant.suggestion.unclassified': 'Какие мои транзакции не классифицированы?',
 };

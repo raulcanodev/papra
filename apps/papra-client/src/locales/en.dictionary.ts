@@ -1087,4 +1087,20 @@ export const translations = {
   'socials.x': 'X',
   'socials.reddit': 'Reddit',
   'socials.linkedin': 'LinkedIn',
+
+  // AI Assistant page
+  'ai-assistant.history.title': 'History',
+  'ai-assistant.history.empty': 'No previous chats',
+  'ai-assistant.subtitle': 'Intelligent assistant',
+  'ai-assistant.new-chat': 'New chat',
+  'ai-assistant.welcome.description': 'Analyze documents and transactions, discover patterns and create classification rules with AI.',
+  'ai-assistant.input.placeholder': 'Message Papra AI...',
+  'ai-assistant.model.select': 'Select model',
+  'ai-assistant.disclaimer': 'Papra AI can make mistakes. Verify important information.',
+  'ai-assistant.suggestion.documents-overview': 'What are my documents about?',
+  'ai-assistant.suggestion.find-invoices': 'Find invoices and tell me the total amounts',
+  'ai-assistant.suggestion.financial-summary': 'Show me a financial summary of my transactions',
+  'ai-assistant.suggestion.transfer-rules': 'Find all transfers between owners and create a rule',
+  'ai-assistant.suggestion.classify-rules': 'Analyze my transactions and suggest classification rules',
+  'ai-assistant.suggestion.unclassified': 'What are my unclassified transactions?',
 } as const;

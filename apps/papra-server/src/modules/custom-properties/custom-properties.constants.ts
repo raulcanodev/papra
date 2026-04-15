@@ -6,6 +6,9 @@ export const CUSTOM_PROPERTY_DEFINITION_ID_REGEX = createPrefixedIdRegex({ prefi
 export const DOCUMENT_CUSTOM_PROPERTY_VALUE_ID_PREFIX = 'dcpv';
 export const DOCUMENT_CUSTOM_PROPERTY_VALUE_ID_REGEX = createPrefixedIdRegex({ prefix: DOCUMENT_CUSTOM_PROPERTY_VALUE_ID_PREFIX });
 
+export const TRANSACTION_CUSTOM_PROPERTY_VALUE_ID_PREFIX = 'tcpv';
+export const TRANSACTION_CUSTOM_PROPERTY_VALUE_ID_REGEX = createPrefixedIdRegex({ prefix: TRANSACTION_CUSTOM_PROPERTY_VALUE_ID_PREFIX });
+
 export const CUSTOM_PROPERTY_TYPES = {
   TEXT: 'text',
   NUMBER: 'number',

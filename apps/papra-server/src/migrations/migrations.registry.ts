@@ -21,6 +21,9 @@ import { customPropertiesMigration } from './list/0018-custom-properties.migrati
 import { financesMigration } from './list/0019-finances.migration';
 import { classificationRulesMigration } from './list/0020-classification-rules.migration';
 import { classificationRulesConditionsMigration } from './list/0021-classification-rules-conditions.migration';
+import { financeSubscriptionsMigration } from './list/0022-finance-subscriptions.migration';
+import { aiChatHistoryMigration } from './list/0023-ai-chat-history.migration';
+import { transactionTagsAndPropertiesMigration } from './list/0024-transaction-tags-and-properties.migration';
 
 export const migrations: Migration[] = [
   initialSchemaSetupMigration,
@@ -44,4 +47,7 @@ export const migrations: Migration[] = [
   financesMigration,
   classificationRulesMigration,
   classificationRulesConditionsMigration,
+  financeSubscriptionsMigration,
+  aiChatHistoryMigration,
+  transactionTagsAndPropertiesMigration,
 ];

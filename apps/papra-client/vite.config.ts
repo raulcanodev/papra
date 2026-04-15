@@ -32,6 +32,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: ['@pdfslick/solid'],
+    include: ['debug', 'extend', 'style-to-object', 'ms', 'inherits', 'readable-stream'],
   },
   // test: {
   //   exclude: [...configDefaults.exclude, '**/*.e2e.test.ts'],

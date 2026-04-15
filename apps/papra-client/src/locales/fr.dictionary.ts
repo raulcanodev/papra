@@ -1089,4 +1089,20 @@ export const translations: Partial<TranslationsDictionary> = {
   'socials.x': 'X',
   'socials.reddit': 'Reddit',
   'socials.linkedin': 'LinkedIn',
+
+  // AI Assistant page
+  'ai-assistant.history.title': 'Historique',
+  'ai-assistant.history.empty': 'Aucune conversation précédente',
+  'ai-assistant.subtitle': 'Assistant intelligent',
+  'ai-assistant.new-chat': 'Nouvelle conversation',
+  'ai-assistant.welcome.description': 'Analysez des documents et des transactions, découvrez des schémas et créez des règles de classification avec l’IA.',
+  'ai-assistant.input.placeholder': 'Message à Papra AI...',
+  'ai-assistant.model.select': 'Sélectionner un modèle',
+  'ai-assistant.disclaimer': 'Papra AI peut se tromper. Vérifiez les informations importantes.',
+  'ai-assistant.suggestion.documents-overview': 'De quoi parlent mes documents ?',
+  'ai-assistant.suggestion.find-invoices': 'Trouvez les factures et indiquez-moi les montants totaux',
+  'ai-assistant.suggestion.financial-summary': 'Montrez-moi un résumé financier de mes transactions',
+  'ai-assistant.suggestion.transfer-rules': 'Trouvez tous les transferts entre propriétaires et créez une règle',
+  'ai-assistant.suggestion.classify-rules': 'Analysez mes transactions et suggérez des règles de classification',
+  'ai-assistant.suggestion.unclassified': 'Quelles sont mes transactions non classées ?',
 };

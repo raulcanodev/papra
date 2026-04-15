@@ -1,5 +1,6 @@
 import type { BankProvider, TransactionClassification } from './finances.constants';
 import type { FinancesRepository } from './finances.repository';
+import type { TagsRepository } from '../tags/tags.repository';
 import { getBankProviderAdapter } from './providers/provider.registry';
 import { createBankSyncError } from './finances.errors';
 
@@ -142,9 +143,11 @@ function doesRuleMatch(rule: { conditions: Array<{ field: string; operator: stri
 export async function autoClassifyTransactions({
   organizationId,
   financesRepository,
+  tagsRepository,
 }: {
   organizationId: string;
   financesRepository: FinancesRepository;
+  tagsRepository?: TagsRepository;
 }) {
   const { rules } = await financesRepository.getClassificationRules({ organizationId });
   const activeRules = rules.filter(r => r.isActive);
@@ -178,6 +181,13 @@ export async function autoClassifyTransactions({
             organizationId,
             classification: rule.classification as TransactionClassification,
           });
+
+          // Apply tags if the rule specifies any
+          const ruleTagIds = rule.tagIds ?? [];
+          if (ruleTagIds.length > 0 && tagsRepository) {
+            await tagsRepository.addTagsToTransaction({ tagIds: ruleTagIds, transactionId: transaction.id });
+          }
+
           classifiedCount++;
           break; // First matching rule wins (highest priority first)
         }

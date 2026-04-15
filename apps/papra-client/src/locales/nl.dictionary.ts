@@ -1089,4 +1089,20 @@ export const translations: Partial<TranslationsDictionary> = {
   'socials.x': 'X',
   'socials.reddit': 'Reddit',
   'socials.linkedin': 'LinkedIn',
+
+  // AI Assistant page
+  'ai-assistant.history.title': 'Geschiedenis',
+  'ai-assistant.history.empty': 'Geen eerdere chats',
+  'ai-assistant.subtitle': 'Slimme assistent',
+  'ai-assistant.new-chat': 'Nieuwe chat',
+  'ai-assistant.welcome.description': 'Analyseer documenten en transacties, ontdek patronen en maak classificatieregels met AI.',
+  'ai-assistant.input.placeholder': 'Bericht aan Papra AI...',
+  'ai-assistant.model.select': 'Model selecteren',
+  'ai-assistant.disclaimer': 'Papra AI kan fouten maken. Controleer belangrijke informatie.',
+  'ai-assistant.suggestion.documents-overview': 'Waar gaan mijn documenten over?',
+  'ai-assistant.suggestion.find-invoices': 'Zoek facturen en vertel me de totaalbedragen',
+  'ai-assistant.suggestion.financial-summary': 'Toon me een financieel overzicht van mijn transacties',
+  'ai-assistant.suggestion.transfer-rules': 'Zoek alle overdrachten tussen eigenaren en maak een regel',
+  'ai-assistant.suggestion.classify-rules': 'Analyseer mijn transacties en stel classificatieregels voor',
+  'ai-assistant.suggestion.unclassified': 'Welke van mijn transacties zijn nog niet geclassificeerd?',
 };

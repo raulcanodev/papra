@@ -11,7 +11,7 @@ import { Button } from '@/modules/ui/components/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/modules/ui/components/dropdown-menu';
 import { LanguageSwitcher } from '@/modules/ui/layouts/sidenav.layout';
 
-export const UserSettingsDropdown: Component<{ class?: string }> = (props) => {
+export const UserSettingsDropdown: Component<{ class?: string; userName?: string | null; userEmail?: string }> = (props) => {
   const { getPendingInvitationsCount } = usePendingInvitationsCount();
   const aboutDialog = useAboutDialog();
   const { t } = useI18n();
@@ -19,11 +19,31 @@ export const UserSettingsDropdown: Component<{ class?: string }> = (props) => {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger as={Button} class={cn('relative', props.class)} variant="outline" aria-label="User menu" size="icon">
-        <div class="i-tabler-user size-4" />
-        <Show when={getPendingInvitationsCount() > 0}>
-          <div class="absolute -top-2 -right-2 bg-primary text-primary-foreground rounded-xl text-xs px-1.5 py-0.8 font-bold leading-none">
-            {getPendingInvitationsCount()}
+      <DropdownMenuTrigger
+        as={Button}
+        class={cn(
+          'relative w-full justify-start items-center gap-2 dark:text-muted-foreground truncate',
+          props.class,
+        )}
+        variant="ghost"
+        aria-label="User menu"
+      >
+        <div class="relative shrink-0">
+          <div class="i-tabler-user size-5 text-muted-foreground opacity-50" />
+          <Show when={getPendingInvitationsCount() > 0}>
+            <div class="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground rounded-xl text-xs px-1 leading-tight font-bold">
+              {getPendingInvitationsCount()}
+            </div>
+          </Show>
+        </div>
+        <Show when={props.userName || props.userEmail}>
+          <div class="flex flex-col items-start min-w-0 flex-1">
+            <Show when={props.userName}>
+              <span class="text-sm font-medium truncate leading-tight text-foreground">{props.userName}</span>
+            </Show>
+            <Show when={props.userEmail}>
+              <span class="text-xs text-muted-foreground truncate leading-tight">{props.userEmail}</span>
+            </Show>
           </div>
         </Show>
       </DropdownMenuTrigger>

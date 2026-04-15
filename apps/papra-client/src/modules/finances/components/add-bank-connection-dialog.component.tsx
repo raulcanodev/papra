@@ -117,6 +117,32 @@ export const AddBankConnectionDialog: Component<{ organizationId: string }> = (p
                   onInput={e => setApiKey(e.currentTarget.value)}
                 />
               </TextFieldRoot>
+              <Show when={provider() === 'wise'}>
+                <p class="text-xs text-muted-foreground mt-1.5">
+                  {'Find your API token in '}
+                  <a
+                    href="https://wise.com/your-account/integrations-and-tools/api-tokens"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-primary underline underline-offset-2 hover:opacity-80"
+                  >
+                    Wise → Integrations & Tools → API tokens
+                  </a>
+                </p>
+              </Show>
+              <Show when={provider() === 'mercury'}>
+                <p class="text-xs text-muted-foreground mt-1.5">
+                  {'Find your API token in '}
+                  <a
+                    href="https://app.mercury.com/settings/tokens"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-primary underline underline-offset-2 hover:opacity-80"
+                  >
+                    Mercury → Settings → API tokens
+                  </a>
+                </p>
+              </Show>
             </div>
 
             <Button
