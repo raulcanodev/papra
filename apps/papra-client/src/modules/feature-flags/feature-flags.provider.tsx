@@ -1,6 +1,6 @@
 import type { ParentComponent } from 'solid-js';
 import { useQuery } from '@tanstack/solid-query';
-import { createContext, Show, useContext } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
 import { apiClient } from '../shared/http/api-client';
 
 type FeatureFlagId = string;
@@ -36,15 +36,13 @@ export const FeatureFlagsProvider: ParentComponent = (props) => {
   }));
 
   return (
-    <Show when={query.data} fallback={props.children}>
-      <FeatureFlagsContext.Provider
-        value={{
-          flags: query.data!.featureFlags,
-          hasFlag: (flagId: string) => query.data!.featureFlags.includes(flagId),
-        }}
-      >
-        {props.children}
-      </FeatureFlagsContext.Provider>
-    </Show>
+    <FeatureFlagsContext.Provider
+      value={{
+        flags: query.data?.featureFlags ?? [],
+        hasFlag: (flagId: string) => query.data?.featureFlags.includes(flagId) ?? false,
+      }}
+    >
+      {props.children}
+    </FeatureFlagsContext.Provider>
   );
 };
