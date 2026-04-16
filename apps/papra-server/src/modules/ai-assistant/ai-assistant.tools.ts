@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { searchOrganizationDocuments } from '../documents/document-search/document-search.usecase';
 import { createDocumentsRepository } from '../documents/documents.repository';
 import { createFinancesRepository } from '../finances/finances.repository';
+import { convertCurrency } from '../finances/exchange-rates';
 import { autoClassifyTransactions } from '../finances/finances.usecases';
 import { createSubscriptionsRepository } from '../subscriptions/subscriptions.repository';
 import { createTaggingRulesRepository } from '../tagging-rules/tagging-rules.repository';
@@ -192,11 +193,47 @@ export function createAssistantTools({ db, organizationId, authSecret, documentS
     }),
 
     getAccountBalances: tool({
-      description: 'Get current account balances for all connected bank accounts. Returns the cached balance, currency, bank name, and provider for each active connection. Use this when the user asks about their balance, how much money they have, or account status.',
+      description: 'Get current account balances for all connected bank accounts. Returns the cached balance, currency, bank name, and provider for each active connection, plus the total balance converted to a single currency using real ECB exchange rates. Use this when the user asks about their balance, how much money they have, or account status. IMPORTANT: when reporting totals across different currencies, always use the totalBalance and totalBalanceCurrency from this response — never estimate exchange rates yourself.',
       inputSchema: zodSchema(emptyParams),
       execute: async () => {
         const { balances } = await financesRepo.getAccountBalances({ organizationId });
-        return { balances };
+
+        if (balances.length === 0) {
+          return { balances, totalBalance: 0, totalBalanceCurrency: 'USD', exchangeRates: {} };
+        }
+
+        const currencyCounts = new Map<string, number>();
+        for (const b of balances) {
+          currencyCounts.set(b.currency, (currencyCounts.get(b.currency) ?? 0) + 1);
+        }
+        const displayCurrency = [...currencyCounts.entries()].sort((a, b) => b[1] - a[1])[0]![0];
+
+        const exchangeRates: Record<string, number> = {};
+        let totalBalance = 0;
+
+        for (const b of balances) {
+          if (b.currency === displayCurrency) {
+            totalBalance += b.balance;
+          }
+          else {
+            try {
+              if (exchangeRates[b.currency] == null) {
+                exchangeRates[b.currency] = await convertCurrency({ amount: 1, from: b.currency, to: displayCurrency });
+              }
+              totalBalance += b.balance * exchangeRates[b.currency]!;
+            }
+            catch {
+              // skip if conversion fails
+            }
+          }
+        }
+
+        return {
+          balances,
+          totalBalance: Math.round(totalBalance * 100) / 100,
+          totalBalanceCurrency: displayCurrency,
+          exchangeRates,
+        };
       },
     }),
 
