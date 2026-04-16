@@ -24,6 +24,7 @@ import { classificationRulesConditionsMigration } from './list/0021-classificati
 import { financeSubscriptionsMigration } from './list/0022-finance-subscriptions.migration';
 import { aiChatHistoryMigration } from './list/0023-ai-chat-history.migration';
 import { transactionTagsAndPropertiesMigration } from './list/0024-transaction-tags-and-properties.migration';
+import { bankConnectionBalanceMigration } from './list/0025-bank-connection-balance.migration';
 
 export const migrations: Migration[] = [
   initialSchemaSetupMigration,
@@ -50,4 +51,5 @@ export const migrations: Migration[] = [
   financeSubscriptionsMigration,
   aiChatHistoryMigration,
   transactionTagsAndPropertiesMigration,
+  bankConnectionBalanceMigration,
 ];

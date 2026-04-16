@@ -6,6 +6,9 @@ export type BankConnection = {
   lastSyncedAt: Date | null;
   providerAccountId: string | null;
   createdAt: Date;
+  cachedBalance: number | null;
+  balanceCurrency: string | null;
+  lastBalanceFetchedAt: Date | null;
 };
 
 export type Transaction = {
@@ -61,8 +64,18 @@ export type Subscription = {
   updatedAt: Date;
 };
 
+export type AccountBalance = {
+  bankConnectionId: string;
+  bankConnectionName: string;
+  provider: string;
+  balance: number;
+  currency: string;
+  lastFetchedAt: Date | null;
+};
+
 export type OverviewStats = {
   monthlySummary: Array<{ month: string; income: number; expenses: number }>;
   classificationBreakdown: Array<{ classification: string | null; total: number; count: number }>;
   unclassifiedCount: number;
+  accountBalances: AccountBalance[];
 };

@@ -1,4 +1,4 @@
-import type { BankProviderAdapter, ProviderTransaction } from './provider.types';
+import type { BankProviderAdapter, ProviderBalance, ProviderTransaction } from './provider.types';
 
 export function createWiseAdapter(): BankProviderAdapter {
   const baseUrl = 'https://api.wise.com';
@@ -40,9 +40,9 @@ export function createWiseAdapter(): BankProviderAdapter {
       let resolvedBalanceId: string;
       let resolvedCurrency: string;
 
-      if (accountId && accountId.includes(':')) {
+      if (accountId != null && accountId.includes(':')) {
         const [profileId, balanceId] = accountId.split(':');
-        if (!profileId || !balanceId) {
+        if (profileId == null || profileId === '' || balanceId == null || balanceId === '') {
           throw new Error('Wise account ID must be in the format profileId:balanceId.');
         }
 
@@ -64,8 +64,7 @@ export function createWiseAdapter(): BankProviderAdapter {
         resolvedProfileId = profileId;
         resolvedBalanceId = balanceId;
         resolvedCurrency = balance.currency;
-      }
-      else {
+      } else {
         // No accountId provided — auto-detect the first available balance
         const profilesRes = await fetch(`${baseUrl}/v2/profiles`, {
           headers: { Authorization: `Bearer ${apiKey}` },
@@ -156,6 +155,39 @@ export function createWiseAdapter(): BankProviderAdapter {
       } catch {
         return { isValid: false };
       }
+    },
+
+    fetchBalances: async ({ apiKey }) => {
+      const profilesRes = await fetch(`${baseUrl}/v2/profiles`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+
+      if (!profilesRes.ok) {
+        throw new Error(`Wise API error: ${profilesRes.status}`);
+      }
+
+      const profiles = await profilesRes.json() as Array<{ id: number; type: string; fullName: string }>;
+
+      const balances: ProviderBalance[] = [];
+      for (const profile of profiles) {
+        const balancesRes = await fetch(`${baseUrl}/v4/profiles/${profile.id}/balances?types=STANDARD`, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        });
+
+        if (balancesRes.ok) {
+          const profileBalances = await balancesRes.json() as Array<{ id: number; currency: string; amount: { value: number; currency: string } }>;
+          for (const b of profileBalances) {
+            balances.push({
+              accountId: `${profile.id}:${b.id}`,
+              accountName: `${profile.fullName} - ${b.currency}`,
+              balance: b.amount.value,
+              currency: b.amount.currency,
+            });
+          }
+        }
+      }
+
+      return { balances };
     },
   };
 }

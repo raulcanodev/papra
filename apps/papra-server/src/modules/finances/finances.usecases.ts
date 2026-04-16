@@ -1,8 +1,8 @@
+import type { TagsRepository } from '../tags/tags.repository';
 import type { BankProvider, TransactionClassification } from './finances.constants';
 import type { FinancesRepository } from './finances.repository';
-import type { TagsRepository } from '../tags/tags.repository';
-import { getBankProviderAdapter } from './providers/provider.registry';
 import { createBankSyncError } from './finances.errors';
+import { getBankProviderAdapter } from './providers/provider.registry';
 
 export async function syncBankTransactions({
   bankConnectionId,
@@ -42,6 +42,24 @@ export async function syncBankTransactions({
     const { insertedCount } = await financesRepository.upsertTransactions({ transactions: transactionsToInsert });
     await financesRepository.updateBankConnectionSyncTime({ bankConnectionId });
 
+    // Fetch and cache account balance
+    try {
+      const { balances } = await adapter.fetchBalances({ apiKey: bankConnection.apiKey });
+      const matchedBalance = bankConnection.providerAccountId != null
+        ? balances.find(b => b.accountId === bankConnection.providerAccountId)
+        : balances[0];
+
+      if (matchedBalance) {
+        await financesRepository.updateBankConnectionBalance({
+          bankConnectionId,
+          balance: matchedBalance.balance,
+          currency: matchedBalance.currency,
+        });
+      }
+    } catch {
+      // Balance fetch is best-effort — don't fail the sync
+    }
+
     // Auto-classify newly inserted transactions
     if (insertedCount > 0) {
       await autoClassifyTransactions({ organizationId, financesRepository });
@@ -50,6 +68,39 @@ export async function syncBankTransactions({
     return { insertedCount };
   } catch (error) {
     throw createBankSyncError({ cause: error });
+  }
+}
+
+export async function refreshAccountBalances({
+  organizationId,
+  financesRepository,
+}: {
+  organizationId: string;
+  financesRepository: FinancesRepository;
+}) {
+  const { bankConnections } = await financesRepository.getBankConnections({ organizationId });
+  const activeConnections = bankConnections.filter(c => c.isActive);
+
+  for (const connection of activeConnections) {
+    try {
+      const { bankConnection } = await financesRepository.getBankConnectionById({ bankConnectionId: connection.id, organizationId });
+      const adapter = getBankProviderAdapter({ provider: bankConnection.provider as BankProvider });
+      const { balances } = await adapter.fetchBalances({ apiKey: bankConnection.apiKey });
+
+      const matchedBalance = bankConnection.providerAccountId != null
+        ? balances.find(b => b.accountId === bankConnection.providerAccountId)
+        : balances[0];
+
+      if (matchedBalance) {
+        await financesRepository.updateBankConnectionBalance({
+          bankConnectionId: connection.id,
+          balance: matchedBalance.balance,
+          currency: matchedBalance.currency,
+        });
+      }
+    } catch {
+      // Best-effort per connection
+    }
   }
 }
 
@@ -93,19 +144,24 @@ function doesConditionMatch(condition: { field: string; operator: string; value:
 
   if (condition.field === 'counterparty') {
     fieldValue = (transaction.counterparty ?? '').toLowerCase();
-  }
-  else if (condition.field === 'description') {
+  } else if (condition.field === 'description') {
     fieldValue = transaction.description.toLowerCase();
-  }
-  else if (condition.field === 'amount') {
+  } else if (condition.field === 'amount') {
     const ruleNum = Number.parseFloat(condition.value);
-    if (Number.isNaN(ruleNum)) return false;
-    if (condition.operator === 'gt') return transaction.amount > ruleNum;
-    if (condition.operator === 'lt') return transaction.amount < ruleNum;
-    if (condition.operator === 'equals') return transaction.amount === ruleNum;
+    if (Number.isNaN(ruleNum)) {
+      return false;
+    }
+    if (condition.operator === 'gt') {
+      return transaction.amount > ruleNum;
+    }
+    if (condition.operator === 'lt') {
+      return transaction.amount < ruleNum;
+    }
+    if (condition.operator === 'equals') {
+      return transaction.amount === ruleNum;
+    }
     return false;
-  }
-  else {
+  } else {
     return false;
   }
 
@@ -169,10 +225,14 @@ export async function autoClassifyTransactions({
       classification: '__unclassified__',
     });
 
-    if (transactions.length === 0) break;
+    if (transactions.length === 0) {
+      break;
+    }
 
     for (const transaction of transactions) {
-      if (transaction.classification) continue;
+      if (transaction.classification) {
+        continue;
+      }
 
       for (const rule of activeRules) {
         if (doesRuleMatch(rule, transaction)) {
@@ -194,7 +254,9 @@ export async function autoClassifyTransactions({
       }
     }
 
-    if (transactions.length < pageSize) break;
+    if (transactions.length < pageSize) {
+      break;
+    }
     pageIndex++;
   }
 

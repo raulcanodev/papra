@@ -25,8 +25,7 @@ function decryptApiKey(encryptedApiKey: string, secret: string): string {
     const key = deriveKey(secret);
     const decrypted = decrypt({ encryptedValue: Buffer.from(encryptedApiKey, 'base64'), key });
     return decrypted.toString('utf8');
-  }
-  catch {
+  } catch {
     // Value was stored before encryption was introduced — return as-is (plaintext)
     return encryptedApiKey;
   }
@@ -43,6 +42,7 @@ export function createFinancesRepository({ db, authSecret }: { db: Database; aut
       deleteBankConnection,
       updateBankConnectionSyncTime,
       updateBankConnection,
+      updateBankConnectionBalance,
       upsertTransactions,
       getTransactions,
       getTransactionById,
@@ -60,6 +60,7 @@ export function createFinancesRepository({ db, authSecret }: { db: Database; aut
       deleteSubscription,
       searchTransactionsAggregate,
       getSpendingBreakdown,
+      getAccountBalances,
     },
     { db, authSecret },
   );
@@ -71,8 +72,7 @@ async function getAllActiveBankConnections({ db }: { db: Database }) {
     organizationId: bankConnectionsTable.organizationId,
     provider: bankConnectionsTable.provider,
     name: bankConnectionsTable.name,
-  }).from(bankConnectionsTable)
-    .where(eq(bankConnectionsTable.isActive, true));
+  }).from(bankConnectionsTable).where(eq(bankConnectionsTable.isActive, true));
 
   return { bankConnections: connections };
 }
@@ -104,8 +104,10 @@ async function getBankConnections({ db, organizationId }: { db: Database; organi
     lastSyncedAt: bankConnectionsTable.lastSyncedAt,
     providerAccountId: bankConnectionsTable.providerAccountId,
     createdAt: bankConnectionsTable.createdAt,
-  }).from(bankConnectionsTable)
-    .where(eq(bankConnectionsTable.organizationId, organizationId));
+    cachedBalance: bankConnectionsTable.cachedBalance,
+    balanceCurrency: bankConnectionsTable.balanceCurrency,
+    lastBalanceFetchedAt: bankConnectionsTable.lastBalanceFetchedAt,
+  }).from(bankConnectionsTable).where(eq(bankConnectionsTable.organizationId, organizationId));
 
   return { bankConnections: connections };
 }
@@ -116,11 +118,10 @@ async function getBankConnectionById({ db, authSecret, bankConnectionId, organiz
   bankConnectionId: string;
   organizationId: string;
 }) {
-  const [connection] = await db.select().from(bankConnectionsTable)
-    .where(and(
-      eq(bankConnectionsTable.id, bankConnectionId),
-      eq(bankConnectionsTable.organizationId, organizationId),
-    ));
+  const [connection] = await db.select().from(bankConnectionsTable).where(and(
+    eq(bankConnectionsTable.id, bankConnectionId),
+    eq(bankConnectionsTable.organizationId, organizationId),
+  ));
 
   if (!connection) {
     throw createBankConnectionNotFoundError();
@@ -195,6 +196,47 @@ async function updateBankConnectionSyncTime({ db, bankConnectionId }: {
     .where(eq(bankConnectionsTable.id, bankConnectionId));
 }
 
+async function updateBankConnectionBalance({ db, bankConnectionId, balance, currency }: {
+  db: Database;
+  bankConnectionId: string;
+  balance: number;
+  currency: string;
+}) {
+  await db.update(bankConnectionsTable)
+    .set({ cachedBalance: balance, balanceCurrency: currency, lastBalanceFetchedAt: new Date(), updatedAt: new Date() })
+    .where(eq(bankConnectionsTable.id, bankConnectionId));
+}
+
+async function getAccountBalances({ db, organizationId }: {
+  db: Database;
+  organizationId: string;
+}) {
+  const connections = await db.select({
+    id: bankConnectionsTable.id,
+    name: bankConnectionsTable.name,
+    provider: bankConnectionsTable.provider,
+    cachedBalance: bankConnectionsTable.cachedBalance,
+    balanceCurrency: bankConnectionsTable.balanceCurrency,
+    lastBalanceFetchedAt: bankConnectionsTable.lastBalanceFetchedAt,
+  }).from(bankConnectionsTable).where(and(
+    eq(bankConnectionsTable.organizationId, organizationId),
+    eq(bankConnectionsTable.isActive, true),
+  ));
+
+  return {
+    balances: connections
+      .filter(c => c.cachedBalance !== null)
+      .map(c => ({
+        bankConnectionId: c.id,
+        bankConnectionName: c.name,
+        provider: c.provider,
+        balance: c.cachedBalance!,
+        currency: c.balanceCurrency!,
+        lastFetchedAt: c.lastBalanceFetchedAt,
+      })),
+  };
+}
+
 async function upsertTransactions({ db, transactions }: {
   db: Database;
   transactions: Array<typeof transactionsTable.$inferInsert>;
@@ -223,13 +265,11 @@ async function getTransactions({ db, organizationId, pageIndex, pageSize, bankCo
     ? isNull(transactionsTable.classification)
     : classification ? eq(transactionsTable.classification, classification) : undefined;
 
-  const query = db.select().from(transactionsTable)
-    .where(and(
-      eq(transactionsTable.organizationId, organizationId),
-      bankConnectionId ? eq(transactionsTable.bankConnectionId, bankConnectionId) : undefined,
-      classificationFilter,
-    ))
-    .$dynamic();
+  const query = db.select().from(transactionsTable).where(and(
+    eq(transactionsTable.organizationId, organizationId),
+    bankConnectionId ? eq(transactionsTable.bankConnectionId, bankConnectionId) : undefined,
+    classificationFilter,
+  )).$dynamic();
 
   const transactions = await withPagination(query, {
     orderByColumn: desc(transactionsTable.date),
@@ -250,12 +290,11 @@ async function getTransactionsCount({ db, organizationId, bankConnectionId, clas
     ? isNull(transactionsTable.classification)
     : classification ? eq(transactionsTable.classification, classification) : undefined;
 
-  const [result] = await db.select({ count: sql<number>`count(*)` }).from(transactionsTable)
-    .where(and(
-      eq(transactionsTable.organizationId, organizationId),
-      bankConnectionId ? eq(transactionsTable.bankConnectionId, bankConnectionId) : undefined,
-      classificationFilter,
-    ));
+  const [result] = await db.select({ count: sql<number>`count(*)` }).from(transactionsTable).where(and(
+    eq(transactionsTable.organizationId, organizationId),
+    bankConnectionId ? eq(transactionsTable.bankConnectionId, bankConnectionId) : undefined,
+    classificationFilter,
+  ));
 
   return { count: result?.count ?? 0 };
 }
@@ -265,11 +304,10 @@ async function getTransactionById({ db, transactionId, organizationId }: {
   transactionId: string;
   organizationId: string;
 }) {
-  const [transaction] = await db.select().from(transactionsTable)
-    .where(and(
-      eq(transactionsTable.id, transactionId),
-      eq(transactionsTable.organizationId, organizationId),
-    ));
+  const [transaction] = await db.select().from(transactionsTable).where(and(
+    eq(transactionsTable.id, transactionId),
+    eq(transactionsTable.organizationId, organizationId),
+  ));
 
   if (!transaction) {
     throw createTransactionNotFoundError();
@@ -303,9 +341,7 @@ async function getClassificationRules({ db, organizationId }: {
   db: Database;
   organizationId: string;
 }) {
-  const rows = await db.select().from(classificationRulesTable)
-    .where(eq(classificationRulesTable.organizationId, organizationId))
-    .orderBy(desc(classificationRulesTable.priority));
+  const rows = await db.select().from(classificationRulesTable).where(eq(classificationRulesTable.organizationId, organizationId)).orderBy(desc(classificationRulesTable.priority));
 
   const rules = rows.map(r => ({
     ...r,
@@ -334,7 +370,9 @@ async function createClassificationRule({ db, rule }: {
     conditionMatchMode: rule.conditionMatchMode ?? 'all',
     tagIds: JSON.stringify(rule.tagIds ?? []),
   }).returning();
-  if (!result) throw new Error('Failed to insert classification rule');
+  if (!result) {
+    throw new Error('Failed to insert classification rule');
+  }
   return { rule: { ...result, conditions: JSON.parse(result.conditions as unknown as string), tagIds: JSON.parse(result.tagIds as unknown as string) } };
 }
 
@@ -366,7 +404,9 @@ async function updateClassificationRule({ db, ruleId, organizationId, updates }:
       eq(classificationRulesTable.organizationId, organizationId),
     ))
     .returning();
-  if (!updated) throw new Error('Classification rule not found');
+  if (!updated) {
+    throw new Error('Classification rule not found');
+  }
   return { rule: { ...updated, conditions: JSON.parse(updated.conditions as unknown as string), tagIds: JSON.parse(updated.tagIds as unknown as string) } };
 }
 
@@ -396,31 +436,24 @@ async function getOverviewStats({ db, organizationId }: {
       month: sql<string>`strftime('%Y-%m', datetime(${transactionsTable.date} / 1000, 'unixepoch'))`,
       income: sql<number>`COALESCE(SUM(CASE WHEN ${transactionsTable.amount} > 0 THEN ${transactionsTable.amount} ELSE 0 END), 0)`,
       expenses: sql<number>`COALESCE(SUM(CASE WHEN ${transactionsTable.amount} < 0 THEN ABS(${transactionsTable.amount}) ELSE 0 END), 0)`,
-    }).from(transactionsTable)
-      .where(and(
-        eq(transactionsTable.organizationId, organizationId),
-        gte(transactionsTable.date, sixMonthsAgo),
-      ))
-      .groupBy(sql`strftime('%Y-%m', datetime(${transactionsTable.date} / 1000, 'unixepoch'))`)
-      .orderBy(sql`strftime('%Y-%m', datetime(${transactionsTable.date} / 1000, 'unixepoch'))`),
+    }).from(transactionsTable).where(and(
+      eq(transactionsTable.organizationId, organizationId),
+      gte(transactionsTable.date, sixMonthsAgo),
+    )).groupBy(sql`strftime('%Y-%m', datetime(${transactionsTable.date} / 1000, 'unixepoch'))`).orderBy(sql`strftime('%Y-%m', datetime(${transactionsTable.date} / 1000, 'unixepoch'))`),
 
     db.select({
       classification: transactionsTable.classification,
       total: sql<number>`COALESCE(SUM(ABS(${transactionsTable.amount})), 0)`,
       count: sql<number>`COUNT(*)`,
-    }).from(transactionsTable)
-      .where(and(
-        eq(transactionsTable.organizationId, organizationId),
-        gte(transactionsTable.date, sixMonthsAgo),
-      ))
-      .groupBy(transactionsTable.classification)
-      .orderBy(desc(sql`SUM(ABS(${transactionsTable.amount}))`)),
+    }).from(transactionsTable).where(and(
+      eq(transactionsTable.organizationId, organizationId),
+      gte(transactionsTable.date, sixMonthsAgo),
+    )).groupBy(transactionsTable.classification).orderBy(desc(sql`SUM(ABS(${transactionsTable.amount}))`)),
 
-    db.select({ count: sql<number>`COUNT(*)` }).from(transactionsTable)
-      .where(and(
-        eq(transactionsTable.organizationId, organizationId),
-        isNull(transactionsTable.classification),
-      )),
+    db.select({ count: sql<number>`COUNT(*)` }).from(transactionsTable).where(and(
+      eq(transactionsTable.organizationId, organizationId),
+      isNull(transactionsTable.classification),
+    )),
   ]);
 
   return {
@@ -434,9 +467,7 @@ async function getSubscriptions({ db, organizationId }: {
   db: Database;
   organizationId: string;
 }) {
-  const subscriptions = await db.select().from(subscriptionsTable)
-    .where(eq(subscriptionsTable.organizationId, organizationId))
-    .orderBy(desc(subscriptionsTable.createdAt));
+  const subscriptions = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.organizationId, organizationId)).orderBy(desc(subscriptionsTable.createdAt));
   return { subscriptions };
 }
 
@@ -479,7 +510,9 @@ async function updateSubscription({ db, subscriptionId, organizationId, updates 
       eq(subscriptionsTable.organizationId, organizationId),
     ))
     .returning();
-  if (!updated) throw new Error('Subscription not found');
+  if (!updated) {
+    throw new Error('Subscription not found');
+  }
   return { subscription: updated };
 }
 
@@ -532,10 +565,7 @@ async function searchTransactionsAggregate({ db, organizationId, searchText, dat
     currency: transactionsTable.currency,
     counterparty: transactionsTable.counterparty,
     classification: transactionsTable.classification,
-  }).from(transactionsTable)
-    .where(filters)
-    .orderBy(desc(transactionsTable.date))
-    .limit(200);
+  }).from(transactionsTable).where(filters).orderBy(desc(transactionsTable.date)).limit(200);
 
   return {
     stats: {
@@ -575,11 +605,7 @@ async function getSpendingBreakdown({ db, organizationId, groupBy, dateFrom, dat
     totalExpenses: sql<number>`COALESCE(SUM(CASE WHEN ${transactionsTable.amount} < 0 THEN ABS(${transactionsTable.amount}) ELSE 0 END), 0)`,
     totalIncome: sql<number>`COALESCE(SUM(CASE WHEN ${transactionsTable.amount} > 0 THEN ${transactionsTable.amount} ELSE 0 END), 0)`,
     avgAmount: sql<number>`COALESCE(AVG(${transactionsTable.amount}), 0)`,
-  }).from(transactionsTable)
-    .where(filters)
-    .groupBy(groupColumn)
-    .orderBy(desc(sql`SUM(ABS(${transactionsTable.amount}))`))
-    .limit(limit);
+  }).from(transactionsTable).where(filters).groupBy(groupColumn).orderBy(desc(sql`SUM(ABS(${transactionsTable.amount}))`)).limit(limit);
 
   return { breakdown: rows };
 }

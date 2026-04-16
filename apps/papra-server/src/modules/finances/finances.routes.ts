@@ -2,18 +2,18 @@ import type { RouteDefinitionContext } from '../app/server.types';
 import { z } from 'zod';
 import { requireAuthentication } from '../app/auth/auth.middleware';
 import { getUser } from '../app/auth/auth.models';
+import { createCustomPropertiesRepository } from '../custom-properties/custom-properties.repository';
 import { requireFeatureFlag } from '../feature-flags/feature-flags.middleware';
 import { organizationIdSchema } from '../organizations/organization.schemas.legacy';
 import { createOrganizationsRepository } from '../organizations/organizations.repository';
 import { ensureUserIsInOrganization } from '../organizations/organizations.usecases';
 import { legacyValidateJsonBody, legacyValidateParams, legacyValidateQuery } from '../shared/validation/validation.legacy';
+import { createTagNotFoundError } from '../tags/tags.errors';
+import { createTagsRepository } from '../tags/tags.repository';
 import { BANK_PROVIDERS, BILLING_CYCLES, TRANSACTION_CLASSIFICATIONS } from './finances.constants';
 import { createFinancesRepository } from './finances.repository';
-import { addBankConnection, autoClassifyTransactions, syncBankTransactions } from './finances.usecases';
+import { addBankConnection, autoClassifyTransactions, refreshAccountBalances, syncBankTransactions } from './finances.usecases';
 import { getBankProviderAdapter } from './providers/provider.registry';
-import { createTagsRepository } from '../tags/tags.repository';
-import { createTagNotFoundError } from '../tags/tags.errors';
-import { createCustomPropertiesRepository } from '../custom-properties/custom-properties.repository';
 
 export function registerFinancesRoutes(context: RouteDefinitionContext) {
   setupGetBankConnectionsRoute(context);
@@ -450,9 +450,19 @@ function setupGetOverviewRoute({ app, db, config }: RouteDefinitionContext) {
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
       const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
-      const stats = await financesRepository.getOverviewStats({ organizationId });
+      const [stats, { balances }] = await Promise.all([
+        financesRepository.getOverviewStats({ organizationId }),
+        financesRepository.getAccountBalances({ organizationId }),
+      ]);
 
-      return context.json(stats);
+      // If no cached balances yet, fetch them from providers
+      if (balances.length === 0) {
+        await refreshAccountBalances({ organizationId, financesRepository });
+        const refreshed = await financesRepository.getAccountBalances({ organizationId });
+        return context.json({ ...stats, accountBalances: refreshed.balances });
+      }
+
+      return context.json({ ...stats, accountBalances: balances });
     },
   );
 }

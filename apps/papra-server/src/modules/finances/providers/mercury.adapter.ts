@@ -1,4 +1,4 @@
-import type { BankProviderAdapter, ProviderTransaction } from './provider.types';
+import type { BankProviderAdapter, ProviderBalance, ProviderTransaction } from './provider.types';
 
 export function createMercuryAdapter(): BankProviderAdapter {
   const baseUrl = 'https://api.mercury.com/api/v1';
@@ -70,7 +70,9 @@ export function createMercuryAdapter(): BankProviderAdapter {
         allTransactions.push(...transactions);
 
         // If we got fewer than limit, we've reached the end
-        if (data.transactions.length < limit) break;
+        if (data.transactions.length < limit) {
+          break;
+        }
         offset += limit;
       }
 
@@ -86,6 +88,27 @@ export function createMercuryAdapter(): BankProviderAdapter {
       } catch {
         return { isValid: false };
       }
+    },
+
+    fetchBalances: async ({ apiKey }) => {
+      const response = await fetch(`${baseUrl}/accounts`, {
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Mercury API error: ${response.status}`);
+      }
+
+      const data = await response.json() as { accounts: Array<{ id: string; name: string; currentBalance: number }> };
+
+      const balances: ProviderBalance[] = data.accounts.map(a => ({
+        accountId: a.id,
+        accountName: a.name,
+        balance: a.currentBalance,
+        currency: 'USD',
+      }));
+
+      return { balances };
     },
   };
 }

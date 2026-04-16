@@ -99,6 +99,33 @@ export const OverviewPage: Component = () => {
         )}
       >
         {/* Stat cards */}
+        <Show when={(overviewQuery.data?.accountBalances?.length ?? 0) > 0}>
+          <div class="border rounded-lg p-4 mb-6">
+            <h3 class="text-sm font-semibold mb-3">Account Balances</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <For each={overviewQuery.data?.accountBalances}>
+                {account => (
+                  <div class="flex items-center gap-3 p-3 border rounded-lg">
+                    <div class="flex items-center justify-center size-8 rounded-full bg-primary/10">
+                      <div class="i-tabler-building-bank size-4 text-primary" />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="text-sm font-medium truncate">{account.bankConnectionName}</div>
+                      <div class="text-xs text-muted-foreground capitalize">{account.provider}</div>
+                    </div>
+                    <div class="text-right">
+                      <div class={cn('text-lg font-bold', account.balance >= 0 ? 'text-green-600' : 'text-red-600')}>
+                        {formatCurrency(account.balance, account.currency)}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </For>
+            </div>
+          </div>
+        </Show>
+
+        {/* Monthly stat cards */}
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           <StatCard
             label="Income (this month)"

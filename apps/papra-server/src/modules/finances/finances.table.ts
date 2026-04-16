@@ -14,6 +14,9 @@ export const bankConnectionsTable = sqliteTable('bank_connections', {
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   lastSyncedAt: integer('last_synced_at', { mode: 'timestamp_ms' }),
   providerAccountId: text('provider_account_id'),
+  cachedBalance: real('cached_balance'),
+  balanceCurrency: text('balance_currency'),
+  lastBalanceFetchedAt: integer('last_balance_fetched_at', { mode: 'timestamp_ms' }),
 }, t => [
   index('bank_connections_organization_id_index').on(t.organizationId),
 ]);

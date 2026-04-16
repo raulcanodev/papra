@@ -191,6 +191,15 @@ export function createAssistantTools({ db, organizationId, authSecret, documentS
       },
     }),
 
+    getAccountBalances: tool({
+      description: 'Get current account balances for all connected bank accounts. Returns the cached balance, currency, bank name, and provider for each active connection. Use this when the user asks about their balance, how much money they have, or account status.',
+      inputSchema: zodSchema(emptyParams),
+      execute: async () => {
+        const { balances } = await financesRepo.getAccountBalances({ organizationId });
+        return { balances };
+      },
+    }),
+
     searchDocuments: tool({
       description: 'List or search documents. Pass an empty searchQuery to list all documents, or provide a query to search by name/content. Returns document metadata (id, name, size, date) but not the full content. Call getDocumentById with the id to read a document\'s extracted text content.',
       inputSchema: zodSchema(searchDocumentsParams),
