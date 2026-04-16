@@ -1,5 +1,5 @@
-import type { Component } from 'solid-js';
-import type { ChatMessage, ChatSession } from '../ai-assistant.services';
+import type { Component, JSX } from 'solid-js';
+import type { ChatMessage, ChatSession, ToolConfirmation } from '../ai-assistant.services';
 import { useParams } from '@solidjs/router';
 import remarkGfm from 'remark-gfm';
 import { createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
@@ -8,7 +8,7 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/modules/ui/components/dropdown-menu';
-import { deleteChatSession, fetchAiModels, fetchChatSession, fetchChatSessions, streamChatMessage } from '../ai-assistant.services';
+import { deleteChatSession, executeToolAction, fetchAiModels, fetchChatSession, fetchChatSessions, streamChatMessage } from '../ai-assistant.services';
 
 const PLACEHOLDER_SUGGESTION_CONFIG = [
   { icon: 'i-tabler-files', key: 'ai-assistant.suggestion.documents-overview' as const },
@@ -19,8 +19,350 @@ const PLACEHOLDER_SUGGESTION_CONFIG = [
   { icon: 'i-tabler-help', key: 'ai-assistant.suggestion.unclassified' as const },
 ];
 
-const MessageBubble: Component<{ message: ChatMessage; isStreaming?: boolean }> = (props) => {
+const TOOL_LABELS: Record<string, string> = {
+  createClassificationRule: 'Create Classification Rule',
+  updateClassificationRule: 'Update Classification Rule',
+  deleteClassificationRule: 'Delete Classification Rule',
+  createTaggingRule: 'Create Document Rule',
+  updateTaggingRule: 'Update Document Rule',
+  deleteTaggingRule: 'Delete Document Rule',
+};
+
+const CLASSIFICATION_LABELS: Record<string, string> = {
+  expense: 'Expense',
+  income: 'Income',
+  owner_transfer: 'Owner Transfer',
+  internal_transfer: 'Internal Transfer',
+};
+
+const CLASSIFICATION_COLORS: Record<string, string> = {
+  expense: 'text-red-600 bg-red-500/10',
+  income: 'text-green-600 bg-green-500/10',
+  owner_transfer: 'text-blue-600 bg-blue-500/10',
+  internal_transfer: 'text-purple-600 bg-purple-500/10',
+};
+
+type RuleCardData = {
+  name: string;
+  classification?: string;
+  matchMode?: string;
+  conditions?: Array<{ field: string; operator: string; value: string }>;
+  tags?: string[];
+};
+
+const RulePreviewCard: Component<{ rule: RuleCardData }> = (props) => {
+  return (
+    <div class="not-prose my-2 rounded-lg border border-border/60 bg-card/50 overflow-hidden">
+      <div class="flex items-center gap-2 px-3 py-2 bg-muted/30 border-b border-border/40">
+        <div class="i-tabler-rule size-4 text-primary/70" />
+        <span class="text-sm font-medium text-foreground">{props.rule.name}</span>
+      </div>
+      <div class="px-3 py-2 space-y-1.5">
+        <Show when={props.rule.classification}>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-muted-foreground">Classification:</span>
+            <span class={cn('text-xs font-medium px-1.5 py-0.5 rounded', CLASSIFICATION_COLORS[props.rule.classification!] ?? 'text-foreground bg-muted')}>
+              {CLASSIFICATION_LABELS[props.rule.classification!] ?? props.rule.classification}
+            </span>
+          </div>
+        </Show>
+        <Show when={props.rule.conditions && props.rule.conditions.length > 0}>
+          <div class="flex items-start gap-2">
+            <span class="text-xs text-muted-foreground mt-0.5 shrink-0">
+              {props.rule.matchMode === 'any' ? 'Any of:' : 'All of:'}
+            </span>
+            <div class="flex flex-col gap-1">
+              <For each={props.rule.conditions}>
+                {cond => (
+                  <div class="text-xs flex items-center gap-1">
+                    <span class="font-medium text-foreground">{cond.field}</span>
+                    <span class="text-muted-foreground">{cond.operator}</span>
+                    <span class="font-mono text-primary bg-primary/5 px-1 rounded">"{cond.value}"</span>
+                  </div>
+                )}
+              </For>
+            </div>
+          </div>
+        </Show>
+        <Show when={props.rule.tags && props.rule.tags.length > 0}>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-muted-foreground">Tags:</span>
+            <div class="flex gap-1 flex-wrap">
+              <For each={props.rule.tags}>
+                {tag => <span class="text-xs bg-muted px-1.5 py-0.5 rounded">{tag}</span>}
+              </For>
+            </div>
+          </div>
+        </Show>
+      </div>
+    </div>
+  );
+};
+
+type DataCardData = {
+  title?: string;
+  columns?: string[];
+  rows?: Array<Array<string | number>>;
+  items?: Array<{ label: string; value: string | number }>;
+};
+
+const DataDisplayCard: Component<{ data: DataCardData }> = (props) => {
+  return (
+    <div class="not-prose my-2 rounded-lg border border-border/60 bg-card/50 overflow-hidden">
+      <Show when={props.data.title}>
+        <div class="flex items-center gap-2 px-3 py-2 bg-muted/30 border-b border-border/40">
+          <div class="i-tabler-table size-4 text-primary/70" />
+          <span class="text-sm font-medium text-foreground">{props.data.title}</span>
+        </div>
+      </Show>
+      <Show when={props.data.items}>
+        <div class="px-3 py-2 space-y-1">
+          <For each={props.data.items}>
+            {item => (
+              <div class="flex items-center justify-between text-xs py-0.5">
+                <span class="text-muted-foreground">{item.label}</span>
+                <span class="font-medium text-foreground">{item.value}</span>
+              </div>
+            )}
+          </For>
+        </div>
+      </Show>
+      <Show when={props.data.columns && props.data.rows}>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="border-b border-border/40">
+                <For each={props.data.columns}>
+                  {col => <th class="text-left px-3 py-1.5 text-muted-foreground font-medium">{col}</th>}
+                </For>
+              </tr>
+            </thead>
+            <tbody>
+              <For each={props.data.rows}>
+                {row => (
+                  <tr class="border-b border-border/20 last:border-b-0">
+                    <For each={row}>
+                      {(cell, i) => (
+                        <td class={cn('px-3 py-1.5', i() === 0 ? 'font-medium text-foreground' : 'text-muted-foreground')}>
+                          {cell}
+                        </td>
+                      )}
+                    </For>
+                  </tr>
+                )}
+              </For>
+            </tbody>
+          </table>
+        </div>
+      </Show>
+    </div>
+  );
+};
+
+function getTextContent(children: unknown): string {
+  if (typeof children === 'string') return children;
+  if (Array.isArray(children)) return children.map(getTextContent).join('');
+  return String(children ?? '');
+}
+
+// Clean up AI content: strip papra-* fences (whether closed or unclosed) and re-wrap JSON properly
+function preprocessMessageContent(content: string): string {
+  // 1. Remove any papra-rule/papra-data fence markers (open and close), leaving just the JSON
+  let cleaned = content.replace(/```papra-(rule|data)\s*/g, '');
+  cleaned = cleaned.replace(/```\s*(?=\n|$)/g, (match, offset: number) => {
+    // Only strip closing ``` that look like they close a papra fence (preceded by JSON-like content)
+    const before = cleaned.slice(Math.max(0, offset - 200), offset);
+    if (/\}\s*$/.test(before)) return '';
+    return match;
+  });
+
+  // 2. Find standalone JSON objects on their own line and wrap them
+  cleaned = cleaned.replace(/(?:^|\n)\s*(\{[^\n]*\})\s*(?:\n|$)/g, (match, json: string) => {
+    try {
+      const parsed = JSON.parse(json) as Record<string, unknown>;
+      if (parsed.title || parsed.columns || parsed.items) {
+        return `\n\`\`\`papra-data\n${json}\n\`\`\`\n`;
+      }
+      if (parsed.name && (parsed.classification || parsed.conditions)) {
+        return `\n\`\`\`papra-rule\n${json}\n\`\`\`\n`;
+      }
+    } catch { /* not valid JSON, leave as-is */ }
+    return match;
+  });
+
+  return cleaned;
+}
+
+const markdownComponents = {
+  pre: (props: { children?: JSX.Element }) => {
+    return <>{props.children}</>;
+  },
+  code: (props: { inline?: boolean; className?: string; children?: JSX.Element }) => {
+    if (props.inline) {
+      return <code class={props.className}>{props.children}</code>;
+    }
+
+    const lang = props.className?.replace('language-', '') ?? '';
+    const raw = getTextContent(props.children).trim();
+
+    if (lang === 'papra-rule') {
+      try {
+        const data = JSON.parse(raw) as RuleCardData;
+        return <RulePreviewCard rule={data} />;
+      } catch { /* fall through */ }
+    }
+
+    if (lang === 'papra-data') {
+      try {
+        const data = JSON.parse(raw) as DataCardData;
+        return <DataDisplayCard data={data} />;
+      } catch { /* fall through */ }
+    }
+
+    // Default code block
+    return <pre class="my-2 bg-muted text-foreground rounded-md overflow-x-auto"><code class={props.className}>{props.children}</code></pre>;
+  },
+};
+
+const ToolConfirmationCard: Component<{
+  confirmation: ToolConfirmation;
+  organizationId: string;
+  onStatusChange: (toolCallId: string, status: 'approved' | 'rejected', result?: unknown) => void;
+}> = (props) => {
+  const [isLoading, setIsLoading] = createSignal(false);
+
+  const handleApprove = async () => {
+    setIsLoading(true);
+    try {
+      const result = await executeToolAction({
+        organizationId: props.organizationId,
+        toolName: props.confirmation.toolName,
+        args: props.confirmation.args,
+      });
+      props.onStatusChange(props.confirmation.toolCallId, 'approved', result);
+    } catch (err) {
+      props.onStatusChange(props.confirmation.toolCallId, 'approved', { error: err instanceof Error ? err.message : 'Failed' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const statusBorder = () => {
+    if (props.confirmation.status === 'approved') return 'border-green-500/40';
+    if (props.confirmation.status === 'rejected') return 'border-muted-foreground/20 opacity-60';
+    return 'border-primary/40';
+  };
+
+  const isRuleTool = () => ['createClassificationRule', 'updateClassificationRule', 'createTaggingRule', 'updateTaggingRule'].includes(props.confirmation.toolName);
+  const isDelete = () => ['deleteClassificationRule', 'deleteTaggingRule'].includes(props.confirmation.toolName);
+
+  const args = () => props.confirmation.args as Record<string, unknown>;
+
+  return (
+    <div class={cn('not-prose rounded-lg border-2 mt-3 overflow-hidden transition-colors', statusBorder())}>
+      {/* Header */}
+      <div class={cn(
+        'flex items-center gap-2 px-3 py-2',
+        props.confirmation.status === 'approved' ? 'bg-green-500/5' : props.confirmation.status === 'rejected' ? 'bg-muted/30' : 'bg-primary/5',
+      )}>
+        <div class={cn(
+          'size-4 shrink-0',
+          props.confirmation.status === 'approved' ? 'i-tabler-check text-green-600' : props.confirmation.status === 'rejected' ? 'i-tabler-x text-muted-foreground' : isDelete() ? 'i-tabler-trash text-destructive' : 'i-tabler-rule text-primary',
+        )} />
+        <span class="text-sm font-medium flex-1">
+          {TOOL_LABELS[props.confirmation.toolName] ?? props.confirmation.toolName}
+        </span>
+        <Show when={props.confirmation.status === 'approved'}>
+          <span class="text-xs font-medium text-green-600">Approved</span>
+        </Show>
+        <Show when={props.confirmation.status === 'rejected'}>
+          <span class="text-xs text-muted-foreground">Skipped</span>
+        </Show>
+      </div>
+
+      {/* Rule preview body */}
+      <Show when={isRuleTool()}>
+        <div class="px-3 py-2 space-y-1.5 border-t border-border/30">
+          <Show when={args().name}>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-muted-foreground shrink-0">Name:</span>
+              <span class="text-xs font-medium text-foreground">{args().name as string}</span>
+            </div>
+          </Show>
+          <Show when={args().classification}>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-muted-foreground shrink-0">Classification:</span>
+              <span class={cn('text-xs font-medium px-1.5 py-0.5 rounded', CLASSIFICATION_COLORS[args().classification as string] ?? 'text-foreground bg-muted')}>
+                {CLASSIFICATION_LABELS[args().classification as string] ?? (args().classification as string)}
+              </span>
+            </div>
+          </Show>
+          <Show when={Array.isArray(args().conditions) && (args().conditions as unknown[]).length > 0}>
+            <div class="flex items-start gap-2">
+              <span class="text-xs text-muted-foreground mt-0.5 shrink-0">
+                {(args().conditionMatchMode as string) === 'any' ? 'Any of:' : 'All of:'}
+              </span>
+              <div class="flex flex-col gap-1">
+                <For each={args().conditions as Array<{ field: string; operator: string; value: string }>}>
+                  {cond => (
+                    <div class="text-xs flex items-center gap-1 flex-wrap">
+                      <span class="font-medium text-foreground">{cond.field}</span>
+                      <span class="text-muted-foreground">{cond.operator}</span>
+                      <span class="font-mono text-primary bg-primary/5 px-1 rounded">"{cond.value}"</span>
+                    </div>
+                  )}
+                </For>
+              </div>
+            </div>
+          </Show>
+        </div>
+      </Show>
+
+      {/* Delete body */}
+      <Show when={isDelete()}>
+        <div class="px-3 py-2 border-t border-border/30">
+          <p class="text-xs text-destructive/80">{props.confirmation.description}</p>
+        </div>
+      </Show>
+
+      {/* Generic fallback for unknown tools */}
+      <Show when={!isRuleTool() && !isDelete()}>
+        <div class="px-3 py-2 border-t border-border/30">
+          <p class="text-xs text-muted-foreground">{props.confirmation.description}</p>
+        </div>
+      </Show>
+
+      {/* Actions */}
+      <Show when={props.confirmation.status === 'pending'}>
+        <div class="flex gap-2 px-3 py-2 border-t border-border/30 bg-muted/20">
+          <Button size="sm" class="h-7 text-xs gap-1" onClick={() => void handleApprove()} disabled={isLoading()} isLoading={isLoading()}>
+            <div class="i-tabler-check size-3.5" />
+            Approve
+          </Button>
+          <Button variant="outline" size="sm" class="h-7 text-xs gap-1" onClick={() => props.onStatusChange(props.confirmation.toolCallId, 'rejected')} disabled={isLoading()}>
+            <div class="i-tabler-x size-3.5" />
+            Skip
+          </Button>
+        </div>
+      </Show>
+
+      {/* Result after approval */}
+      <Show when={props.confirmation.status === 'approved' && props.confirmation.result}>
+        <div class="px-3 py-1.5 border-t border-green-500/20 bg-green-500/5">
+          <p class="text-xs text-green-600">
+            {(props.confirmation.result as Record<string, string>)?.message ?? 'Done'}
+          </p>
+        </div>
+      </Show>
+    </div>
+  );
+};
+
+const MessageBubble: Component<{ message: ChatMessage; isStreaming?: boolean; organizationId: string; onToolStatusChange?: (toolCallId: string, status: 'approved' | 'rejected', result?: unknown) => void }> = (props) => {
   const isUser = () => props.message.role === 'user';
+  const [thinkingOpen, setThinkingOpen] = createSignal(false);
+  const hasThinking = () => !!props.message.thinking;
+  const isThinkingLive = () => props.isStreaming && hasThinking() && !props.message.content;
 
   return (
     <div class={cn('flex gap-3 py-4', isUser() ? 'flex-row-reverse' : 'flex-row')}>
@@ -33,7 +375,31 @@ const MessageBubble: Component<{ message: ChatMessage; isStreaming?: boolean }> 
         </Show>
         <Show when={!isUser()}>
           <div class="text-sm leading-relaxed break-words max-w-full prose prose-sm prose-neutral dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-pre:my-2 prose-pre:bg-muted prose-pre:text-foreground prose-code:text-foreground prose-code:before:content-none prose-code:after:content-none">
-            <Show when={!props.message.content && props.isStreaming}>
+            <Show when={hasThinking()}>
+              <Show when={isThinkingLive()}>
+                <div class="flex items-center gap-2 py-1.5 px-2 mb-2 rounded-md bg-muted/50 border border-border/50 text-muted-foreground text-xs">
+                  <div class="i-tabler-brain size-3.5 animate-pulse" />
+                  <span class="font-medium">Thinking...</span>
+                </div>
+              </Show>
+              <Show when={!isThinkingLive()}>
+                <button
+                  type="button"
+                  class="flex items-center gap-1.5 py-1 px-2 mb-2 rounded-md hover:bg-muted/50 transition-colors text-muted-foreground text-xs cursor-pointer select-none"
+                  onClick={() => setThinkingOpen(v => !v)}
+                >
+                  <div class={cn('i-tabler-chevron-right size-3.5 transition-transform', thinkingOpen() && 'rotate-90')} />
+                  <div class="i-tabler-brain size-3.5" />
+                  <span>Thinking</span>
+                </button>
+                <Show when={thinkingOpen()}>
+                  <div class="mb-2 py-2 px-3 rounded-md bg-muted/30 border border-border/40 text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto">
+                    {props.message.thinking}
+                  </div>
+                </Show>
+              </Show>
+            </Show>
+            <Show when={!props.message.content && props.isStreaming && !isThinkingLive()}>
               <div class="flex items-center gap-1.5 py-1 text-muted-foreground">
                 <div class="size-1.5 rounded-full bg-current animate-pulse" />
                 <div class="size-1.5 rounded-full bg-current animate-pulse" style={{ 'animation-delay': '0.15s' }} />
@@ -41,10 +407,21 @@ const MessageBubble: Component<{ message: ChatMessage; isStreaming?: boolean }> 
               </div>
             </Show>
             <Show when={props.message.content}>
-              <SolidMarkdown remarkPlugins={[remarkGfm]} children={props.message.content} />
+              <SolidMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents} children={preprocessMessageContent(props.message.content)} />
               <Show when={props.isStreaming}>
                 <span class="inline-block w-0.5 h-4 bg-foreground ml-0.5 align-middle animate-pulse" />
               </Show>
+            </Show>
+            <Show when={(props.message.toolConfirmations ?? []).length > 0}>
+              <For each={props.message.toolConfirmations}>
+                {confirmation => (
+                  <ToolConfirmationCard
+                    confirmation={confirmation}
+                    organizationId={props.organizationId}
+                    onStatusChange={(id, status, result) => props.onToolStatusChange?.(id, status, result)}
+                  />
+                )}
+              </For>
             </Show>
           </div>
         </Show>
@@ -105,6 +482,17 @@ export const AiAssistantPage: Component = () => {
   let textareaRef: HTMLTextAreaElement | undefined;
 
   const orgId = () => params.organizationId;
+
+  function handleToolStatusChange(toolCallId: string, status: 'approved' | 'rejected', result?: unknown) {
+    setMessages(prev => prev.map(msg => {
+      if (!msg.toolConfirmations) return msg;
+      const updated = msg.toolConfirmations.map(tc =>
+        tc.toolCallId === toolCallId ? { ...tc, status, result } : tc,
+      );
+      if (updated === msg.toolConfirmations) return msg;
+      return { ...msg, toolConfirmations: updated };
+    }));
+  }
   const [modelsData] = createResource(fetchAiModels);
   const [sessionsData, { refetch: refetchSessions }] = createResource(orgId, organizationId => fetchChatSessions({ organizationId }));
 
@@ -203,6 +591,32 @@ export const AiAssistantPage: Component = () => {
             return [
               ...prev.slice(0, -1),
               { ...last, content: last.content + chunk },
+            ];
+          });
+          scrollToBottom();
+        },
+        onThinking: (chunk) => {
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (!last || last.role !== 'assistant') {
+              return prev;
+            }
+            return [
+              ...prev.slice(0, -1),
+              { ...last, thinking: (last.thinking ?? '') + chunk },
+            ];
+          });
+          scrollToBottom();
+        },
+        onToolConfirmation: (confirmation) => {
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (!last || last.role !== 'assistant') {
+              return prev;
+            }
+            return [
+              ...prev.slice(0, -1),
+              { ...last, toolConfirmations: [...(last.toolConfirmations ?? []), confirmation] },
             ];
           });
           scrollToBottom();
@@ -362,6 +776,8 @@ export const AiAssistantPage: Component = () => {
                     <MessageBubble
                       message={message}
                       isStreaming={isStreaming() && i() === messages().length - 1 && message.role === 'assistant'}
+                      organizationId={orgId()}
+                      onToolStatusChange={handleToolStatusChange}
                     />
                   )}
                 </For>

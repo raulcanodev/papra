@@ -41,9 +41,9 @@ export const DocumentsPage: Component = () => {
           <p class="text-xs text-muted-foreground mt-0.5">{t('documents.list.no-documents.description')}</p>
         </div>
         <div class="flex items-center gap-2">
-          <Button variant="outline" size="sm" class="h-8 text-xs gap-1.5" onClick={promptImport}>
+          <Button size="sm" class="h-8 text-xs gap-1.5" onClick={promptImport}>
             <div class="i-tabler-upload size-3.5" />
-            Import
+            Import Document
           </Button>
         </div>
       </div>

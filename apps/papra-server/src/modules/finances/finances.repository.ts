@@ -61,6 +61,7 @@ export function createFinancesRepository({ db, authSecret }: { db: Database; aut
       searchTransactionsAggregate,
       getSpendingBreakdown,
       getAccountBalances,
+      getUnclassifiedCounterpartySummary,
     },
     { db, authSecret },
   );
@@ -608,4 +609,215 @@ async function getSpendingBreakdown({ db, organizationId, groupBy, dateFrom, dat
   }).from(transactionsTable).where(filters).groupBy(groupColumn).orderBy(desc(sql`SUM(ABS(${transactionsTable.amount}))`)).limit(limit);
 
   return { breakdown: rows };
+}
+
+async function getUnclassifiedCounterpartySummary({ db, organizationId }: {
+  db: Database;
+  organizationId: string;
+}) {
+  const [totalRow] = await db.select({ count: sql<number>`COUNT(*)` })
+    .from(transactionsTable)
+    .where(and(
+      eq(transactionsTable.organizationId, organizationId),
+      isNull(transactionsTable.classification),
+    ));
+
+  // Fetch all unclassified transactions
+  const allTransactions = await db.select({
+    description: transactionsTable.description,
+    amount: transactionsTable.amount,
+    counterparty: transactionsTable.counterparty,
+  })
+    .from(transactionsTable)
+    .where(and(
+      eq(transactionsTable.organizationId, organizationId),
+      isNull(transactionsTable.classification),
+    ))
+    .limit(1000);
+
+  // Server-side pattern extraction
+  const patterns = extractTransactionPatterns(allTransactions);
+
+  return {
+    totalUnclassified: totalRow?.count ?? 0,
+    patterns,
+  };
+}
+
+function tokenizeDescription(text: string): string[] {
+  return text
+    .replace(/[*\/\\(){}[\]#@!?.,;:'"<>+=|~`^&%$_]/g, ' ')
+    .split(/\s+/)
+    .map(w => w.toLowerCase())
+    .filter(w => w.length >= 4 && !/^\d+$/.test(w) && !/^\d+[.,]\d+$/.test(w));
+}
+
+function extractTransactionPatterns(transactions: Array<{ description: string | null; amount: number | null; counterparty: string | null }>) {
+  if (transactions.length === 0) return [];
+
+  // Step 1: Detect template words — words at the SAME position in >20% of descriptions.
+  // "Sent Money to Raul" / "Sent Money to Pedro" → "sent"(pos 0), "money"(pos 1) are templates.
+  const positionWordCounts = new Map<string, number>();
+  const allTokenized: Array<{ words: string[]; tx: typeof transactions[number] }> = [];
+
+  for (const tx of transactions) {
+    if (!tx.description?.trim()) {
+      allTokenized.push({ words: [], tx });
+      continue;
+    }
+    const words = tokenizeDescription(tx.description);
+    allTokenized.push({ words, tx });
+    for (let i = 0; i < Math.min(words.length, 5); i++) {
+      const key = `${i}:${words[i]}`;
+      positionWordCounts.set(key, (positionWordCounts.get(key) ?? 0) + 1);
+    }
+  }
+
+  const templateThreshold = Math.max(3, transactions.length * 0.2);
+  const templateWords = new Set<string>();
+  for (const [key, count] of positionWordCounts) {
+    if (count >= templateThreshold) {
+      templateWords.add(key.split(':').slice(1).join(':'));
+    }
+  }
+
+  // Step 2: Extract entity keywords per transaction, tracking position (first entity vs later)
+  const keywordStats = new Map<string, {
+    count: number;
+    firstPositionCount: number; // times this keyword was the FIRST entity word
+    laterPositionCount: number; // times it was a subsequent entity word
+    positiveCount: number;
+    negativeCount: number;
+    totalAmount: number;
+    sampleDescriptions: Set<string>;
+    field: 'description' | 'counterparty';
+  }>();
+
+  for (const { words, tx } of allTokenized) {
+    const amount = tx.amount ?? 0;
+    const desc = tx.description ?? tx.counterparty ?? '';
+
+    // Counterparty keywords
+    if (tx.counterparty?.trim()) {
+      const cp = tx.counterparty.trim().toLowerCase();
+      if (cp.length >= 4) {
+        const key = `cp:${cp}`;
+        const existing = keywordStats.get(key);
+        if (existing) {
+          existing.count++;
+          existing.firstPositionCount++; // counterparty is always "first"
+          existing.totalAmount += amount;
+          if (amount > 0) existing.positiveCount++;
+          if (amount < 0) existing.negativeCount++;
+          if (existing.sampleDescriptions.size < 3) existing.sampleDescriptions.add(desc);
+        } else {
+          keywordStats.set(key, {
+            count: 1, firstPositionCount: 1, laterPositionCount: 0,
+            positiveCount: amount > 0 ? 1 : 0, negativeCount: amount < 0 ? 1 : 0,
+            totalAmount: amount, sampleDescriptions: new Set([desc]), field: 'counterparty',
+          });
+        }
+      }
+    }
+
+    // Description entity keywords (skip template words)
+    let entityIndex = 0;
+    for (const word of words) {
+      if (entityIndex >= 2) break;
+      if (templateWords.has(word)) continue;
+
+      const key = `desc:${word}`;
+      const isFirst = entityIndex === 0;
+      entityIndex++;
+
+      const existing = keywordStats.get(key);
+      if (existing) {
+        existing.count++;
+        if (isFirst) existing.firstPositionCount++;
+        else existing.laterPositionCount++;
+        existing.totalAmount += amount;
+        if (amount > 0) existing.positiveCount++;
+        if (amount < 0) existing.negativeCount++;
+        if (existing.sampleDescriptions.size < 3) existing.sampleDescriptions.add(desc);
+      } else {
+        keywordStats.set(key, {
+          count: 1,
+          firstPositionCount: isFirst ? 1 : 0,
+          laterPositionCount: isFirst ? 0 : 1,
+          positiveCount: amount > 0 ? 1 : 0,
+          negativeCount: amount < 0 ? 1 : 0,
+          totalAmount: amount, sampleDescriptions: new Set([desc]), field: 'description',
+        });
+      }
+    }
+  }
+
+  // Step 3: Filter
+  const totalTx = transactions.length;
+  const candidates = [...keywordStats.entries()].filter(([_, v]) => {
+    // Must appear in 2+ transactions
+    if (v.count < 2) return false;
+
+    // Hard cap: >40% of all transactions = too generic
+    if (v.count > totalTx * 0.4) return false;
+
+    // POSITION-BASED NOISE DETECTION:
+    // A real entity keyword (merchant/person) is usually the FIRST significant word.
+    // A location/suffix keyword is usually in later positions.
+    // If a keyword appears as the first entity word less than 40% of the time, it's likely a suffix.
+    // (Counterparty keywords skip this check — they're always the entity)
+    if (v.field === 'description') {
+      const firstRatio = v.firstPositionCount / v.count;
+      if (firstRatio < 0.4) return false;
+    }
+
+    return true;
+  });
+
+  // Step 4: Sort by count desc, deduplicate
+  candidates.sort((a, b) => b[1].count - a[1].count);
+
+  const usedKeywords = new Set<string>();
+  const finalPatterns: Array<{
+    keyword: string;
+    field: 'description' | 'counterparty';
+    transactionCount: number;
+    totalAmount: number;
+    sampleDescriptions: string[];
+    suggestedClassification: 'expense' | 'income';
+    hasIncoming: boolean;
+    hasOutgoing: boolean;
+  }> = [];
+
+  for (const [key, data] of candidates) {
+    const rawKeyword = key.replace(/^(cp|desc):/, '');
+
+    let isDuplicate = false;
+    for (const used of usedKeywords) {
+      if (rawKeyword.includes(used) || used.includes(rawKeyword)) {
+        isDuplicate = true;
+        break;
+      }
+    }
+    if (isDuplicate) continue;
+
+    usedKeywords.add(rawKeyword);
+
+    // Classification: only expense or income. owner_transfer is too sensitive
+    // to guess automatically — the AI must ask the user for identifying info.
+    const suggestedClassification: 'expense' | 'income' = data.totalAmount < 0 ? 'expense' : 'income';
+
+    finalPatterns.push({
+      keyword: rawKeyword,
+      field: data.field,
+      transactionCount: data.count,
+      totalAmount: Math.round(data.totalAmount * 100) / 100,
+      sampleDescriptions: [...data.sampleDescriptions],
+      suggestedClassification,
+      hasIncoming: data.positiveCount > 0,
+      hasOutgoing: data.negativeCount > 0,
+    });
+  }
+
+  return finalPatterns.slice(0, 30);
 }

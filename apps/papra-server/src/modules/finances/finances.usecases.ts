@@ -214,6 +214,7 @@ export async function autoClassifyTransactions({
 
   // Get unclassified transactions (page through all of them)
   let classifiedCount = 0;
+  const classifiedByClassification: Record<string, number> = {};
   let pageIndex = 0;
   const pageSize = 100;
 
@@ -249,6 +250,7 @@ export async function autoClassifyTransactions({
           }
 
           classifiedCount++;
+          classifiedByClassification[rule.classification] = (classifiedByClassification[rule.classification] ?? 0) + 1;
           break; // First matching rule wins (highest priority first)
         }
       }
@@ -260,5 +262,5 @@ export async function autoClassifyTransactions({
     pageIndex++;
   }
 
-  return { classifiedCount };
+  return { classifiedCount, classifiedByClassification };
 }

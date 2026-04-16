@@ -102,7 +102,7 @@ const OrganizationLayoutSideNav: Component = () => {
       href: `/organizations/${params.organizationId}/custom-properties`,
     },
     {
-      label: t('layout.menu.tagging-rules'),
+      label: 'Rules',
       icon: 'i-tabler-list-check',
       href: `/organizations/${params.organizationId}/tagging-rules`,
     },

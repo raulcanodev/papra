@@ -23,6 +23,7 @@ export type Transaction = {
   provider: string;
   bankConnectionId: string;
   rawData: string | null;
+  tags: Array<{ id: string; name: string; color: string | null }>;
 };
 
 export type ProviderAccount = {

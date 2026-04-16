@@ -1,8 +1,10 @@
 import type { Component } from 'solid-js';
 import type { Transaction } from '../finances.types';
 import { For, Show } from 'solid-js';
+import { useQuery } from '@tanstack/solid-query';
 import { Badge } from '@/modules/ui/components/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/modules/ui/components/dialog';
+import { fetchTransactionCustomProperties } from '../finances.services';
 
 const classificationColors: Record<string, string> = {
   expense: 'bg-red-500/10 text-red-600 border-red-500/20',
@@ -30,6 +32,7 @@ export const TransactionDetailDialog: Component<{
   transaction: Transaction | null;
   isOpen: boolean;
   onClose: () => void;
+  organizationId: string;
 }> = (props) => {
   const rawDataParsed = () => {
     if (!props.transaction?.rawData) {
@@ -40,6 +43,50 @@ export const TransactionDetailDialog: Component<{
     } catch {
       return null;
     }
+  };
+
+  const flattenRawData = (data: Record<string, unknown>): Array<{ key: string; value: string }> => {
+    const rows: Array<{ key: string; value: string }> = [];
+
+    function walk(obj: Record<string, unknown>, prefix: string) {
+      for (const [k, v] of Object.entries(obj)) {
+        const fullKey = prefix ? `${prefix}.${k}` : k;
+        if (v === null || v === undefined) {
+          rows.push({ key: fullKey, value: '—' });
+        } else if (Array.isArray(v)) {
+          rows.push({ key: fullKey, value: v.length === 0 ? '[]' : JSON.stringify(v) });
+        } else if (typeof v === 'object') {
+          walk(v as Record<string, unknown>, fullKey);
+        } else {
+          rows.push({ key: fullKey, value: String(v) });
+        }
+      }
+    }
+
+    walk(data, '');
+    return rows;
+  };
+
+  const customPropsQuery = useQuery(() => ({
+    queryKey: ['organizations', props.organizationId, 'finances', 'transactions', props.transaction?.id, 'custom-properties'],
+    queryFn: () => fetchTransactionCustomProperties({ organizationId: props.organizationId, transactionId: props.transaction!.id }),
+    enabled: !!props.transaction?.id && props.isOpen,
+  }));
+
+  const formatPropertyValue = (entry: { value: { textValue: string | null; numberValue: number | null; dateValue: string | null; booleanValue: boolean | null }; definition: { type: string }; option: { name: string } | null }) => {
+    if (entry.definition.type === 'select' || entry.definition.type === 'multi_select') {
+      return entry.option?.name ?? '—';
+    }
+    if (entry.definition.type === 'boolean') {
+      return entry.value.booleanValue ? 'Yes' : 'No';
+    }
+    if (entry.definition.type === 'number') {
+      return entry.value.numberValue?.toString() ?? '—';
+    }
+    if (entry.definition.type === 'date') {
+      return entry.value.dateValue ? formatDate(entry.value.dateValue) : '—';
+    }
+    return entry.value.textValue ?? '—';
   };
 
   return (
@@ -89,6 +136,44 @@ export const TransactionDetailDialog: Component<{
                 </div>
               </div>
 
+              <Show when={(txn().tags ?? []).length > 0}>
+                <div>
+                  <div class="text-xs text-muted-foreground mb-1">Tags</div>
+                  <div class="flex flex-wrap gap-1.5">
+                    <For each={txn().tags}>
+                      {tag => (
+                        <Badge variant="outline" class="text-xs">
+                          <div class="size-2 rounded-full mr-1.5" style={{ background: tag.color ?? '#888' }} />
+                          {tag.name}
+                        </Badge>
+                      )}
+                    </For>
+                  </div>
+                </div>
+              </Show>
+              <Show when={!(txn().tags ?? []).length}>
+                <div>
+                  <div class="text-xs text-muted-foreground mb-0.5">Tags</div>
+                  <div class="text-sm text-muted-foreground">No tags</div>
+                </div>
+              </Show>
+
+              <Show when={(customPropsQuery.data?.values ?? []).length > 0}>
+                <div>
+                  <div class="text-xs text-muted-foreground mb-1.5 mt-1">Custom Properties</div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <For each={customPropsQuery.data!.values}>
+                      {entry => (
+                        <div>
+                          <div class="text-xs text-muted-foreground mb-0.5">{entry.definition.name}</div>
+                          <div class="text-sm">{formatPropertyValue(entry)}</div>
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                </div>
+              </Show>
+
               <Show when={rawDataParsed()}>
                 {data => (
                   <div>
@@ -96,13 +181,11 @@ export const TransactionDetailDialog: Component<{
                     <div class="bg-muted rounded-lg p-3 max-h-60 overflow-y-auto">
                       <table class="w-full text-xs">
                         <tbody>
-                          <For each={Object.entries(data())}>
-                            {([key, value]) => (
+                          <For each={flattenRawData(data())}>
+                            {row => (
                               <tr class="border-b border-border/50 last:border-0">
-                                <td class="py-1 pr-3 text-muted-foreground font-mono whitespace-nowrap align-top">{key}</td>
-                                <td class="py-1 font-mono break-all">
-                                  {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value ?? '—')}
-                                </td>
+                                <td class="py-1 pr-3 text-muted-foreground font-mono whitespace-nowrap align-top">{row.key}</td>
+                                <td class="py-1 font-mono break-all">{row.value}</td>
                               </tr>
                             )}
                           </For>

@@ -221,13 +221,22 @@ function setupGetTransactionsRoute({ app, db, config }: RouteDefinitionContext) 
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
       const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      const tagsRepository = createTagsRepository({ db });
 
       const [{ transactions }, { count: transactionsCount }] = await Promise.all([
         financesRepository.getTransactions({ organizationId, pageIndex, pageSize, bankConnectionId, classification }),
         financesRepository.getTransactionsCount({ organizationId, bankConnectionId, classification }),
       ]);
 
-      return context.json({ transactions, transactionsCount });
+      const transactionIds = transactions.map(t => t.id);
+      const { tagsByTransactionId } = await tagsRepository.getTagsByTransactionIds({ transactionIds });
+
+      const transactionsWithTags = transactions.map(t => ({
+        ...t,
+        tags: (tagsByTransactionId[t.id] ?? []).map(tag => ({ id: tag.id, name: tag.name, color: tag.color })),
+      }));
+
+      return context.json({ transactions: transactionsWithTags, transactionsCount });
     },
   );
 }

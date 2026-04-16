@@ -104,7 +104,7 @@ export async function fetchClassificationRules({ organizationId }: { organizatio
 
 export async function createClassificationRule({ organizationId, rule }: {
   organizationId: string;
-  rule: { name: string; classification: string; conditions: Array<{ field: string; operator: string; value: string }>; conditionMatchMode?: 'all' | 'any'; tagIds?: string[]; priority?: number };
+  rule: { name: string; classification?: string; conditions: Array<{ field: string; operator: string; value: string }>; conditionMatchMode?: 'all' | 'any'; tagIds?: string[]; priority?: number };
 }) {
   return apiClient<{ rule: ClassificationRule }>({
     method: 'POST',
@@ -203,5 +203,15 @@ export async function deleteSubscription({ organizationId, subscriptionId }: {
   return apiClient<{ success: boolean }>({
     method: 'DELETE',
     path: `/api/organizations/${organizationId}/finances/subscriptions/${subscriptionId}`,
+  });
+}
+
+export async function fetchTransactionCustomProperties({ organizationId, transactionId }: {
+  organizationId: string;
+  transactionId: string;
+}) {
+  return apiClient<{ values: Array<{ value: { id: string; propertyDefinitionId: string; textValue: string | null; numberValue: number | null; dateValue: string | null; booleanValue: boolean | null; selectOptionId: string | null }; definition: { id: string; name: string; key: string; type: string }; option: { id: string; name: string } | null }> }>({
+    method: 'GET',
+    path: `/api/organizations/${organizationId}/finances/transactions/${transactionId}/custom-properties`,
   });
 }

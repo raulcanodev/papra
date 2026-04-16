@@ -10,7 +10,70 @@ import { convertCurrency } from '../finances/exchange-rates';
 import { autoClassifyTransactions } from '../finances/finances.usecases';
 import { createSubscriptionsRepository } from '../subscriptions/subscriptions.repository';
 import { createTaggingRulesRepository } from '../tagging-rules/tagging-rules.repository';
+import { createTaggingRule as createTaggingRuleUsecase } from '../tagging-rules/tagging-rules.usecases';
 import { createTagsRepository } from '../tags/tags.repository';
+
+export const CONFIRMABLE_TOOL_SCHEMAS: Record<string, z.ZodSchema> = {
+  createClassificationRule: z.object({
+    name: z.string(), classification: z.enum(['expense', 'income', 'owner_transfer', 'internal_transfer']),
+    conditions: z.array(z.object({ field: z.string(), operator: z.string(), value: z.string() })),
+    conditionMatchMode: z.enum(['all', 'any']).default('all'), tagIds: z.array(z.string()).default([]),
+  }),
+  updateClassificationRule: z.object({
+    ruleId: z.string(), name: z.string().optional(), classification: z.enum(['expense', 'income', 'owner_transfer', 'internal_transfer']).optional(),
+    conditions: z.array(z.object({ field: z.string(), operator: z.string(), value: z.string() })).optional(),
+    conditionMatchMode: z.enum(['all', 'any']).optional(), tagIds: z.array(z.string()).optional(), isActive: z.boolean().optional(),
+  }),
+  deleteClassificationRule: z.object({ ruleId: z.string() }),
+  createTaggingRule: z.object({
+    name: z.string(), description: z.string().optional(), conditionMatchMode: z.enum(['all', 'any']).default('all'),
+    conditions: z.array(z.object({ field: z.string(), operator: z.string(), value: z.string() })),
+    tagIds: z.array(z.string()),
+  }),
+  updateTaggingRule: z.object({
+    taggingRuleId: z.string(), name: z.string(), description: z.string().optional(), enabled: z.boolean().optional(),
+    conditionMatchMode: z.enum(['all', 'any']).optional(),
+    conditions: z.array(z.object({ field: z.string(), operator: z.string(), value: z.string() })),
+    tagIds: z.array(z.string()),
+  }),
+  deleteTaggingRule: z.object({ taggingRuleId: z.string() }),
+};
+
+function describeToolAction(toolName: string, args: Record<string, unknown>): string {
+  switch (toolName) {
+    case 'createClassificationRule': {
+      const conds = (args.conditions as Array<{ field: string; operator: string; value: string }>)
+        ?.map(c => `${c.field} ${c.operator} "${c.value}"`).join(', ') ?? '';
+      return `Create rule "${args.name}": classify as ${args.classification} when ${conds}`;
+    }
+    case 'updateClassificationRule':
+      return `Update classification rule${args.name ? ` "${args.name}"` : ''}`;
+    case 'deleteClassificationRule':
+      return 'Delete a classification rule (irreversible)';
+    case 'createTaggingRule': {
+      const conds = (args.conditions as Array<{ field: string; operator: string; value: string }>)
+        ?.map(c => `${c.field} ${c.operator} "${c.value}"`).join(', ') ?? '';
+      return `Create document rule "${args.name}": auto-tag when ${conds}`;
+    }
+    case 'updateTaggingRule':
+      return `Update document tagging rule${args.name ? ` "${args.name}"` : ''}`;
+    case 'deleteTaggingRule':
+      return 'Delete a document tagging rule (irreversible)';
+    default:
+      return `Execute ${toolName}`;
+  }
+}
+
+function confirmationResult(toolName: string, args: Record<string, unknown>) {
+  return {
+    requiresConfirmation: true,
+    toolName,
+    description: describeToolAction(toolName, args),
+    args,
+    status: 'PENDING_USER_APPROVAL',
+    message: 'This action has NOT been executed yet. A confirmation card is now shown to the user. Do NOT say you created/updated/deleted anything — say the action is pending approval. Wait for the user to respond before continuing.',
+  };
+}
 
 const listTransactionsParams = z.object({
   pageIndex: z.number().int().min(0).default(0).describe('Page index (0-based)'),
@@ -42,10 +105,28 @@ const getDocumentByIdParams = z.object({
   documentId: z.string().min(1).describe('The ID of the document to retrieve'),
 });
 
+const applyTagParams = z.object({
+  entityType: z.enum(['document', 'transaction']).describe('Whether to apply the tag to a document or transaction'),
+  entityId: z.string().min(1).describe('The ID of the document or transaction'),
+  tagId: z.string().min(1).describe('The ID of the tag to apply. Use listTags to find available tags.'),
+});
+
+const removeTagParams = z.object({
+  entityType: z.enum(['document', 'transaction']).describe('Whether to remove the tag from a document or transaction'),
+  entityId: z.string().min(1).describe('The ID of the document or transaction'),
+  tagId: z.string().min(1).describe('The ID of the tag to remove'),
+});
+
+const createTagParams = z.object({
+  name: z.string().min(1).max(64).describe('Name for the new tag'),
+  color: z.string().optional().describe('Optional hex color (e.g. #ff0000)'),
+  description: z.string().optional().describe('Optional description'),
+});
+
 const searchTransactionsParams = z.object({
   searchText: z.string().min(1).describe('Text to search for in counterparty name or description. Case-insensitive partial match.'),
-  dateFrom: z.string().optional().describe('Optional start date (ISO 8601). ONLY set this if the user explicitly asks to filter by a specific date range. Do NOT guess or add date filters.'),
-  dateTo: z.string().optional().describe('Optional end date (ISO 8601). ONLY set this if the user explicitly asks to filter by a specific date range. Do NOT guess or add date filters.'),
+  dateFrom: z.string().optional().describe('LEAVE EMPTY unless the user literally says a date range like "in January" or "last month". Never infer or guess dates.'),
+  dateTo: z.string().optional().describe('LEAVE EMPTY unless the user literally says a date range like "in January" or "last month". Never infer or guess dates.'),
 });
 
 const spendingBreakdownParams = z.object({
@@ -53,6 +134,54 @@ const spendingBreakdownParams = z.object({
   dateFrom: z.string().optional().describe('Optional start date (ISO 8601)'),
   dateTo: z.string().optional().describe('Optional end date (ISO 8601)'),
   limit: z.number().int().min(1).max(50).default(30).describe('Max number of groups to return'),
+});
+
+const updateClassificationRuleParams = z.object({
+  ruleId: z.string().min(1).describe('The ID of the classification rule to update. Use listClassificationRules to find rule IDs.'),
+  name: z.string().min(1).max(64).optional().describe('New name for the rule'),
+  classification: z.enum(['expense', 'income', 'owner_transfer', 'internal_transfer']).optional().describe('New classification'),
+  conditions: z.array(z.object({
+    field: z.enum(['counterparty', 'description', 'amount']),
+    operator: z.enum(['contains', 'equals', 'starts_with', 'gt', 'lt']),
+    value: z.string().min(1),
+  })).optional().describe('Replace all conditions with this new array'),
+  conditionMatchMode: z.enum(['all', 'any']).optional().describe('Whether all or any conditions must match'),
+  tagIds: z.array(z.string()).optional().describe('Replace tag IDs. Use listTags to get available tag IDs.'),
+  isActive: z.boolean().optional().describe('Enable or disable the rule'),
+});
+
+const deleteClassificationRuleParams = z.object({
+  ruleId: z.string().min(1).describe('The ID of the classification rule to delete. Use listClassificationRules to find rule IDs.'),
+});
+
+const createTaggingRuleParams = z.object({
+  name: z.string().min(1).max(64).describe('Human-readable name for the document tagging rule'),
+  description: z.string().optional().describe('Optional description of what the rule does'),
+  conditionMatchMode: z.enum(['all', 'any']).default('all').describe('Whether all or any conditions must match'),
+  conditions: z.array(z.object({
+    field: z.enum(['name', 'content']).describe('Document field: "name" (document name) or "content" (extracted text)'),
+    operator: z.enum(['equal', 'not_equal', 'contains', 'not_contains', 'starts_with', 'ends_with']),
+    value: z.string().min(1).describe('The value to match against'),
+  })).min(1).describe('At least one condition is required'),
+  tagIds: z.array(z.string()).min(1).describe('Tag IDs to apply when conditions match. Use listTags to find IDs, or createTag to make new ones.'),
+});
+
+const updateTaggingRuleParams = z.object({
+  taggingRuleId: z.string().min(1).describe('The ID of the document tagging rule to update. Use listTaggingRules to find rule IDs.'),
+  name: z.string().min(1).max(64).describe('New name for the rule'),
+  description: z.string().optional().describe('Optional new description'),
+  enabled: z.boolean().optional().describe('Enable or disable the rule'),
+  conditionMatchMode: z.enum(['all', 'any']).optional().describe('Whether all or any conditions must match'),
+  conditions: z.array(z.object({
+    field: z.enum(['name', 'content']),
+    operator: z.enum(['equal', 'not_equal', 'contains', 'not_contains', 'starts_with', 'ends_with']),
+    value: z.string().min(1),
+  })).describe('Full replacement array of conditions'),
+  tagIds: z.array(z.string()).min(1).describe('Full replacement array of tag IDs to apply'),
+});
+
+const deleteTaggingRuleParams = z.object({
+  taggingRuleId: z.string().min(1).describe('The ID of the document tagging rule to delete. Use listTaggingRules to find rule IDs.'),
 });
 
 export function createAssistantTools({ db, organizationId, authSecret, documentSearchServices }: {
@@ -67,7 +196,38 @@ export function createAssistantTools({ db, organizationId, authSecret, documentS
   const taggingRulesRepo = createTaggingRulesRepository({ db });
   const subscriptionsRepo = createSubscriptionsRepository({ db });
 
-  return {
+  // Write tool executors (actual business logic)
+  const executors: Record<string, (args: any) => Promise<any>> = {
+    createClassificationRule: async (args: z.infer<typeof createRuleParams>) => {
+      const { rule } = await financesRepo.createClassificationRule({
+        rule: { organizationId, name: args.name, classification: args.classification, conditions: args.conditions, conditionMatchMode: args.conditionMatchMode, tagIds: args.tagIds, priority: 0 },
+      });
+      return { rule, message: `Classification rule "${args.name}" created successfully.` };
+    },
+    updateClassificationRule: async (args: z.infer<typeof updateClassificationRuleParams>) => {
+      const { ruleId, ...updates } = args;
+      const { rule } = await financesRepo.updateClassificationRule({ ruleId, organizationId, updates });
+      return { rule, message: `Classification rule "${rule.name}" updated.` };
+    },
+    deleteClassificationRule: async (args: z.infer<typeof deleteClassificationRuleParams>) => {
+      await financesRepo.deleteClassificationRule({ ruleId: args.ruleId, organizationId });
+      return { success: true, message: 'Classification rule deleted.' };
+    },
+    createTaggingRule: async (args: z.infer<typeof createTaggingRuleParams>) => {
+      await createTaggingRuleUsecase({ name: args.name, description: args.description, enabled: true, conditionMatchMode: args.conditionMatchMode, conditions: args.conditions, tagIds: args.tagIds, organizationId, taggingRulesRepository: taggingRulesRepo });
+      return { success: true, message: `Document tagging rule "${args.name}" created.` };
+    },
+    updateTaggingRule: async (args: z.infer<typeof updateTaggingRuleParams>) => {
+      await taggingRulesRepo.updateOrganizationTaggingRule({ organizationId, taggingRuleId: args.taggingRuleId, taggingRule: { name: args.name, description: args.description, enabled: args.enabled, conditionMatchMode: args.conditionMatchMode, conditions: args.conditions, tagIds: args.tagIds } });
+      return { success: true, message: `Document tagging rule "${args.name}" updated.` };
+    },
+    deleteTaggingRule: async (args: z.infer<typeof deleteTaggingRuleParams>) => {
+      await taggingRulesRepo.deleteOrganizationTaggingRule({ organizationId, taggingRuleId: args.taggingRuleId });
+      return { success: true, message: 'Document tagging rule deleted.' };
+    },
+  };
+
+  const tools = {
     listTransactions: tool({
       description: 'List transactions for the organization. Use this to analyze patterns, find unclassified transactions, or look for specific counterparties/descriptions. Returns up to 100 rows per call, including any tags assigned to each transaction.',
       inputSchema: zodSchema(listTransactionsParams),
@@ -118,33 +278,20 @@ export function createAssistantTools({ db, organizationId, authSecret, documentS
     createClassificationRule: tool({
       description: 'Create a new classification rule. The rule will automatically classify future transactions that match the conditions and optionally apply tags. Condition fields: counterparty, description, amount. Operators: contains, equals, starts_with, gt, lt. Classifications: expense, income, owner_transfer, internal_transfer. Use listTags first to get tag IDs if you want to apply tags.',
       inputSchema: zodSchema(createRuleParams),
-      execute: async (args) => {
-        const { rule } = await financesRepo.createClassificationRule({
-          rule: {
-            organizationId,
-            name: args.name,
-            classification: args.classification,
-            conditions: args.conditions,
-            conditionMatchMode: args.conditionMatchMode,
-            tagIds: args.tagIds,
-            priority: 0,
-          },
-        });
-        return { rule, message: `Classification rule "${args.name}" created successfully.` };
-      },
+      execute: async (args) => confirmationResult('createClassificationRule', args as unknown as Record<string, unknown>),
     }),
 
     autoClassifyTransactions: tool({
-      description: 'Run auto-classification on all unclassified transactions using existing rules. Also applies any tags configured on matching rules. Returns the number of transactions that were classified.',
+      description: 'Run auto-classification on all unclassified transactions using ALL existing active rules. Returns total classified count AND a breakdown by classification type (e.g. { expense: 40, income: 30, owner_transfer: 5 }). IMPORTANT: The count includes ALL rules, not just newly created ones. Report the breakdown accurately — do NOT attribute the total count to a single classification.',
       inputSchema: zodSchema(emptyParams),
       execute: async () => {
-        const { classifiedCount } = await runAutoClassify({ financesRepo, tagsRepo, organizationId });
-        return { classifiedCount, message: `Auto-classified ${classifiedCount} transactions.` };
+        const { classifiedCount, classifiedByClassification } = await runAutoClassify({ financesRepo, tagsRepo, organizationId });
+        return { classifiedCount, classifiedByClassification, message: `Auto-classified ${classifiedCount} transactions.` };
       },
     }),
 
     searchTransactions: tool({
-      description: 'Search ALL transactions across the ENTIRE history by counterparty or description text and get aggregate statistics (total spent, count, average, date range). ALWAYS use this instead of listTransactions when the user asks about a specific place, merchant, or keyword. Do NOT add date filters unless the user explicitly requests a specific date range. Returns up to 200 matching transactions plus aggregated stats.',
+      description: 'Search ALL transactions across the ENTIRE history by counterparty or description. Returns aggregate stats (total spent, count, average) and up to 200 transactions. ALWAYS use this when the user asks about a specific place, merchant, or keyword. CRITICAL: Do NOT set dateFrom or dateTo unless the user EXPLICITLY says a date range like "in January" or "last 3 months". By default, search the ENTIRE history with NO date filters.',
       inputSchema: zodSchema(searchTransactionsParams),
       execute: async (args) => {
         const { stats, transactions } = await financesRepo.searchTransactionsAggregate({
@@ -342,7 +489,94 @@ export function createAssistantTools({ db, organizationId, authSecret, documentS
         };
       },
     }),
+
+    createTag: tool({
+      description: 'Create a new tag in the organization. Use this when the user asks to create tags or when you need a tag that does not exist yet. Returns the created tag with its ID.',
+      inputSchema: zodSchema(createTagParams),
+      execute: async (args) => {
+        const { tag } = await tagsRepo.createTag({
+          tag: {
+            name: args.name,
+            color: args.color ?? '#6b7280',
+            description: args.description ?? null,
+            organizationId,
+          },
+        });
+        return { tag: { id: tag!.id, name: tag!.name, color: tag!.color }, message: `Tag "${args.name}" created.` };
+      },
+    }),
+
+    applyTag: tool({
+      description: 'Apply a tag to a document or transaction. Use listTags to find the tag ID first. If the tag does not exist, create it with createTag first.',
+      inputSchema: zodSchema(applyTagParams),
+      execute: async (args) => {
+        if (args.entityType === 'document') {
+          await tagsRepo.addTagToDocument({ tagId: args.tagId, documentId: args.entityId });
+          return { success: true, message: `Tag applied to document.` };
+        }
+        else {
+          await tagsRepo.addTagToTransaction({ tagId: args.tagId, transactionId: args.entityId });
+          return { success: true, message: `Tag applied to transaction.` };
+        }
+      },
+    }),
+
+    removeTag: tool({
+      description: 'Remove a tag from a document or transaction.',
+      inputSchema: zodSchema(removeTagParams),
+      execute: async (args) => {
+        if (args.entityType === 'document') {
+          await tagsRepo.removeTagFromDocument({ tagId: args.tagId, documentId: args.entityId });
+          return { success: true, message: `Tag removed from document.` };
+        }
+        else {
+          await tagsRepo.removeTagFromTransaction({ tagId: args.tagId, transactionId: args.entityId });
+          return { success: true, message: `Tag removed from transaction.` };
+        }
+      },
+    }),
+
+    updateClassificationRule: tool({
+      description: 'Update an existing classification rule (transaction rule). You can change its name, classification, conditions, tags, match mode, or active status. Use listClassificationRules first to get rule IDs. Only provide the fields you want to change.',
+      inputSchema: zodSchema(updateClassificationRuleParams),
+      execute: async (args) => confirmationResult('updateClassificationRule', args as unknown as Record<string, unknown>),
+    }),
+
+    deleteClassificationRule: tool({
+      description: 'Delete a classification rule (transaction rule). This cannot be undone.',
+      inputSchema: zodSchema(deleteClassificationRuleParams),
+      execute: async (args) => confirmationResult('deleteClassificationRule', args as unknown as Record<string, unknown>),
+    }),
+
+    createTaggingRule: tool({
+      description: 'Create a new document tagging rule. The rule will automatically tag documents whose name or content matches the conditions. Conditions use fields: "name" (document name), "content" (extracted text). Operators: equal, not_equal, contains, not_contains, starts_with, ends_with. You MUST provide at least one tag ID — use listTags to find IDs, or createTag to make a new tag first.',
+      inputSchema: zodSchema(createTaggingRuleParams),
+      execute: async (args) => confirmationResult('createTaggingRule', args as unknown as Record<string, unknown>),
+    }),
+
+    updateTaggingRule: tool({
+      description: 'Update an existing document tagging rule. Replaces conditions and tags entirely. Use listTaggingRules to find rule IDs.',
+      inputSchema: zodSchema(updateTaggingRuleParams),
+      execute: async (args) => confirmationResult('updateTaggingRule', args as unknown as Record<string, unknown>),
+    }),
+
+    deleteTaggingRule: tool({
+      description: 'Delete a document tagging rule. This cannot be undone.',
+      inputSchema: zodSchema(deleteTaggingRuleParams),
+      execute: async (args) => confirmationResult('deleteTaggingRule', args as unknown as Record<string, unknown>),
+    }),
+
+    analyzeUnclassifiedTransactions: tool({
+      description: 'Analyze ALL unclassified transactions. Returns pre-extracted patterns with keyword, field (description/counterparty), transaction count, total amount, sample descriptions, and suggested classification. Each pattern is a READY-TO-USE rule candidate. Create a createClassificationRule call for EACH pattern — use the keyword as a "contains" condition on the specified field. Call createClassificationRule MULTIPLE TIMES in the same response, one per pattern.',
+      inputSchema: zodSchema(emptyParams),
+      execute: async () => {
+        const { totalUnclassified, patterns } = await financesRepo.getUnclassifiedCounterpartySummary({ organizationId });
+        return { totalUnclassified, patterns };
+      },
+    }),
   };
+
+  return { tools, executors };
 }
 
 async function runAutoClassify({ financesRepo, tagsRepo, organizationId }: { financesRepo: FinancesRepository; tagsRepo: ReturnType<typeof createTagsRepository>; organizationId: string }) {

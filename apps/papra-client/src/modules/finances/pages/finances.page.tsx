@@ -13,7 +13,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { createToast } from '@/modules/ui/components/sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
 import { AddBankConnectionDialog } from '../components/add-bank-connection-dialog.component';
-import { ClassificationRulesPanel } from '../components/classification-rules-panel.component';
 import { EditBankConnectionDialog } from '../components/edit-bank-connection-dialog.component';
 import { TransactionDetailDialog } from '../components/transaction-detail-dialog.component';
 import { deleteBankConnection, fetchBankConnections, fetchTransactions, syncBankConnection, updateTransactionClassification } from '../finances.services';
@@ -65,7 +64,6 @@ export const FinancesPage: Component = () => {
   const [getFilterClassification, setFilterClassification] = createSignal<string | undefined>();
   const [getEditingConnection, setEditingConnection] = createSignal<string | undefined>();
   const [getDetailTransaction, setDetailTransaction] = createSignal<Transaction | null>(null);
-  const [showRules, setShowRules] = createSignal(false);
 
   const connectionsQuery = useQuery(() => ({
     queryKey: ['organizations', params.organizationId, 'finances', 'bank-connections'],
@@ -140,10 +138,7 @@ export const FinancesPage: Component = () => {
             <Button variant="ghost" size="sm" onClick={togglePrivacyMode} title={isPrivacyMode() ? 'Show values' : 'Hide values'}>
               <div class={cn(isPrivacyMode() ? 'i-tabler-eye-off' : 'i-tabler-eye', 'size-5')} />
             </Button>
-            <Button variant="outline" onClick={() => setShowRules(v => !v)}>
-              <div class="i-tabler-settings size-4 mr-1" />
-              {showRules() ? 'Hide Rules' : 'Rules'}
-            </Button>
+
             <AddBankConnectionDialog organizationId={params.organizationId} />
           </div>
         </Show>
@@ -267,10 +262,7 @@ export const FinancesPage: Component = () => {
         </div>
       </Show>
 
-      {/* Classification rules panel */}
-      <Show when={showRules()}>
-        <ClassificationRulesPanel organizationId={params.organizationId} />
-      </Show>
+
 
       {/* Transactions table */}
       <Show
@@ -296,6 +288,7 @@ export const FinancesPage: Component = () => {
                 <TableHead>Counterparty</TableHead>
                 <TableHead class="text-right">Amount</TableHead>
                 <TableHead>Account</TableHead>
+                <TableHead>Tags</TableHead>
                 <TableHead>Classification</TableHead>
               </TableRow>
             </TableHeader>
@@ -330,6 +323,18 @@ export const FinancesPage: Component = () => {
                         <div class={cn(providerIcons[transaction.provider] ?? 'i-tabler-building-bank', 'size-3 mr-1')} />
                         {transaction.provider}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div class="flex flex-wrap gap-1">
+                        <For each={transaction.tags ?? []}>
+                          {tag => (
+                            <Badge variant="outline" class="text-xs">
+                              <div class="size-2 rounded-full mr-1" style={{ background: tag.color ?? '#888' }} />
+                              {tag.name}
+                            </Badge>
+                          )}
+                        </For>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Select
@@ -389,6 +394,7 @@ export const FinancesPage: Component = () => {
         transaction={getDetailTransaction()}
         isOpen={getDetailTransaction() !== null}
         onClose={() => setDetailTransaction(null)}
+        organizationId={params.organizationId}
       />
     </div>
   );

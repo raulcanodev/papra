@@ -18,7 +18,7 @@ export const autosendEmailDriverFactory = defineEmailDriverFactory(({ config, lo
 
       const { error } = await autosendClient.emails.send({
         from: fromParts
-          ? { name: fromParts[1].trim(), email: fromParts[2] }
+          ? { name: fromParts[1]!.trim(), email: fromParts[2]! }
           : { email: fromAddress },
         to: { email: to },
         subject,
