@@ -9,6 +9,7 @@ import { cn } from '@/modules/shared/style/cn';
 import { useDebounce } from '@/modules/shared/utils/timing';
 import { Button } from '@/modules/ui/components/button';
 import { TextField, TextFieldRoot } from '@/modules/ui/components/textfield';
+import { useDocumentUpload } from '../components/document-import-status.component';
 import { DocumentUploadArea } from '../components/document-upload-area.component';
 import { createdAtColumn, DocumentsPaginatedList, standardActionsColumn, tagsColumn } from '../components/documents-list.component';
 import { fetchOrganizationDocuments } from '../documents.services';
@@ -16,6 +17,7 @@ import { fetchOrganizationDocuments } from '../documents.services';
 export const DocumentsPage: Component = () => {
   const params = useParams();
   const { t } = useI18n();
+  const { promptImport } = useDocumentUpload();
   const [getSearchQuery, setSearchQuery] = createParamSynchronizedSignal<string>({ paramKey: 'query', defaultValue: '' });
   const debouncedSearchQuery = useDebounce(getSearchQuery, 300);
   const [getPagination, setPagination] = createParamSynchronizedPagination();
@@ -31,29 +33,29 @@ export const DocumentsPage: Component = () => {
   }));
 
   return (
-    <div class="p-6 mt-4 pb-32 max-w-5xl mx-auto">
+    <div class="flex flex-col h-full">
+      {/* Header */}
+      <div class="border-b px-6 py-3 flex items-center justify-between shrink-0 bg-background">
+        <div>
+          <h1 class="text-sm font-semibold leading-none">{t('documents.list.title')}</h1>
+          <p class="text-xs text-muted-foreground mt-0.5">{t('documents.list.no-documents.description')}</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <Button variant="outline" size="sm" class="h-8 text-xs gap-1.5" onClick={promptImport}>
+            <div class="i-tabler-upload size-3.5" />
+            Import
+          </Button>
+        </div>
+      </div>
+
+      <div class="p-6 pb-32 max-w-5xl mx-auto w-full overflow-y-auto flex-1">
       <Suspense>
         {documentsQuery.data?.documents?.length === 0 && debouncedSearchQuery().length === 0
           ? (
-              <>
-                <h2 class="text-xl font-bold ">
-                  {t('documents.list.no-documents.title')}
-                </h2>
-
-                <p class="text-muted-foreground mt-1 mb-6">
-                  {t('documents.list.no-documents.description')}
-                </p>
-
-                <DocumentUploadArea />
-
-              </>
+              <DocumentUploadArea />
             )
           : (
               <>
-                <h2 class="text-xl font-bold mb-4">
-                  {t('documents.list.title')}
-                </h2>
-
                 <div class="flex items-center">
                   <TextFieldRoot class="max-w-md flex-1">
                     <TextField
@@ -112,6 +114,7 @@ export const DocumentsPage: Component = () => {
               </>
             )}
       </Suspense>
+      </div>
     </div>
   );
 };
