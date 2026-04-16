@@ -54,7 +54,13 @@ const AVAILABLE_MODELS = [
   { id: 'gpt-4.1', provider: 'openai' as const, label: 'GPT-4.1' },
   { id: 'gpt-4.1-mini', provider: 'openai' as const, label: 'GPT-4.1 Mini' },
   { id: 'gpt-4.1-nano', provider: 'openai' as const, label: 'GPT-4.1 Nano' },
+  { id: 'gpt-4.5-preview', provider: 'openai' as const, label: 'GPT-4.5 Preview' },
+  { id: 'o3', provider: 'openai' as const, label: 'o3' },
+  { id: 'o3-mini', provider: 'openai' as const, label: 'o3-mini' },
+  { id: 'o4-mini', provider: 'openai' as const, label: 'o4-mini' },
   { id: 'claude-sonnet-4-20250514', provider: 'anthropic' as const, label: 'Claude Sonnet 4' },
+  { id: 'claude-opus-4-20250514', provider: 'anthropic' as const, label: 'Claude Opus 4' },
+  { id: 'claude-3-5-sonnet-20241022', provider: 'anthropic' as const, label: 'Claude 3.5 Sonnet' },
   { id: 'claude-3-5-haiku-20241022', provider: 'anthropic' as const, label: 'Claude 3.5 Haiku' },
 ] as const;
 
