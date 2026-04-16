@@ -2,7 +2,7 @@
 // Add new flags here as needed
 export const featureFlags = {
   llc_finances: {
-    allowedEmails: ['rawraul5@gmail.com'],
+    allowedEmails: ['rawraul5@gmail.com', 'alfredogaribaldi46@gmail.com'],
   },
 } as const;
 

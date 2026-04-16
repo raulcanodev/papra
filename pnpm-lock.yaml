@@ -509,6 +509,9 @@ importers:
       ai:
         specifier: ^6.0.161
         version: 6.0.161(zod@3.25.76)
+      autosendjs:
+        specifier: ^1.0.3
+        version: 1.0.3
       better-auth:
         specifier: 'catalog:'
         version: 1.4.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(solid-js@1.9.10)(vue@3.5.13(typescript@5.9.3))
@@ -5862,6 +5865,10 @@ packages:
 
   atomically@2.0.3:
     resolution: {integrity: sha512-kU6FmrwZ3Lx7/7y3hPS5QnbJfaohcIul5fGqf7ok+4KklIEk9tJ0C2IQPdacSbVUWv6zVHXEBWoWd6NrVMT7Cw==}
+
+  autosendjs@1.0.3:
+    resolution: {integrity: sha512-UFbM6YZqhvG1IN9gGta6QatpAJ6gsVWdpwkIK8s/9NvBq3o/XaRPJdcAavhpatrn2XAopVMoVx8i8jUnfjmdYg==}
+    engines: {node: '>=18'}
 
   available-typed-arrays@1.0.7:
     resolution: {integrity: sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ==}
@@ -18477,6 +18484,8 @@ snapshots:
     dependencies:
       stubborn-fs: 1.2.5
       when-exit: 2.1.4
+
+  autosendjs@1.0.3: {}
 
   available-typed-arrays@1.0.7:
     dependencies:

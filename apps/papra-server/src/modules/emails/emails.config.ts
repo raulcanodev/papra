@@ -2,6 +2,7 @@ import type { ConfigDefinition } from 'figue';
 import * as v from 'valibot';
 import { emailDriverFactoryNames } from './drivers/email-driver';
 import { LOGGER_EMAIL_DRIVER_NAME } from './drivers/logger/logger.email-driver';
+import { autosendEmailDriverConfig } from './drivers/autosend/autosend.email-driver.config';
 import { loggerEmailDriverConfig } from './drivers/logger/logger.email-driver.config';
 import { resendEmailDriverConfig } from './drivers/resend/resend.email-driver.config';
 import { smtpEmailDriverConfig } from './drivers/smtp/smtp.email-driver.config';
@@ -20,6 +21,7 @@ export const emailsConfig = {
     env: 'EMAILS_DRIVER',
   },
   drivers: {
+    autosend: autosendEmailDriverConfig,
     resend: resendEmailDriverConfig,
     logger: loggerEmailDriverConfig,
     smtp: smtpEmailDriverConfig,

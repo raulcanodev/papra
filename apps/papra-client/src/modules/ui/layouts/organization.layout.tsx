@@ -80,13 +80,11 @@ const OrganizationLayoutSideNav: Component = () => {
   const { user, hasPermission } = useCurrentUser();
 
   const getMainMenuItems = () => [
-    ...(hasFlag('llc_finances')
-      ? [{
-          label: 'Chat',
-          icon: 'i-tabler-message-circle',
-          href: `/organizations/${params.organizationId}/ai-assistant`,
-        }]
-      : []),
+    {
+      label: 'Chat',
+      icon: 'i-tabler-message-circle',
+      href: `/organizations/${params.organizationId}/ai-assistant`,
+    },
     {
       label: t('layout.menu.documents'),
       icon: 'i-tabler-file-text',

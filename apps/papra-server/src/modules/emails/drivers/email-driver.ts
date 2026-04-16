@@ -1,8 +1,10 @@
+import { AUTOSEND_EMAIL_DRIVER_NAME, autosendEmailDriverFactory } from './autosend/autosend.email-driver';
 import { LOGGER_EMAIL_DRIVER_NAME, loggerEmailDriverFactory } from './logger/logger.email-driver';
 import { RESEND_EMAIL_DRIVER_NAME, resendEmailDriverFactory } from './resend/resend.email-driver';
 import { SMTP_EMAIL_DRIVER_NAME, smtpEmailDriverFactory } from './smtp/smtp.email-driver';
 
 export const emailDrivers = {
+  [AUTOSEND_EMAIL_DRIVER_NAME]: autosendEmailDriverFactory,
   [RESEND_EMAIL_DRIVER_NAME]: resendEmailDriverFactory,
   [LOGGER_EMAIL_DRIVER_NAME]: loggerEmailDriverFactory,
   [SMTP_EMAIL_DRIVER_NAME]: smtpEmailDriverFactory,

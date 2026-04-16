@@ -3,7 +3,6 @@ import { stepCountIs, streamText } from 'ai';
 import { z } from 'zod';
 import { requireAuthentication } from '../app/auth/auth.middleware';
 import { getUser } from '../app/auth/auth.models';
-import { requireFeatureFlag } from '../feature-flags/feature-flags.middleware';
 import { organizationIdSchema } from '../organizations/organization.schemas.legacy';
 import { createOrganizationsRepository } from '../organizations/organizations.repository';
 import { ensureUserIsInOrganization } from '../organizations/organizations.usecases';
@@ -84,7 +83,6 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
   app.post(
     '/api/organizations/:organizationId/ai/chat',
     requireAuthentication(),
-    requireFeatureFlag({ flagId: 'llc_finances', db }),
     legacyValidateParams(z.object({ organizationId: organizationIdSchema })),
     legacyValidateJsonBody(chatBodySchema),
     async (context) => {
