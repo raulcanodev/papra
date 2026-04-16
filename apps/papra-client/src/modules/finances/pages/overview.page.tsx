@@ -6,6 +6,7 @@ import { cn } from '@/modules/shared/style/cn';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { fetchBankConnections, fetchOverviewStats } from '../finances.services';
+import { privacyCurrency, usePrivacyMode } from '../privacy-mode';
 
 const classificationColors: Record<string, string> = {
   expense: 'bg-red-500/10 text-red-600 border-red-500/20',
@@ -21,7 +22,11 @@ const classificationLabels: Record<string, string> = {
   internal_transfer: 'Internal Transfer',
 };
 
-function formatCurrency(amount: number, currency = 'USD') {
+function formatCurrencyRaw(amount: number, currency = 'USD') {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+}
+
+function formatCurrencyCompactRaw(amount: number, currency = 'USD') {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
 }
 
@@ -29,6 +34,11 @@ function formatMonth(ym: string) {
   const [year, month] = ym.split('-');
   return new Date(Number(year), Number(month) - 1, 1).toLocaleString('en-US', { month: 'short', year: '2-digit' });
 }
+
+const providerIcons: Record<string, string> = {
+  mercury: 'i-tabler-brand-mercury',
+  wise: 'i-tabler-world',
+};
 
 const StatCard: Component<{ label: string; value: string; icon: string; description?: string; class?: string }> = (props) => {
   return (
@@ -47,6 +57,10 @@ const StatCard: Component<{ label: string; value: string; icon: string; descript
 
 export const OverviewPage: Component = () => {
   const params = useParams();
+  const { isPrivacyMode, togglePrivacyMode } = usePrivacyMode();
+
+  const formatCurrency = (amount: number, currency = 'USD') => privacyCurrency(formatCurrencyRaw(amount, currency), isPrivacyMode());
+  const formatCurrencyCompact = (amount: number, currency = 'USD') => privacyCurrency(formatCurrencyCompactRaw(amount, currency), isPrivacyMode());
 
   const overviewQuery = useQuery(() => ({
     queryKey: ['organizations', params.organizationId, 'finances', 'overview'],
@@ -61,7 +75,6 @@ export const OverviewPage: Component = () => {
   const hasData = () => (overviewQuery.data?.monthlySummary?.length ?? 0) > 0;
   const hasConnections = () => (connectionsQuery.data?.bankConnections?.length ?? 0) > 0;
 
-  // Stats for the current/most-recent month
   const currentMonthStats = () => {
     const summary = overviewQuery.data?.monthlySummary ?? [];
     return summary[summary.length - 1];
@@ -70,10 +83,27 @@ export const OverviewPage: Component = () => {
   const totalBreakdownAmount = () =>
     overviewQuery.data?.classificationBreakdown.reduce((sum, b) => sum + b.total, 0) ?? 0;
 
-  // Bar chart helpers
   const maxBarValue = () => {
     const summary = overviewQuery.data?.monthlySummary ?? [];
     return Math.max(...summary.flatMap(m => [m.income, m.expenses]), 1);
+  };
+
+  const hasMultipleCurrencies = () => {
+    const balances = overviewQuery.data?.accountBalances ?? [];
+    const currencies = new Set(balances.map(b => b.currency));
+    return currencies.size > 1;
+  };
+
+  const getConvertedBalance = (balance: number, currency: string) => {
+    const displayCurrency = overviewQuery.data?.totalBalanceCurrency ?? 'USD';
+    if (currency === displayCurrency) {
+      return null;
+    }
+    const rate = overviewQuery.data?.exchangeRates?.[currency];
+    if (rate == null) {
+      return null;
+    }
+    return { amount: balance * rate, currency: displayCurrency };
   };
 
   return (
@@ -83,6 +113,9 @@ export const OverviewPage: Component = () => {
           <h2 class="text-xl font-bold">Overview</h2>
           <p class="text-muted-foreground text-sm mt-1">Last 6 months of financial activity</p>
         </div>
+        <Button variant="ghost" size="sm" onClick={togglePrivacyMode} title={isPrivacyMode() ? 'Show values' : 'Hide values'}>
+          <div class={cn(isPrivacyMode() ? 'i-tabler-eye-off' : 'i-tabler-eye', 'size-5')} />
+        </Button>
       </div>
 
       <Show
@@ -98,29 +131,56 @@ export const OverviewPage: Component = () => {
           </div>
         )}
       >
-        {/* Stat cards */}
+        {/* Total Balance Hero */}
         <Show when={(overviewQuery.data?.accountBalances?.length ?? 0) > 0}>
-          <div class="border rounded-lg p-4 mb-6">
-            <h3 class="text-sm font-semibold mb-3">Account Balances</h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              <For each={overviewQuery.data?.accountBalances}>
-                {account => (
-                  <div class="flex items-center gap-3 p-3 border rounded-lg">
-                    <div class="flex items-center justify-center size-8 rounded-full bg-primary/10">
-                      <div class="i-tabler-building-bank size-4 text-primary" />
-                    </div>
-                    <div class="flex-1 min-w-0">
-                      <div class="text-sm font-medium truncate">{account.bankConnectionName}</div>
-                      <div class="text-xs text-muted-foreground capitalize">{account.provider}</div>
-                    </div>
-                    <div class="text-right">
-                      <div class={cn('text-lg font-bold', account.balance >= 0 ? 'text-green-600' : 'text-red-600')}>
-                        {formatCurrency(account.balance, account.currency)}
-                      </div>
-                    </div>
+          <div class="border rounded-xl p-6 mb-6 bg-gradient-to-br from-primary/5 to-transparent">
+            <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+              <div>
+                <div class="text-sm text-muted-foreground mb-1">Total Balance</div>
+                <div class={cn('text-4xl font-bold tracking-tight', (overviewQuery.data?.totalBalance ?? 0) >= 0 ? 'text-foreground' : 'text-red-600')}>
+                  {formatCurrency(overviewQuery.data?.totalBalance ?? 0, overviewQuery.data?.totalBalanceCurrency)}
+                </div>
+                <Show when={hasMultipleCurrencies()}>
+                  <div class="text-xs text-muted-foreground mt-1">
+                    Converted to
+                    {' '}
+                    {overviewQuery.data?.totalBalanceCurrency}
+                    {' '}
+                    using ECB exchange rates
                   </div>
-                )}
-              </For>
+                </Show>
+              </div>
+
+              {/* Per-account breakdown */}
+              <div class="flex flex-col gap-2 md:items-end">
+                <For each={overviewQuery.data?.accountBalances}>
+                  {(account) => {
+                    const converted = () => getConvertedBalance(account.balance, account.currency);
+                    return (
+                      <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-2 min-w-0">
+                          <div class={cn(providerIcons[account.provider] ?? 'i-tabler-building-bank', 'size-4 text-muted-foreground shrink-0')} />
+                          <span class="text-sm text-muted-foreground truncate">{account.bankConnectionName}</span>
+                        </div>
+                        <div class="flex items-baseline gap-1.5 shrink-0">
+                          <span class={cn('text-sm font-semibold', account.balance >= 0 ? 'text-foreground' : 'text-red-600')}>
+                            {formatCurrency(account.balance, account.currency)}
+                          </span>
+                          <Show when={converted()}>
+                            {conv => (
+                              <span class="text-xs text-muted-foreground">
+                                ≈
+                                {' '}
+                                {formatCurrency(conv().amount, conv().currency)}
+                              </span>
+                            )}
+                          </Show>
+                        </div>
+                      </div>
+                    );
+                  }}
+                </For>
+              </div>
             </div>
           </div>
         </Show>
@@ -129,19 +189,19 @@ export const OverviewPage: Component = () => {
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           <StatCard
             label="Income (this month)"
-            value={formatCurrency(currentMonthStats()?.income ?? 0)}
+            value={formatCurrencyCompact(currentMonthStats()?.income ?? 0)}
             icon="i-tabler-trending-up"
             class="border-green-500/20"
           />
           <StatCard
             label="Expenses (this month)"
-            value={formatCurrency(currentMonthStats()?.expenses ?? 0)}
+            value={formatCurrencyCompact(currentMonthStats()?.expenses ?? 0)}
             icon="i-tabler-trending-down"
             class="border-red-500/20"
           />
           <StatCard
             label="Net (this month)"
-            value={formatCurrency((currentMonthStats()?.income ?? 0) - (currentMonthStats()?.expenses ?? 0))}
+            value={formatCurrencyCompact((currentMonthStats()?.income ?? 0) - (currentMonthStats()?.expenses ?? 0))}
             icon="i-tabler-scale"
           />
           <StatCard
@@ -157,24 +217,28 @@ export const OverviewPage: Component = () => {
           {/* Monthly bar chart */}
           <div class="border rounded-lg p-4 mb-6">
             <h3 class="text-sm font-semibold mb-4">Income vs Expenses — last 6 months</h3>
-            <div class="flex items-end gap-3 h-40">
+            <div class="flex items-end gap-3 h-48">
               <For each={overviewQuery.data?.monthlySummary}>
                 {(entry) => {
                   const incomeHeight = () => `${Math.round((entry.income / maxBarValue()) * 100)}%`;
                   const expenseHeight = () => `${Math.round((entry.expenses / maxBarValue()) * 100)}%`;
                   return (
                     <div class="flex-1 flex flex-col items-center gap-1 min-w-0">
-                      <div class="w-full flex items-end gap-0.5 h-32">
-                        <div
-                          class="flex-1 bg-green-500/40 rounded-t transition-all"
-                          style={{ height: incomeHeight() }}
-                          title={`Income: ${formatCurrency(entry.income)}`}
-                        />
-                        <div
-                          class="flex-1 bg-red-500/40 rounded-t transition-all"
-                          style={{ height: expenseHeight() }}
-                          title={`Expenses: ${formatCurrency(entry.expenses)}`}
-                        />
+                      <div class="w-full flex items-end gap-0.5 h-36">
+                        <div class="flex-1 h-full flex flex-col items-center justify-end">
+                          <span class="text-[10px] font-medium text-green-600 mb-0.5 truncate w-full text-center">{formatCurrencyCompact(entry.income)}</span>
+                          <div
+                            class="w-full bg-green-500/40 rounded-t transition-all"
+                            style={{ height: incomeHeight() }}
+                          />
+                        </div>
+                        <div class="flex-1 h-full flex flex-col items-center justify-end">
+                          <span class="text-[10px] font-medium text-red-500 mb-0.5 truncate w-full text-center">{formatCurrencyCompact(entry.expenses)}</span>
+                          <div
+                            class="w-full bg-red-500/40 rounded-t transition-all"
+                            style={{ height: expenseHeight() }}
+                          />
+                        </div>
                       </div>
                       <span class="text-xs text-muted-foreground truncate w-full text-center">{formatMonth(entry.month)}</span>
                     </div>
@@ -218,7 +282,7 @@ export const OverviewPage: Component = () => {
                             style={{ width: `${pct()}%` }}
                           />
                         </div>
-                        <span class="text-sm font-medium w-20 text-right shrink-0">{formatCurrency(entry.total)}</span>
+                        <span class="text-sm font-medium w-20 text-right shrink-0">{formatCurrencyCompact(entry.total)}</span>
                         <span class="text-xs text-muted-foreground w-8 text-right shrink-0">
                           {pct()}
                           %

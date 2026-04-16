@@ -434,8 +434,8 @@ async function getOverviewStats({ db, organizationId }: {
   const [monthlySummary, classificationBreakdown, unclassifiedResult] = await Promise.all([
     db.select({
       month: sql<string>`strftime('%Y-%m', datetime(${transactionsTable.date} / 1000, 'unixepoch'))`,
-      income: sql<number>`COALESCE(SUM(CASE WHEN ${transactionsTable.amount} > 0 THEN ${transactionsTable.amount} ELSE 0 END), 0)`,
-      expenses: sql<number>`COALESCE(SUM(CASE WHEN ${transactionsTable.amount} < 0 THEN ABS(${transactionsTable.amount}) ELSE 0 END), 0)`,
+      income: sql<number>`COALESCE(SUM(CASE WHEN ${transactionsTable.amount} > 0 AND (${transactionsTable.classification} IS NULL OR ${transactionsTable.classification} NOT IN ('internal_transfer', 'owner_transfer')) THEN ${transactionsTable.amount} ELSE 0 END), 0)`,
+      expenses: sql<number>`COALESCE(SUM(CASE WHEN ${transactionsTable.amount} < 0 AND (${transactionsTable.classification} IS NULL OR ${transactionsTable.classification} NOT IN ('internal_transfer', 'owner_transfer')) THEN ABS(${transactionsTable.amount}) ELSE 0 END), 0)`,
     }).from(transactionsTable).where(and(
       eq(transactionsTable.organizationId, organizationId),
       gte(transactionsTable.date, sixMonthsAgo),

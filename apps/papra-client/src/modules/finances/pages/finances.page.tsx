@@ -17,6 +17,7 @@ import { ClassificationRulesPanel } from '../components/classification-rules-pan
 import { EditBankConnectionDialog } from '../components/edit-bank-connection-dialog.component';
 import { TransactionDetailDialog } from '../components/transaction-detail-dialog.component';
 import { deleteBankConnection, fetchBankConnections, fetchTransactions, syncBankConnection, updateTransactionClassification } from '../finances.services';
+import { privacyCurrency, privacyText, usePrivacyMode } from '../privacy-mode';
 
 const classificationOptions = [
   { value: 'expense', label: 'Expense' },
@@ -37,7 +38,7 @@ const providerIcons: Record<string, string> = {
   wise: 'i-tabler-world',
 };
 
-function formatCurrency(amount: number, currency: string) {
+function formatCurrencyRaw(amount: number, currency: string) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency,
@@ -57,6 +58,8 @@ export const FinancesPage: Component = () => {
   const params = useParams();
   const queryClient = useQueryClient();
   const { confirm } = useConfirmModal();
+  const { isPrivacyMode, togglePrivacyMode } = usePrivacyMode();
+  const formatCurrency = (amount: number, currency: string) => privacyCurrency(formatCurrencyRaw(amount, currency), isPrivacyMode());
   const [getPagination, setPagination] = createParamSynchronizedPagination();
   const [getFilterConnection, setFilterConnection] = createSignal<string | undefined>();
   const [getFilterClassification, setFilterClassification] = createSignal<string | undefined>();
@@ -134,6 +137,9 @@ export const FinancesPage: Component = () => {
         </div>
         <Show when={(connectionsQuery.data?.bankConnections?.length ?? 0) > 0}>
           <div class="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={togglePrivacyMode} title={isPrivacyMode() ? 'Show values' : 'Hide values'}>
+              <div class={cn(isPrivacyMode() ? 'i-tabler-eye-off' : 'i-tabler-eye', 'size-5')} />
+            </Button>
             <Button variant="outline" onClick={() => setShowRules(v => !v)}>
               <div class="i-tabler-settings size-4 mr-1" />
               {showRules() ? 'Hide Rules' : 'Rules'}
@@ -310,11 +316,11 @@ export const FinancesPage: Component = () => {
                     <TableCell class="text-muted-foreground whitespace-nowrap">
                       {formatDate(transaction.date)}
                     </TableCell>
-                    <TableCell class="max-w-[300px] truncate" title={transaction.description}>
-                      {transaction.description}
+                    <TableCell class="max-w-[300px] truncate" title={isPrivacyMode() ? '' : transaction.description}>
+                      {privacyText(transaction.description, isPrivacyMode())}
                     </TableCell>
                     <TableCell class="text-muted-foreground">
-                      {transaction.counterparty ?? '—'}
+                      {privacyText(transaction.counterparty ?? '—', isPrivacyMode())}
                     </TableCell>
                     <TableCell class={cn('text-right font-mono whitespace-nowrap', transaction.amount < 0 ? 'text-red-500' : 'text-green-600')}>
                       {formatCurrency(transaction.amount, transaction.currency)}

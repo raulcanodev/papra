@@ -78,4 +78,7 @@ export type OverviewStats = {
   classificationBreakdown: Array<{ classification: string | null; total: number; count: number }>;
   unclassifiedCount: number;
   accountBalances: AccountBalance[];
+  totalBalance: number;
+  totalBalanceCurrency: string;
+  exchangeRates: Record<string, number>;
 };

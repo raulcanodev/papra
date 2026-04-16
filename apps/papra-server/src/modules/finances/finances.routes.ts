@@ -10,6 +10,7 @@ import { ensureUserIsInOrganization } from '../organizations/organizations.useca
 import { legacyValidateJsonBody, legacyValidateParams, legacyValidateQuery } from '../shared/validation/validation.legacy';
 import { createTagNotFoundError } from '../tags/tags.errors';
 import { createTagsRepository } from '../tags/tags.repository';
+import { convertCurrency } from './exchange-rates';
 import { BANK_PROVIDERS, BILLING_CYCLES, TRANSACTION_CLASSIFICATIONS } from './finances.constants';
 import { createFinancesRepository } from './finances.repository';
 import { addBankConnection, autoClassifyTransactions, refreshAccountBalances, syncBankTransactions } from './finances.usecases';
@@ -436,6 +437,52 @@ function setupAutoClassifyRoute({ app, db, config }: RouteDefinitionContext) {
   );
 }
 
+async function computeTotalBalance({ balances }: { balances: Array<{ balance: number; currency: string }> }) {
+  if (balances.length === 0) {
+    return { totalBalance: 0, totalBalanceCurrency: 'USD', exchangeRates: {} as Record<string, number> };
+  }
+
+  // Pick the most common currency as the display currency
+  const currencyCounts = new Map<string, number>();
+  for (const b of balances) {
+    currencyCounts.set(b.currency, (currencyCounts.get(b.currency) ?? 0) + 1);
+  }
+  const displayCurrency = [...currencyCounts.entries()].sort((a, b) => b[1] - a[1])[0]![0];
+
+  const uniqueCurrencies = [...new Set(balances.map(b => b.currency))];
+  const needsConversion = uniqueCurrencies.length > 1;
+
+  const exchangeRates: Record<string, number> = {};
+  if (needsConversion) {
+    for (const currency of uniqueCurrencies) {
+      if (currency !== displayCurrency) {
+        try {
+          const converted = await convertCurrency({ amount: 1, from: currency, to: displayCurrency });
+          exchangeRates[currency] = converted;
+        }
+        catch {
+          // If conversion fails, skip this currency from total
+        }
+      }
+    }
+  }
+
+  let totalBalance = 0;
+  for (const b of balances) {
+    if (b.currency === displayCurrency) {
+      totalBalance += b.balance;
+    }
+    else {
+      const rate = exchangeRates[b.currency];
+      if (rate != null) {
+        totalBalance += b.balance * rate;
+      }
+    }
+  }
+
+  return { totalBalance, totalBalanceCurrency: displayCurrency, exchangeRates };
+}
+
 function setupGetOverviewRoute({ app, db, config }: RouteDefinitionContext) {
   app.get(
     '/api/organizations/:organizationId/finances/overview',
@@ -455,14 +502,24 @@ function setupGetOverviewRoute({ app, db, config }: RouteDefinitionContext) {
         financesRepository.getAccountBalances({ organizationId }),
       ]);
 
+      let accountBalances = balances;
+
       // If no cached balances yet, fetch them from providers
-      if (balances.length === 0) {
+      if (accountBalances.length === 0) {
         await refreshAccountBalances({ organizationId, financesRepository });
         const refreshed = await financesRepository.getAccountBalances({ organizationId });
-        return context.json({ ...stats, accountBalances: refreshed.balances });
+        accountBalances = refreshed.balances;
       }
 
-      return context.json({ ...stats, accountBalances: balances });
+      const { totalBalance, totalBalanceCurrency, exchangeRates } = await computeTotalBalance({ balances: accountBalances });
+
+      return context.json({
+        ...stats,
+        accountBalances,
+        totalBalance,
+        totalBalanceCurrency,
+        exchangeRates,
+      });
     },
   );
 }
