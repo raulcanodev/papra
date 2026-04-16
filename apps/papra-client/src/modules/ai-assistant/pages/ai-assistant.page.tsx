@@ -8,7 +8,7 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/modules/ui/components/dropdown-menu';
-import { deleteChatSession, executeToolAction, fetchAiModels, fetchChatSession, fetchChatSessions, streamChatMessage } from '../ai-assistant.services';
+import { deleteChatSession, executeToolAction, fetchAiModels, fetchChatSession, fetchChatSessions, renameChatSession, streamChatMessage } from '../ai-assistant.services';
 
 const PLACEHOLDER_SUGGESTION_CONFIG = [
   { icon: 'i-tabler-files', key: 'ai-assistant.suggestion.documents-overview' as const },
@@ -435,36 +435,81 @@ const ChatHistoryItem: Component<{
   isActive: boolean;
   onSelect: () => void;
   onDelete: () => void;
+  onRename: (newTitle: string) => void;
 }> = (props) => {
+  const [editing, setEditing] = createSignal(false);
+  let inputRef: HTMLInputElement | undefined;
+
+  const startEdit = (e: Event) => {
+    e.stopPropagation();
+    setEditing(true);
+    setTimeout(() => inputRef?.select(), 0);
+  };
+
+  const commitEdit = () => {
+    const val = inputRef?.value.trim();
+    if (val && val !== props.session.title) {
+      props.onRename(val);
+    }
+    setEditing(false);
+  };
+
   return (
-    <button
-      type="button"
-      class={cn(
-        'w-full text-left px-3 py-2 rounded-lg text-sm truncate transition-colors group flex items-center gap-2',
-        props.isActive
-          ? 'bg-muted font-medium'
-          : 'hover:bg-muted/50 text-muted-foreground',
-      )}
-      onClick={() => props.onSelect()}
+    <Show
+      when={!editing()}
+      fallback={
+        <div class="w-full px-3 py-1.5 rounded-lg bg-muted flex items-center gap-2">
+          <input
+            ref={inputRef}
+            class="flex-1 text-sm bg-transparent outline-none min-w-0"
+            value={props.session.title}
+            onBlur={commitEdit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitEdit();
+              if (e.key === 'Escape') setEditing(false);
+            }}
+          />
+        </div>
+      }
     >
-      <div class="i-tabler-message size-3.5 shrink-0 opacity-50" />
-      <span class="truncate flex-1">{props.session.title}</span>
-      <div
-        role="button"
-        tabIndex={0}
-        class="i-tabler-x size-3.5 shrink-0 opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity"
-        onClick={(e) => {
-          e.stopPropagation();
-          props.onDelete();
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
+      <button
+        type="button"
+        class={cn(
+          'w-full text-left px-3 py-2 rounded-lg text-sm truncate transition-colors group flex items-center gap-2',
+          props.isActive
+            ? 'bg-muted font-medium'
+            : 'hover:bg-muted/50 text-muted-foreground',
+        )}
+        onClick={() => props.onSelect()}
+      >
+        <div class="i-tabler-message size-3.5 shrink-0 opacity-50" />
+        <span class="truncate flex-1">{props.session.title}</span>
+        <div
+          role="button"
+          tabIndex={0}
+          class="i-tabler-pencil size-3.5 shrink-0 opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity"
+          onClick={startEdit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') startEdit(e);
+          }}
+        />
+        <div
+          role="button"
+          tabIndex={0}
+          class="i-tabler-x size-3.5 shrink-0 opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity"
+          onClick={(e) => {
             e.stopPropagation();
             props.onDelete();
-          }
-        }}
-      />
-    </button>
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.stopPropagation();
+              props.onDelete();
+            }
+          }}
+        />
+      </button>
+    </Show>
   );
 };
 
@@ -680,11 +725,16 @@ export const AiAssistantPage: Component = () => {
     }
   }
 
+  async function handleRenameChat(sessionId: string, title: string) {
+    await renameChatSession({ organizationId: orgId(), sessionId, title });
+    void refetchSessions();
+  }
+
   return (
     <div class="flex h-[calc(100vh-4rem)]">
       {/* History sidebar */}
       <Show when={showHistory()}>
-        <div class="w-64 border-r bg-background shrink-0 flex flex-col">
+        <div class="w-64 border-r bg-background shrink-0 flex flex-col min-h-0 h-full">
           <div class="p-3 border-b flex items-center justify-between">
             <span class="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('ai-assistant.history.title')}</span>
             <button
@@ -707,6 +757,7 @@ export const AiAssistantPage: Component = () => {
                     isActive={activeChatId() === session.id}
                     onSelect={() => void loadChat(session)}
                     onDelete={() => void handleDeleteChat(session.id)}
+                    onRename={title => void handleRenameChat(session.id, title)}
                   />
                 )}
               </For>

@@ -118,7 +118,19 @@ const DocumentRuleCard: Component<{ taggingRule: TaggingRule }> = (props) => {
         <Button as={A} href={`/organizations/${props.taggingRule.organizationId}/tagging-rules/${props.taggingRule.id}`} variant="ghost" size="icon" class="size-7">
           <div class="i-tabler-edit size-3.5" />
         </Button>
-        <Button variant="ghost" size="icon" class="size-7 text-destructive hover:text-destructive" onClick={() => deleteTaggingRuleMutation.mutate()} disabled={deleteTaggingRuleMutation.isPending}>
+        <Button variant="ghost" size="icon" class="size-7 text-destructive hover:text-destructive"
+          onClick={async () => {
+            const ok = await confirm({
+              title: 'Delete document rule',
+              message: `Delete rule "${props.taggingRule.name}"?`,
+              confirmButton: { text: 'Delete', variant: 'destructive' },
+            });
+            if (ok) {
+              deleteTaggingRuleMutation.mutate();
+            }
+          }}
+          disabled={deleteTaggingRuleMutation.isPending}
+        >
           <div class="i-tabler-trash size-3.5" />
         </Button>
       </div>

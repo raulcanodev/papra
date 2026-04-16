@@ -399,6 +399,26 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
     },
   );
 
+  // Rename session
+  app.patch(
+    '/api/organizations/:organizationId/ai/sessions/:sessionId',
+    requireAuthentication(),
+    legacyValidateParams(sessionIdParamSchema),
+    legacyValidateJsonBody(z.object({ title: z.string().min(1).max(100) })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, sessionId } = context.req.valid('param');
+      const { title } = context.req.valid('json');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      await aiAssistantRepository.updateChatSessionTitle({ sessionId, userId, title });
+
+      return context.json({ success: true });
+    },
+  );
+
   // Delete session
   app.delete(
     '/api/organizations/:organizationId/ai/sessions/:sessionId',

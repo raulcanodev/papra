@@ -59,6 +59,10 @@ export async function deleteChatSession({ organizationId, sessionId }: { organiz
   await apiClient({ path: `/api/organizations/${organizationId}/ai/sessions/${sessionId}`, method: 'DELETE' });
 }
 
+export async function renameChatSession({ organizationId, sessionId, title }: { organizationId: string; sessionId: string; title: string }): Promise<void> {
+  await apiClient({ path: `/api/organizations/${organizationId}/ai/sessions/${sessionId}`, method: 'PATCH', body: { title } });
+}
+
 function serializeMessages(messages: ChatMessage[]): Array<{ role: string; content: string }> {
   return messages.map((m) => {
     let content = m.content;
