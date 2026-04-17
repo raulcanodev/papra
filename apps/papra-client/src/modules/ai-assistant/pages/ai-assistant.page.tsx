@@ -519,7 +519,7 @@ export const AiAssistantPage: Component = () => {
   const [messages, setMessages] = createSignal<ChatMessage[]>([]);
   const [input, setInput] = createSignal('');
   const [isStreaming, setIsStreaming] = createSignal(false);
-  const [selectedModel, setSelectedModel] = createSignal<string>(localStorage.getItem('papra-ai-model') ?? 'gpt-4o');
+  const [selectedModel, setSelectedModel] = createSignal<string>(localStorage.getItem('papra-ai-model') ?? '');
   const [activeChatId, setActiveChatId] = createSignal<string | undefined>(sessionStorage.getItem('papra-ai-chat') ?? undefined);
   const [showHistory, setShowHistory] = createSignal(false);
   let abortController: AbortController | undefined;
@@ -542,7 +542,7 @@ export const AiAssistantPage: Component = () => {
   const [sessionsData, { refetch: refetchSessions }] = createResource(orgId, organizationId => fetchChatSessions({ organizationId }));
 
   const models = () => modelsData()?.models ?? [];
-  const currentModel = () => selectedModel();
+  const currentModel = () => selectedModel() || modelsData()?.defaultModel || '';
   const sessions = () => sessionsData()?.sessions ?? [];
   const suggestions = () => PLACEHOLDER_SUGGESTION_CONFIG.map(s => ({ icon: s.icon, text: t(s.key) }));
 
@@ -877,12 +877,12 @@ export const AiAssistantPage: Component = () => {
               </div>
             </div>
             <div class="flex items-center justify-between mt-2">
-              <Show when={models().length > 0}>
+              <Show when={models().length > 1}>
                 <DropdownMenu>
                   <DropdownMenuTrigger class="inline-flex items-center gap-1 h-6 px-2 rounded text-[11px] text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/50 transition-colors font-normal cursor-pointer select-none outline-none">
                     <div class={cn(
                       'size-1.5 rounded-full shrink-0',
-                      models().find(m => m.id === currentModel())?.provider === 'anthropic' ? 'bg-orange-500' : 'bg-green-500',
+                      { anthropic: 'bg-orange-500', xai: 'bg-blue-500', google: 'bg-yellow-500', openai: 'bg-green-500' }[models().find(m => m.id === currentModel())?.provider ?? 'openai'],
                     )}
                     />
                     <span>{models().find(m => m.id === currentModel())?.label ?? modelsData()?.defaultModel ?? t('ai-assistant.model.select')}</span>
@@ -897,7 +897,7 @@ export const AiAssistantPage: Component = () => {
                         >
                           <div class={cn(
                             'size-1.5 rounded-full',
-                            m.provider === 'anthropic' ? 'bg-orange-500' : 'bg-green-500',
+                            { anthropic: 'bg-orange-500', xai: 'bg-blue-500', google: 'bg-yellow-500', openai: 'bg-green-500' }[m.provider],
                           )}
                           />
                           {m.label}
@@ -909,6 +909,9 @@ export const AiAssistantPage: Component = () => {
                     </For>
                   </DropdownMenuContent>
                 </DropdownMenu>
+              </Show>
+              <Show when={models().length === 1}>
+                <span class="text-[11px] text-muted-foreground/50">{models()[0]?.label}</span>
               </Show>
               <p class="text-[11px] text-muted-foreground/50 flex-1 text-right">
                 {t('ai-assistant.disclaimer')}

@@ -8,8 +8,9 @@ import { createOrganizationsRepository } from '../organizations/organizations.re
 import { ensureUserIsInOrganization } from '../organizations/organizations.usecases';
 import { legacyValidateJsonBody, legacyValidateParams } from '../shared/validation/validation.legacy';
 import { AI_CHAT_SESSION_ID_REGEX } from './ai-assistant.constants';
+import { AI_MODELS } from './ai-assistant.models';
 import { createAiNotConfiguredError } from './ai-assistant.errors';
-import { createLlmModel, getConfiguredProviders, getDefaultModel } from './ai-assistant.providers';
+import { createLlmModel, getApiKeyForProvider, getConfiguredProviders, getDefaultModel } from './ai-assistant.providers';
 import { createAiAssistantRepository } from './ai-assistant.repository';
 import { createAssistantTools, CONFIRMABLE_TOOL_SCHEMAS } from './ai-assistant.tools';
 
@@ -131,22 +132,6 @@ Always be concise and actionable. Use the organization's actual data to make inf
 When showing monetary amounts, format them as currency.
 Respond in the same language as the user's message.`;
 
-const AVAILABLE_MODELS = [
-  { id: 'gpt-4o', provider: 'openai' as const, label: 'GPT-4o' },
-  { id: 'gpt-4o-mini', provider: 'openai' as const, label: 'GPT-4o Mini' },
-  { id: 'gpt-4.1', provider: 'openai' as const, label: 'GPT-4.1' },
-  { id: 'gpt-4.1-mini', provider: 'openai' as const, label: 'GPT-4.1 Mini' },
-  { id: 'gpt-4.1-nano', provider: 'openai' as const, label: 'GPT-4.1 Nano' },
-  { id: 'gpt-4.5-preview', provider: 'openai' as const, label: 'GPT-4.5 Preview' },
-  { id: 'o3', provider: 'openai' as const, label: 'o3' },
-  { id: 'o3-mini', provider: 'openai' as const, label: 'o3-mini' },
-  { id: 'o4-mini', provider: 'openai' as const, label: 'o4-mini' },
-  { id: 'claude-sonnet-4-20250514', provider: 'anthropic' as const, label: 'Claude Sonnet 4' },
-  { id: 'claude-opus-4-20250514', provider: 'anthropic' as const, label: 'Claude Opus 4' },
-  { id: 'claude-3-5-sonnet-20241022', provider: 'anthropic' as const, label: 'Claude 3.5 Sonnet' },
-  { id: 'claude-3-5-haiku-20241022', provider: 'anthropic' as const, label: 'Claude 3.5 Haiku' },
-] as const;
-
 const chatBodySchema = z.object({
   messages: z.array(z.object({
     role: z.enum(['user', 'assistant', 'system']),
@@ -177,19 +162,20 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
       const organizationsRepository = createOrganizationsRepository({ db });
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
-      const aiConfig = config.aiAssistant as { openaiApiKey: string | undefined; anthropicApiKey: string | undefined; model: string | undefined };
-      const configuredProviders = getConfiguredProviders({ openaiApiKey: aiConfig.openaiApiKey, anthropicApiKey: aiConfig.anthropicApiKey });
+      const aiConfig = config.aiAssistant as { openaiApiKey: string | undefined; anthropicApiKey: string | undefined; grokApiKey: string | undefined; googleApiKey: string | undefined; model: string | undefined };
+      const apiKeys = { openaiApiKey: aiConfig.openaiApiKey, anthropicApiKey: aiConfig.anthropicApiKey, grokApiKey: aiConfig.grokApiKey, googleApiKey: aiConfig.googleApiKey };
+      const configuredProviders = getConfiguredProviders(apiKeys);
 
       if (configuredProviders.length === 0) {
         throw createAiNotConfiguredError();
       }
 
       const selectedModel = modelOverride !== undefined && modelOverride !== ''
-        ? AVAILABLE_MODELS.find(m => m.id === modelOverride)
+        ? AI_MODELS.find(m => m.id === modelOverride)
         : undefined;
 
       const provider = selectedModel?.provider ?? configuredProviders[0]!;
-      const apiKey = provider === 'anthropic' ? aiConfig.anthropicApiKey : aiConfig.openaiApiKey;
+      const apiKey = getApiKeyForProvider({ provider, apiKeys });
 
       if (apiKey === undefined || apiKey === '') {
         throw createAiNotConfiguredError();
@@ -441,11 +427,12 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
     '/api/ai/models',
     requireAuthentication(),
     (context) => {
-      const aiConfig = config.aiAssistant as { openaiApiKey: string | undefined; anthropicApiKey: string | undefined; model: string | undefined };
-      const configuredProviders = getConfiguredProviders({ openaiApiKey: aiConfig.openaiApiKey, anthropicApiKey: aiConfig.anthropicApiKey });
+      const aiConfig = config.aiAssistant as { openaiApiKey: string | undefined; anthropicApiKey: string | undefined; grokApiKey: string | undefined; googleApiKey: string | undefined; model: string | undefined };
+      const apiKeys = { openaiApiKey: aiConfig.openaiApiKey, anthropicApiKey: aiConfig.anthropicApiKey, grokApiKey: aiConfig.grokApiKey, googleApiKey: aiConfig.googleApiKey };
+      const configuredProviders = getConfiguredProviders(apiKeys);
       const isConfigured = configuredProviders.length > 0;
       const defaultModel = aiConfig.model ?? getDefaultModel({ configuredProviders });
-      const availableModels = AVAILABLE_MODELS.filter(m => configuredProviders.includes(m.provider));
+      const availableModels = AI_MODELS.filter(m => configuredProviders.includes(m.provider));
 
       return context.json({
         isConfigured,

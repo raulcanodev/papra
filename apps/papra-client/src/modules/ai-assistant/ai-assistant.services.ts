@@ -33,7 +33,7 @@ export type ChatSessionWithMessages = {
 export type AiModel = {
   id: string;
   label: string;
-  provider: 'openai' | 'anthropic';
+  provider: 'openai' | 'anthropic' | 'xai' | 'google';
 };
 
 export type AiModelsResponse = {

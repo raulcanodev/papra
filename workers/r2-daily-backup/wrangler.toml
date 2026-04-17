@@ -1,0 +1,14 @@
+name = "r2-daily-backup"
+main = "src/index.ts"
+compatibility_date = "2026-04-17"
+
+[[r2_buckets]]
+binding = "SOURCE_BUCKET"
+bucket_name = "papra-prd"
+
+[[r2_buckets]]
+binding = "BACKUP_BUCKET"
+bucket_name = "papra-prd-backup"
+
+[triggers]
+crons = ["0 0 * * *"]

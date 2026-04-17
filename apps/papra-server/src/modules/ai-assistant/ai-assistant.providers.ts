@@ -1,38 +1,40 @@
 import type { LanguageModel } from 'ai';
+import type { AiProvider } from './ai-assistant.models';
 import { createAnthropic } from '@ai-sdk/anthropic';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
+import { createXai } from '@ai-sdk/xai';
+import { DEFAULT_MODELS, PROVIDER_PRIORITY } from './ai-assistant.models';
 
-export type AiProvider = 'openai' | 'anthropic';
-
-const DEFAULT_MODELS: Record<AiProvider, string> = {
-  openai: 'gpt-4o',
-  anthropic: 'claude-sonnet-4-20250514',
-};
-
-export function getConfiguredProviders({ openaiApiKey, anthropicApiKey }: {
+export type AiApiKeys = {
   openaiApiKey?: string;
   anthropicApiKey?: string;
-}): AiProvider[] {
-  const providers: AiProvider[] = [];
+  grokApiKey?: string;
+  googleApiKey?: string;
+};
 
-  if (openaiApiKey !== undefined && openaiApiKey !== '') {
-    providers.push('openai');
-  }
+const API_KEY_BY_PROVIDER: Record<AiProvider, keyof AiApiKeys> = {
+  openai: 'openaiApiKey',
+  anthropic: 'anthropicApiKey',
+  xai: 'grokApiKey',
+  google: 'googleApiKey',
+};
 
-  if (anthropicApiKey !== undefined && anthropicApiKey !== '') {
-    providers.push('anthropic');
-  }
+function isKeySet(value: string | undefined): boolean {
+  return value !== undefined && value !== '';
+}
 
-  return providers;
+export function getConfiguredProviders(apiKeys: AiApiKeys): AiProvider[] {
+  return PROVIDER_PRIORITY.filter(provider => isKeySet(apiKeys[API_KEY_BY_PROVIDER[provider]]));
+}
+
+export function getApiKeyForProvider({ provider, apiKeys }: { provider: AiProvider; apiKeys: AiApiKeys }): string | undefined {
+  return apiKeys[API_KEY_BY_PROVIDER[provider]];
 }
 
 export function getDefaultModel({ configuredProviders }: { configuredProviders: AiProvider[] }): string {
-  if (configuredProviders.includes('openai')) {
-    return DEFAULT_MODELS.openai;
-  }
-
-  if (configuredProviders.includes('anthropic')) {
-    return DEFAULT_MODELS.anthropic;
+  for (const provider of configuredProviders) {
+    return DEFAULT_MODELS[provider];
   }
 
   return DEFAULT_MODELS.openai;
@@ -48,6 +50,16 @@ export function createLlmModel({ provider, apiKey, model }: {
   if (provider === 'anthropic') {
     const anthropic = createAnthropic({ apiKey });
     return anthropic(modelId);
+  }
+
+  if (provider === 'xai') {
+    const xai = createXai({ apiKey });
+    return xai(modelId);
+  }
+
+  if (provider === 'google') {
+    const google = createGoogleGenerativeAI({ apiKey });
+    return google(modelId);
   }
 
   const openai = createOpenAI({ apiKey });

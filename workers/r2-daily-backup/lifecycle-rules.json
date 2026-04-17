@@ -1,0 +1,10 @@
+{
+  "rules": [
+    {
+      "id": "cleanup",
+      "prefix": "backups/",
+      "enabled": true,
+      "expiration": { "days": 30 }
+    }
+  ]
+}
