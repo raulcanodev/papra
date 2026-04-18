@@ -836,7 +836,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'api-errors.tags.already_exists': 'Υπάρχει ήδη ετικέτα με αυτό το όνομα',
   'api-errors.tags.organization_limit_reached': 'Συμπληρώθηκε ο μέγιστος αριθμός ετικετών για αυτόν τον οργανισμό.',
   'api-errors.internal.error': 'Προέκυψε σφάλμα. Δοκιμάστε αργότερα.',
-  'api-errors.auth.invalid_origin': 'Μη έγκυρη προέλευση εφαρμογής. Βεβαιωθείτε ότι το APP_BASE_URL ταιριάζει με το τρέχον URL. Δείτε https://docs.papra.app/resources/troubleshooting/#invalid-application-origin',
+  'api-errors.auth.invalid_origin': 'Μη έγκυρη προέλευση εφαρμογής.',
   'api-errors.organization.max_members_count_reached': 'Φτάσατε το μέγιστο αριθμό μελών/προσκλήσεων. Αναβαθμίστε το πλάνο σας.',
   'api-errors.organization.has_active_subscription': 'Δεν είναι δυνατή η διαγραφή με ενεργή συνδρομή. Ακυρώστε πρώτα μέσω "Διαχείριση συνδρομής".',
   'api-errors.webhooks.ssrf_unsafe_url': 'Η παρεχόμενη URL δεν επιτρέπεται. Οι URL webhook δεν πρέπει να δείχνουν σε ιδιωτικές ή δεσμευμένες διευθύνσεις IP.',

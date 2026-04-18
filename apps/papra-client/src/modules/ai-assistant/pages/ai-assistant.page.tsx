@@ -404,6 +404,8 @@ const TOOL_ACTIVITY_LABELS: Record<string, { icon: string; label: string }> = {
   listClassificationRules: { icon: 'i-tabler-tags', label: 'Loading rules...' },
   listTaggingRules: { icon: 'i-tabler-tags', label: 'Loading rules...' },
   autoClassifyTransactions: { icon: 'i-tabler-robot', label: 'Classifying transactions...' },
+  getUserProfile: { icon: 'i-tabler-user-check', label: 'Reading your profile...' },
+  updateUserProfile: { icon: 'i-tabler-user-edit', label: 'Updating your profile...' },
 };
 
 function ToolActivityIndicator(props: { toolName: string }) {

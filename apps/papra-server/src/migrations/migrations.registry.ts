@@ -27,6 +27,7 @@ import { transactionTagsAndPropertiesMigration } from './list/0024-transaction-t
 import { bankConnectionBalanceMigration } from './list/0025-bank-connection-balance.migration';
 import { featureFlagsMigration } from './list/0026-feature-flags.migration';
 import { aiChatMessageMetadataMigration } from './list/0027-ai-chat-message-metadata.migration';
+import { userAiProfilesMigration } from './list/0028-user-ai-profiles.migration';
 
 export const migrations: Migration[] = [
   initialSchemaSetupMigration,
@@ -56,4 +57,5 @@ export const migrations: Migration[] = [
   bankConnectionBalanceMigration,
   featureFlagsMigration,
   aiChatMessageMetadataMigration,
+  userAiProfilesMigration,
 ];

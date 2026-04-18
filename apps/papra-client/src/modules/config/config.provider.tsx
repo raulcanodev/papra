@@ -51,7 +51,7 @@ export const ConfigProvider: ParentComponent = (props) => {
       <Match when={query.error}>
         <EmptyState
           title="Server unreachable"
-          description="The server seems to be unreachable, if you are self-hosting, make sure the server is running and properly configured. You may want to check the console for more information."
+          description="The server seems to be unreachable."
           icon="i-tabler-server-spark"
           class="p-6 pt-12 sm:pt-32"
           cta={(

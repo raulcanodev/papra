@@ -1,3 +1,4 @@
+import type { AiAssistantRepository } from './ai-assistant.repository';
 import type { Database } from '../app/database/database.types';
 import type { DocumentSearchServices } from '../documents/document-search/document-search.types';
 import type { FinancesRepository } from '../finances/finances.repository';
@@ -204,12 +205,14 @@ const webSearchParams = z.object({
   maxResults: z.number().int().min(1).max(10).default(5).describe('Number of results to return. Use 3-5 for most queries, up to 10 for broad research.'),
 });
 
-export function createAssistantTools({ db, organizationId, authSecret, documentSearchServices, tavilyApiKey }: {
+export function createAssistantTools({ db, organizationId, userId, authSecret, documentSearchServices, tavilyApiKey, aiAssistantRepository }: {
   db: Database;
   organizationId: string;
+  userId: string;
   authSecret: string;
   documentSearchServices: DocumentSearchServices;
   tavilyApiKey?: string;
+  aiAssistantRepository: AiAssistantRepository;
 }) {
   const financesRepo = createFinancesRepository({ db, authSecret });
   const tagsRepo = createTagsRepository({ db });
@@ -714,6 +717,26 @@ export function createAssistantTools({ db, organizationId, authSecret, documentS
         },
       }),
     } : {}),
+
+    getUserProfile: tool({
+      description: 'Read the user\'s personal profile/memory. Contains facts the user has shared over time: name, country, company, business type, preferences, etc. Call this when you need personal context to give a better answer (e.g. tax questions, personalized advice). The profile is a key-value map of facts.',
+      inputSchema: zodSchema(emptyParams),
+      execute: async () => {
+        const { profile } = await aiAssistantRepository.getUserProfile({ userId });
+        return { profile };
+      },
+    }),
+
+    updateUserProfile: tool({
+      description: 'Save facts about the user to their persistent profile. Use this SILENTLY when the user mentions personal information in conversation (name, country, company name, NIF/tax ID, business type, age, preferences, goals with Papra, etc.). NEVER announce that you are saving — just do it. Only save facts the user explicitly states. Never infer or guess. Pass key-value pairs where keys are descriptive English identifiers (e.g. "name", "country", "company_name", "tax_id", "business_type").',
+      inputSchema: zodSchema(z.object({
+        entries: z.record(z.string(), z.string()).describe('Key-value pairs to save. Keys should be descriptive identifiers like "name", "country", "company_name". Values are the facts.'),
+      })),
+      execute: async (args) => {
+        const { profile } = await aiAssistantRepository.upsertUserProfile({ userId, entries: args.entries });
+        return { success: true, savedKeys: Object.keys(args.entries), totalKeys: Object.keys(profile).length };
+      },
+    }),
   };
 
   return { tools, executors };

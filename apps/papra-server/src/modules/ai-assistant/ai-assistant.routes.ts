@@ -160,7 +160,15 @@ REAL-TIME INFORMATION — ANTI-HALLUCINATION:
 
 Always be concise and actionable. Use the organization's actual data to make informed suggestions.
 When showing monetary amounts, format them as currency.
-Respond in the same language as the user's message.`;
+Respond in the same language as the user's message.
+
+USER PROFILE MEMORY:
+- You have a persistent user profile. Use getUserProfile to read it when you need personal context. Use updateUserProfile to silently save facts the user shares.
+- Save facts the user explicitly states in conversation: name, country, company name, NIF/tax ID, business type, age, industry, preferences, goals with Papra, or any other personal/business information.
+- NEVER announce or mention that you are saving profile data. Do it completely silently. NEVER say things like "I've saved your name" or "I'll remember that".
+- NEVER infer or guess personal data. Only save what the user explicitly tells you.
+- Use the profile to personalize your responses without making the user repeat themselves.
+- The profile is automatically loaded into your context, so you usually don't need to call getUserProfile. Only call it if you need to check before updating.`;
 
 const chatBodySchema = z.object({
   messages: z.array(z.object({
@@ -226,12 +234,22 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
       const timeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
       const systemPromptWithModel = `${SYSTEM_PROMPT}\n\nDATE INFO: Today is ${dateStr}, ${timeStr} (Europe/Madrid timezone).\n\nMODEL INFO: You are running on ${providerLabel}, model ${modelLabel}. When asked what model you are, say: "I am Papra AI, powered by ${modelLabel} from ${providerLabel}."`;
 
+      const { profile: userProfile } = await aiAssistantRepository.getUserProfile({ userId });
+      const profileKeys = Object.keys(userProfile);
+      const profileSection = profileKeys.length > 0
+        ? `\n\nUSER PROFILE (facts the user has shared):\n${Object.entries(userProfile).map(([k, v]) => `- ${k}: ${v}`).join('\n')}\nUse this context to personalize your responses. Do NOT ask for information that is already in the profile.`
+        : '';
+
+      const systemPromptFinal = systemPromptWithModel + profileSection;
+
       const { tools, executors: _executors } = createAssistantTools({
         db,
         organizationId,
+        userId,
         authSecret: config.auth.secret,
         documentSearchServices,
         tavilyApiKey: (config.aiAssistant as { tavilyApiKey?: string }).tavilyApiKey,
+        aiAssistantRepository,
       });
 
       // Create or reuse chat session
@@ -286,7 +304,7 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
 
       const result = streamText({
         model,
-        system: systemPromptWithModel,
+        system: systemPromptFinal,
         messages: contextMessages,
         tools,
         stopWhen: stepCountIs(15),
@@ -391,8 +409,10 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
       const { executors } = createAssistantTools({
         db,
         organizationId,
+        userId,
         authSecret: config.auth.secret,
         documentSearchServices,
+        aiAssistantRepository,
       });
 
       const executor = executors[toolName];
@@ -539,6 +559,45 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
         providers: configuredProviders,
         models: availableModels.map(m => ({ id: m.id, label: m.label, provider: m.provider })),
       });
+    },
+  );
+
+  // Get user AI profile
+  app.get(
+    '/api/ai/profile',
+    requireAuthentication(),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { profile } = await aiAssistantRepository.getUserProfile({ userId });
+      return context.json({ profile });
+    },
+  );
+
+  // Update user AI profile (add/update entries)
+  app.patch(
+    '/api/ai/profile',
+    requireAuthentication(),
+    legacyValidateJsonBody(z.object({
+      entries: z.record(z.string(), z.string()),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { entries } = context.req.valid('json');
+      const { profile } = await aiAssistantRepository.upsertUserProfile({ userId, entries });
+      return context.json({ profile });
+    },
+  );
+
+  // Delete a key from user AI profile
+  app.delete(
+    '/api/ai/profile/:key',
+    requireAuthentication(),
+    legacyValidateParams(z.object({ key: z.string() })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { key } = context.req.valid('param');
+      const { profile } = await aiAssistantRepository.deleteUserProfileKey({ userId, key });
+      return context.json({ profile });
     },
   );
 }

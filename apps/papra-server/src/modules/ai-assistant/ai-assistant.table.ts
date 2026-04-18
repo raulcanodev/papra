@@ -1,4 +1,4 @@
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import { organizationsTable } from '../organizations/organizations.table';
 import { createPrimaryKeyField, createTimestampColumns } from '../shared/db/columns.helpers';
 import { AI_CHAT_MESSAGE_ID_PREFIX, AI_CHAT_SESSION_ID_PREFIX } from './ai-assistant.constants';
@@ -27,3 +27,10 @@ export const aiChatMessagesTable = sqliteTable('ai_chat_messages', {
 }, t => [
   index('ai_chat_messages_session_id_index').on(t.sessionId),
 ]);
+
+export const userAiProfilesTable = sqliteTable('user_ai_profiles', {
+  userId: text('user_id').primaryKey(),
+  profile: text('profile').notNull().default('{}'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});

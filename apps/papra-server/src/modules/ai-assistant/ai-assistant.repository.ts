@@ -1,7 +1,7 @@
 import type { Database } from '../app/database/database.types';
 import { injectArguments } from '@corentinth/chisels';
 import { and, desc, eq } from 'drizzle-orm';
-import { aiChatMessagesTable, aiChatSessionsTable } from './ai-assistant.table';
+import { aiChatMessagesTable, aiChatSessionsTable, userAiProfilesTable } from './ai-assistant.table';
 
 export type AiAssistantRepository = ReturnType<typeof createAiAssistantRepository>;
 
@@ -17,6 +17,9 @@ export function createAiAssistantRepository({ db }: { db: Database }) {
       addChatMessage,
       addChatMessages,
       updateChatMessageMetadata,
+      getUserProfile,
+      upsertUserProfile,
+      deleteUserProfileKey,
     },
     { db },
   );
@@ -163,4 +166,58 @@ async function addChatMessages({ db, sessionId, messages }: {
   await db.update(aiChatSessionsTable)
     .set({ updatedAt: new Date() })
     .where(eq(aiChatSessionsTable.id, sessionId));
+}
+
+async function getUserProfile({ db, userId }: {
+  db: Database;
+  userId: string;
+}) {
+  const [row] = await db.select({ profile: userAiProfilesTable.profile })
+    .from(userAiProfilesTable)
+    .where(eq(userAiProfilesTable.userId, userId));
+
+  return { profile: row ? JSON.parse(row.profile) as Record<string, string> : {} };
+}
+
+async function upsertUserProfile({ db, userId, entries }: {
+  db: Database;
+  userId: string;
+  entries: Record<string, string>;
+}) {
+  const { profile: existing } = await getUserProfile({ db, userId });
+  const merged = { ...existing, ...entries };
+  const profileJson = JSON.stringify(merged);
+  const now = new Date().toISOString();
+
+  await db.insert(userAiProfilesTable)
+    .values({ userId, profile: profileJson, createdAt: now, updatedAt: now })
+    .onConflictDoUpdate({
+      target: userAiProfilesTable.userId,
+      set: { profile: profileJson, updatedAt: now },
+    });
+
+  return { profile: merged };
+}
+
+async function deleteUserProfileKey({ db, userId, key }: {
+  db: Database;
+  userId: string;
+  key: string;
+}) {
+  const { profile: existing } = await getUserProfile({ db, userId });
+
+  // eslint-disable-next-line ts/no-dynamic-delete
+  delete (existing as Record<string, unknown>)[key];
+
+  const profileJson = JSON.stringify(existing);
+  const now = new Date().toISOString();
+
+  await db.insert(userAiProfilesTable)
+    .values({ userId, profile: profileJson, createdAt: now, updatedAt: now })
+    .onConflictDoUpdate({
+      target: userAiProfilesTable.userId,
+      set: { profile: profileJson, updatedAt: now },
+    });
+
+  return { profile: existing };
 }

@@ -1,8 +1,9 @@
 import type { Component } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
-import { useQuery } from '@tanstack/solid-query';
-import { createSignal, Show, Suspense } from 'solid-js';
+import { createMutation, useQuery, useQueryClient } from '@tanstack/solid-query';
+import { createSignal, For, Show, Suspense } from 'solid-js';
 import * as v from 'valibot';
+import { deleteUserAiProfileKey, fetchUserAiProfile, updateUserAiProfile } from '@/modules/ai-assistant/ai-assistant.services';
 import { signOut } from '@/modules/auth/auth.services';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { createForm } from '@/modules/shared/form/form';
@@ -127,6 +128,134 @@ const UpdateFullNameCard: Component<{ name: string }> = (props) => {
   );
 };
 
+const AiMemoryCard: Component = () => {
+  const queryClient = useQueryClient();
+  const profileQuery = useQuery(() => ({
+    queryKey: ['ai', 'profile'],
+    queryFn: fetchUserAiProfile,
+  }));
+
+  const [editingKey, setEditingKey] = createSignal<string | null>(null);
+  const [editValue, setEditValue] = createSignal('');
+  const [newKey, setNewKey] = createSignal('');
+  const [newValue, setNewValue] = createSignal('');
+
+  const updateMutation = createMutation(() => ({
+    mutationFn: updateUserAiProfile,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai', 'profile'] });
+      setEditingKey(null);
+      setNewKey('');
+      setNewValue('');
+    },
+  }));
+
+  const deleteMutation = createMutation(() => ({
+    mutationFn: deleteUserAiProfileKey,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai', 'profile'] });
+    },
+  }));
+
+  const startEdit = (key: string, value: string) => {
+    setEditingKey(key);
+    setEditValue(value);
+  };
+
+  const saveEdit = (key: string) => {
+    updateMutation.mutate({ entries: { [key]: editValue() } });
+  };
+
+  const addEntry = () => {
+    const k = newKey().trim();
+    const val = newValue().trim();
+    if (k && val) {
+      updateMutation.mutate({ entries: { [k]: val } });
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader class="border-b">
+        <CardTitle>AI Memory</CardTitle>
+        <CardDescription>
+          Facts the AI has learned about you from conversations. You can edit or remove any entry.
+        </CardDescription>
+      </CardHeader>
+      <CardContent class="pt-4">
+        <Show
+          when={!profileQuery.isLoading && !profileQuery.isError && profileQuery.data}
+          fallback={(
+            <Show
+              when={profileQuery.isError}
+              fallback={<div class="text-sm text-muted-foreground">Loading...</div>}
+            >
+              <p class="text-sm text-muted-foreground">Could not load AI memory.</p>
+            </Show>
+          )}
+        >
+          {getData => (
+            <div class="flex flex-col gap-2">
+              <For each={Object.entries(getData().profile)}>
+                {([key, value]) => (
+                  <div class="flex items-center gap-2 text-sm">
+                    <span class="font-medium min-w-24 text-muted-foreground">{key}</span>
+                    <Show
+                      when={editingKey() === key}
+                      fallback={(
+                        <>
+                          <span class="flex-1">{value}</span>
+                          <Button variant="ghost" size="sm" onClick={() => startEdit(key, value)}>
+                            <div class="i-tabler-edit size-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate({ key })}>
+                            <div class="i-tabler-trash size-4" />
+                          </Button>
+                        </>
+                      )}
+                    >
+                      <TextField
+                        type="text"
+                        value={editValue()}
+                        onInput={e => setEditValue(e.currentTarget.value)}
+                        class="flex-1"
+                      />
+                      <Button size="sm" onClick={() => saveEdit(key)}>Save</Button>
+                      <Button variant="ghost" size="sm" onClick={() => setEditingKey(null)}>Cancel</Button>
+                    </Show>
+                  </div>
+                )}
+              </For>
+
+              <Show when={Object.keys(getData().profile).length === 0}>
+                <p class="text-sm text-muted-foreground">No entries yet. The AI will learn about you as you chat.</p>
+              </Show>
+
+              <div class="flex items-center gap-2 mt-2 pt-2 border-t">
+                <TextField
+                  type="text"
+                  placeholder="Key"
+                  value={newKey()}
+                  onInput={e => setNewKey(e.currentTarget.value)}
+                  class="min-w-24 max-w-32"
+                />
+                <TextField
+                  type="text"
+                  placeholder="Value"
+                  value={newValue()}
+                  onInput={e => setNewValue(e.currentTarget.value)}
+                  class="flex-1"
+                />
+                <Button size="sm" onClick={addEntry} disabled={!newKey().trim() || !newValue().trim()}>Add</Button>
+              </div>
+            </div>
+          )}
+        </Show>
+      </CardContent>
+    </Card>
+  );
+};
+
 export const UserSettingsPage: Component = () => {
   const { t } = useI18n();
   const query = useQuery(() => ({
@@ -149,6 +278,7 @@ export const UserSettingsPage: Component = () => {
                 <UserEmailCard email={getUser().email} />
                 <UpdateFullNameCard name={getUser().name} />
                 <TwoFactorCard twoFactorEnabled={getUser().twoFactorEnabled} onUpdate={() => query.refetch()} />
+                <AiMemoryCard />
                 <LogoutCard />
               </div>
             </>

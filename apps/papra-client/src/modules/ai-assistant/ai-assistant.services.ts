@@ -253,3 +253,22 @@ export async function executeToolAction({ organizationId, toolName, args }: {
     body: { toolName, args },
   });
 }
+
+export async function fetchUserAiProfile(): Promise<{ profile: Record<string, string> }> {
+  return apiClient<{ profile: Record<string, string> }>({ path: '/api/ai/profile' });
+}
+
+export async function updateUserAiProfile({ entries }: { entries: Record<string, string> }): Promise<{ profile: Record<string, string> }> {
+  return apiClient<{ profile: Record<string, string> }>({
+    method: 'PATCH',
+    path: '/api/ai/profile',
+    body: { entries },
+  });
+}
+
+export async function deleteUserAiProfileKey({ key }: { key: string }): Promise<{ profile: Record<string, string> }> {
+  return apiClient<{ profile: Record<string, string> }>({
+    method: 'DELETE',
+    path: `/api/ai/profile/${encodeURIComponent(key)}`,
+  });
+}
