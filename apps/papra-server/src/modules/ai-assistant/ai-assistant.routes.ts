@@ -187,6 +187,12 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
         model: selectedModel?.id ?? aiConfig.model,
       });
 
+      const resolvedModelId = selectedModel?.id ?? aiConfig.model ?? getDefaultModel({ configuredProviders });
+      const resolvedModelDef = AI_MODELS.find(m => m.id === resolvedModelId);
+      const modelLabel = resolvedModelDef?.label ?? resolvedModelId;
+      const providerLabel = ({ xai: 'xAI (Grok)', openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google' } as Record<string, string>)[provider] ?? provider;
+      const systemPromptWithModel = `${SYSTEM_PROMPT}\n\nMODEL INFO: You are running on ${providerLabel}, model ${modelLabel}. When asked what model you are, say: "I am Papra AI, powered by ${modelLabel} from ${providerLabel}."`;
+
       const { tools, executors: _executors } = createAssistantTools({
         db,
         organizationId,
@@ -243,7 +249,7 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
 
       const result = streamText({
         model,
-        system: SYSTEM_PROMPT,
+        system: systemPromptWithModel,
         messages: contextMessages,
         tools,
         stopWhen: stepCountIs(15),
