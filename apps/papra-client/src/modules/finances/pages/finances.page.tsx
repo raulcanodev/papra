@@ -53,10 +53,12 @@ const amountFilterOptions = [
   { value: 'eq' as string | undefined, label: 'Exactly' },
 ];
 
-type DatePreset = 'last-7' | 'last-30' | 'this-month' | 'last-month' | 'this-year' | 'all' | 'custom';
+type DatePreset = 'last-7' | 'last-week' | 'last-weekend' | 'last-30' | 'this-month' | 'last-month' | 'this-year' | 'all' | 'custom';
 const datePresetOptions: { value: DatePreset; label: string }[] = [
   { value: 'all', label: 'All time' },
   { value: 'last-7', label: 'Last 7 days' },
+  { value: 'last-week', label: 'Last week' },
+  { value: 'last-weekend', label: 'Last weekend' },
   { value: 'last-30', label: 'Last 30 days' },
   { value: 'this-month', label: 'This month' },
   { value: 'last-month', label: 'Last month' },
@@ -71,6 +73,18 @@ function getDateRange(preset: DatePreset): { from?: number; to?: number } {
 
   switch (preset) {
     case 'last-7': return { from: startOfDay(new Date(now.getTime() - 7 * 86400000)), to: endOfDay(now) };
+    case 'last-week': {
+      const day = now.getDay(); // 0=Sun
+      const lastMon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day - 6);
+      const lastSun = new Date(lastMon.getFullYear(), lastMon.getMonth(), lastMon.getDate() + 6);
+      return { from: startOfDay(lastMon), to: endOfDay(lastSun) };
+    }
+    case 'last-weekend': {
+      const d = now.getDay();
+      const lastSat = new Date(now.getFullYear(), now.getMonth(), now.getDate() - d - 1);
+      const lastSun = new Date(lastSat.getFullYear(), lastSat.getMonth(), lastSat.getDate() + 1);
+      return { from: startOfDay(lastSat), to: endOfDay(lastSun) };
+    }
     case 'last-30': return { from: startOfDay(new Date(now.getTime() - 30 * 86400000)), to: endOfDay(now) };
     case 'this-month': return { from: startOfDay(new Date(now.getFullYear(), now.getMonth(), 1)), to: endOfDay(now) };
     case 'last-month': {
