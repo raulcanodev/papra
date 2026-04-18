@@ -914,8 +914,15 @@ export const AiAssistantPage: Component = () => {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </Show>
-              <Show when={models().length === 1}>
-                <span class="text-[11px] text-muted-foreground/50">{models()[0]?.label}</span>
+              <Show when={models().length <= 1}>
+                <div class="inline-flex items-center gap-1 h-6 px-2 rounded text-[11px] text-muted-foreground/50">
+                  <div class={cn(
+                    'size-1.5 rounded-full shrink-0',
+                    { anthropic: 'bg-orange-500', xai: 'bg-blue-500', google: 'bg-yellow-500', openai: 'bg-green-500' }[models()[0]?.provider ?? 'openai'],
+                  )}
+                  />
+                  <span>{models()[0]?.label ?? modelsData()?.defaultModel ?? '—'}</span>
+                </div>
               </Show>
               <p class="text-[11px] text-muted-foreground/50 flex-1 text-right">
                 {t('ai-assistant.disclaimer')}
