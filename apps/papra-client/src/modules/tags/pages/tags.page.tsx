@@ -390,53 +390,47 @@ export const TagsPage: Component = () => {
   });
 
   return (
-    <div class="p-6 mt-4 pb-32 mx-auto max-w-5xl">
-      <Suspense>
-        <Show when={query.data?.tags}>
-          {getTags => (
-            <Show
-              when={getTags().length > 0}
-              fallback={(
-                <EmptyState
-                  title={t('tags.no-tags.title')}
-                  icon="i-tabler-tag"
-                  description={t('tags.no-tags.description')}
-                  cta={(
-                    <CreateTagModal organizationId={params.organizationId}>
-                      {props => (
-                        <Button {...props}>
-                          <div class="i-tabler-plus size-4 mr-2" />
-                          {t('tags.no-tags.create-tag')}
-                        </Button>
-                      )}
-                    </CreateTagModal>
-                  )}
-                />
-              )}
-            >
-              <div class="flex justify-between sm:items-center pb-6 gap-4 flex-col sm:flex-row">
-                <div>
-                  <h2 class="text-xl font-bold ">
-                    {t('tags.title')}
-                  </h2>
-
-                  <p class="text-muted-foreground mt-1">
-                    {t('tags.description')}
-                  </p>
-                </div>
-
-                <div class="flex-shrink-0">
-                  <CreateTagModal organizationId={params.organizationId}>
-                    {props => (
-                      <Button class="w-full" {...props}>
-                        <div class="i-tabler-plus size-4 mr-2" />
-                        {t('tags.create')}
-                      </Button>
+    <div class="flex flex-col h-full">
+      <div class="border-b px-6 py-3 flex items-center justify-between shrink-0 bg-background">
+        <div>
+          <h1 class="text-sm font-semibold leading-none">{t('tags.title')}</h1>
+          <p class="text-xs text-muted-foreground mt-0.5">{t('tags.description')}</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <CreateTagModal organizationId={params.organizationId}>
+            {props => (
+              <Button {...props}>
+                <div class="i-tabler-plus size-4 mr-2" />
+                {t('tags.create')}
+              </Button>
+            )}
+          </CreateTagModal>
+        </div>
+      </div>
+      <div class="p-6 pb-32 max-w-5xl mx-auto w-full overflow-y-auto flex-1">
+        <Suspense>
+          <Show when={query.data?.tags}>
+            {getTags => (
+              <Show
+                when={getTags().length > 0}
+                fallback={(
+                  <EmptyState
+                    title={t('tags.no-tags.title')}
+                    icon="i-tabler-tag"
+                    description={t('tags.no-tags.description')}
+                    cta={(
+                      <CreateTagModal organizationId={params.organizationId}>
+                        {props => (
+                          <Button {...props}>
+                            <div class="i-tabler-plus size-4 mr-2" />
+                            {t('tags.no-tags.create-tag')}
+                          </Button>
+                        )}
+                      </CreateTagModal>
                     )}
-                  </CreateTagModal>
-                </div>
-              </div>
-
+                  />
+                )}
+              >
               <Table>
                 <TableHeader>
                   <For each={table.getHeaderGroups()}>
@@ -489,12 +483,11 @@ export const TagsPage: Component = () => {
                 </TableBody>
               </Table>
 
-            </Show>
-
-          )}
-        </Show>
-
-      </Suspense>
+              </Show>
+            )}
+          </Show>
+        </Suspense>
+      </div>
     </div>
   );
 };

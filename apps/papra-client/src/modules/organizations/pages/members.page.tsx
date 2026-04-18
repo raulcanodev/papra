@@ -172,48 +172,43 @@ export const MembersPage: Component = () => {
   const { getIsAtLeastAdmin } = useCurrentUserRole({ organizationId: params.organizationId });
 
   return (
-    <div class="p-6 max-w-screen-md mx-auto mt-4">
-      <div class="border-b mb-6 pb-4 flex justify-between items-center">
+    <div class="flex flex-col h-full">
+      <div class="border-b px-6 py-3 flex items-center justify-between shrink-0 bg-background">
         <div>
-          <h1 class="text-xl font-bold">
-            {t('organizations.members.title')}
-          </h1>
-          <p class="text-sm text-muted-foreground">
-            {t('organizations.members.description')}
-          </p>
+          <h1 class="text-sm font-semibold leading-none">{t('organizations.members.title')}</h1>
+          <p class="text-xs text-muted-foreground mt-0.5">{t('organizations.members.description')}</p>
         </div>
-        <Show
-          when={getIsAtLeastAdmin()}
-          fallback={(
-            <Tooltip>
-              <TooltipTrigger>
-                <Button disabled>
-                  <div class="i-tabler-plus size-4 mr-2" />
-                  {t('organizations.members.invite-member')}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {t('organizations.members.invite-member-disabled-tooltip')}
-              </TooltipContent>
-            </Tooltip>
-          )}
-        >
-          <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2">
+          <Show
+            when={getIsAtLeastAdmin()}
+            fallback={(
+              <Tooltip>
+                <TooltipTrigger>
+                  <Button disabled>
+                    <div class="i-tabler-plus size-4 mr-2" />
+                    {t('organizations.members.invite-member')}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {t('organizations.members.invite-member-disabled-tooltip')}
+                </TooltipContent>
+              </Tooltip>
+            )}
+          >
             <Button as={A} href={`/organizations/${params.organizationId}/invitations`} variant="outline">
               <div class="i-tabler-mail size-4 mr-2" />
               {t('organizations.invitations.title')}
             </Button>
-
             <Button as={A} href={`/organizations/${params.organizationId}/invite`}>
               <div class="i-tabler-plus size-4 mr-2" />
               {t('organizations.members.invite-member')}
             </Button>
-
-          </div>
-        </Show>
+          </Show>
+        </div>
       </div>
-
-      <MemberList />
+      <div class="p-6 pb-32 max-w-screen-md mx-auto w-full overflow-y-auto flex-1">
+        <MemberList />
+      </div>
     </div>
   );
 };

@@ -161,45 +161,39 @@ export const CustomPropertiesPage: Component = () => {
   });
 
   return (
-    <div class="p-6 mt-4 pb-32 mx-auto max-w-5xl">
-      <Suspense>
-        <Show when={query.data?.propertyDefinitions}>
-          {getPropertyDefinitions => (
-            <Show
-              when={getPropertyDefinitions().length > 0}
-              fallback={(
-                <EmptyState
-                  title={t('custom-properties.list.empty.title')}
-                  icon="i-tabler-forms"
-                  description={t('custom-properties.list.empty.description')}
-                  cta={(
-                    <Button as={A} href={`/organizations/${params.organizationId}/custom-properties/create`}>
-                      <div class="i-tabler-plus size-4 mr-2" />
-                      {t('custom-properties.list.create-button')}
-                    </Button>
-                  )}
-                />
-              )}
-            >
-              <div class="flex justify-between sm:items-center pb-6 gap-4 flex-col sm:flex-row">
-                <div>
-                  <h2 class="text-xl font-bold">
-                    {t('custom-properties.list.title')}
-                  </h2>
-
-                  <p class="text-muted-foreground mt-1">
-                    {t('custom-properties.list.description')}
-                  </p>
-                </div>
-
-                <div class="flex-shrink-0">
-                  <Button as={A} href={`/organizations/${params.organizationId}/custom-properties/create`} class="w-full">
-                    <div class="i-tabler-plus size-4 mr-2" />
-                    {t('custom-properties.list.create-button')}
-                  </Button>
-                </div>
-              </div>
-
+    <div class="flex flex-col h-full">
+      <div class="border-b px-6 py-3 flex items-center justify-between shrink-0 bg-background">
+        <div>
+          <h1 class="text-sm font-semibold leading-none">{t('custom-properties.list.title')}</h1>
+          <p class="text-xs text-muted-foreground mt-0.5">{t('custom-properties.list.description')}</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <Button as={A} href={`/organizations/${params.organizationId}/custom-properties/create`}>
+            <div class="i-tabler-plus size-4 mr-2" />
+            {t('custom-properties.list.create-button')}
+          </Button>
+        </div>
+      </div>
+      <div class="p-6 pb-32 max-w-5xl mx-auto w-full overflow-y-auto flex-1">
+        <Suspense>
+          <Show when={query.data?.propertyDefinitions}>
+            {getPropertyDefinitions => (
+              <Show
+                when={getPropertyDefinitions().length > 0}
+                fallback={(
+                  <EmptyState
+                    title={t('custom-properties.list.empty.title')}
+                    icon="i-tabler-forms"
+                    description={t('custom-properties.list.empty.description')}
+                    cta={(
+                      <Button as={A} href={`/organizations/${params.organizationId}/custom-properties/create`}>
+                        <div class="i-tabler-plus size-4 mr-2" />
+                        {t('custom-properties.list.create-button')}
+                      </Button>
+                    )}
+                  />
+                )}
+              >
               <Table>
                 <TableHeader>
                   <For each={table.getHeaderGroups()}>
@@ -253,8 +247,9 @@ export const CustomPropertiesPage: Component = () => {
               </Table>
             </Show>
           )}
-        </Show>
-      </Suspense>
+          </Show>
+        </Suspense>
+      </div>
     </div>
   );
 };
