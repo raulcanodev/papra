@@ -596,13 +596,14 @@ export const AiAssistantPage: Component = () => {
   }
 
   async function sendMessage(text?: string) {
-    const content = (text ?? input()).trim();
+    const content = (text ?? textareaRef?.value ?? '').trim();
     if (!content || isStreaming()) {
       return;
     }
 
     setInput('');
     if (textareaRef) {
+      textareaRef.value = '';
       textareaRef.style.height = 'auto';
     }
 
@@ -702,6 +703,10 @@ export const AiAssistantPage: Component = () => {
     abortController?.abort();
     setMessages([]);
     setInput('');
+    if (textareaRef) {
+      textareaRef.value = '';
+      textareaRef.style.height = 'auto';
+    }
     setIsStreaming(false);
     setActiveChat(undefined);
   }
@@ -845,7 +850,6 @@ export const AiAssistantPage: Component = () => {
               <textarea
                 ref={textareaRef}
                 placeholder={t('ai-assistant.input.placeholder')}
-                value={input()}
                 onInput={(e) => {
                   setInput(e.currentTarget.value);
                   autoResizeTextarea();
