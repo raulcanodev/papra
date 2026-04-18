@@ -6,8 +6,8 @@ import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextField, TextFieldRoot } from '@/modules/ui/components/textfield';
-import { addFeatureFlagEntry, listFeatureFlagEntries, removeFeatureFlagEntry } from '../feature-flags.services';
-import type { FeatureFlagEntry } from '../feature-flags.services';
+import { addFeatureFlagEntry, listFeatureFlagEntries, removeFeatureFlagEntry } from './feature-flags.services';
+import type { FeatureFlagEntry } from './feature-flags.services';
 
 function groupByFlag(entries: FeatureFlagEntry[]): Record<string, FeatureFlagEntry[]> {
   return entries.reduce<Record<string, FeatureFlagEntry[]>>((acc, entry) => {
