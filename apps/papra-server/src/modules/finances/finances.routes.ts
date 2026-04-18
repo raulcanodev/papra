@@ -223,9 +223,10 @@ function setupGetTransactionsRoute({ app, db, config }: RouteDefinitionContext) 
       const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
       const tagsRepository = createTagsRepository({ db });
 
-      const [{ transactions }, { count: transactionsCount }] = await Promise.all([
+      const [{ transactions }, { count: transactionsCount }, { totalAmount }] = await Promise.all([
         financesRepository.getTransactions({ organizationId, pageIndex, pageSize, bankConnectionId, classification }),
         financesRepository.getTransactionsCount({ organizationId, bankConnectionId, classification }),
+        financesRepository.getTransactionsTotalAmount({ organizationId, bankConnectionId, classification }),
       ]);
 
       const transactionIds = transactions.map(t => t.id);
@@ -236,7 +237,7 @@ function setupGetTransactionsRoute({ app, db, config }: RouteDefinitionContext) 
         tags: (tagsByTransactionId[t.id] ?? []).map(tag => ({ id: tag.id, name: tag.name, color: tag.color })),
       }));
 
-      return context.json({ transactions: transactionsWithTags, transactionsCount });
+      return context.json({ transactions: transactionsWithTags, transactionsCount, totalAmount });
     },
   );
 }

@@ -263,7 +263,19 @@ export const FinancesPage: Component = () => {
         </div>
       </Show>
 
-
+      {/* Total amount summary */}
+      <Show when={transactionsQuery.data && (transactionsQuery.data.transactions?.length ?? 0) > 0}>
+        <div class="flex items-center gap-3 mb-4 text-sm text-muted-foreground">
+          <span>{transactionsQuery.data?.transactionsCount?.toLocaleString()} transactions</span>
+          <span class="text-border">·</span>
+          <span>
+            Total:{' '}
+            <span class={cn('font-mono font-medium', (transactionsQuery.data?.totalAmount ?? 0) < 0 ? 'text-red-500' : 'text-green-600')}>
+              {formatCurrency(transactionsQuery.data?.totalAmount ?? 0, 'USD')}
+            </span>
+          </span>
+        </div>
+      </Show>
 
       {/* Transactions table */}
       <Show

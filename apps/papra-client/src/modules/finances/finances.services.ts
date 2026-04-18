@@ -64,7 +64,7 @@ export async function fetchTransactions({ organizationId, pageIndex, pageSize, b
   bankConnectionId?: string;
   classification?: string;
 }) {
-  return apiClient<{ transactions: Transaction[]; transactionsCount: number }>({
+  return apiClient<{ transactions: Transaction[]; transactionsCount: number; totalAmount: number }>({
     method: 'GET',
     path: `/api/organizations/${organizationId}/finances/transactions`,
     query: { pageIndex, pageSize, bankConnectionId, classification },

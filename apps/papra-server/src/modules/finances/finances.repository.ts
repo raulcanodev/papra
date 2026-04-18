@@ -48,6 +48,7 @@ export function createFinancesRepository({ db, authSecret }: { db: Database; aut
       getTransactionById,
       updateTransactionClassification,
       getTransactionsCount,
+      getTransactionsTotalAmount,
       getClassificationRules,
       createClassificationRule,
       updateClassificationRule,
@@ -298,6 +299,25 @@ async function getTransactionsCount({ db, organizationId, bankConnectionId, clas
   ));
 
   return { count: result?.count ?? 0 };
+}
+
+async function getTransactionsTotalAmount({ db, organizationId, bankConnectionId, classification }: {
+  db: Database;
+  organizationId: string;
+  bankConnectionId?: string;
+  classification?: string;
+}) {
+  const classificationFilter = classification === '__unclassified__'
+    ? isNull(transactionsTable.classification)
+    : classification ? eq(transactionsTable.classification, classification) : undefined;
+
+  const [result] = await db.select({ totalAmount: sql<number>`coalesce(sum(${transactionsTable.amount}), 0)` }).from(transactionsTable).where(and(
+    eq(transactionsTable.organizationId, organizationId),
+    bankConnectionId ? eq(transactionsTable.bankConnectionId, bankConnectionId) : undefined,
+    classificationFilter,
+  ));
+
+  return { totalAmount: Number(result?.totalAmount ?? 0) };
 }
 
 async function getTransactionById({ db, transactionId, organizationId }: {
