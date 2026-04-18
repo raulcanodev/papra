@@ -107,16 +107,19 @@ export const OverviewPage: Component = () => {
   };
 
   return (
-    <div class="p-6 mt-4 pb-32 max-w-6xl mx-auto">
-      <div class="flex items-center justify-between mb-6">
+    <div class="flex flex-col h-full">
+      {/* Header */}
+      <div class="border-b px-6 py-3 flex items-center justify-between shrink-0 bg-background">
         <div>
-          <h2 class="text-xl font-bold">Overview</h2>
-          <p class="text-muted-foreground text-sm mt-1">Last 6 months of financial activity</p>
+          <h1 class="text-sm font-semibold leading-none">Overview</h1>
+          <p class="text-xs text-muted-foreground mt-0.5">Last 6 months of financial activity</p>
         </div>
         <Button variant="ghost" size="sm" onClick={togglePrivacyMode} title={isPrivacyMode() ? 'Show values' : 'Hide values'}>
-          <div class={cn(isPrivacyMode() ? 'i-tabler-eye-off' : 'i-tabler-eye', 'size-5')} />
+          <div class={cn(isPrivacyMode() ? 'i-tabler-eye-off' : 'i-tabler-eye', 'size-4')} />
         </Button>
       </div>
+
+      <div class="p-6 pb-32 max-w-6xl mx-auto w-full overflow-y-auto flex-1">
 
       <Show
         when={hasConnections()}
@@ -296,6 +299,7 @@ export const OverviewPage: Component = () => {
           </Show>
         </Show>
       </Show>
+      </div>
     </div>
   );
 };

@@ -126,23 +126,24 @@ export const FinancesPage: Component = () => {
   const allTypesOption = { value: undefined as string | undefined, label: 'All types' };
 
   return (
-    <div class="p-6 mt-4 pb-32 max-w-6xl mx-auto">
-      <div class="flex items-center justify-between mb-6">
+    <div class="flex flex-col h-full">
+      {/* Header */}
+      <div class="border-b px-6 py-3 flex items-center justify-between shrink-0 bg-background">
         <div>
-          <h2 class="text-xl font-bold">LLC Finances</h2>
-          <p class="text-muted-foreground text-sm mt-1">Bank transactions & Form 5472 classification</p>
-          <p class="text-muted-foreground text-xs mt-0.5">Accounts sync automatically every day at 2:00 AM</p>
+          <h1 class="text-sm font-semibold leading-none">LLC Finances</h1>
+          <p class="text-xs text-muted-foreground mt-0.5">Bank transactions & Form 5472 classification · syncs daily at 2:00 AM</p>
         </div>
-        <Show when={(connectionsQuery.data?.bankConnections?.length ?? 0) > 0}>
-          <div class="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={togglePrivacyMode} title={isPrivacyMode() ? 'Show values' : 'Hide values'}>
-              <div class={cn(isPrivacyMode() ? 'i-tabler-eye-off' : 'i-tabler-eye', 'size-5')} />
-            </Button>
-
+        <div class="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={togglePrivacyMode} title={isPrivacyMode() ? 'Show values' : 'Hide values'}>
+            <div class={cn(isPrivacyMode() ? 'i-tabler-eye-off' : 'i-tabler-eye', 'size-4')} />
+          </Button>
+          <Show when={(connectionsQuery.data?.bankConnections?.length ?? 0) > 0}>
             <AddBankConnectionDialog organizationId={params.organizationId} />
-          </div>
-        </Show>
+          </Show>
+        </div>
       </div>
+
+      <div class="p-6 pb-32 max-w-6xl mx-auto w-full overflow-y-auto flex-1">
 
       {/* Bank connections */}
       <Show when={(connectionsQuery.data?.bankConnections?.length ?? 0) > 0}>
@@ -396,6 +397,7 @@ export const FinancesPage: Component = () => {
         onClose={() => setDetailTransaction(null)}
         organizationId={params.organizationId}
       />
+      </div>
     </div>
   );
 };

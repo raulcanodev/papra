@@ -320,17 +320,20 @@ export const SubscriptionsPage: Component = () => {
   }
 
   return (
-    <div class="p-6 mt-4 pb-32 max-w-4xl mx-auto">
-      <div class="flex items-center justify-between mb-6">
+    <div class="flex flex-col h-full">
+      {/* Header */}
+      <div class="border-b px-6 py-3 flex items-center justify-between shrink-0 bg-background">
         <div>
-          <h2 class="text-xl font-bold">Subscriptions</h2>
-          <p class="text-muted-foreground text-sm mt-1">Track your recurring costs</p>
+          <h1 class="text-sm font-semibold leading-none">Subscriptions</h1>
+          <p class="text-xs text-muted-foreground mt-0.5">Track your recurring costs</p>
         </div>
-        <Button onClick={openAddDialog}>
-          <div class="i-tabler-plus size-4 mr-1" />
+        <Button size="sm" class="h-8 text-xs gap-1.5" onClick={openAddDialog}>
+          <div class="i-tabler-plus size-3.5" />
           Add subscription
         </Button>
       </div>
+
+      <div class="p-6 pb-32 max-w-4xl mx-auto w-full overflow-y-auto flex-1">
 
       {/* Summary */}
       <Show when={(subsQuery.data?.subscriptions?.length ?? 0) > 0}>
@@ -438,6 +441,7 @@ export const SubscriptionsPage: Component = () => {
           }}
         />
       </Show>
+      </div>
     </div>
   );
 };

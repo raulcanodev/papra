@@ -26,6 +26,11 @@ const AdminLayout: ParentComponent = (props) => {
       href: '/admin/organizations',
       icon: 'i-tabler-building-community',
     },
+    {
+      label: 'Feature Flags',
+      href: '/admin/feature-flags',
+      icon: 'i-tabler-flag',
+    },
   ];
 
   const sidenav = () => (
