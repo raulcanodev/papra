@@ -236,6 +236,13 @@ function setupGetTransactionsRoute({ app, db, config }: RouteDefinitionContext) 
         financesRepository.getTransactionsTotalAmount(filters),
       ]);
 
+      let totalAmountEur: number | null = null;
+      let totalAmountUsd: number | null = null;
+      try {
+        totalAmountEur = await convertCurrency({ amount: totalAmount, from: 'USD', to: 'EUR' });
+        totalAmountUsd = totalAmount;
+      } catch { /* exchange rate unavailable, skip */ }
+
       const transactionIds = transactions.map(t => t.id);
       const { tagsByTransactionId } = await tagsRepository.getTagsByTransactionIds({ transactionIds });
 
@@ -244,7 +251,7 @@ function setupGetTransactionsRoute({ app, db, config }: RouteDefinitionContext) 
         tags: (tagsByTransactionId[t.id] ?? []).map(tag => ({ id: tag.id, name: tag.name, color: tag.color })),
       }));
 
-      return context.json({ transactions: transactionsWithTags, transactionsCount, totalAmount });
+      return context.json({ transactions: transactionsWithTags, transactionsCount, totalAmount, totalAmountEur, totalAmountUsd });
     },
   );
 }
@@ -530,11 +537,24 @@ function setupGetOverviewRoute({ app, db, config }: RouteDefinitionContext) {
 
       const { totalBalance, totalBalanceCurrency, exchangeRates } = await computeTotalBalance({ balances: accountBalances });
 
+      let totalBalanceEur: number | null = null;
+      let totalBalanceUsd: number | null = null;
+      try {
+        totalBalanceEur = totalBalanceCurrency === 'EUR'
+          ? totalBalance
+          : await convertCurrency({ amount: totalBalance, from: totalBalanceCurrency, to: 'EUR' });
+        totalBalanceUsd = totalBalanceCurrency === 'USD'
+          ? totalBalance
+          : await convertCurrency({ amount: totalBalance, from: totalBalanceCurrency, to: 'USD' });
+      } catch { /* exchange rate unavailable */ }
+
       return context.json({
         ...stats,
         accountBalances,
         totalBalance,
         totalBalanceCurrency,
+        totalBalanceEur,
+        totalBalanceUsd,
         exchangeRates,
       });
     },

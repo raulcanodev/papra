@@ -3,7 +3,7 @@ import type { Transaction } from '../finances.types';
 import Calendar from '@corvu/calendar';
 import { useParams } from '@solidjs/router';
 import { createMutation, keepPreviousData, useQuery, useQueryClient } from '@tanstack/solid-query';
-import { createMemo, createSignal, For, Show } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, Match, Show, Switch } from 'solid-js';
 import { useConfirmModal } from '@/modules/shared/confirm';
 import { PaginationControls } from '@/modules/shared/pagination/pagination-controls.component';
 import { createParamSynchronizedPagination } from '@/modules/shared/pagination/query-synchronized-pagination';
@@ -66,6 +66,29 @@ const datePresetOptions: { value: DatePreset; label: string }[] = [
   { value: 'custom', label: 'Custom range' },
 ];
 
+type FilterStorage = {
+  filterConnection?: string;
+  filterClassification?: string;
+  amountFilter?: string;
+  amountValue?: number;
+  datePreset: DatePreset;
+  customFrom?: string | null;
+  customTo?: string | null;
+};
+
+function readFiltersFromStorage(orgId: string): FilterStorage | null {
+  try {
+    const raw = localStorage.getItem(`papra:finances:filters:${orgId}`);
+    return raw ? (JSON.parse(raw) as FilterStorage) : null;
+  } catch { return null; }
+}
+
+function writeFiltersToStorage(orgId: string, f: FilterStorage): void {
+  try {
+    localStorage.setItem(`papra:finances:filters:${orgId}`, JSON.stringify(f));
+  } catch {}
+}
+
 function getDateRange(preset: DatePreset): { from?: number; to?: number } {
   const now = new Date();
   const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -121,16 +144,50 @@ export const FinancesPage: Component = () => {
   const { isPrivacyMode, togglePrivacyMode } = usePrivacyMode();
   const formatCurrency = (amount: number, currency: string) => privacyCurrency(formatCurrencyRaw(amount, currency), isPrivacyMode());
   const [getPagination, setPagination] = createParamSynchronizedPagination();
-  const [getFilterConnection, setFilterConnection] = createSignal<string | undefined>();
-  const [getFilterClassification, setFilterClassification] = createSignal<string | undefined>();
+
+  const stored = readFiltersFromStorage(params.organizationId);
+  const [getFilterConnection, setFilterConnection] = createSignal<string | undefined>(stored?.filterConnection);
+  const [getFilterClassification, setFilterClassification] = createSignal<string | undefined>(stored?.filterClassification);
   const [getSearchQuery, setSearchQuery] = createSignal('');
   const [getDebouncedSearch, setDebouncedSearch] = createSignal<string | undefined>();
-  const [getAmountFilter, setAmountFilter] = createSignal<string | undefined>();
-  const [getAmountValue, setAmountValue] = createSignal<number | undefined>();
-  const [getDatePreset, setDatePreset] = createSignal<DatePreset>('last-30');
-  const [getCustomFrom, setCustomFrom] = createSignal<Date | null>(null);
-  const [getCustomTo, setCustomTo] = createSignal<Date | null>(null);
+  const [getAmountFilter, setAmountFilter] = createSignal<string | undefined>(stored?.amountFilter);
+  const [getAmountValue, setAmountValue] = createSignal<number | undefined>(stored?.amountValue);
+  const [getDatePreset, setDatePreset] = createSignal<DatePreset>(stored?.datePreset ?? 'last-30');
+  const [getCustomFrom, setCustomFrom] = createSignal<Date | null>(stored?.customFrom ? new Date(stored.customFrom) : null);
+  const [getCustomTo, setCustomTo] = createSignal<Date | null>(stored?.customTo ? new Date(stored.customTo) : null);
   const [isDatePopoverOpen, setIsDatePopoverOpen] = createSignal(false);
+
+  createEffect(() => {
+    writeFiltersToStorage(params.organizationId, {
+      filterConnection: getFilterConnection(),
+      filterClassification: getFilterClassification(),
+      amountFilter: getAmountFilter(),
+      amountValue: getAmountValue(),
+      datePreset: getDatePreset(),
+      customFrom: getCustomFrom()?.toISOString() ?? null,
+      customTo: getCustomTo()?.toISOString() ?? null,
+    });
+  });
+
+  const hasActiveFilters = () =>
+    getFilterConnection() != null
+    || getFilterClassification() != null
+    || getAmountFilter() != null
+    || getDatePreset() !== 'all'
+    || !!getDebouncedSearch();
+
+  const clearFilters = () => {
+    setFilterConnection(undefined);
+    setFilterClassification(undefined);
+    setAmountFilter(undefined);
+    setAmountValue(undefined);
+    setDatePreset('last-30');
+    setCustomFrom(null);
+    setCustomTo(null);
+    setSearchQuery('');
+    setDebouncedSearch(undefined);
+    setPagination({ pageIndex: 0, pageSize: getPagination().pageSize });
+  };
 
   const dateRange = createMemo(() => {
     const preset = getDatePreset();
@@ -544,11 +601,23 @@ export const FinancesPage: Component = () => {
         <div class="flex items-center gap-3 mb-4 text-sm text-muted-foreground">
           <span>{transactionsQuery.data?.transactionsCount?.toLocaleString()} transactions</span>
           <span class="text-border">·</span>
-          <span>
+          <span class="flex items-center gap-1.5">
             Total:{' '}
-            <span class={cn('font-mono font-medium', (transactionsQuery.data?.totalAmount ?? 0) < 0 ? 'text-red-500' : 'text-green-600')}>
-              {formatCurrency(transactionsQuery.data?.totalAmount ?? 0, 'USD')}
-            </span>
+            <Show
+              when={transactionsQuery.data?.totalAmountEur != null}
+              fallback={
+                <span class={cn('font-mono font-medium', (transactionsQuery.data?.totalAmount ?? 0) < 0 ? 'text-red-500' : 'text-green-600')}>
+                  {formatCurrency(transactionsQuery.data?.totalAmount ?? 0, 'USD')}
+                </span>
+              }
+            >
+              <span class={cn('font-mono font-medium', (transactionsQuery.data?.totalAmountEur ?? 0) < 0 ? 'text-red-500' : 'text-green-600')}>
+                {formatCurrency(transactionsQuery.data?.totalAmountEur ?? 0, 'EUR')}
+              </span>
+              <span class="text-xs text-muted-foreground/60 font-mono">
+                ({formatCurrency(transactionsQuery.data?.totalAmountUsd ?? transactionsQuery.data?.totalAmount ?? 0, 'USD')})
+              </span>
+            </Show>
           </span>
         </div>
       </Show>
@@ -556,16 +625,31 @@ export const FinancesPage: Component = () => {
       {/* Transactions table */}
       <Show
         when={(transactionsQuery.data?.transactions?.length ?? 0) > 0}
-        fallback={(
-          <Show when={(connectionsQuery.data?.bankConnections?.length ?? 0) === 0}>
-            <div class="text-center py-16">
-              <div class="i-tabler-building-bank size-12 mx-auto text-muted-foreground opacity-40 mb-4" />
-              <h3 class="text-lg font-medium mb-1">No bank accounts connected</h3>
-              <p class="text-muted-foreground text-sm mb-4">Connect your Mercury or Wise account to start tracking transactions.</p>
-              <AddBankConnectionDialog organizationId={params.organizationId} />
-            </div>
-          </Show>
-        )}
+        fallback={
+          <Switch>
+            <Match when={(connectionsQuery.data?.bankConnections?.length ?? 0) === 0}>
+              <div class="text-center py-16">
+                <div class="i-tabler-building-bank size-12 mx-auto text-muted-foreground opacity-40 mb-4" />
+                <h3 class="text-lg font-medium mb-1">No bank accounts connected</h3>
+                <p class="text-muted-foreground text-sm mb-4">Connect your Mercury or Wise account to start tracking transactions.</p>
+                <AddBankConnectionDialog organizationId={params.organizationId} />
+              </div>
+            </Match>
+            <Match when={!transactionsQuery.isFetching}>
+              <div class="text-center py-16">
+                <div class="i-tabler-filter-off size-12 mx-auto text-muted-foreground opacity-40 mb-4" />
+                <h3 class="text-lg font-medium mb-1">No transactions found</h3>
+                <p class="text-muted-foreground text-sm mb-4">No transactions match your current filters.</p>
+                <Show when={hasActiveFilters()}>
+                  <Button variant="outline" onClick={clearFilters}>
+                    <div class="i-tabler-x size-4 mr-1.5" />
+                    Clear filters
+                  </Button>
+                </Show>
+              </div>
+            </Match>
+          </Switch>
+        }
       >
         <div class="border rounded-lg">
           <Table>

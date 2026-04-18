@@ -145,6 +145,10 @@ const TransactionRuleCard: Component<{
   onRunRule: () => void;
   onEdit: (rule: ClassificationRule) => void;
   isRunning: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  isFirst?: boolean;
+  isLast?: boolean;
 }> = (props) => {
   const { confirm } = useConfirmModal();
   const [showAllConditions, setShowAllConditions] = createSignal(false);
@@ -167,11 +171,32 @@ const TransactionRuleCard: Component<{
 
   return (
     <div class="flex items-start gap-3 p-3 bg-card rounded-lg border">
-      <div class="i-tabler-arrows-exchange size-5 text-muted-foreground mt-0.5 shrink-0" />
+      {/* Reorder buttons */}
+      <div class="flex flex-col gap-0.5 shrink-0 mt-0.5">
+        <button
+          type="button"
+          class={cn('size-5 flex items-center justify-center rounded text-muted-foreground transition-colors', props.isFirst ? 'opacity-20 cursor-not-allowed' : 'hover:bg-muted hover:text-foreground')}
+          onClick={props.onMoveUp}
+          disabled={props.isFirst}
+          title="Move up (higher priority)"
+        >
+          <div class="i-tabler-chevron-up size-3.5" />
+        </button>
+        <button
+          type="button"
+          class={cn('size-5 flex items-center justify-center rounded text-muted-foreground transition-colors', props.isLast ? 'opacity-20 cursor-not-allowed' : 'hover:bg-muted hover:text-foreground')}
+          onClick={props.onMoveDown}
+          disabled={props.isLast}
+          title="Move down (lower priority)"
+        >
+          <div class="i-tabler-chevron-down size-3.5" />
+        </button>
+      </div>
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 flex-wrap">
           <span class="font-medium text-sm">{props.rule.name}</span>
           <Badge variant="outline" class="text-xs">Transaction</Badge>
+          <span class="text-[10px] font-mono text-muted-foreground/50 tabular-nums" title="Priority">#{props.rule.priority}</span>
           <Badge class={cn('text-xs pointer-events-none', classificationColors[props.rule.classification])}>
             {classificationLabels[props.rule.classification] ?? props.rule.classification}
           </Badge>
@@ -264,6 +289,7 @@ export const TaggingRulesPage: Component = () => {
   const [editTagIds, setEditTagIds] = createSignal<string[]>([]);
   const [editConditions, setEditConditions] = createSignal<RuleCondition[]>([]);
   const [editMatchMode, setEditMatchMode] = createSignal<'all' | 'any'>('all');
+  const [editPriority, setEditPriority] = createSignal(0);
 
   const openEdit = (rule: ClassificationRule) => {
     setEditName(rule.name);
@@ -271,6 +297,7 @@ export const TaggingRulesPage: Component = () => {
     setEditTagIds(rule.tagIds ?? []);
     setEditConditions((rule.conditions ?? []).map(c => ({ ...c })));
     setEditMatchMode(rule.conditionMatchMode ?? 'all');
+    setEditPriority(rule.priority);
     setEditingRule(rule);
   };
 
@@ -322,6 +349,7 @@ export const TaggingRulesPage: Component = () => {
           tagIds: editTagIds(),
           conditions: editConditions(),
           conditionMatchMode: editMatchMode(),
+          priority: editPriority(),
         },
       });
     },
@@ -413,7 +441,7 @@ export const TaggingRulesPage: Component = () => {
                 <h3 class="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Transaction Rules</h3>
                 <div class="flex flex-col gap-2">
                   <For each={txnRules()}>
-                    {rule => (
+                    {(rule, index) => (
                       <TransactionRuleCard
                         rule={rule}
                         organizationId={params.organizationId}
@@ -421,6 +449,40 @@ export const TaggingRulesPage: Component = () => {
                         onRunRule={() => autoClassifyMut.mutate()}
                         onEdit={openEdit}
                         isRunning={autoClassifyMut.isPending}
+                        isFirst={index() === 0}
+                        isLast={index() === txnRules().length - 1}
+                        onMoveUp={async () => {
+                          const rules = [...txnRules()];
+                          const i = index();
+                          if (i === 0) return;
+                          [rules[i - 1], rules[i]] = [rules[i]!, rules[i - 1]!];
+                          await Promise.all(
+                            rules.map((r, newIdx) =>
+                              updateClassificationRule({
+                                organizationId: params.organizationId,
+                                ruleId: r.id,
+                                updates: { priority: (rules.length - newIdx) * 10 },
+                              }),
+                            ),
+                          );
+                          queryClient.invalidateQueries({ queryKey: ['organizations', params.organizationId, 'finances', 'classification-rules'] });
+                        }}
+                        onMoveDown={async () => {
+                          const rules = [...txnRules()];
+                          const i = index();
+                          if (i === rules.length - 1) return;
+                          [rules[i], rules[i + 1]] = [rules[i + 1]!, rules[i]!];
+                          await Promise.all(
+                            rules.map((r, newIdx) =>
+                              updateClassificationRule({
+                                organizationId: params.organizationId,
+                                ruleId: r.id,
+                                updates: { priority: (rules.length - newIdx) * 10 },
+                              }),
+                            ),
+                          );
+                          queryClient.invalidateQueries({ queryKey: ['organizations', params.organizationId, 'finances', 'classification-rules'] });
+                        }}
                       />
                     )}
                   </For>
@@ -554,6 +616,19 @@ export const TaggingRulesPage: Component = () => {
                 onTagsChange={({ tags }) => setEditTagIds(tags.map(t => t.id))}
               />
             </div>
+
+            {/* Priority */}
+            <TextFieldRoot class="flex flex-col gap-1">
+              <TextFieldLabel>
+                Priority
+                <span class="ml-1.5 text-xs text-muted-foreground font-normal">(higher number = evaluated first)</span>
+              </TextFieldLabel>
+              <TextField
+                type="number"
+                value={editPriority()}
+                onInput={e => setEditPriority(Number(e.currentTarget.value))}
+              />
+            </TextFieldRoot>
 
             <div class="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setEditingRule(null)}>Cancel</Button>

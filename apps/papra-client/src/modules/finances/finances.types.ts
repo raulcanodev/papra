@@ -81,5 +81,7 @@ export type OverviewStats = {
   accountBalances: AccountBalance[];
   totalBalance: number;
   totalBalanceCurrency: string;
+  totalBalanceEur: number | null;
+  totalBalanceUsd: number | null;
   exchangeRates: Record<string, number>;
 };

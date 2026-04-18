@@ -141,8 +141,18 @@ export const OverviewPage: Component = () => {
               <div>
                 <div class="text-sm text-muted-foreground mb-1">Total Balance</div>
                 <div class={cn('text-4xl font-bold tracking-tight', (overviewQuery.data?.totalBalance ?? 0) >= 0 ? 'text-foreground' : 'text-red-600')}>
-                  {formatCurrency(overviewQuery.data?.totalBalance ?? 0, overviewQuery.data?.totalBalanceCurrency)}
+                  <Show
+                    when={overviewQuery.data?.totalBalanceEur != null}
+                    fallback={formatCurrency(overviewQuery.data?.totalBalance ?? 0, overviewQuery.data?.totalBalanceCurrency)}
+                  >
+                    {formatCurrency(overviewQuery.data?.totalBalanceEur ?? 0, 'EUR')}
+                  </Show>
                 </div>
+                <Show when={overviewQuery.data?.totalBalanceUsd != null}>
+                  <div class="text-sm text-muted-foreground/60 font-mono mt-0.5">
+                    ({formatCurrency(overviewQuery.data?.totalBalanceUsd ?? 0, 'USD')})
+                  </div>
+                </Show>
                 <Show when={hasMultipleCurrencies()}>
                   <div class="text-xs text-muted-foreground mt-1">
                     Converted to
