@@ -165,10 +165,13 @@ function getTextContent(children: unknown): string {
   return String(children ?? '');
 }
 
-// Clean up AI content: strip papra-* fences (whether closed or unclosed) and re-wrap JSON properly
+// Clean up AI content: strip tool result markers and papra-* fences, re-wrap JSON properly
 function preprocessMessageContent(content: string): string {
+  // 0. Strip [APPROVED: ...] and [SKIPPED: ...] markers (tool result context not meant for display)
+  let cleaned = content.replace(/\[(?:APPROVED|SKIPPED):\s*\w+(?:\s+Result:\s*\{[^]*?\})?\]/g, '');
+
   // 1. Remove any papra-rule/papra-data fence markers (open and close), leaving just the JSON
-  let cleaned = content.replace(/```papra-(rule|data)\s*/g, '');
+  cleaned = cleaned.replace(/```papra-(rule|data)\s*/g, '');
   cleaned = cleaned.replace(/```\s*(?=\n|$)/g, (match, offset: number) => {
     // Only strip closing ``` that look like they close a papra fence (preceded by JSON-like content)
     const before = cleaned.slice(Math.max(0, offset - 200), offset);
@@ -189,6 +192,9 @@ function preprocessMessageContent(content: string): string {
     } catch { /* not valid JSON, leave as-is */ }
     return match;
   });
+
+  // 3. Collapse excessive whitespace left by stripped markers
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
 
   return cleaned;
 }

@@ -25,6 +25,10 @@ export const CONFIRMABLE_TOOL_SCHEMAS: Record<string, z.ZodSchema> = {
     conditionMatchMode: z.enum(['all', 'any']).optional(), tagIds: z.array(z.string()).optional(), isActive: z.boolean().optional(),
   }),
   deleteClassificationRule: z.object({ ruleId: z.string() }),
+  consolidateClassificationRules: z.object({
+    ruleIds: z.array(z.string()), name: z.string(),
+    classification: z.enum(['expense', 'income', 'owner_transfer', 'internal_transfer']),
+  }),
   createTaggingRule: z.object({
     name: z.string(), description: z.string().optional(), conditionMatchMode: z.enum(['all', 'any']).default('all'),
     conditions: z.array(z.object({ field: z.string(), operator: z.string(), value: z.string() })),
@@ -50,6 +54,10 @@ function describeToolAction(toolName: string, args: Record<string, unknown>): st
       return `Update classification rule${args.name ? ` "${args.name}"` : ''}`;
     case 'deleteClassificationRule':
       return 'Delete a classification rule (irreversible)';
+    case 'consolidateClassificationRules': {
+      const count = (args.ruleIds as string[])?.length ?? 0;
+      return `Consolidate ${count} rules into "${args.name}" (${args.classification})`;
+    }
     case 'createTaggingRule': {
       const conds = (args.conditions as Array<{ field: string; operator: string; value: string }>)
         ?.map(c => `${c.field} ${c.operator} "${c.value}"`).join(', ') ?? '';
@@ -154,6 +162,12 @@ const deleteClassificationRuleParams = z.object({
   ruleId: z.string().min(1).describe('The ID of the classification rule to delete. Use listClassificationRules to find rule IDs.'),
 });
 
+const consolidateClassificationRulesParams = z.object({
+  ruleIds: z.array(z.string().min(1)).min(2).describe('Array of rule IDs to merge. Use listClassificationRules to get IDs.'),
+  name: z.string().min(1).max(64).describe('Name for the new consolidated rule'),
+  classification: z.enum(['expense', 'income', 'owner_transfer', 'internal_transfer']).describe('Classification for the consolidated rule'),
+});
+
 const createTaggingRuleParams = z.object({
   name: z.string().min(1).max(64).describe('Human-readable name for the document tagging rule'),
   description: z.string().optional().describe('Optional description of what the rule does'),
@@ -212,6 +226,57 @@ export function createAssistantTools({ db, organizationId, authSecret, documentS
     deleteClassificationRule: async (args: z.infer<typeof deleteClassificationRuleParams>) => {
       await financesRepo.deleteClassificationRule({ ruleId: args.ruleId, organizationId });
       return { success: true, message: 'Classification rule deleted.' };
+    },
+    consolidateClassificationRules: async (args: z.infer<typeof consolidateClassificationRulesParams>) => {
+      // Fetch all existing rules
+      const { rules: allRules } = await financesRepo.getClassificationRules({ organizationId });
+      const rulesToMerge = allRules.filter(r => args.ruleIds.includes(r.id));
+
+      if (rulesToMerge.length < 2) {
+        return { success: false, message: `Found only ${rulesToMerge.length} of ${args.ruleIds.length} rules. Check the IDs.` };
+      }
+
+      // Merge all conditions, deduplicate by field+operator+value
+      const seen = new Set<string>();
+      const mergedConditions: Array<{ field: string; operator: string; value: string }> = [];
+      for (const rule of rulesToMerge) {
+        for (const cond of rule.conditions as Array<{ field: string; operator: string; value: string }>) {
+          const key = `${cond.field}|${cond.operator}|${cond.value.toLowerCase()}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            mergedConditions.push(cond);
+          }
+        }
+      }
+
+      // Merge tag IDs
+      const mergedTagIds = [...new Set(rulesToMerge.flatMap(r => r.tagIds))];
+
+      // Create the consolidated rule
+      const { rule: newRule } = await financesRepo.createClassificationRule({
+        rule: {
+          organizationId,
+          name: args.name,
+          classification: args.classification,
+          conditions: mergedConditions,
+          conditionMatchMode: 'any',
+          tagIds: mergedTagIds.length > 0 ? mergedTagIds : undefined,
+          priority: 0,
+        },
+      });
+
+      // Delete old rules
+      for (const ruleId of args.ruleIds) {
+        await financesRepo.deleteClassificationRule({ ruleId, organizationId });
+      }
+
+      return {
+        success: true,
+        newRule,
+        deletedCount: rulesToMerge.length,
+        conditionCount: mergedConditions.length,
+        message: `Consolidated ${rulesToMerge.length} rules into "${args.name}" with ${mergedConditions.length} conditions.`,
+      };
     },
     createTaggingRule: async (args: z.infer<typeof createTaggingRuleParams>) => {
       await createTaggingRuleUsecase({ name: args.name, description: args.description, enabled: true, conditionMatchMode: args.conditionMatchMode, conditions: args.conditions, tagIds: args.tagIds, organizationId, taggingRulesRepository: taggingRulesRepo });
@@ -548,6 +613,12 @@ export function createAssistantTools({ db, organizationId, authSecret, documentS
       execute: async (args) => confirmationResult('deleteClassificationRule', args as unknown as Record<string, unknown>),
     }),
 
+    consolidateClassificationRules: tool({
+      description: 'Merge multiple classification rules into a single consolidated rule with conditionMatchMode "any". All conditions from the source rules are deduplicated and combined. The old rules are deleted. Use this when the user has many individual rules that should be one rule. Use listClassificationRules first to get rule IDs.',
+      inputSchema: zodSchema(consolidateClassificationRulesParams),
+      execute: async (args) => confirmationResult('consolidateClassificationRules', args as unknown as Record<string, unknown>),
+    }),
+
     createTaggingRule: tool({
       description: 'Create a new document tagging rule. The rule will automatically tag documents whose name or content matches the conditions. Conditions use fields: "name" (document name), "content" (extracted text). Operators: equal, not_equal, contains, not_contains, starts_with, ends_with. You MUST provide at least one tag ID — use listTags to find IDs, or createTag to make a new tag first.',
       inputSchema: zodSchema(createTaggingRuleParams),
@@ -567,11 +638,33 @@ export function createAssistantTools({ db, organizationId, authSecret, documentS
     }),
 
     analyzeUnclassifiedTransactions: tool({
-      description: 'Analyze ALL unclassified transactions. Returns pre-extracted patterns with keyword, field (description/counterparty), transaction count, total amount, sample descriptions, and suggested classification. Each pattern is a READY-TO-USE rule candidate. Create a createClassificationRule call for EACH pattern — use the keyword as a "contains" condition on the specified field. Call createClassificationRule MULTIPLE TIMES in the same response, one per pattern.',
+      description: 'Analyze ALL unclassified transactions. Returns pre-extracted patterns AND existing classification rules. Use existing rules to avoid duplicates — if a pattern\'s keyword is already covered by an existing rule condition, SKIP it. Group remaining patterns by suggestedClassification and create CONSOLIDATED rules (one per classification with conditionMatchMode "any" and all keywords as separate conditions).',
       inputSchema: zodSchema(emptyParams),
       execute: async () => {
-        const { totalUnclassified, patterns } = await financesRepo.getUnclassifiedCounterpartySummary({ organizationId });
-        return { totalUnclassified, patterns };
+        const [{ totalUnclassified, patterns }, { rules: existingRules }] = await Promise.all([
+          financesRepo.getUnclassifiedCounterpartySummary({ organizationId }),
+          financesRepo.getClassificationRules({ organizationId }),
+        ]);
+
+        // Extract existing condition values for duplicate detection
+        const existingConditionValues = existingRules.flatMap(r =>
+          (r.conditions as Array<{ field: string; operator: string; value: string }>)
+            .map(c => c.value.toLowerCase()),
+        );
+
+        // Filter out patterns already covered by existing rules
+        const newPatterns = patterns.filter(p =>
+          !existingConditionValues.some(v =>
+            p.keyword.toLowerCase().includes(v) || v.includes(p.keyword.toLowerCase()),
+          ),
+        );
+
+        return {
+          totalUnclassified,
+          patterns: newPatterns,
+          existingRuleCount: existingRules.length,
+          filteredOutCount: patterns.length - newPatterns.length,
+        };
       },
     }),
   };
