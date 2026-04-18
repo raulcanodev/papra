@@ -375,7 +375,7 @@ const MessageBubble: Component<{ message: ChatMessage; isStreaming?: boolean; or
 
       <div class={cn('flex flex-col gap-1 min-w-0 flex-1', isUser() ? 'items-end' : 'items-start')}>
         <Show when={isUser()}>
-          <div class="rounded-2xl bg-primary text-primary-foreground rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words max-w-full">
+          <div class="rounded-2xl bg-muted text-foreground rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words max-w-full">
             {props.message.content}
           </div>
         </Show>
