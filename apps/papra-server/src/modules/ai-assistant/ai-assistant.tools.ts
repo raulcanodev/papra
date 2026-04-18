@@ -198,11 +198,18 @@ const deleteTaggingRuleParams = z.object({
   taggingRuleId: z.string().min(1).describe('The ID of the document tagging rule to delete. Use listTaggingRules to find rule IDs.'),
 });
 
-export function createAssistantTools({ db, organizationId, authSecret, documentSearchServices }: {
+const webSearchParams = z.object({
+  query: z.string().min(1).max(400).describe('The search query. Be specific and include relevant context (e.g. "Wyoming LLC annual report filing requirements 2024" instead of just "LLC filing"). For legal/regulatory questions, include the jurisdiction.'),
+  searchDepth: z.enum(['basic', 'advanced']).default('basic').describe('Use "advanced" for complex legal, regulatory, or technical questions that need deeper research. Use "basic" for simple factual lookups.'),
+  maxResults: z.number().int().min(1).max(10).default(5).describe('Number of results to return. Use 3-5 for most queries, up to 10 for broad research.'),
+});
+
+export function createAssistantTools({ db, organizationId, authSecret, documentSearchServices, tavilyApiKey }: {
   db: Database;
   organizationId: string;
   authSecret: string;
   documentSearchServices: DocumentSearchServices;
+  tavilyApiKey?: string;
 }) {
   const financesRepo = createFinancesRepository({ db, authSecret });
   const tagsRepo = createTagsRepository({ db });
@@ -667,6 +674,46 @@ export function createAssistantTools({ db, organizationId, authSecret, documentS
         };
       },
     }),
+
+    ...(tavilyApiKey ? {
+      webSearch: tool({
+        description: 'Search the internet for up-to-date information. Use this when the user asks about legal requirements, regulations, filing deadlines, tax rules, compliance topics, country-specific business information, or anything that requires current external knowledge. Combine with searchDocuments/getDocumentById to cross-reference internet info with the user\'s own documents. Examples: "What are the Wyoming LLC annual report requirements?", "Spain tax obligations for US LLC owners", "How to fill out Form W-8BEN".',
+        inputSchema: zodSchema(webSearchParams),
+        execute: async (args) => {
+          const response = await fetch('https://api.tavily.com/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              api_key: tavilyApiKey,
+              query: args.query,
+              search_depth: args.searchDepth,
+              max_results: args.maxResults,
+              include_answer: true,
+            }),
+          });
+
+          if (!response.ok) {
+            return { error: `Web search failed (${response.status})` };
+          }
+
+          const data = await response.json() as {
+            answer?: string;
+            results: Array<{ title: string; url: string; content: string; score: number }>;
+          };
+
+          return {
+            answer: data.answer ?? null,
+            results: data.results.map(r => ({
+              title: r.title,
+              url: r.url,
+              snippet: r.content,
+              relevanceScore: r.score,
+            })),
+            query: args.query,
+          };
+        },
+      }),
+    } : {}),
   };
 
   return { tools, executors };

@@ -16,6 +16,7 @@ export function createAiAssistantRepository({ db }: { db: Database }) {
       getChatMessages,
       addChatMessage,
       addChatMessages,
+      updateChatMessageMetadata,
     },
     { db },
   );
@@ -101,6 +102,7 @@ async function getChatMessages({ db, sessionId }: {
       id: aiChatMessagesTable.id,
       role: aiChatMessagesTable.role,
       content: aiChatMessagesTable.content,
+      metadata: aiChatMessagesTable.metadata,
       createdAt: aiChatMessagesTable.createdAt,
     })
     .from(aiChatMessagesTable)
@@ -110,16 +112,18 @@ async function getChatMessages({ db, sessionId }: {
   return { messages };
 }
 
-async function addChatMessage({ db, sessionId, role, content }: {
+async function addChatMessage({ db, sessionId, role, content, metadata }: {
   db: Database;
   sessionId: string;
   role: string;
   content: string;
+  metadata?: string;
 }) {
   const [message] = await db.insert(aiChatMessagesTable).values({
     sessionId,
     role,
     content,
+    metadata,
   }).returning();
 
   await db.update(aiChatSessionsTable)
@@ -127,6 +131,16 @@ async function addChatMessage({ db, sessionId, role, content }: {
     .where(eq(aiChatSessionsTable.id, sessionId));
 
   return { message: message! };
+}
+
+async function updateChatMessageMetadata({ db, messageId, metadata }: {
+  db: Database;
+  messageId: string;
+  metadata: string;
+}) {
+  await db.update(aiChatMessagesTable)
+    .set({ metadata })
+    .where(eq(aiChatMessagesTable.id, messageId));
 }
 
 async function addChatMessages({ db, sessionId, messages }: {

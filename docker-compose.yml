@@ -30,6 +30,7 @@ services:
       - AI_OPENAI_API_KEY=${AI_OPENAI_API_KEY:-}
       - AI_ANTHROPIC_API_KEY=${AI_ANTHROPIC_API_KEY:-}
       - AI_MODEL=${AI_MODEL:-}
+      - TAVILY_API_KEY=${TAVILY_API_KEY:-}
     volumes:
       - ${PAPRA_DATA_DIR:-./app-data}:/app/app-data
 

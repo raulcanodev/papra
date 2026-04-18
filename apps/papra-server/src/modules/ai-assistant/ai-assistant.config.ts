@@ -32,4 +32,10 @@ export const aiAssistantConfig = {
     default: undefined,
     env: 'AI_MODEL',
   },
+  tavilyApiKey: {
+    doc: 'The API key for Tavily web search.',
+    schema: v.optional(v.string()),
+    default: undefined,
+    env: 'TAVILY_API_KEY',
+  },
 } as const satisfies AppConfigDefinition;

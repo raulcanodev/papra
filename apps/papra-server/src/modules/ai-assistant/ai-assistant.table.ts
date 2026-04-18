@@ -23,6 +23,7 @@ export const aiChatMessagesTable = sqliteTable('ai_chat_messages', {
   sessionId: text('session_id').notNull().references(() => aiChatSessionsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
   role: text('role').notNull(), // 'user' | 'assistant' | 'system'
   content: text('content').notNull(),
+  metadata: text('metadata'), // JSON: { webSources?, toolConfirmations? }
 }, t => [
   index('ai_chat_messages_session_id_index').on(t.sessionId),
 ]);

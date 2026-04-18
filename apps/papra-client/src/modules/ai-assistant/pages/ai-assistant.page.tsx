@@ -8,7 +8,7 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/modules/ui/components/dropdown-menu';
-import { deleteChatSession, executeToolAction, fetchAiModels, fetchChatSession, fetchChatSessions, renameChatSession, streamChatMessage } from '../ai-assistant.services';
+import { deleteChatSession, executeToolAction, fetchAiModels, fetchChatSession, fetchChatSessions, renameChatSession, streamChatMessage, updateMessageMetadata } from '../ai-assistant.services';
 
 const PLACEHOLDER_SUGGESTION_CONFIG = [
   { icon: 'i-tabler-files', key: 'ai-assistant.suggestion.documents-overview' as const },
@@ -199,6 +199,33 @@ function preprocessMessageContent(content: string): string {
   return cleaned;
 }
 
+function CodeBlock(props: { lang?: string; code: string; className?: string; children?: JSX.Element }) {
+  const [copied, setCopied] = createSignal(false);
+
+  const copyToClipboard = async () => {
+    await navigator.clipboard.writeText(props.code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div class="relative my-2 rounded-md bg-muted overflow-hidden group">
+      <div class="flex items-center justify-between px-3 py-1.5 bg-muted-foreground/10 text-xs text-muted-foreground">
+        <span>{props.lang || 'code'}</span>
+        <button
+          type="button"
+          onClick={copyToClipboard}
+          class="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-muted-foreground/15 transition-colors text-muted-foreground/70 hover:text-muted-foreground"
+        >
+          <div class={copied() ? 'i-tabler-check text-green-500' : 'i-tabler-copy'} style={{ 'font-size': '14px' }} />
+          <span>{copied() ? 'Copied' : 'Copy'}</span>
+        </button>
+      </div>
+      <pre class="p-3 overflow-x-auto text-sm leading-relaxed"><code class={props.className}>{props.children}</code></pre>
+    </div>
+  );
+}
+
 const markdownComponents = {
   pre: (props: { children?: JSX.Element }) => {
     return <>{props.children}</>;
@@ -226,7 +253,7 @@ const markdownComponents = {
     }
 
     // Default code block
-    return <pre class="my-2 bg-muted text-foreground rounded-md overflow-x-auto"><code class={props.className}>{props.children}</code></pre>;
+    return <CodeBlock lang={lang} code={raw} className={props.className}>{props.children}</CodeBlock>;
   },
 };
 
@@ -364,6 +391,70 @@ const ToolConfirmationCard: Component<{
   );
 };
 
+const TOOL_ACTIVITY_LABELS: Record<string, { icon: string; label: string }> = {
+  webSearch: { icon: 'i-tabler-world-search', label: 'Searching the internet...' },
+  searchDocuments: { icon: 'i-tabler-file-search', label: 'Searching documents...' },
+  getDocumentById: { icon: 'i-tabler-file-text', label: 'Reading document...' },
+  listTransactions: { icon: 'i-tabler-list-search', label: 'Loading transactions...' },
+  searchTransactions: { icon: 'i-tabler-search', label: 'Searching transactions...' },
+  getSpendingBreakdown: { icon: 'i-tabler-chart-pie', label: 'Analyzing spending...' },
+  getAccountBalances: { icon: 'i-tabler-wallet', label: 'Checking balances...' },
+  getFinancialOverview: { icon: 'i-tabler-report-analytics', label: 'Loading overview...' },
+  analyzeUnclassifiedTransactions: { icon: 'i-tabler-analyze', label: 'Analyzing transactions...' },
+  listClassificationRules: { icon: 'i-tabler-tags', label: 'Loading rules...' },
+  listTaggingRules: { icon: 'i-tabler-tags', label: 'Loading rules...' },
+  autoClassifyTransactions: { icon: 'i-tabler-robot', label: 'Classifying transactions...' },
+};
+
+function ToolActivityIndicator(props: { toolName: string }) {
+  const info = () => TOOL_ACTIVITY_LABELS[props.toolName] ?? { icon: 'i-tabler-loader', label: 'Working...' };
+
+  return (
+    <div class="flex items-center gap-2 py-1.5 px-2 rounded-md bg-muted/50 border border-border/50 text-muted-foreground text-xs">
+      <div class={cn(info().icon, 'size-3.5 animate-pulse')} />
+      <span class="font-medium">{info().label}</span>
+    </div>
+  );
+}
+
+function ToolActivityStack(props: { toolNames: string[] }) {
+  return (
+    <div class="flex flex-col gap-1">
+      <For each={props.toolNames}>
+        {name => <ToolActivityIndicator toolName={name} />}
+      </For>
+    </div>
+  );
+}
+
+function WebSourceBadges(props: { sources: Array<{ title: string; url: string }> }) {
+  return (
+    <div class="not-prose flex flex-wrap gap-1.5 mt-3 pt-2 border-t border-border/30">
+      <span class="text-xs text-muted-foreground/60 self-center mr-0.5">Sources:</span>
+      <For each={props.sources}>
+        {source => {
+          const hostname = () => {
+            try { return new URL(source.url).hostname.replace('www.', ''); }
+            catch { return source.url; }
+          };
+          return (
+            <a
+              href={source.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted hover:bg-muted-foreground/15 border border-border/40 text-xs text-muted-foreground hover:text-foreground transition-colors no-underline truncate max-w-48"
+              title={source.title}
+            >
+              <div class="i-tabler-external-link size-3 shrink-0" />
+              <span class="truncate">{hostname()}</span>
+            </a>
+          );
+        }}
+      </For>
+    </div>
+  );
+}
+
 const MessageBubble: Component<{ message: ChatMessage; isStreaming?: boolean; organizationId: string; onToolStatusChange?: (toolCallId: string, status: 'approved' | 'rejected', result?: unknown) => void }> = (props) => {
   const isUser = () => props.message.role === 'user';
   const [thinkingOpen, setThinkingOpen] = createSignal(false);
@@ -406,19 +497,26 @@ const MessageBubble: Component<{ message: ChatMessage; isStreaming?: boolean; or
               </Show>
             </Show>
             <Show when={!props.message.content && props.isStreaming && !isThinkingLive()}>
-              <div class="flex items-center gap-1.5 py-1 text-muted-foreground">
-                <div class="size-1.5 rounded-full bg-current animate-pulse" />
-                <div class="size-1.5 rounded-full bg-current animate-pulse" style={{ 'animation-delay': '0.15s' }} />
-                <div class="size-1.5 rounded-full bg-current animate-pulse" style={{ 'animation-delay': '0.3s' }} />
-              </div>
+              <Show when={(props.message.activeToolCalls ?? []).length > 0} fallback={
+                <div class="flex items-center gap-1.5 py-1 text-muted-foreground">
+                  <div class="size-1.5 rounded-full bg-current animate-pulse" />
+                  <div class="size-1.5 rounded-full bg-current animate-pulse" style={{ 'animation-delay': '0.15s' }} />
+                  <div class="size-1.5 rounded-full bg-current animate-pulse" style={{ 'animation-delay': '0.3s' }} />
+                </div>
+              }>
+                <ToolActivityStack toolNames={props.message.activeToolCalls!} />
+              </Show>
             </Show>
             <Show when={props.message.content}>
               <SolidMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents} children={preprocessMessageContent(props.message.content)} />
               <Show when={props.isStreaming}>
                 <span class="inline-block w-0.5 h-4 bg-foreground ml-0.5 align-middle animate-pulse" />
               </Show>
+              <Show when={!props.isStreaming && (props.message.webSources ?? []).length > 0}>
+                <WebSourceBadges sources={props.message.webSources!} />
+              </Show>
             </Show>
-            <Show when={(props.message.toolConfirmations ?? []).length > 0}>
+            <Show when={!props.isStreaming && (props.message.toolConfirmations ?? []).length > 0}>
               <For each={props.message.toolConfirmations}>
                 {confirmation => (
                   <ToolConfirmationCard
@@ -535,14 +633,26 @@ export const AiAssistantPage: Component = () => {
   const orgId = () => params.organizationId;
 
   function handleToolStatusChange(toolCallId: string, status: 'approved' | 'rejected', result?: unknown) {
-    setMessages(prev => prev.map(msg => {
-      if (!msg.toolConfirmations) return msg;
-      const updated = msg.toolConfirmations.map(tc =>
-        tc.toolCallId === toolCallId ? { ...tc, status, result } : tc,
-      );
-      if (updated === msg.toolConfirmations) return msg;
-      return { ...msg, toolConfirmations: updated };
-    }));
+    setMessages((prev) => {
+      const updated = prev.map((msg) => {
+        if (!msg.toolConfirmations) return msg;
+        const updatedConfs = msg.toolConfirmations.map(tc =>
+          tc.toolCallId === toolCallId ? { ...tc, status, result } : tc,
+        );
+        if (updatedConfs === msg.toolConfirmations) return msg;
+        const updatedMsg = { ...msg, toolConfirmations: updatedConfs };
+        // Persist to server if we have message id and session
+        if (updatedMsg.id && activeChatId()) {
+          const metadata = JSON.stringify({
+            webSources: updatedMsg.webSources ?? [],
+            toolConfirmations: updatedConfs,
+          });
+          void updateMessageMetadata({ organizationId: orgId(), sessionId: activeChatId()!, messageId: updatedMsg.id, metadata });
+        }
+        return updatedMsg;
+      });
+      return updated;
+    });
   }
   const [modelsData] = createResource(fetchAiModels);
   const [sessionsData, { refetch: refetchSessions }] = createResource(orgId, organizationId => fetchChatSessions({ organizationId }));
@@ -646,7 +756,7 @@ export const AiAssistantPage: Component = () => {
             }
             return [
               ...prev.slice(0, -1),
-              { ...last, content: last.content + chunk },
+              { ...last, content: last.content + chunk, activeToolCalls: undefined },
             ];
           });
           scrollToBottom();
@@ -672,10 +782,49 @@ export const AiAssistantPage: Component = () => {
             }
             return [
               ...prev.slice(0, -1),
-              { ...last, toolConfirmations: [...(last.toolConfirmations ?? []), confirmation] },
+              { ...last, toolConfirmations: [...(last.toolConfirmations ?? []), confirmation], activeToolCalls: undefined },
             ];
           });
           scrollToBottom();
+        },
+        onToolActivity: (toolName) => {
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (!last || last.role !== 'assistant') {
+              return prev;
+            }
+            const current = last.activeToolCalls ?? [];
+            if (current.includes(toolName)) return prev;
+            return [
+              ...prev.slice(0, -1),
+              { ...last, activeToolCalls: [...current, toolName] },
+            ];
+          });
+        },
+        onToolDone: (toolName) => {
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (!last || last.role !== 'assistant') {
+              return prev;
+            }
+            const current = (last.activeToolCalls ?? []).filter(t => t !== toolName);
+            return [
+              ...prev.slice(0, -1),
+              { ...last, activeToolCalls: current.length > 0 ? current : undefined },
+            ];
+          });
+        },
+        onWebSources: (sources) => {
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (!last || last.role !== 'assistant') {
+              return prev;
+            }
+            return [
+              ...prev.slice(0, -1),
+              { ...last, webSources: [...(last.webSources ?? []), ...sources] },
+            ];
+          });
         },
       });
     } catch (error: unknown) {
@@ -892,6 +1041,7 @@ export const AiAssistantPage: Component = () => {
             </div>
             <div class="flex items-center justify-between mt-2">
               <Show when={models().length > 1}>
+                <div class="flex items-center gap-3">
                 <DropdownMenu>
                   <DropdownMenuTrigger class="inline-flex items-center gap-1 h-6 px-2 rounded text-[11px] text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/50 transition-colors font-normal cursor-pointer select-none outline-none">
                     <div class={cn(
@@ -923,15 +1073,24 @@ export const AiAssistantPage: Component = () => {
                     </For>
                   </DropdownMenuContent>
                 </DropdownMenu>
+                <span class="inline-flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] text-muted-foreground/50 bg-muted/50">
+                  <div class="i-tabler-world-search size-3" />
+                  Search
+                </span>
+                </div>
               </Show>
               <Show when={models().length <= 1}>
-                <div class="inline-flex items-center gap-1 h-6 px-2 rounded text-[11px] text-muted-foreground/50">
+                <div class="inline-flex items-center gap-3 h-6 px-2 rounded text-[11px] text-muted-foreground/50">
                   <div class={cn(
                     'size-1.5 rounded-full shrink-0',
                     { anthropic: 'bg-orange-500', xai: 'bg-blue-500', google: 'bg-yellow-500', openai: 'bg-green-500' }[models()[0]?.provider ?? modelsData()?.providers?.[0] ?? 'openai'],
                   )}
                   />
                   <span>{models()[0]?.label ?? modelsData()?.models?.[0]?.label ?? currentModel() ?? '—'}</span>
+                  <span class="inline-flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] text-muted-foreground/50">
+                    <div class="i-tabler-world-search size-3" />
+                    Search
+                  </span>
                 </div>
               </Show>
               <p class="text-[11px] text-muted-foreground/50 flex-1 text-right">

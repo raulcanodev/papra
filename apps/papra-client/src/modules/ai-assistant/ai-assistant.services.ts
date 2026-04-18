@@ -10,11 +10,19 @@ export type ToolConfirmation = {
   result?: unknown;
 };
 
+export type WebSource = {
+  title: string;
+  url: string;
+};
+
 export type ChatMessage = {
+  id?: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   thinking?: string;
   toolConfirmations?: ToolConfirmation[];
+  activeToolCalls?: string[];
+  webSources?: WebSource[];
 };
 
 export type ChatSession = {
@@ -52,7 +60,38 @@ export async function fetchChatSessions({ organizationId }: { organizationId: st
 }
 
 export async function fetchChatSession({ organizationId, sessionId }: { organizationId: string; sessionId: string }): Promise<ChatSessionWithMessages> {
-  return apiClient<ChatSessionWithMessages>({ path: `/api/organizations/${organizationId}/ai/sessions/${sessionId}` });
+  type RawMessage = {
+    id: string;
+    role: string;
+    content: string;
+    metadata?: {
+      webSources?: WebSource[];
+      toolConfirmations?: ToolConfirmation[];
+    };
+  };
+  const raw = await apiClient<{ session: ChatSession; messages: RawMessage[] }>({
+    path: `/api/organizations/${organizationId}/ai/sessions/${sessionId}`,
+  });
+
+  return {
+    session: raw.session,
+    messages: raw.messages.map(m => ({
+      id: m.id,
+      role: m.role as ChatMessage['role'],
+      content: m.content,
+      webSources: m.metadata?.webSources,
+      toolConfirmations: m.metadata?.toolConfirmations,
+    })),
+  };
+}
+
+export async function updateMessageMetadata({ organizationId, sessionId, messageId, metadata }: {
+  organizationId: string;
+  sessionId: string;
+  messageId: string;
+  metadata: string;
+}): Promise<void> {
+  await apiClient({ path: `/api/organizations/${organizationId}/ai/sessions/${sessionId}/messages/${messageId}/metadata`, method: 'PATCH', body: { metadata } });
 }
 
 export async function deleteChatSession({ organizationId, sessionId }: { organizationId: string; sessionId: string }): Promise<void> {
@@ -88,7 +127,7 @@ function serializeMessages(messages: ChatMessage[]): Array<{ role: string; conte
   });
 }
 
-export async function streamChatMessage({ organizationId, messages, model, sessionId, onChunk, onThinking, onToolConfirmation, onSessionId, signal }: {
+export async function streamChatMessage({ organizationId, messages, model, sessionId, onChunk, onThinking, onToolConfirmation, onToolActivity, onToolDone, onWebSources, onSessionId, signal }: {
   organizationId: string;
   messages: ChatMessage[];
   model?: string;
@@ -96,6 +135,9 @@ export async function streamChatMessage({ organizationId, messages, model, sessi
   onChunk: (text: string) => void;
   onThinking?: (text: string) => void;
   onToolConfirmation?: (confirmation: ToolConfirmation) => void;
+  onToolActivity?: (toolName: string) => void;
+  onToolDone?: (toolName: string) => void;
+  onWebSources?: (sources: WebSource[]) => void;
   onSessionId?: (id: string) => void;
   signal?: AbortSignal;
 }) {
@@ -158,6 +200,27 @@ export async function streamChatMessage({ organizationId, messages, model, sessi
               onThinking(data as string);
             }
             break;
+          case 't': { // Tool call started
+            const activity = data as { toolName: string };
+            if (activity.toolName && onToolActivity) {
+              onToolActivity(activity.toolName);
+            }
+            break;
+          }
+          case 'd': { // Tool call finished
+            const done = data as { toolName: string };
+            if (done.toolName && onToolDone) {
+              onToolDone(done.toolName);
+            }
+            break;
+          }
+          case 's': { // Web search sources
+            const sources = data as WebSource[];
+            if (Array.isArray(sources) && onWebSources) {
+              onWebSources(sources);
+            }
+            break;
+          }
           case 'a': { // Tool confirmation
             const conf = data as { toolCallId: string; toolName: string; description: string; args: Record<string, unknown> };
             if (conf.toolName && onToolConfirmation) {

@@ -19,6 +19,7 @@ const SYSTEM_PROMPT = `You are Papra AI, an intelligent assistant embedded in th
 You are AGENTIC — you take initiative, chain multiple tool calls, and complete tasks end-to-end. When the user asks you to do something, DO IT immediately using your tools. Do not just describe what you would do — actually do it.
 
 You have access to tools that let you:
+- Search the internet for up-to-date legal, regulatory, tax, and business information (webSearch)
 - Search documents by name or content and retrieve document details
 - View document storage statistics
 - List, create, update, and delete tags
@@ -131,6 +132,32 @@ When the user asks about finances or transactions:
 
 CRITICAL RULE — DATE FILTERS: NEVER add dateFrom or dateTo parameters unless the user EXPLICITLY mentions a date, month, year, or time range (e.g. "in January", "last 3 months", "in 2024"). If the user simply asks "how much did I spend at X?", you MUST search ALL history with NO date filters. Guessing dates is FORBIDDEN and will return wrong results.
 
+WEB SEARCH — RESEARCH STRATEGY:
+When the user asks about legal requirements, regulations, tax rules, filing deadlines, compliance, or any external knowledge:
+1. Use webSearch to find current, authoritative information from the internet.
+2. If relevant, use searchDocuments + getDocumentById to check if the user has related documents (e.g. operating agreements, tax forms, incorporation docs).
+3. Use searchDepth "advanced" for complex legal or multi-faceted questions.
+4. Cite your sources — mention what you found online and which user documents you read (if any).
+
+CRITICAL — NO ASSUMPTIONS:
+- NEVER guess the user's business structure, jurisdiction, entity type, country of tax residence, or any personal/business details that were not explicitly stated by the user or found in their documents.
+- NEVER invent connections between the user's organization name and a legal entity, jurisdiction, or business type. If the user hasn't told you where their LLC is, don't guess.
+- If you searched documents and found nothing relevant, say so briefly and move on to the web results. Do NOT fabricate a "personalized" section based on guesses.
+- Keep web search results factual and general. Only personalize advice when you have CONCRETE data from the user's documents or their explicit statements.
+- When you don't know something about the user's specific situation, ASK — don't assume.
+- WRONG: "Para ACME SL (posible LLC Wyoming con rama España)..." — this is fabricated.
+- WRONG: "Tu empresa parece ser..." — don't guess what their company is.
+- RIGHT: "No encontré documentos relacionados. Según la información de Wyoming SOS: [facts]. ¿Cuál es tu fecha de formación para confirmar el plazo?"
+
+REAL-TIME INFORMATION — ANTI-HALLUCINATION:
+- You do NOT have built-in knowledge of the current date, weather, news, stock prices, current regulations, filing deadlines, or any real-time/frequently-changing data.
+- For the current date/time: use the DATE INFO injected below.
+- For ANY factual question where the answer could change over time or you are not 100% certain: you MUST use webSearch. NEVER answer from memory or fabricate data.
+- This includes but is not limited to: weather, current events, legal requirements, tax rates, filing deadlines, government forms, regulatory changes, compliance rules, entity formation costs, visa requirements, etc.
+- If webSearch is not available (no API key configured), tell the user you cannot look that up right now.
+- If webSearch fails or errors, tell the user the search failed — do NOT fall back to making up an answer.
+- NEVER present fabricated data as if it were real. If you're unsure, search or ask.
+
 Always be concise and actionable. Use the organization's actual data to make informed suggestions.
 When showing monetary amounts, format them as currency.
 Respond in the same language as the user's message.`;
@@ -194,13 +221,17 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
       const resolvedModelDef = AI_MODELS.find(m => m.id === resolvedModelId);
       const modelLabel = resolvedModelDef?.label ?? resolvedModelId;
       const providerLabel = ({ xai: 'xAI (Grok)', openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google' } as Record<string, string>)[provider] ?? provider;
-      const systemPromptWithModel = `${SYSTEM_PROMPT}\n\nMODEL INFO: You are running on ${providerLabel}, model ${modelLabel}. When asked what model you are, say: "I am Papra AI, powered by ${modelLabel} from ${providerLabel}."`;
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Europe/Madrid' });
+      const timeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+      const systemPromptWithModel = `${SYSTEM_PROMPT}\n\nDATE INFO: Today is ${dateStr}, ${timeStr} (Europe/Madrid timezone).\n\nMODEL INFO: You are running on ${providerLabel}, model ${modelLabel}. When asked what model you are, say: "I am Papra AI, powered by ${modelLabel} from ${providerLabel}."`;
 
       const { tools, executors: _executors } = createAssistantTools({
         db,
         organizationId,
         authSecret: config.auth.secret,
         documentSearchServices,
+        tavilyApiKey: (config.aiAssistant as { tavilyApiKey?: string }).tavilyApiKey,
       });
 
       // Create or reuse chat session
@@ -250,6 +281,9 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
         ? messages.slice(-MAX_CONTEXT_MESSAGES)
         : messages;
 
+      const collectedSources: Array<{ title: string; url: string }> = [];
+      const collectedConfirmations: Array<{ toolCallId: string; toolName: string; description: string; args: Record<string, unknown>; status: 'pending' }> = [];
+
       const result = streamText({
         model,
         system: systemPromptWithModel,
@@ -261,10 +295,15 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
         },
         onFinish: async ({ text }) => {
           if (activeSessionId && text) {
+            const hasMeta = collectedSources.length > 0 || collectedConfirmations.length > 0;
+            const metadata = hasMeta
+              ? JSON.stringify({ webSources: collectedSources, toolConfirmations: collectedConfirmations })
+              : undefined;
             await aiAssistantRepository.addChatMessage({
               sessionId: activeSessionId,
               role: 'assistant',
               content: text,
+              metadata,
             });
           }
         },
@@ -280,15 +319,31 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
                 controller.enqueue(encoder.encode(`0:${JSON.stringify(part.text)}\n`));
               } else if (part.type === 'reasoning-delta') {
                 controller.enqueue(encoder.encode(`r:${JSON.stringify(part.text)}\n`));
+              } else if (part.type === 'tool-call') {
+                controller.enqueue(encoder.encode(`t:${JSON.stringify({ toolName: part.toolName })}\n`));
               } else if (part.type === 'tool-result' && 'output' in part) {
+                // Signal tool finished
+                controller.enqueue(encoder.encode(`d:${JSON.stringify({ toolName: part.toolName })}\n`));
                 const toolResult = part.output as Record<string, unknown>;
+                // Emit web search sources
+                if (part.toolName === 'webSearch' && Array.isArray(toolResult?.results)) {
+                  const sources = (toolResult.results as Array<{ title: string; url: string }>)
+                    .map(r => ({ title: r.title, url: r.url }));
+                  if (sources.length > 0) {
+                    collectedSources.push(...sources);
+                    controller.enqueue(encoder.encode(`s:${JSON.stringify(sources)}\n`));
+                  }
+                }
                 if (toolResult?.requiresConfirmation) {
-                  controller.enqueue(encoder.encode(`a:${JSON.stringify({
+                  const conf = {
                     toolCallId: part.toolCallId,
-                    toolName: toolResult.toolName,
-                    description: toolResult.description,
-                    args: toolResult.args,
-                  })}\n`));
+                    toolName: toolResult.toolName as string,
+                    description: toolResult.description as string,
+                    args: toolResult.args as Record<string, unknown>,
+                    status: 'pending' as const,
+                  };
+                  collectedConfirmations.push(conf);
+                  controller.enqueue(encoder.encode(`a:${JSON.stringify(conf)}\n`));
                 }
               }
             }
@@ -387,10 +442,45 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
 
       const { messages } = await aiAssistantRepository.getChatMessages({ sessionId });
 
+      type MessageMetadata = {
+        webSources?: Array<{ title: string; url: string }>;
+        toolConfirmations?: Array<{ toolCallId: string; toolName: string; description: string; args: Record<string, unknown>; status: 'pending' | 'approved' | 'rejected'; result?: unknown }>;
+      };
       return context.json({
         session,
-        messages: messages.map(m => ({ role: m.role, content: m.content })),
+        messages: messages.map((m) => {
+          let metadata: MessageMetadata | undefined;
+          if (m.metadata != null) {
+            metadata = JSON.parse(m.metadata as string) as MessageMetadata;
+          }
+          return { id: m.id, role: m.role, content: m.content, metadata };
+        }),
       });
+    },
+  );
+
+  // Update message metadata (e.g. tool confirmation status)
+  app.patch(
+    '/api/organizations/:organizationId/ai/sessions/:sessionId/messages/:messageId/metadata',
+    requireAuthentication(),
+    legacyValidateParams(z.object({ organizationId: z.string(), sessionId: z.string(), messageId: z.string() })),
+    legacyValidateJsonBody(z.object({ metadata: z.string() })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, sessionId, messageId } = context.req.valid('param');
+      const { metadata } = context.req.valid('json');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const { session } = await aiAssistantRepository.getChatSessionById({ sessionId, userId });
+      if (!session) {
+        return context.json({ error: 'Session not found' }, 404);
+      }
+
+      await aiAssistantRepository.updateChatMessageMetadata({ messageId, metadata });
+
+      return context.json({ success: true });
     },
   );
 
