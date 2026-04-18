@@ -3,7 +3,7 @@ import type { TaggingRule } from '../tagging-rules.types';
 import type { ClassificationRule, RuleCondition } from '@/modules/finances/finances.types';
 import { A, useParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
-import { createSignal, For, Match, Show, Switch } from 'solid-js';
+import { createSignal, For, Index, Match, Show, Switch } from 'solid-js';
 import { useFeatureFlags } from '@/modules/feature-flags/feature-flags.provider';
 import { autoClassifyTransactions, fetchClassificationRules, updateClassificationRule } from '@/modules/finances/finances.services';
 import { useI18n } from '@/modules/i18n/i18n.provider';
@@ -548,17 +548,17 @@ export const TaggingRulesPage: Component = () => {
               </div>
 
               <div class="space-y-2">
-                <For each={editConditions()}>
+                <Index each={editConditions()}>
                   {(cond, index) => (
                     <div class="flex flex-wrap gap-2 items-center bg-muted/50 rounded-lg p-2.5 border">
                       <div class="text-xs text-muted-foreground w-10 shrink-0">
-                        {index() === 0 ? 'When' : (editMatchMode() === 'all' ? 'AND' : 'OR')}
+                        {index === 0 ? 'When' : (editMatchMode() === 'all' ? 'AND' : 'OR')}
                       </div>
 
                       <Select
                         options={['counterparty', 'description', 'amount']}
-                        value={cond.field}
-                        onChange={v => v && setEditConditions(prev => prev.map((c, i) => i === index() ? { ...c, field: v } : c))}
+                        value={cond().field}
+                        onChange={v => v && setEditConditions(prev => prev.map((c, i) => i === index ? { ...c, field: v } : c))}
                         itemComponent={props => <SelectItem item={props.item}>{{ counterparty: 'Counterparty', description: 'Description', amount: 'Amount' }[props.item.rawValue] ?? props.item.rawValue}</SelectItem>}
                       >
                         <SelectTrigger class="min-w-[130px] whitespace-nowrap">
@@ -569,8 +569,8 @@ export const TaggingRulesPage: Component = () => {
 
                       <Select
                         options={['contains', 'equals', 'starts_with', 'gt', 'lt']}
-                        value={cond.operator}
-                        onChange={v => v && setEditConditions(prev => prev.map((c, i) => i === index() ? { ...c, operator: v } : c))}
+                        value={cond().operator}
+                        onChange={v => v && setEditConditions(prev => prev.map((c, i) => i === index ? { ...c, operator: v } : c))}
                         itemComponent={props => <SelectItem item={props.item}>{{ contains: 'contains', equals: 'equals', starts_with: 'starts with', gt: '>', lt: '<' }[props.item.rawValue] ?? props.item.rawValue}</SelectItem>}
                       >
                         <SelectTrigger class="min-w-[120px] whitespace-nowrap">
@@ -583,17 +583,17 @@ export const TaggingRulesPage: Component = () => {
                         <TextField
                           type="text"
                           placeholder="Value..."
-                          value={cond.value}
-                          onInput={e => setEditConditions(prev => prev.map((c, i) => i === index() ? { ...c, value: e.currentTarget.value } : c))}
+                          value={cond().value}
+                          onInput={e => setEditConditions(prev => prev.map((c, i) => i === index ? { ...c, value: e.currentTarget.value } : c))}
                         />
                       </TextFieldRoot>
 
-                      <Button variant="ghost" size="icon" class="size-7 shrink-0 text-destructive hover:text-destructive" onClick={() => setEditConditions(prev => prev.filter((_, i) => i !== index()))}>
+                      <Button variant="ghost" size="icon" class="size-7 shrink-0 text-destructive hover:text-destructive" onClick={() => setEditConditions(prev => prev.filter((_, i) => i !== index))}>
                         <div class="i-tabler-x size-3.5" />
                       </Button>
                     </div>
                   )}
-                </For>
+                </Index>
               </div>
 
               <Button
