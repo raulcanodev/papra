@@ -523,7 +523,7 @@ export const AiAssistantPage: Component = () => {
   const { t } = useI18n();
   const params = useParams();
   const [messages, setMessages] = createSignal<ChatMessage[]>([]);
-  const [input, setInput] = createSignal('');
+  const [hasInput, setHasInput] = createSignal(false);
   const [isStreaming, setIsStreaming] = createSignal(false);
   const [selectedModel, setSelectedModel] = createSignal<string>(localStorage.getItem('papra-ai-model') ?? '');
   const [activeChatId, setActiveChatId] = createSignal<string | undefined>(sessionStorage.getItem('papra-ai-chat') ?? undefined);
@@ -597,8 +597,12 @@ export const AiAssistantPage: Component = () => {
     if (!textareaRef) {
       return;
     }
-    textareaRef.style.height = 'auto';
-    textareaRef.style.height = `${Math.min(textareaRef.scrollHeight, 160)}px`;
+    // Use overflow:hidden + height:0 to measure content height without layout cascade
+    textareaRef.style.overflowY = 'hidden';
+    textareaRef.style.height = '0px';
+    const desired = Math.min(textareaRef.scrollHeight, 160);
+    textareaRef.style.height = `${desired}px`;
+    textareaRef.style.overflowY = desired >= 160 ? 'auto' : 'hidden';
   }
 
   async function sendMessage(text?: string) {
@@ -607,7 +611,7 @@ export const AiAssistantPage: Component = () => {
       return;
     }
 
-    setInput('');
+    setHasInput(false);
     if (textareaRef) {
       textareaRef.value = '';
       textareaRef.style.height = 'auto';
@@ -708,7 +712,7 @@ export const AiAssistantPage: Component = () => {
   function handleNewChat() {
     abortController?.abort();
     setMessages([]);
-    setInput('');
+    setHasInput(false);
     if (textareaRef) {
       textareaRef.value = '';
       textareaRef.style.height = 'auto';
@@ -857,7 +861,7 @@ export const AiAssistantPage: Component = () => {
                 ref={textareaRef}
                 placeholder={t('ai-assistant.input.placeholder')}
                 onInput={(e) => {
-                  setInput(e.currentTarget.value);
+                  setHasInput(!!e.currentTarget.value.trim());
                   autoResizeTextarea();
                 }}
                 onKeyDown={handleKeyDown}
@@ -880,7 +884,7 @@ export const AiAssistantPage: Component = () => {
                   size="sm"
                   class="h-8 w-8 p-0 rounded-full"
                   onClick={() => void sendMessage()}
-                  disabled={isStreaming() || !input().trim()}
+                  disabled={isStreaming() || !hasInput()}
                 >
                   <div class="i-tabler-arrow-up size-4" />
                 </Button>

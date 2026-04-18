@@ -2,6 +2,7 @@ import type { Component } from 'solid-js';
 import type { RuleCondition } from '../finances.types';
 import { createMutation, useQuery, useQueryClient } from '@tanstack/solid-query';
 import { createSignal, For, Index, Show } from 'solid-js';
+import { createStore, produce, reconcile } from 'solid-js/store';
 import { useConfirmModal } from '@/modules/shared/confirm';
 import { cn } from '@/modules/shared/style/cn';
 import { DocumentTagPicker } from '@/modules/tags/components/tag-picker.component';
@@ -68,7 +69,7 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
   const [ruleName, setRuleName] = createSignal('');
   const [ruleClassification, setRuleClassification] = createSignal<string>('expense');
   const [conditionMatchMode, setConditionMatchMode] = createSignal<'all' | 'any'>('all');
-  const [conditions, setConditions] = createSignal<RuleCondition[]>([defaultCondition()]);
+  const [conditions, setConditions] = createStore<RuleCondition[]>([defaultCondition()]);
   const [ruleTagIds, setRuleTagIds] = createSignal<string[]>([]);
 
   const isEditing = () => editingRuleId() !== null;
@@ -78,7 +79,7 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
     setRuleName('');
     setRuleClassification('expense');
     setConditionMatchMode('all');
-    setConditions([defaultCondition()]);
+    setConditions(reconcile([defaultCondition()]));
     setRuleTagIds([]);
   };
 
@@ -92,28 +93,22 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
     setRuleName(rule.name);
     setRuleClassification(rule.classification);
     setConditionMatchMode((rule.conditionMatchMode as 'all' | 'any') ?? 'all');
-    setConditions(rule.conditions.length > 0 ? [...rule.conditions] : [defaultCondition()]);
+    setConditions(reconcile(rule.conditions.length > 0 ? [...rule.conditions] : [defaultCondition()]));
     setRuleTagIds(rule.tagIds ?? []);
     setIsDialogOpen(true);
   };
 
   const updateCondition = (index: number, patch: Partial<RuleCondition>) => {
-    setConditions(prev => prev.map((c, i) => {
-      if (i !== index) {
-        return c;
-      }
-      const updated = { ...c, ...patch };
-      // Reset operator when field changes
-      if (patch.field && patch.field !== c.field) {
-        updated.operator = operatorOptions[patch.field]?.[0]?.value ?? 'contains';
-      }
-      return updated;
-    }));
+    // Reset operator when field changes
+    if (patch.field && patch.field !== conditions[index].field) {
+      patch.operator = operatorOptions[patch.field]?.[0]?.value ?? 'contains';
+    }
+    setConditions(index, patch);
   };
 
-  const addCondition = () => setConditions(prev => [...prev, defaultCondition()]);
+  const addCondition = () => setConditions(produce(s => s.push(defaultCondition())));
 
-  const removeCondition = (index: number) => setConditions(prev => prev.filter((_, i) => i !== index));
+  const removeCondition = (index: number) => setConditions(produce(s => s.splice(index, 1)));
 
   const rulesQuery = useQuery(() => ({
     queryKey: ['organizations', props.organizationId, 'finances', 'classification-rules'],
@@ -139,7 +134,7 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
       rule: {
         name: ruleName(),
         classification: ruleClassification(),
-        conditions: conditions(),
+        conditions: [...conditions],
         conditionMatchMode: conditionMatchMode(),
         tagIds: ruleTagIds(),
       },
@@ -162,7 +157,7 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
       updates: {
         name: ruleName(),
         classification: ruleClassification(),
-        conditions: conditions(),
+        conditions: [...conditions],
         conditionMatchMode: conditionMatchMode(),
         tagIds: ruleTagIds(),
       },
@@ -197,7 +192,7 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
     },
   }));
 
-  const isFormValid = () => ruleName().trim().length > 0 && conditions().every(c => c.value.trim().length > 0);
+  const isFormValid = () => ruleName().trim().length > 0 && conditions.every(c => c.value.trim().length > 0);
 
   return (
     <div class="border rounded-lg p-4 mb-6">
@@ -366,7 +361,7 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
             <div>
               <div class="flex items-center justify-between mb-2">
                 <label class="text-sm font-medium">Conditions</label>
-                <Show when={conditions().length > 1}>
+                <Show when={conditions.length > 1}>
                   <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <span>Match</span>
                     <button
@@ -388,20 +383,20 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
               </div>
 
               <div class="flex flex-col gap-2">
-                <Index each={conditions()}>
+                <For each={conditions}>
                   {(condition, index) => {
-                    const ops = () => operatorOptions[condition().field] ?? operatorOptions.counterparty;
+                    const ops = () => operatorOptions[condition.field] ?? operatorOptions.counterparty;
                     return (
                       <div class="flex items-center gap-2">
                         <span class="text-xs text-muted-foreground w-8 shrink-0 text-right">
-                          {index === 0 ? 'When' : (conditionMatchMode() === 'any' ? 'or' : 'and')}
+                          {index() === 0 ? 'When' : (conditionMatchMode() === 'any' ? 'or' : 'and')}
                         </span>
                         <Select
                           options={fieldOptions}
                           optionValue="value"
                           optionTextValue="label"
-                          value={fieldOptions.find(f => f.value === condition().field)}
-                          onChange={v => v && updateCondition(index, { field: v.value })}
+                          value={fieldOptions.find(f => f.value === condition.field)}
+                          onChange={v => v && updateCondition(index(), { field: v.value })}
                           itemComponent={prps => <SelectItem item={prps.item}>{prps.item.rawValue.label}</SelectItem>}
                         >
                           <SelectTrigger class="flex-1 min-w-0">
@@ -413,8 +408,8 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
                           options={ops()}
                           optionValue="value"
                           optionTextValue="label"
-                          value={ops().find(o => o.value === condition().operator)}
-                          onChange={v => v && updateCondition(index, { operator: v.value })}
+                          value={ops().find(o => o.value === condition.operator)}
+                          onChange={v => v && updateCondition(index(), { operator: v.value })}
                           itemComponent={prps => <SelectItem item={prps.item}>{prps.item.rawValue.label}</SelectItem>}
                         >
                           <SelectTrigger class="flex-1 min-w-0">
@@ -424,20 +419,20 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
                         </Select>
                         <TextFieldRoot class="flex-1 min-w-0">
                           <TextField
-                            placeholder={condition().field === 'amount' ? '1000' : 'value'}
-                            value={condition().value}
-                            onInput={e => updateCondition(index, { value: e.currentTarget.value })}
+                            placeholder={condition.field === 'amount' ? '1000' : 'value'}
+                            value={condition.value}
+                            onInput={e => updateCondition(index(), { value: e.currentTarget.value })}
                           />
                         </TextFieldRoot>
-                        <Show when={conditions().length > 1}>
-                          <Button size="icon" variant="ghost" class="size-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => removeCondition(index)}>
+                        <Show when={conditions.length > 1}>
+                          <Button size="icon" variant="ghost" class="size-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => removeCondition(index())}>
                             <div class="i-tabler-x size-3.5" />
                           </Button>
                         </Show>
                       </div>
                     );
                   }}
-                </Index>
+                </For>
               </div>
 
               <Button size="sm" variant="outline" class="mt-2 w-full" onClick={addCondition}>

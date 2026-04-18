@@ -211,11 +211,16 @@ function setupGetTransactionsRoute({ app, db, config }: RouteDefinitionContext) 
       pageSize: z.coerce.number().int().min(1).max(100).default(50),
       bankConnectionId: z.string().optional(),
       classification: z.string().optional(),
+      search: z.string().optional(),
+      amountFilter: z.enum(['positive', 'negative', 'gt', 'lt', 'gte', 'lte', 'eq']).optional(),
+      amountValue: z.coerce.number().optional(),
+      dateFrom: z.coerce.number().int().optional(),
+      dateTo: z.coerce.number().int().optional(),
     }), { allowAdditionalFields: true }),
     async (context) => {
       const { userId } = getUser({ context });
       const { organizationId } = context.req.valid('param');
-      const { pageIndex, pageSize, bankConnectionId, classification } = context.req.valid('query');
+      const { pageIndex, pageSize, bankConnectionId, classification, search, amountFilter, amountValue, dateFrom, dateTo } = context.req.valid('query');
 
       const organizationsRepository = createOrganizationsRepository({ db });
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
@@ -223,10 +228,12 @@ function setupGetTransactionsRoute({ app, db, config }: RouteDefinitionContext) 
       const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
       const tagsRepository = createTagsRepository({ db });
 
+      const filters = { organizationId, bankConnectionId, classification, search, amountFilter, amountValue, dateFrom, dateTo };
+
       const [{ transactions }, { count: transactionsCount }, { totalAmount }] = await Promise.all([
-        financesRepository.getTransactions({ organizationId, pageIndex, pageSize, bankConnectionId, classification }),
-        financesRepository.getTransactionsCount({ organizationId, bankConnectionId, classification }),
-        financesRepository.getTransactionsTotalAmount({ organizationId, bankConnectionId, classification }),
+        financesRepository.getTransactions({ ...filters, pageIndex, pageSize }),
+        financesRepository.getTransactionsCount(filters),
+        financesRepository.getTransactionsTotalAmount(filters),
       ]);
 
       const transactionIds = transactions.map(t => t.id);

@@ -57,17 +57,22 @@ export async function syncBankConnection({ organizationId, bankConnectionId, ful
   });
 }
 
-export async function fetchTransactions({ organizationId, pageIndex, pageSize, bankConnectionId, classification }: {
+export async function fetchTransactions({ organizationId, pageIndex, pageSize, bankConnectionId, classification, search, amountFilter, amountValue, dateFrom, dateTo }: {
   organizationId: string;
   pageIndex: number;
   pageSize: number;
   bankConnectionId?: string;
   classification?: string;
+  search?: string;
+  amountFilter?: string;
+  amountValue?: number;
+  dateFrom?: number;
+  dateTo?: number;
 }) {
   return apiClient<{ transactions: Transaction[]; transactionsCount: number; totalAmount: number }>({
     method: 'GET',
     path: `/api/organizations/${organizationId}/finances/transactions`,
-    query: { pageIndex, pageSize, bankConnectionId, classification },
+    query: { pageIndex, pageSize, bankConnectionId, classification, search, amountFilter, amountValue, dateFrom, dateTo },
   });
 }
 

@@ -147,12 +147,12 @@ const TransactionRuleCard: Component<{
   isRunning: boolean;
 }> = (props) => {
   const { confirm } = useConfirmModal();
+  const [showAllConditions, setShowAllConditions] = createSignal(false);
+  const MAX_VISIBLE = 3;
 
-  const conditionsSummary = () => {
-    return (props.rule.conditions as RuleCondition[])
-      .map((c, i) => `${i === 0 ? '' : (props.rule.conditionMatchMode === 'any' ? 'or ' : 'and ')}${c.field} ${operatorLabels[c.operator] ?? c.operator} "${c.value}"`)
-      .join(' ');
-  };
+  const conditions = () => props.rule.conditions as RuleCondition[];
+  const visibleConditions = () => showAllConditions() ? conditions() : conditions().slice(0, MAX_VISIBLE);
+  const hiddenCount = () => Math.max(0, conditions().length - MAX_VISIBLE);
 
   const deleteMut = createMutation(() => ({
     mutationFn: async () => {
@@ -189,7 +189,40 @@ const TransactionRuleCard: Component<{
             }}
           </For>
         </div>
-        <div class="text-xs text-muted-foreground mt-0.5">{conditionsSummary()}</div>
+        <div class="text-xs text-muted-foreground mt-1.5 flex flex-wrap items-center gap-1">
+          <Show when={conditions().length > 1}>
+            <span class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70 mr-0.5">
+              {props.rule.conditionMatchMode === 'any' ? 'any of' : 'all of'}
+            </span>
+          </Show>
+          <For each={visibleConditions()}>
+            {cond => (
+              <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-muted border border-border/50 font-mono text-[11px]">
+                <span class="text-muted-foreground/70">{cond.field}</span>
+                <span class="text-muted-foreground/50">{operatorLabels[cond.operator] ?? cond.operator}</span>
+                <span class="font-medium text-foreground/80">"{cond.value}"</span>
+              </span>
+            )}
+          </For>
+          <Show when={hiddenCount() > 0 && !showAllConditions()}>
+            <button
+              type="button"
+              class="inline-flex items-center px-1.5 py-0.5 rounded bg-muted/60 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+              onClick={() => setShowAllConditions(true)}
+            >
+              +{hiddenCount()} more
+            </button>
+          </Show>
+          <Show when={showAllConditions() && conditions().length > MAX_VISIBLE}>
+            <button
+              type="button"
+              class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              onClick={() => setShowAllConditions(false)}
+            >
+              show less
+            </button>
+          </Show>
+        </div>
       </div>
       <div class="flex items-center gap-1 shrink-0">
         <Button variant="outline" size="sm" class="h-7 text-xs gap-1" onClick={props.onRunRule} disabled={props.isRunning}>
@@ -323,6 +356,18 @@ export const TaggingRulesPage: Component = () => {
           <p class="text-xs text-muted-foreground mt-0.5">Automate tagging and classification for documents and transactions</p>
         </div>
         <div class="flex items-center gap-2">
+          <Show when={hasFlag('llc_finances') && txnRules().length > 0}>
+            <Button
+              size="sm"
+              variant="outline"
+              class="h-8 text-xs gap-1.5"
+              onClick={() => autoClassifyMut.mutate()}
+              disabled={autoClassifyMut.isPending}
+            >
+              <div class={cn('i-tabler-rocket size-3.5', autoClassifyMut.isPending && 'animate-pulse')} />
+              {autoClassifyMut.isPending ? 'Running...' : 'Run All'}
+            </Button>
+          </Show>
           <Button as={A} href={`/organizations/${params.organizationId}/tagging-rules/create`} size="sm" class="h-8 text-xs gap-1.5">
             <div class="i-tabler-plus size-3.5" />
             New Rule

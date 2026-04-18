@@ -3,7 +3,7 @@ import type { TransactionClassification } from './finances.constants';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { injectArguments } from '@corentinth/chisels';
-import { and, desc, eq, gte, isNull, like, lte, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, gte, isNull, like, lt, lte, or, sql } from 'drizzle-orm';
 import { decrypt, encrypt } from '../shared/crypto/encryption';
 import { withPagination } from '../shared/db/pagination';
 import { createBankConnectionNotFoundError, createTransactionNotFoundError } from './finances.errors';
@@ -255,13 +255,52 @@ async function upsertTransactions({ db, transactions }: {
   return { insertedCount: results.length };
 }
 
-async function getTransactions({ db, organizationId, pageIndex, pageSize, bankConnectionId, classification }: {
+function buildAmountFilter(amountFilter?: string, amountValue?: number) {
+  if (!amountFilter || amountValue == null) {
+    if (amountFilter === 'positive') return gt(transactionsTable.amount, 0);
+    if (amountFilter === 'negative') return lt(transactionsTable.amount, 0);
+    return undefined;
+  }
+  switch (amountFilter) {
+    case 'gt': return gt(transactionsTable.amount, amountValue);
+    case 'lt': return lt(transactionsTable.amount, amountValue);
+    case 'gte': return gte(transactionsTable.amount, amountValue);
+    case 'lte': return lte(transactionsTable.amount, amountValue);
+    case 'eq': return eq(transactionsTable.amount, amountValue);
+    case 'positive': return gt(transactionsTable.amount, 0);
+    case 'negative': return lt(transactionsTable.amount, 0);
+    default: return undefined;
+  }
+}
+
+function buildSearchFilter(search?: string) {
+  if (!search || search.trim().length === 0) return undefined;
+  const term = `%${search.trim()}%`;
+  return or(
+    like(transactionsTable.description, term),
+    like(transactionsTable.counterparty, term),
+  );
+}
+
+function buildDateFilter(dateFrom?: number, dateTo?: number) {
+  const filters = [];
+  if (dateFrom != null) filters.push(gte(transactionsTable.date, new Date(dateFrom)));
+  if (dateTo != null) filters.push(lte(transactionsTable.date, new Date(dateTo)));
+  return filters.length > 0 ? and(...filters) : undefined;
+}
+
+async function getTransactions({ db, organizationId, pageIndex, pageSize, bankConnectionId, classification, search, amountFilter, amountValue, dateFrom, dateTo }: {
   db: Database;
   organizationId: string;
   pageIndex: number;
   pageSize: number;
   bankConnectionId?: string;
   classification?: string;
+  search?: string;
+  amountFilter?: string;
+  amountValue?: number;
+  dateFrom?: number;
+  dateTo?: number;
 }) {
   const classificationFilter = classification === '__unclassified__'
     ? isNull(transactionsTable.classification)
@@ -271,6 +310,9 @@ async function getTransactions({ db, organizationId, pageIndex, pageSize, bankCo
     eq(transactionsTable.organizationId, organizationId),
     bankConnectionId ? eq(transactionsTable.bankConnectionId, bankConnectionId) : undefined,
     classificationFilter,
+    buildSearchFilter(search),
+    buildAmountFilter(amountFilter, amountValue),
+    buildDateFilter(dateFrom, dateTo),
   )).$dynamic();
 
   const transactions = await withPagination(query, {
@@ -282,11 +324,16 @@ async function getTransactions({ db, organizationId, pageIndex, pageSize, bankCo
   return { transactions };
 }
 
-async function getTransactionsCount({ db, organizationId, bankConnectionId, classification }: {
+async function getTransactionsCount({ db, organizationId, bankConnectionId, classification, search, amountFilter, amountValue, dateFrom, dateTo }: {
   db: Database;
   organizationId: string;
   bankConnectionId?: string;
   classification?: string;
+  search?: string;
+  amountFilter?: string;
+  amountValue?: number;
+  dateFrom?: number;
+  dateTo?: number;
 }) {
   const classificationFilter = classification === '__unclassified__'
     ? isNull(transactionsTable.classification)
@@ -296,16 +343,24 @@ async function getTransactionsCount({ db, organizationId, bankConnectionId, clas
     eq(transactionsTable.organizationId, organizationId),
     bankConnectionId ? eq(transactionsTable.bankConnectionId, bankConnectionId) : undefined,
     classificationFilter,
+    buildSearchFilter(search),
+    buildAmountFilter(amountFilter, amountValue),
+    buildDateFilter(dateFrom, dateTo),
   ));
 
   return { count: result?.count ?? 0 };
 }
 
-async function getTransactionsTotalAmount({ db, organizationId, bankConnectionId, classification }: {
+async function getTransactionsTotalAmount({ db, organizationId, bankConnectionId, classification, search, amountFilter, amountValue, dateFrom, dateTo }: {
   db: Database;
   organizationId: string;
   bankConnectionId?: string;
   classification?: string;
+  search?: string;
+  amountFilter?: string;
+  amountValue?: number;
+  dateFrom?: number;
+  dateTo?: number;
 }) {
   const classificationFilter = classification === '__unclassified__'
     ? isNull(transactionsTable.classification)
@@ -315,6 +370,9 @@ async function getTransactionsTotalAmount({ db, organizationId, bankConnectionId
     eq(transactionsTable.organizationId, organizationId),
     bankConnectionId ? eq(transactionsTable.bankConnectionId, bankConnectionId) : undefined,
     classificationFilter,
+    buildSearchFilter(search),
+    buildAmountFilter(amountFilter, amountValue),
+    buildDateFilter(dateFrom, dateTo),
   ));
 
   return { totalAmount: Number(result?.totalAmount ?? 0) };

@@ -1,8 +1,9 @@
 import type { Component } from 'solid-js';
 import type { Transaction } from '../finances.types';
+import Calendar from '@corvu/calendar';
 import { useParams } from '@solidjs/router';
 import { createMutation, keepPreviousData, useQuery, useQueryClient } from '@tanstack/solid-query';
-import { createSignal, For, Show } from 'solid-js';
+import { createMemo, createSignal, For, Show } from 'solid-js';
 import { useConfirmModal } from '@/modules/shared/confirm';
 import { PaginationControls } from '@/modules/shared/pagination/pagination-controls.component';
 import { createParamSynchronizedPagination } from '@/modules/shared/pagination/query-synchronized-pagination';
@@ -12,6 +13,10 @@ import { Button } from '@/modules/ui/components/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/modules/ui/components/select';
 import { createToast } from '@/modules/ui/components/sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
+import { TextField, TextFieldRoot } from '@/modules/ui/components/textfield';
+import { CalendarGrid } from '@/modules/ui/components/calendar';
+import { CalendarMonthYearHeader } from '@/modules/ui/components/calendar-month-year-header';
+import { Popover, PopoverContent, PopoverTrigger } from '@/modules/ui/components/popover';
 import { AddBankConnectionDialog } from '../components/add-bank-connection-dialog.component';
 import { EditBankConnectionDialog } from '../components/edit-bank-connection-dialog.component';
 import { TransactionDetailDialog } from '../components/transaction-detail-dialog.component';
@@ -36,6 +41,48 @@ const providerIcons: Record<string, string> = {
   mercury: 'i-tabler-building-bank',
   wise: 'i-tabler-world',
 };
+
+const amountFilterOptions = [
+  { value: undefined as string | undefined, label: 'Any amount' },
+  { value: 'positive' as string | undefined, label: 'Positive (income)' },
+  { value: 'negative' as string | undefined, label: 'Negative (expense)' },
+  { value: 'gt' as string | undefined, label: 'Greater than' },
+  { value: 'lt' as string | undefined, label: 'Less than' },
+  { value: 'gte' as string | undefined, label: 'Greater or equal' },
+  { value: 'lte' as string | undefined, label: 'Less or equal' },
+  { value: 'eq' as string | undefined, label: 'Exactly' },
+];
+
+type DatePreset = 'last-7' | 'last-30' | 'this-month' | 'last-month' | 'this-year' | 'all' | 'custom';
+const datePresetOptions: { value: DatePreset; label: string }[] = [
+  { value: 'all', label: 'All time' },
+  { value: 'last-7', label: 'Last 7 days' },
+  { value: 'last-30', label: 'Last 30 days' },
+  { value: 'this-month', label: 'This month' },
+  { value: 'last-month', label: 'Last month' },
+  { value: 'this-year', label: 'This year' },
+  { value: 'custom', label: 'Custom range' },
+];
+
+function getDateRange(preset: DatePreset): { from?: number; to?: number } {
+  const now = new Date();
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
+
+  switch (preset) {
+    case 'last-7': return { from: startOfDay(new Date(now.getTime() - 7 * 86400000)), to: endOfDay(now) };
+    case 'last-30': return { from: startOfDay(new Date(now.getTime() - 30 * 86400000)), to: endOfDay(now) };
+    case 'this-month': return { from: startOfDay(new Date(now.getFullYear(), now.getMonth(), 1)), to: endOfDay(now) };
+    case 'last-month': {
+      const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const last = new Date(now.getFullYear(), now.getMonth(), 0);
+      return { from: startOfDay(first), to: endOfDay(last) };
+    }
+    case 'this-year': return { from: startOfDay(new Date(now.getFullYear(), 0, 1)), to: endOfDay(now) };
+    case 'all': return {};
+    case 'custom': return {};
+  }
+}
 
 function formatCurrencyRaw(amount: number, currency: string) {
   return new Intl.NumberFormat('en-US', {
@@ -62,8 +109,39 @@ export const FinancesPage: Component = () => {
   const [getPagination, setPagination] = createParamSynchronizedPagination();
   const [getFilterConnection, setFilterConnection] = createSignal<string | undefined>();
   const [getFilterClassification, setFilterClassification] = createSignal<string | undefined>();
+  const [getSearchQuery, setSearchQuery] = createSignal('');
+  const [getDebouncedSearch, setDebouncedSearch] = createSignal<string | undefined>();
+  const [getAmountFilter, setAmountFilter] = createSignal<string | undefined>();
+  const [getAmountValue, setAmountValue] = createSignal<number | undefined>();
+  const [getDatePreset, setDatePreset] = createSignal<DatePreset>('last-30');
+  const [getCustomFrom, setCustomFrom] = createSignal<Date | null>(null);
+  const [getCustomTo, setCustomTo] = createSignal<Date | null>(null);
+  const [isDatePopoverOpen, setIsDatePopoverOpen] = createSignal(false);
+
+  const dateRange = createMemo(() => {
+    const preset = getDatePreset();
+    if (preset === 'custom') {
+      const from = getCustomFrom();
+      const to = getCustomTo();
+      return {
+        from: from ? new Date(from.getFullYear(), from.getMonth(), from.getDate()).getTime() : undefined,
+        to: to ? new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59, 999).getTime() : undefined,
+      };
+    }
+    return getDateRange(preset);
+  });
   const [getEditingConnection, setEditingConnection] = createSignal<string | undefined>();
   const [getDetailTransaction, setDetailTransaction] = createSignal<Transaction | null>(null);
+
+  let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+  const handleSearchInput = (value: string) => {
+    setSearchQuery(value);
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+      setDebouncedSearch(value.trim() || undefined);
+      setPagination({ pageIndex: 0, pageSize: getPagination().pageSize });
+    }, 300);
+  };
 
   const connectionsQuery = useQuery(() => ({
     queryKey: ['organizations', params.organizationId, 'finances', 'bank-connections'],
@@ -71,12 +149,17 @@ export const FinancesPage: Component = () => {
   }));
 
   const transactionsQuery = useQuery(() => ({
-    queryKey: ['organizations', params.organizationId, 'finances', 'transactions', getPagination(), getFilterConnection(), getFilterClassification()],
+    queryKey: ['organizations', params.organizationId, 'finances', 'transactions', getPagination(), getFilterConnection(), getFilterClassification(), getDebouncedSearch(), getAmountFilter(), getAmountValue(), dateRange()],
     queryFn: () => fetchTransactions({
       organizationId: params.organizationId,
       ...getPagination(),
       bankConnectionId: getFilterConnection(),
       classification: getFilterClassification(),
+      search: getDebouncedSearch(),
+      amountFilter: getAmountFilter(),
+      amountValue: getAmountValue(),
+      dateFrom: dateRange().from,
+      dateTo: dateRange().to,
     }),
     placeholderData: keepPreviousData,
   }));
@@ -228,7 +311,16 @@ export const FinancesPage: Component = () => {
 
       {/* Filters */}
       <Show when={(connectionsQuery.data?.bankConnections?.length ?? 0) > 0}>
-        <div class="flex gap-3 mb-4 flex-wrap">
+        <div class="flex gap-3 mb-4 flex-wrap items-end">
+          {/* Search */}
+          <TextFieldRoot class="w-56">
+            <TextField
+              placeholder="Search description..."
+              value={getSearchQuery()}
+              onInput={e => handleSearchInput(e.currentTarget.value)}
+            />
+          </TextFieldRoot>
+
           <Select
             options={[allAccountsOption, ...(connectionsQuery.data?.bankConnections ?? []).map(c => ({ value: c.id as string | undefined, label: c.name }))]}
             optionValue="value"
@@ -239,7 +331,7 @@ export const FinancesPage: Component = () => {
             onChange={v => setFilterConnection(v?.value)}
             itemComponent={prps => <SelectItem item={prps.item}>{prps.item.rawValue.label}</SelectItem>}
           >
-            <SelectTrigger class="w-48">
+            <SelectTrigger class="w-44">
               <SelectValue<{ value: string | undefined; label: string }>>{state => state.selectedOption()?.label ?? 'All accounts'}</SelectValue>
             </SelectTrigger>
             <SelectContent />
@@ -255,11 +347,181 @@ export const FinancesPage: Component = () => {
             onChange={v => setFilterClassification(v?.value)}
             itemComponent={prps => <SelectItem item={prps.item}>{prps.item.rawValue.label}</SelectItem>}
           >
-            <SelectTrigger class="w-48">
+            <SelectTrigger class="w-40">
               <SelectValue<{ value: string | undefined; label: string }>>{state => state.selectedOption()?.label ?? 'All types'}</SelectValue>
             </SelectTrigger>
             <SelectContent />
           </Select>
+
+          {/* Amount filter */}
+          <Select
+            options={amountFilterOptions}
+            optionValue="value"
+            optionTextValue="label"
+            value={amountFilterOptions.find(o => o.value === getAmountFilter()) ?? amountFilterOptions[0]}
+            onChange={(v) => {
+              const val = v?.value;
+              setAmountFilter(val);
+              if (val === 'positive' || val === 'negative' || !val) {
+                setAmountValue(undefined);
+              }
+              setPagination({ pageIndex: 0, pageSize: getPagination().pageSize });
+            }}
+            itemComponent={prps => <SelectItem item={prps.item}>{prps.item.rawValue.label}</SelectItem>}
+          >
+            <SelectTrigger class="w-44">
+              <SelectValue<{ value: string | undefined; label: string }>>{state => state.selectedOption()?.label ?? 'Any amount'}</SelectValue>
+            </SelectTrigger>
+            <SelectContent />
+          </Select>
+
+          <Show when={getAmountFilter() && getAmountFilter() !== 'positive' && getAmountFilter() !== 'negative'}>
+            <TextFieldRoot class="w-32">
+              <TextField
+                type="number"
+                placeholder="Amount"
+                value={getAmountValue()?.toString() ?? ''}
+                onInput={(e) => {
+                  const v = e.currentTarget.value;
+                  setAmountValue(v ? Number(v) : undefined);
+                  setPagination({ pageIndex: 0, pageSize: getPagination().pageSize });
+                }}
+              />
+            </TextFieldRoot>
+          </Show>
+
+          {/* Date filter */}
+          <Popover open={isDatePopoverOpen()} onOpenChange={setIsDatePopoverOpen}>
+            <PopoverTrigger
+              as={Button}
+              variant="outline"
+              class="h-9 text-xs gap-1.5 font-normal px-3"
+            >
+              <div class="i-tabler-calendar size-3.5 shrink-0 text-muted-foreground" />
+              <Show
+                when={getDatePreset() === 'custom' && (getCustomFrom() || getCustomTo())}
+                fallback={<span>{datePresetOptions.find(o => o.value === getDatePreset())?.label ?? 'All time'}</span>}
+              >
+                <span>
+                  {getCustomFrom() ? formatDate(getCustomFrom()!) : '...'}
+                  {' → '}
+                  {getCustomTo() ? formatDate(getCustomTo()!) : '...'}
+                </span>
+              </Show>
+              <div class="i-tabler-chevron-down size-3 opacity-50" />
+            </PopoverTrigger>
+            <PopoverContent class="w-auto p-0">
+              <div class="flex">
+                {/* Preset list */}
+                <div class="flex flex-col border-r min-w-[140px] py-1">
+                  <For each={datePresetOptions.filter(o => o.value !== 'custom')}>
+                    {option => (
+                      <button
+                        type="button"
+                        class={cn(
+                          'text-left px-3 py-1.5 text-xs hover:bg-accent transition-colors',
+                          getDatePreset() === option.value ? 'bg-accent font-medium' : 'text-muted-foreground',
+                        )}
+                        onClick={() => {
+                          setDatePreset(option.value);
+                          setCustomFrom(null);
+                          setCustomTo(null);
+                          setPagination({ pageIndex: 0, pageSize: getPagination().pageSize });
+                          setIsDatePopoverOpen(false);
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    )}
+                  </For>
+                  <div class="border-t my-1" />
+                  <button
+                    type="button"
+                    class={cn(
+                      'text-left px-3 py-1.5 text-xs hover:bg-accent transition-colors',
+                      getDatePreset() === 'custom' ? 'bg-accent font-medium' : 'text-muted-foreground',
+                    )}
+                    onClick={() => setDatePreset('custom')}
+                  >
+                    Custom range
+                  </button>
+                </div>
+
+                {/* Calendar pickers — shown when custom */}
+                <Show when={getDatePreset() === 'custom'}>
+                  <div class="p-3">
+                    <div class="flex gap-4">
+                      <div class="flex flex-col gap-1">
+                        <p class="text-xs font-medium text-muted-foreground mb-1">From</p>
+                        <Calendar
+                          mode="single"
+                          value={getCustomFrom()}
+                          onValueChange={(date) => {
+                            setCustomFrom(date);
+                            if (date && getCustomTo() && date.getTime() > getCustomTo()!.getTime()) {
+                              setCustomTo(null);
+                            }
+                            setPagination({ pageIndex: 0, pageSize: getPagination().pageSize });
+                          }}
+                          fixedWeeks
+                        >
+                          {() => (
+                            <div class="flex flex-col gap-2">
+                              <CalendarMonthYearHeader />
+                              <CalendarGrid />
+                            </div>
+                          )}
+                        </Calendar>
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <p class="text-xs font-medium text-muted-foreground mb-1">To</p>
+                        <Calendar
+                          mode="single"
+                          value={getCustomTo()}
+                          onValueChange={(date) => {
+                            setCustomTo(date);
+                            if (date && getCustomFrom() && date.getTime() < getCustomFrom()!.getTime()) {
+                              setCustomFrom(null);
+                            }
+                            setPagination({ pageIndex: 0, pageSize: getPagination().pageSize });
+                          }}
+                          fixedWeeks
+                        >
+                          {() => (
+                            <div class="flex flex-col gap-2">
+                              <CalendarMonthYearHeader />
+                              <CalendarGrid />
+                            </div>
+                          )}
+                        </Calendar>
+                      </div>
+                    </div>
+                    <div class="flex justify-end gap-2 mt-3 pt-3 border-t">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        class="text-xs"
+                        onClick={() => {
+                          setCustomFrom(null);
+                          setCustomTo(null);
+                          setPagination({ pageIndex: 0, pageSize: getPagination().pageSize });
+                        }}
+                      >
+                        Clear
+                      </Button>
+                      <Button
+                        size="sm"
+                        class="text-xs"
+                        onClick={() => setIsDatePopoverOpen(false)}
+                      >
+                        Done
+                      </Button>
+                    </div>
+                  </div>
+                </Show>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </Show>
 
