@@ -1,6 +1,7 @@
+/* @refresh reload */
 import type { Component } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
-import { createMutation, useQuery, useQueryClient } from '@tanstack/solid-query';
+import { useQuery } from '@tanstack/solid-query';
 import { createSignal, For, Show, Suspense } from 'solid-js';
 import * as v from 'valibot';
 import { deleteUserAiProfileKey, fetchUserAiProfile, updateUserAiProfile } from '@/modules/ai-assistant/ai-assistant.services';
@@ -129,33 +130,44 @@ const UpdateFullNameCard: Component<{ name: string }> = (props) => {
 };
 
 const AiMemoryCard: Component = () => {
-  const queryClient = useQueryClient();
-  const profileQuery = useQuery(() => ({
-    queryKey: ['ai', 'profile'],
-    queryFn: fetchUserAiProfile,
-  }));
+  const [profile, setProfile] = createSignal<Record<string, string>>({});
+  const [isLoading, setIsLoading] = createSignal(true);
+  const [isError, setIsError] = createSignal(false);
+
+  // Fetch immediately when component is created (not via onMount for HMR reliability)
+  fetchUserAiProfile()
+    .then(data => setProfile(data.profile))
+    .catch((err) => {
+      console.error('[AiMemory] Failed to load profile:', err);
+      setIsError(true);
+    })
+    .finally(() => setIsLoading(false));
 
   const [editingKey, setEditingKey] = createSignal<string | null>(null);
   const [editValue, setEditValue] = createSignal('');
   const [newKey, setNewKey] = createSignal('');
   const [newValue, setNewValue] = createSignal('');
 
-  const updateMutation = createMutation(() => ({
-    mutationFn: updateUserAiProfile,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ai', 'profile'] });
+  const handleUpdate = async (entries: Record<string, string>) => {
+    try {
+      const data = await updateUserAiProfile({ entries });
+      setProfile(data.profile);
       setEditingKey(null);
       setNewKey('');
       setNewValue('');
-    },
-  }));
+    } catch {
+      // ignore
+    }
+  };
 
-  const deleteMutation = createMutation(() => ({
-    mutationFn: deleteUserAiProfileKey,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ai', 'profile'] });
-    },
-  }));
+  const handleDelete = async (key: string) => {
+    try {
+      const data = await deleteUserAiProfileKey({ key });
+      setProfile(data.profile);
+    } catch {
+      // ignore
+    }
+  };
 
   const startEdit = (key: string, value: string) => {
     setEditingKey(key);
@@ -163,14 +175,14 @@ const AiMemoryCard: Component = () => {
   };
 
   const saveEdit = (key: string) => {
-    updateMutation.mutate({ entries: { [key]: editValue() } });
+    handleUpdate({ [key]: editValue() });
   };
 
   const addEntry = () => {
     const k = newKey().trim();
     const val = newValue().trim();
     if (k && val) {
-      updateMutation.mutate({ entries: { [k]: val } });
+      handleUpdate({ [k]: val });
     }
   };
 
@@ -183,20 +195,10 @@ const AiMemoryCard: Component = () => {
         </CardDescription>
       </CardHeader>
       <CardContent class="pt-4">
-        <Show
-          when={!profileQuery.isLoading && !profileQuery.isError && profileQuery.data}
-          fallback={(
-            <Show
-              when={profileQuery.isError}
-              fallback={<div class="text-sm text-muted-foreground">Loading...</div>}
-            >
-              <p class="text-sm text-muted-foreground">Could not load AI memory.</p>
-            </Show>
-          )}
-        >
-          {getData => (
+        <Show when={!isLoading()} fallback={<div class="text-sm text-muted-foreground">Loading...</div>}>
+          <Show when={!isError()} fallback={<p class="text-sm text-muted-foreground">Could not load AI memory.</p>}>
             <div class="flex flex-col gap-2">
-              <For each={Object.entries(getData().profile)}>
+              <For each={Object.entries(profile())}>
                 {([key, value]) => (
                   <div class="flex items-center gap-2 text-sm">
                     <span class="font-medium min-w-24 text-muted-foreground">{key}</span>
@@ -208,18 +210,20 @@ const AiMemoryCard: Component = () => {
                           <Button variant="ghost" size="sm" onClick={() => startEdit(key, value)}>
                             <div class="i-tabler-edit size-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate({ key })}>
+                          <Button variant="ghost" size="sm" onClick={() => handleDelete(key)}>
                             <div class="i-tabler-trash size-4" />
                           </Button>
                         </>
                       )}
                     >
-                      <TextField
-                        type="text"
-                        value={editValue()}
-                        onInput={e => setEditValue(e.currentTarget.value)}
-                        class="flex-1"
-                      />
+                      <TextFieldRoot class="flex-1 flex">
+                        <TextField
+                          type="text"
+                          value={editValue()}
+                          onInput={e => setEditValue(e.currentTarget.value)}
+                          class="flex-1 min-w-0"
+                        />
+                      </TextFieldRoot>
                       <Button size="sm" onClick={() => saveEdit(key)}>Save</Button>
                       <Button variant="ghost" size="sm" onClick={() => setEditingKey(null)}>Cancel</Button>
                     </Show>
@@ -227,29 +231,33 @@ const AiMemoryCard: Component = () => {
                 )}
               </For>
 
-              <Show when={Object.keys(getData().profile).length === 0}>
+              <Show when={Object.keys(profile()).length === 0}>
                 <p class="text-sm text-muted-foreground">No entries yet. The AI will learn about you as you chat.</p>
               </Show>
 
               <div class="flex items-center gap-2 mt-2 pt-2 border-t">
-                <TextField
-                  type="text"
-                  placeholder="Key"
-                  value={newKey()}
-                  onInput={e => setNewKey(e.currentTarget.value)}
-                  class="min-w-24 max-w-32"
-                />
-                <TextField
-                  type="text"
-                  placeholder="Value"
-                  value={newValue()}
-                  onInput={e => setNewValue(e.currentTarget.value)}
-                  class="flex-1"
-                />
+                <TextFieldRoot class="min-w-24 max-w-32 flex">
+                  <TextField
+                    type="text"
+                    placeholder="Key"
+                    value={newKey()}
+                    onInput={e => setNewKey(e.currentTarget.value)}
+                    class="w-full text-sm"
+                  />
+                </TextFieldRoot>
+                <TextFieldRoot class="flex-1 flex">
+                  <TextField
+                    type="text"
+                    placeholder="Value"
+                    value={newValue()}
+                    onInput={e => setNewValue(e.currentTarget.value)}
+                    class="w-full text-sm"
+                  />
+                </TextFieldRoot>
                 <Button size="sm" onClick={addEntry} disabled={!newKey().trim() || !newValue().trim()}>Add</Button>
               </div>
             </div>
-          )}
+          </Show>
         </Show>
       </CardContent>
     </Card>
