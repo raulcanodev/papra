@@ -357,7 +357,7 @@ function setupCreateClassificationRuleRoute({ app, db, config }: RouteDefinition
       conditions: z.array(conditionSchema).min(1),
       conditionMatchMode: z.enum(CONDITION_MATCH_MODES).default('all'),
       tagIds: z.array(z.string()).default([]),
-      priority: z.number().int().min(0).default(0),
+      priority: z.number().int().min(0).optional(),
     })),
     async (context) => {
       const { userId } = getUser({ context });

@@ -443,6 +443,16 @@ async function createClassificationRule({ db, rule }: {
     priority?: number;
   };
 }) {
+  if (rule.priority === undefined || rule.priority === 0) {
+    const defaultQuery = await db.select({ maxPriority: sql<number>`max(${classificationRulesTable.priority})` })
+      .from(classificationRulesTable)
+      .where(and(
+        eq(classificationRulesTable.organizationId, rule.organizationId),
+        eq(classificationRulesTable.classification, rule.classification),
+      ));
+    rule.priority = (defaultQuery[0]?.maxPriority ?? 0) + 10;
+  }
+
   const [result] = await db.insert(classificationRulesTable).values({
     ...rule,
     conditions: JSON.stringify(rule.conditions),

@@ -145,10 +145,7 @@ const TransactionRuleCard: Component<{
   onRunRule: () => void;
   onEdit: (rule: ClassificationRule) => void;
   isRunning: boolean;
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
-  isFirst?: boolean;
-  isLast?: boolean;
+  onPriorityChange: (newPriority: number) => void;
 }> = (props) => {
   const { confirm } = useConfirmModal();
   const [showAllConditions, setShowAllConditions] = createSignal(false);
@@ -171,32 +168,20 @@ const TransactionRuleCard: Component<{
 
   return (
     <div class="flex items-start gap-3 p-3 bg-card rounded-lg border">
-      {/* Reorder buttons */}
-      <div class="flex flex-col gap-0.5 shrink-0 mt-0.5">
-        <button
-          type="button"
-          class={cn('size-5 flex items-center justify-center rounded text-muted-foreground transition-colors', props.isFirst ? 'opacity-20 cursor-not-allowed' : 'hover:bg-muted hover:text-foreground')}
-          onClick={props.onMoveUp}
-          disabled={props.isFirst}
-          title="Move up (higher priority)"
-        >
-          <div class="i-tabler-chevron-up size-3.5" />
-        </button>
-        <button
-          type="button"
-          class={cn('size-5 flex items-center justify-center rounded text-muted-foreground transition-colors', props.isLast ? 'opacity-20 cursor-not-allowed' : 'hover:bg-muted hover:text-foreground')}
-          onClick={props.onMoveDown}
-          disabled={props.isLast}
-          title="Move down (lower priority)"
-        >
-          <div class="i-tabler-chevron-down size-3.5" />
-        </button>
+      {/* Priority Input */}
+      <div class="flex flex-col items-center shrink-0 w-11 mt-0.5" title="Higher number = Evaluated first.">
+        <span class="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Priority</span>
+        <input 
+          type="number" 
+          value={props.rule.priority}
+          onChange={(e) => props.onPriorityChange(Number(e.currentTarget.value))}
+          class="w-full text-center text-[10px] font-mono bg-muted/30 hover:bg-muted focus:bg-background border border-transparent hover:border-border/50 focus:border-primary/50 rounded py-1 outline-none transition-colors"
+        />
       </div>
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 flex-wrap">
           <span class="font-medium text-sm">{props.rule.name}</span>
           <Badge variant="outline" class="text-xs">Transaction</Badge>
-          <span class="text-[10px] font-mono text-muted-foreground/50 tabular-nums" title="Priority">#{props.rule.priority}</span>
           <Badge class={cn('text-xs pointer-events-none', classificationColors[props.rule.classification])}>
             {classificationLabels[props.rule.classification] ?? props.rule.classification}
           </Badge>
@@ -340,16 +325,25 @@ export const TaggingRulesPage: Component = () => {
     mutationFn: async () => {
       const rule = editingRule();
       if (!rule) return;
+
+      const classification = editClassification() || rule.classification;
+      const priority = editPriority();
+
+      // Validate priority uniqueness
+      if (txnRules().some(r => r.id !== rule.id && r.classification === classification && r.priority === priority)) {
+        throw new Error(`Priority ${priority} is already used by another ${classification} rule.`);
+      }
+
       await updateClassificationRule({
         organizationId: params.organizationId,
         ruleId: rule.id,
         updates: {
           name: editName(),
-          classification: editClassification() || undefined,
+          classification,
           tagIds: editTagIds(),
           conditions: editConditions(),
           conditionMatchMode: editMatchMode(),
-          priority: editPriority(),
+          priority,
         },
       });
     },
@@ -358,8 +352,8 @@ export const TaggingRulesPage: Component = () => {
       queryClient.invalidateQueries({ queryKey: ['organizations', params.organizationId, 'finances', 'classification-rules'] });
       setEditingRule(null);
     },
-    onError: () => {
-      createToast({ message: 'Failed to update rule', type: 'error' });
+    onError: (error: any) => {
+      createToast({ message: error.message || 'Failed to update rule', type: 'error' });
     },
   }));
 
@@ -438,10 +432,15 @@ export const TaggingRulesPage: Component = () => {
             {/* Transaction Rules */}
             <Show when={hasFlag('llc_finances') && txnRules().length > 0}>
               <div class="mb-6">
-                <h3 class="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Transaction Rules</h3>
+                <div class="flex items-center gap-2 mb-2">
+                  <h3 class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Transaction Rules</h3>
+                  <div class="text-[10px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded border border-border/50" title="Higher number = evaluated before lower numbers.">
+                    Higher priority number runs first. <strong>First match wins</strong> (no overwriting).
+                  </div>
+                </div>
                 <div class="flex flex-col gap-2">
                   <For each={txnRules()}>
-                    {(rule, index) => (
+                    {(rule) => (
                       <TransactionRuleCard
                         rule={rule}
                         organizationId={params.organizationId}
@@ -449,38 +448,26 @@ export const TaggingRulesPage: Component = () => {
                         onRunRule={() => autoClassifyMut.mutate()}
                         onEdit={openEdit}
                         isRunning={autoClassifyMut.isPending}
-                        isFirst={index() === 0}
-                        isLast={index() === txnRules().length - 1}
-                        onMoveUp={async () => {
-                          const rules = [...txnRules()];
-                          const i = index();
-                          if (i === 0) return;
-                          [rules[i - 1], rules[i]] = [rules[i]!, rules[i - 1]!];
-                          await Promise.all(
-                            rules.map((r, newIdx) =>
-                              updateClassificationRule({
-                                organizationId: params.organizationId,
-                                ruleId: r.id,
-                                updates: { priority: (rules.length - newIdx) * 10 },
-                              }),
-                            ),
-                          );
-                          queryClient.invalidateQueries({ queryKey: ['organizations', params.organizationId, 'finances', 'classification-rules'] });
-                        }}
-                        onMoveDown={async () => {
-                          const rules = [...txnRules()];
-                          const i = index();
-                          if (i === rules.length - 1) return;
-                          [rules[i], rules[i + 1]] = [rules[i + 1]!, rules[i]!];
-                          await Promise.all(
-                            rules.map((r, newIdx) =>
-                              updateClassificationRule({
-                                organizationId: params.organizationId,
-                                ruleId: r.id,
-                                updates: { priority: (rules.length - newIdx) * 10 },
-                              }),
-                            ),
-                          );
+                        onPriorityChange={async (newPriority) => {
+                          if (newPriority === rule.priority) return;
+                          
+                          // Validate uniqueness per classification
+                          const isUsed = txnRules().some(r => r.id !== rule.id && r.classification === rule.classification && r.priority === newPriority);
+                          if (isUsed) {
+                            createToast({ 
+                              message: `Priority ${newPriority} is already used by another ${rule.classification} rule.`, 
+                              type: 'error' 
+                            });
+                            // Trigger re-render to reset input value
+                            queryClient.invalidateQueries({ queryKey: ['organizations', params.organizationId, 'finances', 'classification-rules'] });
+                            return;
+                          }
+
+                          await updateClassificationRule({
+                            organizationId: params.organizationId,
+                            ruleId: rule.id,
+                            updates: { priority: newPriority },
+                          });
                           queryClient.invalidateQueries({ queryKey: ['organizations', params.organizationId, 'finances', 'classification-rules'] });
                         }}
                       />
