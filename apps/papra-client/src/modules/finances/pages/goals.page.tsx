@@ -2,9 +2,10 @@ import type { Component } from 'solid-js';
 import type { FinanceGoalBucket, FinanceGoalVersion } from '../finances-goals.types';
 import { useParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
-import { createSignal, For, Match, Show, Switch } from 'solid-js';
+import { createEffect, createSignal, For, Match, Show, Switch } from 'solid-js';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
+import { fetchTags } from '@/modules/tags/tags.services';
 import { Button } from '@/modules/ui/components/button';
 import { createToast } from '@/modules/ui/components/sonner';
 import {
@@ -129,6 +130,23 @@ const BucketCard: Component<BucketCardProps> = (props) => {
   const [targetPct, setTargetPct] = createSignal(props.bucket.targetPercentage);
   const [color, setColor] = createSignal(props.bucket.color);
   const [classifications, setClassifications] = createSignal<string[]>(props.bucket.classifications);
+  const [tagIds, setTagIds] = createSignal<string[]>(props.bucket.tagIds);
+
+  createEffect(() => {
+    setName(props.bucket.name);
+    setTargetPct(props.bucket.targetPercentage);
+    setColor(props.bucket.color);
+    setClassifications(props.bucket.classifications);
+    setTagIds(props.bucket.tagIds);
+  });
+
+  const tagsQuery = useQuery(() => ({
+    queryKey: ['organizations', props.organizationId, 'tags'],
+    queryFn: () => fetchTags({ organizationId: props.organizationId }),
+  }));
+
+  const availableTags = () => tagsQuery.data?.tags ?? [];
+  const selectedTagObjects = () => availableTags().filter(t => tagIds().includes(t.id));
 
   const saveMut = createMutation(() => ({
     mutationFn: () => updateFinanceGoalBucket({
@@ -139,6 +157,7 @@ const BucketCard: Component<BucketCardProps> = (props) => {
       targetPercentage: targetPct(),
       color: color(),
       classifications: classifications(),
+      tagIds: tagIds(),
     }),
     onSuccess: () => {
       setEditing(false);
@@ -168,6 +187,10 @@ const BucketCard: Component<BucketCardProps> = (props) => {
     );
   };
 
+  const toggleTag = (id: string) => {
+    setTagIds(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
+  };
+
   const actualPct = () => props.bucket.actualPercentage ?? 0;
   const targetPctVal = () => props.bucket.targetPercentage;
 
@@ -177,7 +200,23 @@ const BucketCard: Component<BucketCardProps> = (props) => {
       <div class="flex items-center justify-between gap-3">
         <div class="flex items-center gap-3 flex-1 min-w-0">
           <div class="size-3 rounded-full shrink-0" style={{ background: props.bucket.color }} />
-          <span class="font-medium truncate">{props.bucket.name}</span>
+          <div class="flex flex-col min-w-0">
+            <span class="font-medium truncate">{props.bucket.name}</span>
+            <Show when={selectedTagObjects().length > 0}>
+              <div class="flex flex-wrap gap-1 mt-0.5">
+                <For each={selectedTagObjects()}>
+                  {tag => (
+                    <span
+                      class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium text-white"
+                      style={{ background: tag.color ?? '#6b7280' }}
+                    >
+                      {tag.name}
+                    </span>
+                  )}
+                </For>
+              </div>
+            </Show>
+          </div>
         </div>
         <div class="flex items-center gap-1">
           <button
@@ -301,6 +340,35 @@ const BucketCard: Component<BucketCardProps> = (props) => {
             <p class="text-xs text-muted-foreground">Transactions matching these classifications will be counted in this bucket.</p>
           </div>
 
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-medium text-muted-foreground">Transaction Tags</label>
+            <Show
+              when={availableTags().length > 0}
+              fallback={<p class="text-xs text-muted-foreground">No tags created yet.</p>}
+            >
+              <div class="flex flex-wrap gap-1.5">
+                <For each={availableTags()}>
+                  {tag => (
+                    <button
+                      type="button"
+                      class={cn(
+                        'px-2 py-0.5 rounded-full text-xs border transition-colors',
+                        tagIds().includes(tag.id)
+                          ? 'text-white border-transparent'
+                          : 'bg-background text-muted-foreground border-border hover:border-primary',
+                      )}
+                      style={tagIds().includes(tag.id) ? { background: tag.color ?? '#6b7280' } : {}}
+                      onClick={() => toggleTag(tag.id)}
+                    >
+                      {tag.name}
+                    </button>
+                  )}
+                </For>
+              </div>
+            </Show>
+            <p class="text-xs text-muted-foreground">Transactions with these tags will also be counted in this bucket.</p>
+          </div>
+
           <div class="flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
             <Button size="sm" onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
@@ -326,11 +394,23 @@ const AddBucketForm: Component<{
   const [targetPct, setTargetPct] = createSignal(10);
   const [color, setColor] = createSignal(PRESET_COLORS[3]!);
   const [classifications, setClassifications] = createSignal<string[]>([]);
+  const [tagIds, setTagIds] = createSignal<string[]>([]);
+
+  const tagsQuery = useQuery(() => ({
+    queryKey: ['organizations', props.organizationId, 'tags'],
+    queryFn: () => fetchTags({ organizationId: props.organizationId }),
+  }));
+
+  const availableTags = () => tagsQuery.data?.tags ?? [];
 
   const toggleClassification = (cls: string) => {
     setClassifications(prev =>
       prev.includes(cls) ? prev.filter(c => c !== cls) : [...prev, cls],
     );
+  };
+
+  const toggleTag = (id: string) => {
+    setTagIds(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
   };
 
   const createMut = createMutation(() => ({
@@ -341,7 +421,7 @@ const AddBucketForm: Component<{
       targetPercentage: targetPct(),
       color: color(),
       position: props.nextPosition,
-      tagIds: [],
+      tagIds: tagIds(),
       classifications: classifications(),
     }),
     onSuccess: () => {
@@ -415,6 +495,35 @@ const AddBucketForm: Component<{
             )}
           </For>
         </div>
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <label class="text-xs font-medium text-muted-foreground">Transaction Tags</label>
+        <Show
+          when={availableTags().length > 0}
+          fallback={<p class="text-xs text-muted-foreground">No tags created yet.</p>}
+        >
+          <div class="flex flex-wrap gap-1.5">
+            <For each={availableTags()}>
+              {tag => (
+                <button
+                  type="button"
+                  class={cn(
+                    'px-2 py-0.5 rounded-full text-xs border transition-colors',
+                    tagIds().includes(tag.id)
+                      ? 'text-white border-transparent'
+                      : 'bg-background text-muted-foreground border-border hover:border-primary',
+                  )}
+                  style={tagIds().includes(tag.id) ? { background: tag.color ?? '#6b7280' } : {}}
+                  onClick={() => toggleTag(tag.id)}
+                >
+                  {tag.name}
+                </button>
+              )}
+            </For>
+          </div>
+        </Show>
+        <p class="text-xs text-muted-foreground">Transactions with these tags will also be counted in this bucket.</p>
       </div>
 
       <div class="flex justify-end gap-2">
