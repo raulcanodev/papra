@@ -223,7 +223,7 @@ async function addTagToTransaction({ tagId, transactionId, db }: { tagId: string
 
 async function addTagsToTransaction({ tagIds, transactionId, db }: { tagIds: string[]; transactionId: string; db: Database }) {
   if (tagIds.length === 0) return;
-  await db.insert(transactionTagsTable).values(tagIds.map(tagId => ({ tagId, transactionId })));
+  await db.insert(transactionTagsTable).values(tagIds.map(tagId => ({ tagId, transactionId }))).onConflictDoNothing();
 }
 
 async function removeTagFromTransaction({ tagId, transactionId, db }: { tagId: string; transactionId: string; db: Database }) {

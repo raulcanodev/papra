@@ -216,54 +216,80 @@ export async function autoClassifyTransactions({
     return { classifiedCount: 0 };
   }
 
-  // Get unclassified transactions (page through all of them)
   let classifiedCount = 0;
   const classifiedByClassification: Record<string, number> = {};
-  let pageIndex = 0;
   const pageSize = 100;
 
-  while (true) {
-    const { transactions } = await financesRepository.getTransactions({
-      organizationId,
-      pageIndex,
-      pageSize,
-      classification: '__unclassified__',
-    });
+  // ── Pass 1: Apply classification (+ tags) to unclassified transactions ─────
+  // First matching rule wins (highest priority first).
+  {
+    let pageIndex = 0;
+    while (true) {
+      const { transactions } = await financesRepository.getTransactions({
+        organizationId,
+        pageIndex,
+        pageSize,
+        classification: '__unclassified__',
+      });
 
-    if (transactions.length === 0) {
-      break;
-    }
+      if (transactions.length === 0) break;
 
-    for (const transaction of transactions) {
-      if (transaction.classification) {
-        continue;
-      }
+      for (const transaction of transactions) {
+        for (const rule of activeRules) {
+          if (doesRuleMatch(rule, transaction)) {
+            if (rule.classification) {
+              await financesRepository.updateTransactionClassification({
+                transactionId: transaction.id,
+                organizationId,
+                classification: rule.classification as TransactionClassification,
+              });
+              classifiedCount++;
+              classifiedByClassification[rule.classification] = (classifiedByClassification[rule.classification] ?? 0) + 1;
+            }
 
-      for (const rule of activeRules) {
-        if (doesRuleMatch(rule, transaction)) {
-          await financesRepository.updateTransactionClassification({
-            transactionId: transaction.id,
-            organizationId,
-            classification: rule.classification as TransactionClassification,
-          });
+            const ruleTagIds = rule.tagIds ?? [];
+            if (ruleTagIds.length > 0 && tagsRepository) {
+              await tagsRepository.addTagsToTransaction({ tagIds: ruleTagIds, transactionId: transaction.id });
+            }
 
-          // Apply tags if the rule specifies any
-          const ruleTagIds = rule.tagIds ?? [];
-          if (ruleTagIds.length > 0 && tagsRepository) {
-            await tagsRepository.addTagsToTransaction({ tagIds: ruleTagIds, transactionId: transaction.id });
+            break; // First matching rule wins
           }
-
-          classifiedCount++;
-          classifiedByClassification[rule.classification] = (classifiedByClassification[rule.classification] ?? 0) + 1;
-          break; // First matching rule wins (highest priority first)
         }
       }
-    }
 
-    if (transactions.length < pageSize) {
-      break;
+      if (transactions.length < pageSize) break;
+      pageIndex++;
     }
-    pageIndex++;
+  }
+
+  // ── Pass 2: Apply tag-only rules to ALL transactions (incl. already classified) ──
+  // Rules that have tagIds but no classification must run against every transaction
+  // because the transaction may already have been classified by a prior run.
+  const tagOnlyRules = activeRules.filter(r => !r.classification && (r.tagIds?.length ?? 0) > 0);
+
+  if (tagOnlyRules.length > 0 && tagsRepository) {
+    let pageIndex = 0;
+    while (true) {
+      const { transactions } = await financesRepository.getTransactions({
+        organizationId,
+        pageIndex,
+        pageSize,
+      });
+
+      if (transactions.length === 0) break;
+
+      for (const transaction of transactions) {
+        for (const rule of tagOnlyRules) {
+          if (doesRuleMatch(rule, transaction)) {
+            await tagsRepository.addTagsToTransaction({ tagIds: rule.tagIds!, transactionId: transaction.id });
+            break; // First matching tag-only rule wins
+          }
+        }
+      }
+
+      if (transactions.length < pageSize) break;
+      pageIndex++;
+    }
   }
 
   return { classifiedCount, classifiedByClassification };
