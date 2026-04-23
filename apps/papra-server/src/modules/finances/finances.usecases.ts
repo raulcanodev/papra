@@ -285,12 +285,14 @@ export async function computeGoalActuals({
   financesRepository: FinancesRepository;
 }) {
   const { buckets } = await (async () => {
-    // Use the version that was active at the start of the requested period
+    // Use the most recent version snapshot up to the end of the requested period.
+    // Using `to` (not `from`) ensures that changes made mid-month are reflected
+    // when viewing the current month's actuals.
     const [activeVersion] = await db.select()
       .from(financeGoalVersionsTable)
       .where(and(
         eq(financeGoalVersionsTable.goalId, goalId),
-        lte(financeGoalVersionsTable.createdAt, from),
+        lte(financeGoalVersionsTable.createdAt, to),
       ))
       .orderBy(desc(financeGoalVersionsTable.versionNumber))
       .limit(1);
