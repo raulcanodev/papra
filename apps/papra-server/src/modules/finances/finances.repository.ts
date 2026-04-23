@@ -7,7 +7,7 @@ import { and, desc, eq, gt, gte, isNull, like, lt, lte, or, sql } from 'drizzle-
 import { decrypt, encrypt } from '../shared/crypto/encryption';
 import { withPagination } from '../shared/db/pagination';
 import { createBankConnectionNotFoundError, createTransactionNotFoundError } from './finances.errors';
-import { bankConnectionsTable, classificationRulesTable, subscriptionsTable, transactionsTable } from './finances.table';
+import { bankConnectionsTable, classificationRulesTable, financeGoalBucketsTable, financeGoalVersionsTable, financeGoalsTable, subscriptionsTable, transactionsTable } from './finances.table';
 
 function deriveKey(secret: string): Buffer {
   // AUTH_SECRET can be any length; derive a fixed 32-byte key with SHA-256
@@ -63,6 +63,16 @@ export function createFinancesRepository({ db, authSecret }: { db: Database; aut
       getSpendingBreakdown,
       getAccountBalances,
       getUnclassifiedCounterpartySummary,
+      getFinanceGoal,
+      getOrCreateFinanceGoal,
+      updateFinanceGoal,
+      getFinanceGoalBuckets,
+      createFinanceGoalBucket,
+      updateFinanceGoalBucket,
+      deleteFinanceGoalBucket,
+      snapshotGoalVersion,
+      listGoalVersions,
+      restoreGoalVersion,
     },
     { db, authSecret },
   );
@@ -436,7 +446,7 @@ async function createClassificationRule({ db, rule }: {
   rule: {
     organizationId: string;
     name: string;
-    classification: string;
+    classification?: string;
     conditions: Array<{ field: string; operator: string; value: string }>;
     conditionMatchMode?: string;
     tagIds?: string[];
@@ -448,7 +458,7 @@ async function createClassificationRule({ db, rule }: {
       .from(classificationRulesTable)
       .where(and(
         eq(classificationRulesTable.organizationId, rule.organizationId),
-        eq(classificationRulesTable.classification, rule.classification),
+        rule.classification != null ? eq(classificationRulesTable.classification, rule.classification) : undefined,
       ));
     rule.priority = (defaultQuery[0]?.maxPriority ?? 0) + 10;
   }
@@ -908,4 +918,257 @@ function extractTransactionPatterns(transactions: Array<{ description: string | 
   }
 
   return finalPatterns.slice(0, 30);
+}
+
+// ── Finance Goals ─────────────────────────────────────────────────────────────
+
+const DEFAULT_BUCKETS = [
+  { name: 'Needs', targetPercentage: 50, color: '#4ade80', position: 0, classifications: ['expense'], tagIds: [] },
+  { name: 'Wants', targetPercentage: 30, color: '#f97316', position: 1, classifications: [], tagIds: [] },
+  { name: 'Savings', targetPercentage: 20, color: '#60a5fa', position: 2, classifications: [], tagIds: [] },
+] as const;
+
+async function getFinanceGoal({ db, organizationId }: { db: Database; organizationId: string }) {
+  const [goal] = await db.select().from(financeGoalsTable).where(eq(financeGoalsTable.organizationId, organizationId)).limit(1);
+  return { goal: goal ?? null };
+}
+
+async function getOrCreateFinanceGoal({ db, organizationId }: { db: Database; organizationId: string }) {
+  const { goal: existing } = await getFinanceGoal({ db, organizationId });
+  if (existing !== null) {
+    return { goal: existing };
+  }
+
+  const [goal] = await db.insert(financeGoalsTable).values({ organizationId, name: 'Budget' }).returning();
+  if (!goal) {
+    throw new Error('Failed to create finance goal');
+  }
+
+  await db.insert(financeGoalBucketsTable).values(
+    DEFAULT_BUCKETS.map(b => ({
+      goalId: goal.id,
+      organizationId,
+      name: b.name,
+      targetPercentage: b.targetPercentage,
+      color: b.color,
+      position: b.position,
+      tagIds: JSON.stringify(b.tagIds),
+      classifications: JSON.stringify(b.classifications),
+    })),
+  );
+
+  return { goal };
+}
+
+async function updateFinanceGoal({ db, goalId, organizationId, updates }: {
+  db: Database;
+  goalId: string;
+  organizationId: string;
+  updates: { name?: string };
+}) {
+  const [updated] = await db.update(financeGoalsTable)
+    .set({ ...updates, updatedAt: new Date() })
+    .where(and(eq(financeGoalsTable.id, goalId), eq(financeGoalsTable.organizationId, organizationId)))
+    .returning();
+  return { goal: updated };
+}
+
+async function getFinanceGoalBuckets({ db, goalId }: { db: Database; goalId: string }) {
+  const buckets = await db.select().from(financeGoalBucketsTable)
+    .where(eq(financeGoalBucketsTable.goalId, goalId))
+    .orderBy(financeGoalBucketsTable.position);
+
+  return {
+    buckets: buckets.map(b => ({
+      ...b,
+      tagIds: JSON.parse(b.tagIds as unknown as string) as string[],
+      classifications: JSON.parse(b.classifications as unknown as string) as string[],
+    })),
+  };
+}
+
+async function createFinanceGoalBucket({ db, bucket }: {
+  db: Database;
+  bucket: {
+    goalId: string;
+    organizationId: string;
+    name: string;
+    targetPercentage: number;
+    color: string;
+    position: number;
+    tagIds: string[];
+    classifications: string[];
+  };
+}) {
+  const [result] = await db.insert(financeGoalBucketsTable).values({
+    ...bucket,
+    tagIds: JSON.stringify(bucket.tagIds),
+    classifications: JSON.stringify(bucket.classifications),
+  }).returning();
+  if (!result) {
+    throw new Error('Failed to create finance goal bucket');
+  }
+  return {
+    bucket: {
+      ...result,
+      tagIds: JSON.parse(result.tagIds as unknown as string) as string[],
+      classifications: JSON.parse(result.classifications as unknown as string) as string[],
+    },
+  };
+}
+
+async function updateFinanceGoalBucket({ db, bucketId, goalId, updates }: {
+  db: Database;
+  bucketId: string;
+  goalId: string;
+  updates: {
+    name?: string;
+    targetPercentage?: number;
+    color?: string;
+    position?: number;
+    tagIds?: string[];
+    classifications?: string[];
+  };
+}) {
+  const dbUpdates: Record<string, unknown> = { ...updates, updatedAt: new Date() };
+  if (updates.tagIds !== undefined) {
+    dbUpdates.tagIds = JSON.stringify(updates.tagIds);
+  }
+  if (updates.classifications !== undefined) {
+    dbUpdates.classifications = JSON.stringify(updates.classifications);
+  }
+
+  const [updated] = await db.update(financeGoalBucketsTable)
+    .set(dbUpdates)
+    .where(and(eq(financeGoalBucketsTable.id, bucketId), eq(financeGoalBucketsTable.goalId, goalId)))
+    .returning();
+
+  if (!updated) {
+    return { bucket: null };
+  }
+
+  return {
+    bucket: {
+      ...updated,
+      tagIds: JSON.parse(updated.tagIds as unknown as string) as string[],
+      classifications: JSON.parse(updated.classifications as unknown as string) as string[],
+    },
+  };
+}
+
+async function deleteFinanceGoalBucket({ db, bucketId, goalId }: { db: Database; bucketId: string; goalId: string }) {
+  await db.delete(financeGoalBucketsTable)
+    .where(and(eq(financeGoalBucketsTable.id, bucketId), eq(financeGoalBucketsTable.goalId, goalId)));
+}
+
+async function snapshotGoalVersion({ db, goalId, organizationId }: { db: Database; goalId: string; organizationId: string }) {
+  const [goal] = await db.select({ name: financeGoalsTable.name })
+    .from(financeGoalsTable)
+    .where(and(eq(financeGoalsTable.id, goalId), eq(financeGoalsTable.organizationId, organizationId)))
+    .limit(1);
+
+  const buckets = await db.select().from(financeGoalBucketsTable)
+    .where(eq(financeGoalBucketsTable.goalId, goalId))
+    .orderBy(financeGoalBucketsTable.position);
+
+  const bucketsSnapshot = JSON.stringify(buckets.map(b => ({
+    id: b.id,
+    name: b.name,
+    targetPercentage: b.targetPercentage,
+    color: b.color,
+    position: b.position,
+    tagIds: JSON.parse(b.tagIds as unknown as string) as string[],
+    classifications: JSON.parse(b.classifications as unknown as string) as string[],
+  })));
+
+  // Debounce: if the last version was created < 5 minutes ago, overwrite it instead of creating a new one
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+  const [lastVersion] = await db.select()
+    .from(financeGoalVersionsTable)
+    .where(eq(financeGoalVersionsTable.goalId, goalId))
+    .orderBy(desc(financeGoalVersionsTable.versionNumber))
+    .limit(1);
+
+  if (lastVersion && lastVersion.createdAt > fiveMinutesAgo) {
+    const [updated] = await db.update(financeGoalVersionsTable)
+      .set({ name: goal?.name ?? 'Budget', bucketsSnapshot, updatedAt: new Date() })
+      .where(eq(financeGoalVersionsTable.id, lastVersion.id))
+      .returning();
+    return { version: updated! };
+  }
+
+  const nextVersionNumber = (lastVersion?.versionNumber ?? 0) + 1;
+  const [version] = await db.insert(financeGoalVersionsTable).values({
+    goalId,
+    organizationId,
+    versionNumber: nextVersionNumber,
+    name: goal?.name ?? 'Budget',
+    bucketsSnapshot,
+  }).returning();
+  return { version: version! };
+}
+
+async function listGoalVersions({ db, goalId }: { db: Database; goalId: string }) {
+  const versions = await db.select({
+    id: financeGoalVersionsTable.id,
+    versionNumber: financeGoalVersionsTable.versionNumber,
+    name: financeGoalVersionsTable.name,
+    bucketsSnapshot: financeGoalVersionsTable.bucketsSnapshot,
+    createdAt: financeGoalVersionsTable.createdAt,
+  })
+    .from(financeGoalVersionsTable)
+    .where(eq(financeGoalVersionsTable.goalId, goalId))
+    .orderBy(desc(financeGoalVersionsTable.versionNumber));
+
+  return {
+    versions: versions.map(v => ({
+      ...v,
+      buckets: JSON.parse(v.bucketsSnapshot as unknown as string) as Array<{
+        id: string; name: string; targetPercentage: number; color: string; position: number; tagIds: string[]; classifications: string[];
+      }>,
+    })),
+  };
+}
+
+async function restoreGoalVersion({ db, versionId, goalId, organizationId }: { db: Database; versionId: string; goalId: string; organizationId: string }) {
+  const [version] = await db.select()
+    .from(financeGoalVersionsTable)
+    .where(and(eq(financeGoalVersionsTable.id, versionId), eq(financeGoalVersionsTable.goalId, goalId)))
+    .limit(1);
+
+  if (!version) {
+    throw new Error('Goal version not found');
+  }
+
+  const snapshotBuckets: Array<{
+    name: string; targetPercentage: number; color: string; position: number; tagIds: string[]; classifications: string[];
+  }> = JSON.parse(version.bucketsSnapshot as unknown as string);
+
+  // Restore goal name
+  await db.update(financeGoalsTable)
+    .set({ name: version.name, updatedAt: new Date() })
+    .where(and(eq(financeGoalsTable.id, goalId), eq(financeGoalsTable.organizationId, organizationId)));
+
+  // Replace all current buckets with the snapshot
+  await db.delete(financeGoalBucketsTable).where(eq(financeGoalBucketsTable.goalId, goalId));
+
+  if (snapshotBuckets.length > 0) {
+    await db.insert(financeGoalBucketsTable).values(
+      snapshotBuckets.map(b => ({
+        goalId,
+        organizationId,
+        name: b.name,
+        targetPercentage: b.targetPercentage,
+        color: b.color,
+        position: b.position,
+        tagIds: JSON.stringify(b.tagIds),
+        classifications: JSON.stringify(b.classifications),
+      })),
+    );
+  }
+
+  // Auto-snapshot after restore so the restored state is itself a new version
+  const { version: newVersion } = await snapshotGoalVersion({ db, goalId, organizationId });
+
+  return { success: true, restoredFrom: version.versionNumber, newVersionNumber: newVersion.versionNumber };
 }

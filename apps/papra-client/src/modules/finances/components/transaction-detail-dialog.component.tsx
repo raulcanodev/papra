@@ -2,6 +2,9 @@ import type { Component } from 'solid-js';
 import type { Transaction } from '../finances.types';
 import { For, Show } from 'solid-js';
 import { useQuery } from '@tanstack/solid-query';
+import { TransactionCustomPropertiesPanel } from '@/modules/custom-properties/components/transaction-custom-properties-panel.component';
+import { fetchCustomPropertyDefinitions } from '@/modules/custom-properties/custom-properties.services';
+import { TransactionTagsList } from '@/modules/tags/components/tag-list.component';
 import { Badge } from '@/modules/ui/components/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/modules/ui/components/dialog';
 import { fetchTransactionCustomProperties } from '../finances.services';
@@ -73,21 +76,12 @@ export const TransactionDetailDialog: Component<{
     enabled: !!props.transaction?.id && props.isOpen,
   }));
 
-  const formatPropertyValue = (entry: { value: { textValue: string | null; numberValue: number | null; dateValue: string | null; booleanValue: boolean | null }; definition: { type: string }; option: { name: string } | null }) => {
-    if (entry.definition.type === 'select' || entry.definition.type === 'multi_select') {
-      return entry.option?.name ?? '—';
-    }
-    if (entry.definition.type === 'boolean') {
-      return entry.value.booleanValue ? 'Yes' : 'No';
-    }
-    if (entry.definition.type === 'number') {
-      return entry.value.numberValue?.toString() ?? '—';
-    }
-    if (entry.definition.type === 'date') {
-      return entry.value.dateValue ? formatDate(entry.value.dateValue) : '—';
-    }
-    return entry.value.textValue ?? '—';
-  };
+  const propertyDefsQuery = useQuery(() => ({
+    queryKey: ['organizations', props.organizationId, 'custom-properties', 'definitions'],
+    queryFn: () => fetchCustomPropertyDefinitions({ organizationId: props.organizationId }),
+    enabled: props.isOpen,
+  }));
+
 
   return (
     <Dialog open={props.isOpen} onOpenChange={open => !open && props.onClose()}>
@@ -139,38 +133,32 @@ export const TransactionDetailDialog: Component<{
               <Show when={(txn().tags ?? []).length > 0}>
                 <div>
                   <div class="text-xs text-muted-foreground mb-1">Tags</div>
-                  <div class="flex flex-wrap gap-1.5">
-                    <For each={txn().tags}>
-                      {tag => (
-                        <Badge variant="outline" class="text-xs">
-                          <div class="size-2 rounded-full mr-1.5" style={{ background: tag.color ?? '#888' }} />
-                          {tag.name}
-                        </Badge>
-                      )}
-                    </For>
-                  </div>
+                  <TransactionTagsList
+                    tags={txn().tags ?? []}
+                    transactionId={txn().id}
+                    organizationId={props.organizationId}
+                  />
                 </div>
               </Show>
               <Show when={!(txn().tags ?? []).length}>
                 <div>
                   <div class="text-xs text-muted-foreground mb-0.5">Tags</div>
-                  <div class="text-sm text-muted-foreground">No tags</div>
+                  <TransactionTagsList
+                    tags={[]}
+                    transactionId={txn().id}
+                    organizationId={props.organizationId}
+                  />
                 </div>
               </Show>
 
-              <Show when={(customPropsQuery.data?.values ?? []).length > 0}>
-                <div>
-                  <div class="text-xs text-muted-foreground mb-1.5 mt-1">Custom Properties</div>
-                  <div class="grid grid-cols-2 gap-2">
-                    <For each={customPropsQuery.data!.values}>
-                      {entry => (
-                        <div>
-                          <div class="text-xs text-muted-foreground mb-0.5">{entry.definition.name}</div>
-                          <div class="text-sm">{formatPropertyValue(entry)}</div>
-                        </div>
-                      )}
-                    </For>
-                  </div>
+              <Show when={(propertyDefsQuery.data?.propertyDefinitions ?? []).filter(d => d.type !== 'user_relation' && d.type !== 'document_relation').length > 0}>
+                <div class="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5">
+                  <TransactionCustomPropertiesPanel
+                    transactionId={txn().id}
+                    organizationId={props.organizationId}
+                    propertyDefinitions={propertyDefsQuery.data?.propertyDefinitions ?? []}
+                    values={customPropsQuery.data?.values ?? []}
+                  />
                 </div>
               </Show>
 

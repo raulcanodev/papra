@@ -1,7 +1,7 @@
 import { index, integer, real, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
 import { organizationsTable } from '../organizations/organizations.table';
 import { createPrimaryKeyField, createTimestampColumns } from '../shared/db/columns.helpers';
-import { BANK_CONNECTION_ID_PREFIX, CLASSIFICATION_RULE_ID_PREFIX, SUBSCRIPTION_ID_PREFIX, TRANSACTION_ID_PREFIX } from './finances.constants';
+import { BANK_CONNECTION_ID_PREFIX, CLASSIFICATION_RULE_ID_PREFIX, FINANCE_GOAL_BUCKET_ID_PREFIX, FINANCE_GOAL_ID_PREFIX, FINANCE_GOAL_VERSION_ID_PREFIX, SUBSCRIPTION_ID_PREFIX, TRANSACTION_ID_PREFIX } from './finances.constants';
 
 export const bankConnectionsTable = sqliteTable('bank_connections', {
   ...createPrimaryKeyField({ prefix: BANK_CONNECTION_ID_PREFIX }),
@@ -75,4 +75,43 @@ export const subscriptionsTable = sqliteTable('finance_subscriptions', {
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
 }, t => [
   index('finance_subscriptions_organization_id_index').on(t.organizationId),
+]);
+
+export const financeGoalsTable = sqliteTable('finance_goals', {
+  ...createPrimaryKeyField({ prefix: FINANCE_GOAL_ID_PREFIX }),
+  ...createTimestampColumns(),
+
+  organizationId: text('organization_id').notNull().references(() => organizationsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+  name: text('name').notNull().default('Budget'),
+}, t => [
+  index('finance_goals_organization_id_index').on(t.organizationId),
+]);
+
+export const financeGoalVersionsTable = sqliteTable('finance_goal_versions', {
+  ...createPrimaryKeyField({ prefix: FINANCE_GOAL_VERSION_ID_PREFIX }),
+  ...createTimestampColumns(),
+
+  goalId: text('goal_id').notNull().references(() => financeGoalsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+  organizationId: text('organization_id').notNull().references(() => organizationsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+  versionNumber: integer('version_number').notNull(),
+  name: text('name').notNull(),
+  bucketsSnapshot: text('buckets_snapshot').notNull().default('[]'),
+}, t => [
+  index('finance_goal_versions_goal_id_index').on(t.goalId),
+]);
+
+export const financeGoalBucketsTable = sqliteTable('finance_goal_buckets', {
+  ...createPrimaryKeyField({ prefix: FINANCE_GOAL_BUCKET_ID_PREFIX }),
+  ...createTimestampColumns(),
+
+  goalId: text('goal_id').notNull().references(() => financeGoalsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+  organizationId: text('organization_id').notNull().references(() => organizationsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+  name: text('name').notNull(),
+  targetPercentage: integer('target_percentage').notNull().default(0),
+  color: text('color').notNull().default('#6366f1'),
+  position: integer('position').notNull().default(0),
+  tagIds: text('tag_ids').notNull().default('[]'),
+  classifications: text('classifications').notNull().default('[]'),
+}, t => [
+  index('finance_goal_buckets_goal_id_index').on(t.goalId),
 ]);

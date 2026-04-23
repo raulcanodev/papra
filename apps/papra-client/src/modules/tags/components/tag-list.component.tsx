@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/modules/ui/components
 import { TextField, TextFieldRoot } from '@/modules/ui/components/textfield';
 import { CreateTagModal } from '../pages/tags.page';
 import { addTagToDocument, fetchTags, removeTagFromDocument } from '../tags.services';
+import { addTagToTransaction, removeTagFromTransaction } from '@/modules/finances/finances.services';
 import { TagPickerList } from './tag-picker-list.component';
 import { Tag as TagComponent, TagLink } from './tag.component';
 import { useTagPicker } from './use-tag-picker.hook';
@@ -267,6 +268,58 @@ export const DocumentTagsList: Component<{
       tags={getDocumentsTags()}
       organizationId={props.organizationId}
       onChange={onTagsChange}
+      {...rest}
+    />
+  );
+};
+
+export const TransactionTagsList: Component<{
+  tags: Tag[];
+  transactionId: string;
+  organizationId: string;
+} & Pick<ComponentProps<typeof TagList>, 'tagClass' | 'asLink' | 'triggerClass'>> = (props) => {
+  const [getTransactionTags, setTransactionTags] = createSignal<Tag[]>(props.tags);
+  const [rest] = splitProps(props, ['tagClass', 'asLink', 'triggerClass']);
+
+  // Keep local signal in sync when the parent transaction changes (e.g. dialog switches transactions)
+  createEffect(() => {
+    setTransactionTags(props.tags);
+  });
+
+  const onTagsChange = async (tags: Tag[]) => {
+    const currentTags = getTransactionTags();
+    const addedTags = tags.filter(tag => !currentTags.find(t => t.id === tag.id));
+    const removedTags = currentTags.filter(tag => !tags.find(t => t.id === tag.id));
+
+    setTransactionTags(tags);
+
+    await Promise.all(
+      addedTags.map(tag => addTagToTransaction({
+        transactionId: props.transactionId,
+        organizationId: props.organizationId,
+        tagId: tag.id,
+      })),
+    );
+
+    await Promise.all(
+      removedTags.map(tag => removeTagFromTransaction({
+        transactionId: props.transactionId,
+        organizationId: props.organizationId,
+        tagId: tag.id,
+      })),
+    );
+
+    await queryClient.invalidateQueries({
+      queryKey: ['organizations', props.organizationId, 'finances', 'transactions'],
+    });
+  };
+
+  return (
+    <TagList
+      tags={getTransactionTags()}
+      organizationId={props.organizationId}
+      onChange={onTagsChange}
+      asLink={false}
       {...rest}
     />
   );

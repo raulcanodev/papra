@@ -13,7 +13,7 @@ import { createTagsRepository } from '../tags/tags.repository';
 import { convertCurrency } from './exchange-rates';
 import { BANK_PROVIDERS, BILLING_CYCLES, TRANSACTION_CLASSIFICATIONS } from './finances.constants';
 import { createFinancesRepository } from './finances.repository';
-import { addBankConnection, autoClassifyTransactions, refreshAccountBalances, syncBankTransactions } from './finances.usecases';
+import { addBankConnection, autoClassifyTransactions, computeGoalActuals, refreshAccountBalances, syncBankTransactions } from './finances.usecases';
 import { getBankProviderAdapter } from './providers/provider.registry';
 
 export function registerFinancesRoutes(context: RouteDefinitionContext) {
@@ -41,6 +41,14 @@ export function registerFinancesRoutes(context: RouteDefinitionContext) {
   setupGetTransactionCustomPropertiesRoute(context);
   setupSetTransactionCustomPropertyRoute(context);
   setupDeleteTransactionCustomPropertyRoute(context);
+  setupGetFinanceGoalRoute(context);
+  setupUpdateFinanceGoalRoute(context);
+  setupCreateFinanceGoalBucketRoute(context);
+  setupUpdateFinanceGoalBucketRoute(context);
+  setupDeleteFinanceGoalBucketRoute(context);
+  setupGetGoalActualsRoute(context);
+  setupListGoalVersionsRoute(context);
+  setupRestoreGoalVersionRoute(context);
 }
 
 function setupGetBankConnectionsRoute({ app, db, config }: RouteDefinitionContext) {
@@ -882,6 +890,240 @@ function setupDeleteTransactionCustomPropertyRoute({ app, db, config }: RouteDef
       await customPropertiesRepository.deleteTransactionCustomPropertyValue({ transactionId, propertyDefinitionId });
 
       return context.body(null, 204);
+    },
+  );
+}
+
+// ── Finance Goals ─────────────────────────────────────────────────────────────
+
+function setupGetFinanceGoalRoute({ app, db, config }: RouteDefinitionContext) {
+  app.get(
+    '/api/organizations/:organizationId/finances/goals',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({ organizationId: organizationIdSchema })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId } = context.req.valid('param');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      const { goal } = await financesRepository.getOrCreateFinanceGoal({ organizationId });
+      const { buckets } = await financesRepository.getFinanceGoalBuckets({ goalId: goal.id });
+
+      return context.json({ goal, buckets });
+    },
+  );
+}
+
+function setupUpdateFinanceGoalRoute({ app, db, config }: RouteDefinitionContext) {
+  app.patch(
+    '/api/organizations/:organizationId/finances/goals/:goalId',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({ organizationId: organizationIdSchema, goalId: z.string() })),
+    legacyValidateJsonBody(z.object({ name: z.string().min(1).max(100) })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, goalId } = context.req.valid('param');
+      const { name } = context.req.valid('json');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      const { goal } = await financesRepository.updateFinanceGoal({ goalId, organizationId, updates: { name } });
+      await financesRepository.snapshotGoalVersion({ goalId, organizationId });
+
+      return context.json({ goal });
+    },
+  );
+}
+
+function setupCreateFinanceGoalBucketRoute({ app, db, config }: RouteDefinitionContext) {
+  app.post(
+    '/api/organizations/:organizationId/finances/goals/:goalId/buckets',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({ organizationId: organizationIdSchema, goalId: z.string() })),
+    legacyValidateJsonBody(z.object({
+      name: z.string().min(1).max(100),
+      targetPercentage: z.number().int().min(0).max(100),
+      color: z.string().min(1).max(20),
+      position: z.number().int().min(0),
+      tagIds: z.array(z.string()).default([]),
+      classifications: z.array(z.string()).default([]),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, goalId } = context.req.valid('param');
+      const body = context.req.valid('json');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+
+      // Validate total target percentage will not exceed 100
+      const { buckets: existing } = await financesRepository.getFinanceGoalBuckets({ goalId });
+      const currentTotal = existing.reduce((sum, b) => sum + b.targetPercentage, 0);
+      if (currentTotal + body.targetPercentage > 100) {
+        return context.json({ error: `Total target percentage would exceed 100% (current: ${currentTotal}%)` }, 400);
+      }
+
+      const { bucket } = await financesRepository.createFinanceGoalBucket({
+        bucket: { ...body, goalId, organizationId },
+      });
+      await financesRepository.snapshotGoalVersion({ goalId, organizationId });
+
+      return context.json({ bucket }, 201);
+    },
+  );
+}
+
+function setupUpdateFinanceGoalBucketRoute({ app, db, config }: RouteDefinitionContext) {
+  app.patch(
+    '/api/organizations/:organizationId/finances/goals/:goalId/buckets/:bucketId',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({
+      organizationId: organizationIdSchema,
+      goalId: z.string(),
+      bucketId: z.string(),
+    })),
+    legacyValidateJsonBody(z.object({
+      name: z.string().min(1).max(100).optional(),
+      targetPercentage: z.number().int().min(0).max(100).optional(),
+      color: z.string().min(1).max(20).optional(),
+      position: z.number().int().min(0).optional(),
+      tagIds: z.array(z.string()).optional(),
+      classifications: z.array(z.string()).optional(),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, goalId, bucketId } = context.req.valid('param');
+      const updates = context.req.valid('json');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+
+      if (updates.targetPercentage !== undefined) {
+        const { buckets: existing } = await financesRepository.getFinanceGoalBuckets({ goalId });
+        const othersTotal = existing.filter(b => b.id !== bucketId).reduce((sum, b) => sum + b.targetPercentage, 0);
+        if (othersTotal + updates.targetPercentage > 100) {
+          return context.json({ error: `Total target percentage would exceed 100% (others total: ${othersTotal}%)` }, 400);
+        }
+      }
+
+      const { bucket } = await financesRepository.updateFinanceGoalBucket({ bucketId, goalId, updates });
+      await financesRepository.snapshotGoalVersion({ goalId, organizationId });
+
+      return context.json({ bucket });
+    },
+  );
+}
+
+function setupDeleteFinanceGoalBucketRoute({ app, db, config }: RouteDefinitionContext) {
+  app.delete(
+    '/api/organizations/:organizationId/finances/goals/:goalId/buckets/:bucketId',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({
+      organizationId: organizationIdSchema,
+      goalId: z.string(),
+      bucketId: z.string(),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, goalId, bucketId } = context.req.valid('param');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      await financesRepository.deleteFinanceGoalBucket({ bucketId, goalId });
+      await financesRepository.snapshotGoalVersion({ goalId, organizationId });
+
+      return context.body(null, 204);
+    },
+  );
+}
+
+function setupGetGoalActualsRoute({ app, db, config }: RouteDefinitionContext) {
+  app.get(
+    '/api/organizations/:organizationId/finances/goals/:goalId/actuals',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({ organizationId: organizationIdSchema, goalId: z.string() })),
+    legacyValidateQuery(z.object({
+      from: z.coerce.number().int(),
+      to: z.coerce.number().int(),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, goalId } = context.req.valid('param');
+      const { from, to } = context.req.valid('query');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      const actuals = await computeGoalActuals({
+        db,
+        organizationId,
+        goalId,
+        from: new Date(from),
+        to: new Date(to),
+        financesRepository,
+      });
+
+      return context.json(actuals);
+    },
+  );
+}
+
+function setupListGoalVersionsRoute({ app, db, config }: RouteDefinitionContext) {
+  app.get(
+    '/api/organizations/:organizationId/finances/goals/:goalId/versions',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({ organizationId: organizationIdSchema, goalId: z.string() })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, goalId } = context.req.valid('param');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      const { versions } = await financesRepository.listGoalVersions({ goalId });
+
+      return context.json({ versions });
+    },
+  );
+}
+
+function setupRestoreGoalVersionRoute({ app, db, config }: RouteDefinitionContext) {
+  app.post(
+    '/api/organizations/:organizationId/finances/goals/:goalId/versions/:versionId/restore',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({ organizationId: organizationIdSchema, goalId: z.string(), versionId: z.string() })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, goalId, versionId } = context.req.valid('param');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+      const result = await financesRepository.restoreGoalVersion({ versionId, goalId, organizationId });
+
+      return context.json(result);
     },
   );
 }

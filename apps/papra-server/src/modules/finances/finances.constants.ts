@@ -18,5 +18,9 @@ export type BankProvider = typeof BANK_PROVIDERS[number];
 export const SUBSCRIPTION_ID_PREFIX = 'sub';
 export const SUBSCRIPTION_ID_REGEX = createPrefixedIdRegex({ prefix: SUBSCRIPTION_ID_PREFIX });
 
+export const FINANCE_GOAL_ID_PREFIX = 'fgl';
+export const FINANCE_GOAL_BUCKET_ID_PREFIX = 'fgb';
+export const FINANCE_GOAL_VERSION_ID_PREFIX = 'fgv';
+
 export const BILLING_CYCLES = ['weekly', 'monthly', 'quarterly', 'yearly'] as const;
 export type BillingCycle = typeof BILLING_CYCLES[number];

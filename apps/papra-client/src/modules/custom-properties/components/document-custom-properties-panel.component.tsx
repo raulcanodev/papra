@@ -37,7 +37,7 @@ function getDateValue(value: unknown): Date | null {
   return null;
 }
 
-const TextPropertyEditor: Component<{
+export const TextPropertyEditor: Component<{
   value: string | null;
   onSave: (value: string | null) => void;
   isPending: boolean;
@@ -105,7 +105,7 @@ const TextPropertyEditor: Component<{
   );
 };
 
-const NumberPropertyEditor: Component<{
+export const NumberPropertyEditor: Component<{
   value: number | null;
   onSave: (value: number | null) => void;
   isPending: boolean;
@@ -172,7 +172,7 @@ const NumberPropertyEditor: Component<{
   );
 };
 
-const DatePropertyEditor: Component<{
+export const DatePropertyEditor: Component<{
   value: Date | null;
   onSave: (value: Date | null) => void;
   isPending: boolean;
@@ -241,7 +241,7 @@ const DatePropertyEditor: Component<{
   );
 };
 
-const BooleanPropertyEditor: Component<{
+export const BooleanPropertyEditor: Component<{
   value: boolean | null;
   onSave: (value: boolean) => void;
   isPending: boolean;
@@ -259,7 +259,7 @@ const BooleanPropertyEditor: Component<{
   );
 };
 
-const SelectPropertyEditor: Component<{
+export const SelectPropertyEditor: Component<{
   value: SelectOption | null;
   options: { id: string; name: string }[];
   onSave: (value: string | null) => void;
@@ -321,7 +321,7 @@ const SelectPropertyEditor: Component<{
   );
 };
 
-const MultiSelectPropertyEditor: Component<{
+export const MultiSelectPropertyEditor: Component<{
   value: SelectOption[];
   options: { id: string; name: string }[];
   onSave: (value: string[]) => void;

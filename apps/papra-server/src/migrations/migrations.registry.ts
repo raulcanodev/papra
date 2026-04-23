@@ -28,6 +28,8 @@ import { bankConnectionBalanceMigration } from './list/0025-bank-connection-bala
 import { featureFlagsMigration } from './list/0026-feature-flags.migration';
 import { aiChatMessageMetadataMigration } from './list/0027-ai-chat-message-metadata.migration';
 import { userAiProfilesMigration } from './list/0028-user-ai-profiles.migration';
+import { financeGoalsMigration } from './list/0029-finance-goals.migration';
+import { financeGoalVersionsMigration } from './list/0030-finance-goal-versions.migration';
 
 export const migrations: Migration[] = [
   initialSchemaSetupMigration,
@@ -58,4 +60,6 @@ export const migrations: Migration[] = [
   featureFlagsMigration,
   aiChatMessageMetadataMigration,
   userAiProfilesMigration,
+  financeGoalsMigration,
+  financeGoalVersionsMigration,
 ];

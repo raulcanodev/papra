@@ -22,6 +22,7 @@ import { DocumentPdfViewerPage } from './modules/documents/pages/document-pdf-vi
 import { DocumentPage } from './modules/documents/pages/document.page';
 import { DocumentsPage } from './modules/documents/pages/documents.page';
 import { FeatureFlagsProvider } from './modules/feature-flags/feature-flags.provider';
+import { FinanceGoalsPage } from './modules/finances/pages/goals.page';
 import { OverviewPage } from './modules/finances/pages/overview.page';
 import { SubscriptionsPage } from './modules/finances/pages/subscriptions.page';
 import { TransactionsPage } from './modules/finances/pages/transactions.page';
@@ -200,6 +201,10 @@ export const routes: RouteDefinition[] = [
                           {
                             path: '/subscriptions',
                             component: SubscriptionsPage,
+                          },
+                          {
+                            path: '/goals',
+                            component: FinanceGoalsPage,
                           },
                         ],
                       },

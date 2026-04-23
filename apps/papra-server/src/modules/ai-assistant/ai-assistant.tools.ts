@@ -8,11 +8,12 @@ import { searchOrganizationDocuments } from '../documents/document-search/docume
 import { createDocumentsRepository } from '../documents/documents.repository';
 import { createFinancesRepository } from '../finances/finances.repository';
 import { convertCurrency } from '../finances/exchange-rates';
-import { autoClassifyTransactions } from '../finances/finances.usecases';
+import { autoClassifyTransactions, computeGoalActuals } from '../finances/finances.usecases';
 import { createSubscriptionsRepository } from '../subscriptions/subscriptions.repository';
 import { createTaggingRulesRepository } from '../tagging-rules/tagging-rules.repository';
 import { createTaggingRule as createTaggingRuleUsecase } from '../tagging-rules/tagging-rules.usecases';
 import { createTagsRepository } from '../tags/tags.repository';
+import { createCustomPropertiesRepository } from '../custom-properties/custom-properties.repository';
 
 export const CONFIRMABLE_TOOL_SCHEMAS: Record<string, z.ZodSchema> = {
   createClassificationRule: z.object({
@@ -42,6 +43,7 @@ export const CONFIRMABLE_TOOL_SCHEMAS: Record<string, z.ZodSchema> = {
     tagIds: z.array(z.string()),
   }),
   deleteTaggingRule: z.object({ taggingRuleId: z.string() }),
+  restoreFinanceBudgetVersion: z.object({ versionId: z.string(), goalId: z.string().optional() }),
 };
 
 function describeToolAction(toolName: string, args: Record<string, unknown>): string {
@@ -68,6 +70,8 @@ function describeToolAction(toolName: string, args: Record<string, unknown>): st
       return `Update document tagging rule${args.name ? ` "${args.name}"` : ''}`;
     case 'deleteTaggingRule':
       return 'Delete a document tagging rule (irreversible)';
+    case 'restoreFinanceBudgetVersion':
+      return `Restore budget goal to version ${args.versionId} (current buckets will be replaced)`;
     default:
       return `Execute ${toolName}`;
   }
@@ -92,7 +96,7 @@ const listTransactionsParams = z.object({
 
 const createRuleParams = z.object({
   name: z.string().min(1).max(64).describe('Human-readable name for the rule'),
-  classification: z.enum(['expense', 'income', 'owner_transfer', 'internal_transfer']),
+  classification: z.enum(['expense', 'income', 'owner_transfer', 'internal_transfer']).optional().describe('Classification to apply. Optional — omit if the rule should only apply tags without changing classification.'),
   conditions: z.array(z.object({
     field: z.enum(['counterparty', 'description', 'amount']),
     operator: z.enum(['contains', 'equals', 'starts_with', 'gt', 'lt']),
@@ -199,6 +203,22 @@ const deleteTaggingRuleParams = z.object({
   taggingRuleId: z.string().min(1).describe('The ID of the document tagging rule to delete. Use listTaggingRules to find rule IDs.'),
 });
 
+const getTransactionCustomPropertiesParams = z.object({
+  transactionId: z.string().min(1).describe('The ID of the transaction to fetch custom property values for'),
+});
+
+const setTransactionCustomPropertyParams = z.object({
+  transactionId: z.string().min(1).describe('ID of the transaction to update'),
+  propertyDefinitionId: z.string().min(1).describe('ID of the property definition (from listCustomPropertyDefinitions)'),
+  type: z.enum(['text', 'number', 'date', 'boolean', 'select', 'multi_select']).describe('Type of the property — use the type from listCustomPropertyDefinitions'),
+  value: z.string().describe('Value to set. Encoding: text→plain string; number→numeric string like "42.5"; date→ISO 8601 like "2024-01-15"; boolean→"true" or "false"; select→single option ID; multi_select→comma-separated option IDs like "id1,id2"'),
+});
+
+const deleteTransactionCustomPropertyParams = z.object({
+  transactionId: z.string().min(1).describe('ID of the transaction'),
+  propertyDefinitionId: z.string().min(1).describe('ID of the property definition to remove the value for'),
+});
+
 const webSearchParams = z.object({
   query: z.string().min(1).max(400).describe('The search query. Be specific and include relevant context (e.g. "Wyoming LLC annual report filing requirements 2024" instead of just "LLC filing"). For legal/regulatory questions, include the jurisdiction.'),
   searchDepth: z.enum(['basic', 'advanced']).default('basic').describe('Use "advanced" for complex legal, regulatory, or technical questions that need deeper research. Use "basic" for simple factual lookups.'),
@@ -219,6 +239,7 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
   const documentsRepo = createDocumentsRepository({ db });
   const taggingRulesRepo = createTaggingRulesRepository({ db });
   const subscriptionsRepo = createSubscriptionsRepository({ db });
+  const customPropertiesRepo = createCustomPropertiesRepository({ db });
 
   // Write tool executors (actual business logic)
   const executors: Record<string, (args: any) => Promise<any>> = {
@@ -299,6 +320,15 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
     deleteTaggingRule: async (args: z.infer<typeof deleteTaggingRuleParams>) => {
       await taggingRulesRepo.deleteOrganizationTaggingRule({ organizationId, taggingRuleId: args.taggingRuleId });
       return { success: true, message: 'Document tagging rule deleted.' };
+    },
+    restoreFinanceBudgetVersion: async (args: { versionId: string; goalId?: string }) => {
+      let resolvedGoalId = args.goalId;
+      if (!resolvedGoalId) {
+        const { goal } = await financesRepo.getOrCreateFinanceGoal({ organizationId });
+        resolvedGoalId = goal.id;
+      }
+      const result = await financesRepo.restoreGoalVersion({ versionId: args.versionId, goalId: resolvedGoalId, organizationId });
+      return { ...result, message: `Budget goal restored to version ${result.restoredFrom}. New version ${result.newVersionNumber} created.` };
     },
   };
 
@@ -718,6 +748,88 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
       }),
     } : {}),
 
+    getFinanceBudgetGoal: tool({
+      description: 'Get the organization\'s finance budget goal configuration: goal name, current version, and all buckets with their name, target percentage, color, and which transaction classifications/tags they cover. Use this to understand how the budget is structured before answering questions about spending goals.',
+      inputSchema: zodSchema(emptyParams),
+      execute: async () => {
+        const { goal } = await financesRepo.getOrCreateFinanceGoal({ organizationId });
+        const { buckets } = await financesRepo.getFinanceGoalBuckets({ goalId: goal.id });
+        const { versions } = await financesRepo.listGoalVersions({ goalId: goal.id });
+        return {
+          goal: { id: goal.id, name: goal.name },
+          buckets: buckets.map(b => ({
+            id: b.id,
+            name: b.name,
+            targetPercentage: b.targetPercentage,
+            color: b.color,
+            classifications: b.classifications,
+            tagIds: b.tagIds,
+          })),
+          versionsCount: versions.length,
+          latestVersionNumber: versions[0]?.versionNumber ?? 0,
+        };
+      },
+    }),
+
+    listFinanceBudgetVersions: tool({
+      description: 'List all saved versions of the finance budget goal configuration. Each version is a snapshot of the buckets at a point in time. Use this before restoring a version to show the user what options are available. Returns versions in reverse-chronological order (latest first).',
+      inputSchema: zodSchema(z.object({
+        goalId: z.string().optional().describe('Goal ID. If omitted, the default goal is used.'),
+      })),
+      execute: async (args) => {
+        let resolvedGoalId = args.goalId;
+        if (!resolvedGoalId) {
+          const { goal } = await financesRepo.getOrCreateFinanceGoal({ organizationId });
+          resolvedGoalId = goal.id;
+        }
+        const { versions } = await financesRepo.listGoalVersions({ goalId: resolvedGoalId });
+        return {
+          versions: versions.map(v => ({
+            id: v.id,
+            versionNumber: v.versionNumber,
+            name: v.name,
+            bucketsCount: v.buckets.length,
+            bucketNames: v.buckets.map(b => b.name).join(', '),
+            createdAt: v.createdAt,
+          })),
+        };
+      },
+    }),
+
+    restoreFinanceBudgetVersion: tool({
+      description: 'Restore the finance budget goal to a previous version. This will replace the current buckets with the snapshot from that version and auto-create a new version recording the restore. Use listFinanceBudgetVersions first to get version IDs.',
+      inputSchema: zodSchema(z.object({
+        versionId: z.string().describe('The ID of the version to restore (from listFinanceBudgetVersions)'),
+        goalId: z.string().optional().describe('Goal ID. If omitted, the default goal is used.'),
+      })),
+      execute: async (args) => confirmationResult('restoreFinanceBudgetVersion', args as unknown as Record<string, unknown>),
+    }),
+
+    getFinanceBudgetActuals: tool({
+      description: 'Compute actual spending per budget bucket for a given date range. Returns how much was spent in each bucket, the actual percentage vs the target percentage, the total expense amount, unassigned amount, and dominant currency. Use this to answer questions like "how am I tracking vs my budget this month?", "am I overspending on Wants?", "how much did I save last month?".',
+      inputSchema: zodSchema(z.object({
+        from: z.string().describe('Start date (ISO 8601, e.g. 2026-04-01)'),
+        to: z.string().describe('End date (ISO 8601, e.g. 2026-04-30)'),
+        goalId: z.string().optional().describe('Goal ID. If omitted, the default goal is fetched automatically.'),
+      })),
+      execute: async (args) => {
+        let resolvedGoalId = args.goalId;
+        if (!resolvedGoalId) {
+          const { goal } = await financesRepo.getOrCreateFinanceGoal({ organizationId });
+          resolvedGoalId = goal.id;
+        }
+        const result = await computeGoalActuals({
+          db,
+          organizationId,
+          goalId: resolvedGoalId,
+          from: new Date(args.from),
+          to: new Date(args.to),
+          financesRepository: financesRepo,
+        });
+        return result;
+      },
+    }),
+
     getUserProfile: tool({
       description: 'Read the user\'s personal profile/memory. Contains facts the user has shared over time: name, country, company, business type, preferences, etc. Call this when you need personal context to give a better answer (e.g. tax questions, personalized advice). The profile is a key-value map of facts.',
       inputSchema: zodSchema(emptyParams),
@@ -737,6 +849,71 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
         return { success: true, savedKeys: Object.keys(args.entries), totalKeys: Object.keys(profile).length };
       },
     }),
+
+    listCustomPropertyDefinitions: tool({
+      description: 'List all custom property definitions for the organization. Returns id, name, key, type, and available options for select/multi_select types. Use this before setting transaction custom properties to find propertyDefinitionId and understand expected value types.',
+      inputSchema: zodSchema(emptyParams),
+      execute: async () => {
+        const { propertyDefinitions } = await customPropertiesRepo.getOrganizationPropertyDefinitions({ organizationId });
+        return {
+          propertyDefinitions: propertyDefinitions.map(d => ({
+            id: d.id,
+            name: d.name,
+            key: d.key,
+            type: d.type,
+            options: d.options.map(o => ({ id: o.id, name: o.name, key: o.key })),
+          })),
+        };
+      },
+    }),
+
+    getTransactionCustomProperties: tool({
+      description: 'Get all custom property values currently set on a specific transaction. Returns each property definition and its value. Use this before updating a property to see what is already set.',
+      inputSchema: zodSchema(getTransactionCustomPropertiesParams),
+      execute: async (args) => {
+        const { values } = await customPropertiesRepo.getTransactionCustomPropertyValues({ transactionId: args.transactionId });
+        return {
+          transactionId: args.transactionId,
+          values: values.map(v => ({
+            propertyDefinitionId: v.definition.id,
+            name: v.definition.name,
+            key: v.definition.key,
+            type: v.definition.type,
+            textValue: v.value.textValue,
+            numberValue: v.value.numberValue,
+            dateValue: v.value.dateValue,
+            booleanValue: v.value.booleanValue,
+            selectedOption: v.option ? { id: v.option.id, name: v.option.name } : null,
+          })),
+        };
+      },
+    }),
+
+    setTransactionCustomProperty: tool({
+      description: 'Set a custom property value on a transaction. Call listCustomPropertyDefinitions first to get the propertyDefinitionId and type. Value encoding: text→plain string; number→numeric string like "42.5"; date→ISO 8601 like "2024-01-15"; boolean→"true" or "false"; select→single option ID string; multi_select→comma-separated option ID strings.',
+      inputSchema: zodSchema(setTransactionCustomPropertyParams),
+      execute: async (args) => {
+        const values = parseCustomPropertyValue(args.type, args.value);
+        await customPropertiesRepo.setTransactionCustomPropertyValue({
+          transactionId: args.transactionId,
+          propertyDefinitionId: args.propertyDefinitionId,
+          values,
+        });
+        return { success: true, message: `Custom property set on transaction ${args.transactionId}.` };
+      },
+    }),
+
+    deleteTransactionCustomProperty: tool({
+      description: 'Remove a custom property value from a transaction.',
+      inputSchema: zodSchema(deleteTransactionCustomPropertyParams),
+      execute: async (args) => {
+        await customPropertiesRepo.deleteTransactionCustomPropertyValue({
+          transactionId: args.transactionId,
+          propertyDefinitionId: args.propertyDefinitionId,
+        });
+        return { success: true, message: `Custom property removed from transaction ${args.transactionId}.` };
+      },
+    }),
   };
 
   return { tools, executors };
@@ -744,4 +921,16 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
 
 async function runAutoClassify({ financesRepo, tagsRepo, organizationId }: { financesRepo: FinancesRepository; tagsRepo: ReturnType<typeof createTagsRepository>; organizationId: string }) {
   return autoClassifyTransactions({ financesRepository: financesRepo, tagsRepository: tagsRepo, organizationId });
+}
+
+function parseCustomPropertyValue(type: string, rawValue: string) {
+  switch (type) {
+    case 'text': return [{ textValue: rawValue }];
+    case 'number': return [{ numberValue: Number.parseFloat(rawValue) }];
+    case 'date': return [{ dateValue: new Date(rawValue) }];
+    case 'boolean': return [{ booleanValue: rawValue === 'true' }];
+    case 'select': return [{ selectOptionId: rawValue }];
+    case 'multi_select': return rawValue.split(',').map(id => ({ selectOptionId: id.trim() }));
+    default: return [{ textValue: rawValue }];
+  }
 }

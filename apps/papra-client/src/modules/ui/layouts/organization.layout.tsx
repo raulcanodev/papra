@@ -131,6 +131,11 @@ const OrganizationLayoutSideNav: Component = () => {
               icon: 'i-tabler-repeat',
               href: `/organizations/${params.organizationId}/finances/subscriptions`,
             },
+            {
+              label: 'Goals',
+              icon: 'i-tabler-chart-pie',
+              href: `/organizations/${params.organizationId}/finances/goals`,
+            },
           ],
         }]
       : []),

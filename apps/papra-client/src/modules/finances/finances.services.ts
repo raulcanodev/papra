@@ -220,3 +220,81 @@ export async function fetchTransactionCustomProperties({ organizationId, transac
     path: `/api/organizations/${organizationId}/finances/transactions/${transactionId}/custom-properties`,
   });
 }
+
+export async function addTagToTransaction({ organizationId, transactionId, tagId }: {
+  organizationId: string;
+  transactionId: string;
+  tagId: string;
+}) {
+  return apiClient<{ success: boolean }>({
+    method: 'POST',
+    path: `/api/organizations/${organizationId}/finances/transactions/${transactionId}/tags`,
+    body: { tagId },
+  });
+}
+
+export async function removeTagFromTransaction({ organizationId, transactionId, tagId }: {
+  organizationId: string;
+  transactionId: string;
+  tagId: string;
+}) {
+  return apiClient<{ success: boolean }>({
+    method: 'DELETE',
+    path: `/api/organizations/${organizationId}/finances/transactions/${transactionId}/tags/${tagId}`,
+  });
+}
+
+type TransactionCustomPropertyValuesEntry = {
+  textValue?: string | null;
+  numberValue?: number | null;
+  dateValue?: string | null;
+  booleanValue?: boolean | null;
+  selectOptionId?: string | null;
+};
+
+function buildTransactionCustomPropertyValues(type: string, value: string | number | boolean | string[]): TransactionCustomPropertyValuesEntry[] {
+  if (type === 'text') {
+    return [{ textValue: value as string }];
+  }
+  if (type === 'number') {
+    return [{ numberValue: value as number }];
+  }
+  if (type === 'date') {
+    return [{ dateValue: value as string }];
+  }
+  if (type === 'boolean') {
+    return [{ booleanValue: value as boolean }];
+  }
+  if (type === 'select') {
+    return [{ selectOptionId: value as string }];
+  }
+  if (type === 'multi_select') {
+    return (value as string[]).map(id => ({ selectOptionId: id }));
+  }
+  return [{ textValue: String(value) }];
+}
+
+export async function setTransactionCustomPropertyValue({ organizationId, transactionId, propertyDefinitionId, value, type }: {
+  organizationId: string;
+  transactionId: string;
+  propertyDefinitionId: string;
+  value: string | number | boolean | string[];
+  type: string;
+}) {
+  return apiClient({
+    method: 'PUT',
+    path: `/api/organizations/${organizationId}/finances/transactions/${transactionId}/custom-properties/${propertyDefinitionId}`,
+    body: { values: buildTransactionCustomPropertyValues(type, value) },
+  });
+}
+
+export async function deleteTransactionCustomPropertyValue({ organizationId, transactionId, propertyDefinitionId }: {
+  organizationId: string;
+  transactionId: string;
+  propertyDefinitionId: string;
+}) {
+  return apiClient({
+    method: 'DELETE',
+    path: `/api/organizations/${organizationId}/finances/transactions/${transactionId}/custom-properties/${propertyDefinitionId}`,
+  });
+}
