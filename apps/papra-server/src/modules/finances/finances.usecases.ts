@@ -262,10 +262,11 @@ export async function autoClassifyTransactions({
     }
   }
 
-  // ── Pass 2: Apply tag-only rules to ALL transactions (incl. already classified) ──
-  // Rules that have tagIds but no classification must run against every transaction
-  // because the transaction may already have been classified by a prior run.
-  const tagOnlyRules = activeRules.filter(r => !r.classification && (r.tagIds?.length ?? 0) > 0);
+  // ── Pass 2: Apply tags from ALL tag-bearing rules to ALL transactions ──────────
+  // Rules with tagIds (regardless of whether they also have a classification) must
+  // run against every transaction, because the transaction may already have been
+  // classified in a previous run (Pass 1 only touches unclassified ones).
+  const tagOnlyRules = activeRules.filter(r => (r.tagIds?.length ?? 0) > 0);
 
   if (tagOnlyRules.length > 0 && tagsRepository) {
     let pageIndex = 0;
