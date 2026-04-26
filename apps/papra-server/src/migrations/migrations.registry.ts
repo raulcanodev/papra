@@ -30,6 +30,8 @@ import { aiChatMessageMetadataMigration } from './list/0027-ai-chat-message-meta
 import { userAiProfilesMigration } from './list/0028-user-ai-profiles.migration';
 import { financeGoalsMigration } from './list/0029-finance-goals.migration';
 import { financeGoalVersionsMigration } from './list/0030-finance-goal-versions.migration';
+import { financeSubscriptionTransactionSearchMigration } from './list/0031-finance-subscription-transaction-search.migration';
+import { financeSubscriptionTagIdsMigration } from './list/0032-finance-subscription-tag-ids.migration';
 
 export const migrations: Migration[] = [
   initialSchemaSetupMigration,
@@ -62,4 +64,6 @@ export const migrations: Migration[] = [
   userAiProfilesMigration,
   financeGoalsMigration,
   financeGoalVersionsMigration,
+  financeSubscriptionTransactionSearchMigration,
+  financeSubscriptionTagIdsMigration,
 ];

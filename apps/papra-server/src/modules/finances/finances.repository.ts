@@ -581,9 +581,12 @@ async function createSubscription({ db, subscription }: {
     nextPaymentAt?: Date | null;
     category?: string | null;
     notes?: string | null;
+    transactionSearchQuery?: string | null;
+    tagIds?: string[];
   };
 }) {
-  const [result] = await db.insert(subscriptionsTable).values(subscription).returning();
+  const { tagIds, ...rest } = subscription;
+  const [result] = await db.insert(subscriptionsTable).values({ ...rest, tagIds: JSON.stringify(tagIds ?? []) }).returning();
   return { subscription: result! };
 }
 
@@ -600,10 +603,14 @@ async function updateSubscription({ db, subscriptionId, organizationId, updates 
     category?: string | null;
     notes?: string | null;
     isActive?: boolean;
+    transactionSearchQuery?: string | null;
+    tagIds?: string[];
   };
 }) {
+  const { tagIds, ...rest } = updates;
+  const setValues = tagIds !== undefined ? { ...rest, tagIds: JSON.stringify(tagIds), updatedAt: new Date() } : { ...rest, updatedAt: new Date() };
   const [updated] = await db.update(subscriptionsTable)
-    .set({ ...updates, updatedAt: new Date() })
+    .set(setValues)
     .where(and(
       eq(subscriptionsTable.id, subscriptionId),
       eq(subscriptionsTable.organizationId, organizationId),

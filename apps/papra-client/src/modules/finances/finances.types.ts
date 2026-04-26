@@ -61,6 +61,8 @@ export type Subscription = {
   category: string | null;
   notes: string | null;
   isActive: boolean;
+  transactionSearchQuery: string | null;
+  tagIds: string[];
   createdAt: Date;
   updatedAt: Date;
 };

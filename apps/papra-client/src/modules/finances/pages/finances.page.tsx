@@ -20,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/modules/ui/components
 import { AddBankConnectionDialog } from '../components/add-bank-connection-dialog.component';
 import { EditBankConnectionDialog } from '../components/edit-bank-connection-dialog.component';
 import { TransactionDetailDialog } from '../components/transaction-detail-dialog.component';
-import { deleteBankConnection, fetchBankConnections, fetchTransactions, syncBankConnection, updateTransactionClassification } from '../finances.services';
+import { deleteBankConnection, fetchBankConnections, fetchSubscriptions, fetchTransactions, syncBankConnection, updateTransactionClassification } from '../finances.services';
 import { privacyCurrency, privacyText, usePrivacyMode } from '../privacy-mode';
 
 const classificationOptions = [
@@ -212,6 +212,21 @@ export const FinancesPage: Component = () => {
       setDebouncedSearch(value.trim() || undefined);
       setPagination({ pageIndex: 0, pageSize: getPagination().pageSize });
     }, 300);
+  };
+
+  const subscriptionsQuery = useQuery(() => ({
+    queryKey: ['organizations', params.organizationId, 'finances', 'subscriptions'],
+    queryFn: () => fetchSubscriptions({ organizationId: params.organizationId }),
+  }));
+
+  const matchSubscriptions = (transaction: Transaction) => {
+    const subs = subscriptionsQuery.data?.subscriptions ?? [];
+    return subs.filter(s => {
+      if (!s.transactionSearchQuery?.trim()) return false;
+      const q = s.transactionSearchQuery.trim().toLowerCase();
+      return transaction.description?.toLowerCase().includes(q)
+        || transaction.counterparty?.toLowerCase().includes(q);
+    });
   };
 
   const connectionsQuery = useQuery(() => ({
@@ -662,6 +677,7 @@ export const FinancesPage: Component = () => {
                 <TableHead class="text-right">Amount</TableHead>
                 <TableHead>Account</TableHead>
                 <TableHead>Tags</TableHead>
+                <TableHead>Subscription</TableHead>
                 <TableHead>Classification</TableHead>
               </TableRow>
             </TableHeader>
@@ -704,6 +720,18 @@ export const FinancesPage: Component = () => {
                             <Badge variant="outline" class="text-xs">
                               <div class="size-2 rounded-full mr-1" style={{ background: tag.color ?? '#888' }} />
                               {tag.name}
+                            </Badge>
+                          )}
+                        </For>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div class="flex flex-wrap gap-1">
+                        <For each={matchSubscriptions(transaction)}>
+                          {sub => (
+                            <Badge variant="outline" class="text-xs bg-violet-500/10 text-violet-600 border-violet-500/20">
+                              <div class="i-tabler-repeat size-3 mr-1" />
+                              {sub.name}
                             </Badge>
                           )}
                         </For>

@@ -73,6 +73,8 @@ export const subscriptionsTable = sqliteTable('finance_subscriptions', {
   category: text('category'),
   notes: text('notes'),
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  transactionSearchQuery: text('transaction_search_query'),
+  tagIds: text('tag_ids').notNull().default('[]'),
 }, t => [
   index('finance_subscriptions_organization_id_index').on(t.organizationId),
 ]);

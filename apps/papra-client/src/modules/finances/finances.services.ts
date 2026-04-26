@@ -171,6 +171,8 @@ export async function createSubscription({ organizationId, subscription }: {
     nextPaymentAt?: Date | null;
     category?: string | null;
     notes?: string | null;
+    transactionSearchQuery?: string | null;
+    tagIds?: string[];
   };
 }) {
   return apiClient<{ subscription: Subscription }>({
@@ -192,6 +194,8 @@ export async function updateSubscription({ organizationId, subscriptionId, updat
     category: string | null;
     notes: string | null;
     isActive: boolean;
+    transactionSearchQuery: string | null;
+    tagIds: string[];
   }>;
 }) {
   return apiClient<{ subscription: Subscription }>({

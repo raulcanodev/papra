@@ -604,6 +604,8 @@ function setupCreateSubscriptionRoute({ app, db, config }: RouteDefinitionContex
       nextPaymentAt: z.coerce.date().nullable().optional(),
       category: z.enum(TRANSACTION_CLASSIFICATIONS).nullable().optional(),
       notes: z.string().max(500).nullable().optional(),
+      transactionSearchQuery: z.string().max(200).nullable().optional(),
+      tagIds: z.array(z.string()).optional(),
     })),
     async (context) => {
       const { userId } = getUser({ context });
@@ -617,6 +619,21 @@ function setupCreateSubscriptionRoute({ app, db, config }: RouteDefinitionContex
       const { subscription } = await financesRepository.createSubscription({
         subscription: { ...body, organizationId },
       });
+
+      if (body.transactionSearchQuery && body.tagIds?.length) {
+        const tagsRepository = createTagsRepository({ db });
+        const { transactions } = await financesRepository.getTransactions({
+          organizationId,
+          pageIndex: 0,
+          pageSize: 1000,
+          search: body.transactionSearchQuery,
+        });
+        await Promise.all(
+          transactions.map(tx =>
+            tagsRepository.addTagsToTransaction({ tagIds: body.tagIds!, transactionId: tx.id }),
+          ),
+        );
+      }
 
       return context.json({ subscription }, 201);
     },
@@ -641,6 +658,8 @@ function setupUpdateSubscriptionRoute({ app, db, config }: RouteDefinitionContex
       category: z.enum(TRANSACTION_CLASSIFICATIONS).nullable().optional(),
       notes: z.string().max(500).nullable().optional(),
       isActive: z.boolean().optional(),
+      transactionSearchQuery: z.string().max(200).nullable().optional(),
+      tagIds: z.array(z.string()).optional(),
     })),
     async (context) => {
       const { userId } = getUser({ context });
@@ -656,6 +675,21 @@ function setupUpdateSubscriptionRoute({ app, db, config }: RouteDefinitionContex
         organizationId,
         updates,
       });
+
+      if (updates.transactionSearchQuery && updates.tagIds?.length) {
+        const tagsRepository = createTagsRepository({ db });
+        const { transactions } = await financesRepository.getTransactions({
+          organizationId,
+          pageIndex: 0,
+          pageSize: 1000,
+          search: updates.transactionSearchQuery,
+        });
+        await Promise.all(
+          transactions.map(tx =>
+            tagsRepository.addTagsToTransaction({ tagIds: updates.tagIds!, transactionId: tx.id }),
+          ),
+        );
+      }
 
       return context.json({ subscription });
     },
