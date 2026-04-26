@@ -50,6 +50,7 @@ export const classificationRulesTable = sqliteTable('classification_rules', {
 
   organizationId: text('organization_id').notNull().references(() => organizationsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
   name: text('name').notNull(),
+  description: text('description'),
   classification: text('classification').notNull(),
   conditions: text('conditions').notNull().default('[]'), // JSON array of { field, operator, value }
   conditionMatchMode: text('condition_match_mode').notNull().default('all'), // 'all' | 'any'

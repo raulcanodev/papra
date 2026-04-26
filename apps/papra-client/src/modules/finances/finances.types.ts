@@ -40,6 +40,7 @@ export type RuleCondition = {
 export type ClassificationRule = {
   id: string;
   name: string;
+  description?: string;
   classification: string;
   conditions: RuleCondition[];
   conditionMatchMode: 'all' | 'any';

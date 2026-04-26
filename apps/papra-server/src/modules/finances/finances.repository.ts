@@ -446,6 +446,7 @@ async function createClassificationRule({ db, rule }: {
   rule: {
     organizationId: string;
     name: string;
+    description?: string;
     classification?: string;
     conditions: Array<{ field: string; operator: string; value: string }>;
     conditionMatchMode?: string;
@@ -481,6 +482,7 @@ async function updateClassificationRule({ db, ruleId, organizationId, updates }:
   organizationId: string;
   updates: {
     name?: string;
+    description?: string;
     classification?: string;
     conditions?: Array<{ field: string; operator: string; value: string }>;
     conditionMatchMode?: string;

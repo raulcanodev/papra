@@ -1,6 +1,9 @@
 import type { RouteDefinitionContext } from '../app/server.types';
+import { generateObject } from 'ai';
 import { z } from 'zod';
 import { requireAuthentication } from '../app/auth/auth.middleware';
+import { createAiNotConfiguredError } from '../ai-assistant/ai-assistant.errors';
+import { createLlmModel, getApiKeyForProvider, getConfiguredProviders } from '../ai-assistant/ai-assistant.providers';
 import { getUser } from '../app/auth/auth.models';
 import { createCustomPropertiesRepository } from '../custom-properties/custom-properties.repository';
 import { requireFeatureFlag } from '../feature-flags/feature-flags.middleware';
@@ -29,6 +32,7 @@ export function registerFinancesRoutes(context: RouteDefinitionContext) {
   setupCreateClassificationRuleRoute(context);
   setupUpdateClassificationRuleRoute(context);
   setupDeleteClassificationRuleRoute(context);
+  setupSuggestClassificationConditionsRoute(context);
   setupAutoClassifyRoute(context);
   setupGetOverviewRoute(context);
   setupGetSubscriptionsRoute(context);
@@ -361,6 +365,7 @@ function setupCreateClassificationRuleRoute({ app, db, config }: RouteDefinition
     legacyValidateParams(z.object({ organizationId: organizationIdSchema })),
     legacyValidateJsonBody(z.object({
       name: z.string().min(1).max(100),
+      description: z.string().max(500).optional(),
       classification: z.enum(TRANSACTION_CLASSIFICATIONS),
       conditions: z.array(conditionSchema).min(1),
       conditionMatchMode: z.enum(CONDITION_MATCH_MODES).default('all'),
@@ -396,6 +401,7 @@ function setupUpdateClassificationRuleRoute({ app, db, config }: RouteDefinition
     })),
     legacyValidateJsonBody(z.object({
       name: z.string().min(1).max(100).optional(),
+      description: z.string().max(500).optional(),
       classification: z.enum(TRANSACTION_CLASSIFICATIONS).optional(),
       conditions: z.array(conditionSchema).min(1).optional(),
       conditionMatchMode: z.enum(CONDITION_MATCH_MODES).optional(),
@@ -443,6 +449,105 @@ function setupDeleteClassificationRuleRoute({ app, db, config }: RouteDefinition
       await financesRepository.deleteClassificationRule({ ruleId, organizationId });
 
       return context.json({ success: true });
+    },
+  );
+}
+
+function setupSuggestClassificationConditionsRoute({ app, db, config }: RouteDefinitionContext) {
+  app.post(
+    '/api/organizations/:organizationId/finances/classification-rules/suggest-conditions',
+    requireAuthentication(),
+    requireFeatureFlag({ flagId: 'llc_finances', db }),
+    legacyValidateParams(z.object({ organizationId: organizationIdSchema })),
+    legacyValidateJsonBody(z.object({
+      classification: z.enum(TRANSACTION_CLASSIFICATIONS),
+      description: z.string().max(500).optional(),
+      existingConditions: z.array(z.object({ field: z.string(), operator: z.string(), value: z.string() })).optional(),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId } = context.req.valid('param');
+      const { classification, description, existingConditions } = context.req.valid('json');
+
+      const organizationsRepository = createOrganizationsRepository({ db });
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      const aiConfig = config.aiAssistant as { openaiApiKey?: string; anthropicApiKey?: string; grokApiKey?: string; googleApiKey?: string; model?: string };
+      const apiKeys = { openaiApiKey: aiConfig.openaiApiKey, anthropicApiKey: aiConfig.anthropicApiKey, grokApiKey: aiConfig.grokApiKey, googleApiKey: aiConfig.googleApiKey };
+      const configuredProviders = getConfiguredProviders(apiKeys);
+
+      if (configuredProviders.length === 0) {
+        throw createAiNotConfiguredError();
+      }
+
+      const provider = configuredProviders[0]!;
+      const apiKey = getApiKeyForProvider({ provider, apiKeys });
+
+      if (!apiKey) {
+        throw createAiNotConfiguredError();
+      }
+
+      const model = createLlmModel({ provider, apiKey, model: aiConfig.model });
+
+      // Fetch sample transactions to inform suggestions
+      const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+
+      const [classifiedSample, unclassifiedSummary] = await Promise.all([
+        financesRepository.getTransactions({
+          organizationId,
+          pageIndex: 0,
+          pageSize: 150,
+          classification,
+        }),
+        financesRepository.getUnclassifiedCounterpartySummary({ organizationId }),
+      ]);
+
+      const sampleTxns = classifiedSample.transactions.map(t => ({
+        description: t.description,
+        counterparty: t.counterparty,
+        amount: t.amount,
+      }));
+
+      const existingConditionValues = (existingConditions ?? []).map(c => c.value);
+
+      const prompt = `You are a financial transaction classifier assistant. The user wants to create a rule to detect transactions of classification: "${classification}".
+
+User description of what this rule should match: "${description ?? '(none provided)'}"
+
+Sample transactions already classified as "${classification}":
+${JSON.stringify(sampleTxns.slice(0, 80), null, 2)}
+
+Top unclassified transaction patterns (for context):
+${JSON.stringify(unclassifiedSummary.patterns.slice(0, 30).map(p => ({ keyword: p.keyword, count: p.transactionCount, suggestedClassification: p.suggestedClassification })), null, 2)}
+
+Already existing conditions (skip these values):
+${JSON.stringify(existingConditionValues)}
+
+Based on the sample data and the user's description, suggest 3-8 conditions that would reliably identify "${classification}" transactions. 
+
+Rules for conditions:
+- field must be one of: "counterparty", "description"  
+- operator must be one of: "contains", "equals", "starts_with"
+- value should be a short keyword or name (1-3 words max) that appears in the transaction data
+- Skip any values that are already in the existing conditions list
+- Focus on specific, distinctive keywords — NOT generic words like "payment", "transfer", "bank"
+- Prefer counterparty values (business/person names) when available
+- Prioritize keywords that appear multiple times in the sample data`;
+
+      const result = await generateObject({
+        model,
+        prompt,
+        schema: z.object({
+          conditions: z.array(z.object({
+            field: z.enum(['counterparty', 'description']),
+            operator: z.enum(['contains', 'equals', 'starts_with']),
+            value: z.string().min(1),
+          })).max(10),
+          reasoning: z.string().optional(),
+        }),
+      });
+
+      return context.json({ conditions: result.object.conditions });
     },
   );
 }

@@ -109,7 +109,7 @@ export async function fetchClassificationRules({ organizationId }: { organizatio
 
 export async function createClassificationRule({ organizationId, rule }: {
   organizationId: string;
-  rule: { name: string; classification?: string; conditions: Array<{ field: string; operator: string; value: string }>; conditionMatchMode?: 'all' | 'any'; tagIds?: string[]; priority?: number };
+  rule: { name: string; description?: string; classification?: string; conditions: Array<{ field: string; operator: string; value: string }>; conditionMatchMode?: 'all' | 'any'; tagIds?: string[]; priority?: number };
 }) {
   return apiClient<{ rule: ClassificationRule }>({
     method: 'POST',
@@ -121,7 +121,7 @@ export async function createClassificationRule({ organizationId, rule }: {
 export async function updateClassificationRule({ organizationId, ruleId, updates }: {
   organizationId: string;
   ruleId: string;
-  updates: Partial<{ name: string; classification: string; conditions: Array<{ field: string; operator: string; value: string }>; conditionMatchMode: 'all' | 'any'; tagIds: string[]; priority: number; isActive: boolean }>;
+  updates: Partial<{ name: string; description: string; classification: string; conditions: Array<{ field: string; operator: string; value: string }>; conditionMatchMode: 'all' | 'any'; tagIds: string[]; priority: number; isActive: boolean }>;
 }) {
   return apiClient<{ rule: ClassificationRule }>({
     method: 'PATCH',
@@ -137,6 +137,19 @@ export async function deleteClassificationRule({ organizationId, ruleId }: {
   return apiClient<{ success: boolean }>({
     method: 'DELETE',
     path: `/api/organizations/${organizationId}/finances/classification-rules/${ruleId}`,
+  });
+}
+
+export async function suggestClassificationConditions({ organizationId, classification, description, existingConditions }: {
+  organizationId: string;
+  classification: string;
+  description?: string;
+  existingConditions?: Array<{ field: string; operator: string; value: string }>;
+}) {
+  return apiClient<{ conditions: Array<{ field: string; operator: string; value: string }> }>({
+    method: 'POST',
+    path: `/api/organizations/${organizationId}/finances/classification-rules/suggest-conditions`,
+    body: { classification, description, existingConditions },
   });
 }
 

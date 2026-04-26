@@ -18,6 +18,7 @@ import {
   createClassificationRule,
   deleteClassificationRule,
   fetchClassificationRules,
+  suggestClassificationConditions,
   updateClassificationRule,
 } from '../finances.services';
 
@@ -67,16 +68,19 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
   const [isDialogOpen, setIsDialogOpen] = createSignal(false);
   const [editingRuleId, setEditingRuleId] = createSignal<string | null>(null);
   const [ruleName, setRuleName] = createSignal('');
+  const [ruleDescription, setRuleDescription] = createSignal('');
   const [ruleClassification, setRuleClassification] = createSignal<string>('expense');
   const [conditionMatchMode, setConditionMatchMode] = createSignal<'all' | 'any'>('all');
   const [conditions, setConditions] = createStore<RuleCondition[]>([defaultCondition()]);
   const [ruleTagIds, setRuleTagIds] = createSignal<string[]>([]);
+  const [isSuggestingConditions, setIsSuggestingConditions] = createSignal(false);
 
   const isEditing = () => editingRuleId() !== null;
 
   const resetForm = () => {
     setEditingRuleId(null);
     setRuleName('');
+    setRuleDescription('');
     setRuleClassification('expense');
     setConditionMatchMode('all');
     setConditions(reconcile([defaultCondition()]));
@@ -88,9 +92,10 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
     setIsDialogOpen(true);
   };
 
-  const openEditDialog = (rule: { id: string; name: string; classification: string; conditions: RuleCondition[]; conditionMatchMode: string; tagIds?: string[] }) => {
+  const openEditDialog = (rule: { id: string; name: string; description?: string; classification: string; conditions: RuleCondition[]; conditionMatchMode: string; tagIds?: string[] }) => {
     setEditingRuleId(rule.id);
     setRuleName(rule.name);
+    setRuleDescription(rule.description ?? '');
     setRuleClassification(rule.classification);
     setConditionMatchMode((rule.conditionMatchMode as 'all' | 'any') ?? 'all');
     setConditions(reconcile(rule.conditions.length > 0 ? [...rule.conditions] : [defaultCondition()]));
@@ -133,6 +138,7 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
       organizationId: props.organizationId,
       rule: {
         name: ruleName(),
+        description: ruleDescription() || undefined,
         classification: ruleClassification(),
         conditions: [...conditions],
         conditionMatchMode: conditionMatchMode(),
@@ -156,6 +162,7 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
       ruleId: editingRuleId()!,
       updates: {
         name: ruleName(),
+        description: ruleDescription() || undefined,
         classification: ruleClassification(),
         conditions: [...conditions],
         conditionMatchMode: conditionMatchMode(),
@@ -193,6 +200,28 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
   }));
 
   const isFormValid = () => ruleName().trim().length > 0 && conditions.every(c => c.value.trim().length > 0);
+
+  const handleSuggestConditions = async () => {
+    setIsSuggestingConditions(true);
+    try {
+      const { conditions: suggested } = await suggestClassificationConditions({
+        organizationId: props.organizationId,
+        classification: ruleClassification(),
+        description: ruleDescription() || undefined,
+        existingConditions: [...conditions].filter(c => c.value.trim().length > 0),
+      });
+      if (suggested.length > 0) {
+        const validSuggested = suggested.filter(s =>
+          !conditions.some(c => c.value.toLowerCase() === s.value.toLowerCase()),
+        ) as RuleCondition[];
+        setConditions(produce(s => s.push(...validSuggested)));
+      }
+    } catch {
+      // AI not configured or failed — ignore silently
+    } finally {
+      setIsSuggestingConditions(false);
+    }
+  };
 
   return (
     <div class="border rounded-lg p-4 mb-6">
@@ -328,6 +357,19 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
               </TextFieldRoot>
             </div>
 
+            {/* Description */}
+            <div>
+              <label class="text-sm font-medium mb-1.5 block">Description <span class="text-muted-foreground font-normal">(optional)</span></label>
+              <p class="text-xs text-muted-foreground mb-1.5">Describe what this rule detects — used by AI to suggest conditions</p>
+              <TextFieldRoot>
+                <TextField
+                  placeholder="e.g. Bar & restaurant expenses, infrequent names, night-out spending..."
+                  value={ruleDescription()}
+                  onInput={e => setRuleDescription(e.currentTarget.value)}
+                />
+              </TextFieldRoot>
+            </div>
+
             {/* Classify as */}
             <div>
               <label class="text-sm font-medium mb-1.5 block">Classify as</label>
@@ -438,6 +480,16 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
               <Button size="sm" variant="outline" class="mt-2 w-full" onClick={addCondition}>
                 <div class="i-tabler-plus size-3.5 mr-1" />
                 Add condition
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                class="mt-1 w-full border-violet-500/40 text-violet-600 hover:bg-violet-500/10 hover:border-violet-500/60"
+                onClick={handleSuggestConditions}
+                disabled={isSuggestingConditions()}
+              >
+                <div class={cn('size-3.5 mr-1', isSuggestingConditions() ? 'i-tabler-loader-2 animate-spin' : 'i-tabler-sparkles')} />
+                {isSuggestingConditions() ? 'Analyzing transactions...' : 'Suggest with AI'}
               </Button>
             </div>
 

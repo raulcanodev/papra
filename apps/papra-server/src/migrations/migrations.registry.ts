@@ -32,6 +32,7 @@ import { financeGoalsMigration } from './list/0029-finance-goals.migration';
 import { financeGoalVersionsMigration } from './list/0030-finance-goal-versions.migration';
 import { financeSubscriptionTransactionSearchMigration } from './list/0031-finance-subscription-transaction-search.migration';
 import { financeSubscriptionTagIdsMigration } from './list/0032-finance-subscription-tag-ids.migration';
+import { classificationRuleDescriptionMigration } from './list/0033-classification-rule-description.migration';
 
 export const migrations: Migration[] = [
   initialSchemaSetupMigration,
@@ -66,4 +67,5 @@ export const migrations: Migration[] = [
   financeGoalVersionsMigration,
   financeSubscriptionTransactionSearchMigration,
   financeSubscriptionTagIdsMigration,
+  classificationRuleDescriptionMigration,
 ];
