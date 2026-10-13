@@ -1,3 +1,3 @@
-import type { LibSQLDatabase } from 'drizzle-orm/libsql';
+import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 
-export type Database = LibSQLDatabase<Record<string, never>>;
+export type Database = PgDatabase<PgQueryResultHKT, Record<string, never>>;

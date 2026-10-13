@@ -390,11 +390,11 @@ export const TagsPage: Component = () => {
   });
 
   return (
-    <div class="flex flex-col h-full">
-      <div class="border-b px-6 py-3 flex items-center justify-between shrink-0 bg-background">
+    <div class="page">
+      <div class="page-header">
         <div>
-          <h1 class="text-sm font-semibold leading-none">{t('tags.title')}</h1>
-          <p class="text-xs text-muted-foreground mt-0.5">{t('tags.description')}</p>
+          <h1 class="page-title">{t('tags.title')}</h1>
+          <p class="page-description">{t('tags.description')}</p>
         </div>
         <div class="flex items-center gap-2">
           <CreateTagModal organizationId={params.organizationId}>
@@ -407,7 +407,7 @@ export const TagsPage: Component = () => {
           </CreateTagModal>
         </div>
       </div>
-      <div class="p-6 pb-32 max-w-5xl mx-auto w-full overflow-y-auto flex-1">
+      <div>
         <Suspense>
           <Show when={query.data?.tags}>
             {getTags => (
@@ -431,57 +431,57 @@ export const TagsPage: Component = () => {
                   />
                 )}
               >
-              <Table>
-                <TableHeader>
-                  <For each={table.getHeaderGroups()}>
-                    {headerGroup => (
-                      <TableRow>
-                        <For each={headerGroup.headers}>
-                          {header => (
-                            <TableHead>
-                              <Show
-                                when={header.column.getCanSort()}
-                                fallback={flexRender(header.column.columnDef.header, header.getContext())}
-                              >
-                                <button
-                                  class="flex items-center gap-1 cursor-pointer select-none"
-                                  onClick={header.column.getToggleSortingHandler()}
+                <Table>
+                  <TableHeader>
+                    <For each={table.getHeaderGroups()}>
+                      {headerGroup => (
+                        <TableRow>
+                          <For each={headerGroup.headers}>
+                            {header => (
+                              <TableHead>
+                                <Show
+                                  when={header.column.getCanSort()}
+                                  fallback={flexRender(header.column.columnDef.header, header.getContext())}
                                 >
-                                  {flexRender(header.column.columnDef.header, header.getContext())}
-                                  <Show when={header.column.getIsSorted() === 'asc'}>
-                                    <div class="i-tabler-arrow-down size-3.5" />
-                                  </Show>
-                                  <Show when={header.column.getIsSorted() === 'desc'}>
-                                    <div class="i-tabler-arrow-up size-3.5" />
-                                  </Show>
-                                  <Show when={!header.column.getIsSorted()}>
-                                    <div class="i-tabler-arrows-sort size-3.5 opacity-40" />
-                                  </Show>
-                                </button>
-                              </Show>
-                            </TableHead>
-                          )}
-                        </For>
-                      </TableRow>
-                    )}
-                  </For>
-                </TableHeader>
-                <TableBody>
-                  <For each={table.getRowModel().rows}>
-                    {row => (
-                      <TableRow>
-                        <For each={row.getVisibleCells()}>
-                          {cell => (
-                            <TableCell>
-                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                            </TableCell>
-                          )}
-                        </For>
-                      </TableRow>
-                    )}
-                  </For>
-                </TableBody>
-              </Table>
+                                  <button
+                                    class="flex items-center gap-1 cursor-pointer select-none"
+                                    onClick={header.column.getToggleSortingHandler()}
+                                  >
+                                    {flexRender(header.column.columnDef.header, header.getContext())}
+                                    <Show when={header.column.getIsSorted() === 'asc'}>
+                                      <div class="i-tabler-arrow-down size-3.5" />
+                                    </Show>
+                                    <Show when={header.column.getIsSorted() === 'desc'}>
+                                      <div class="i-tabler-arrow-up size-3.5" />
+                                    </Show>
+                                    <Show when={!header.column.getIsSorted()}>
+                                      <div class="i-tabler-arrows-sort size-3.5 opacity-40" />
+                                    </Show>
+                                  </button>
+                                </Show>
+                              </TableHead>
+                            )}
+                          </For>
+                        </TableRow>
+                      )}
+                    </For>
+                  </TableHeader>
+                  <TableBody>
+                    <For each={table.getRowModel().rows}>
+                      {row => (
+                        <TableRow>
+                          <For each={row.getVisibleCells()}>
+                            {cell => (
+                              <TableCell>
+                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                              </TableCell>
+                            )}
+                          </For>
+                        </TableRow>
+                      )}
+                    </For>
+                  </TableBody>
+                </Table>
 
               </Show>
             )}

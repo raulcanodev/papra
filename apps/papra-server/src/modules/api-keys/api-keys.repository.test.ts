@@ -46,6 +46,8 @@ describe('api-keys repository', () => {
             updatedAt: new Date('2021-01-02'),
             deletedAt: null,
             deletedBy: null,
+            onboardingCompletedAt: null,
+            onboardingStep: null,
             scheduledPurgeAt: null,
           }],
           createdAt: new Date('2021-03-01'),

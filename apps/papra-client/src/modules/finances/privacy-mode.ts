@@ -5,8 +5,7 @@ const STORAGE_KEY = 'papra-privacy-mode';
 function getInitialValue(): boolean {
   try {
     return localStorage.getItem(STORAGE_KEY) === 'true';
-  }
-  catch {
+  } catch {
     return false;
   }
 }

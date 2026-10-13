@@ -1,5 +1,5 @@
 import type { OrganizationInvitation } from './organizations.types';
-import { eq, like } from 'drizzle-orm';
+import { eq, ilike } from 'drizzle-orm';
 import { escapeLikeWildcards } from '../shared/db/sql.helpers';
 import { isNilOrEmptyString } from '../shared/utils';
 import { ORGANIZATION_ID_REGEX, ORGANIZATION_INVITATION_STATUS } from './organizations.constants';
@@ -35,5 +35,5 @@ export function createSearchOrganizationWhereClause({ search }: { search?: strin
   const escapedSearch = escapeLikeWildcards(trimmedSearch);
   const likeSearch = `%${escapedSearch}%`;
 
-  return like(organizationsTable.name, likeSearch);
+  return ilike(organizationsTable.name, likeSearch);
 }

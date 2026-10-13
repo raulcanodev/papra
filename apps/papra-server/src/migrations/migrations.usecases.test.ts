@@ -1,53 +1,55 @@
+import type { Database } from '../modules/app/database/database.types';
 import type { Migration } from './migrations.types';
 import { createNoopLogger } from '@crowlog/logger';
 import { sql } from 'drizzle-orm';
 import { describe, expect, test } from 'vitest';
-import { setupDatabase } from '../modules/app/database/database';
+import { setupInMemoryDatabase } from '../modules/app/database/database.test-utils';
+import { getRawQueryRows } from '../modules/app/database/database.usecases';
 import { migrationsTable } from './migration.tables';
 import { rollbackLastAppliedMigration, runMigrations } from './migrations.usecases';
 
 const createTableUserMigration: Migration = {
   name: 'create-table-user',
   up: async ({ db }) => {
-    await db.run(sql`CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)`);
+    await db.execute(sql`CREATE TABLE users (id SERIAL PRIMARY KEY, name TEXT NOT NULL)`);
   },
   down: async ({ db }) => {
-    await db.run(sql`DROP TABLE users`);
+    await db.execute(sql`DROP TABLE users`);
   },
 };
 
 const createTableOrganizationMigration: Migration = {
   name: 'create-table-organization',
   up: async ({ db }) => {
-    await db.batch([
-      db.run(sql`CREATE TABLE organizations (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)`),
-      db.run(sql`CREATE TABLE organization_members (id INTEGER PRIMARY KEY AUTOINCREMENT, organization_id INTEGER NOT NULL, user_id INTEGER NOT NULL, role TEXT NOT NULL, created_at INTEGER NOT NULL)`),
-    ]);
+    await db.execute(sql`CREATE TABLE organizations (id SERIAL PRIMARY KEY, name TEXT NOT NULL)`);
+    await db.execute(sql`CREATE TABLE organization_members (id SERIAL PRIMARY KEY, organization_id INTEGER NOT NULL, user_id INTEGER NOT NULL, role TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL)`);
   },
   down: async ({ db }) => {
-    await db.batch([
-      db.run(sql`DROP TABLE organizations`),
-      db.run(sql`DROP TABLE organization_members`),
-    ]);
+    await db.execute(sql`DROP TABLE organizations`);
+    await db.execute(sql`DROP TABLE organization_members`);
   },
 };
 
 const createTableDocumentMigration: Migration = {
   name: 'create-table-document',
   up: async ({ db }) => {
-    await db.batch([
-      db.run(sql`CREATE TABLE documents (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, created_at INTEGER NOT NULL)`),
-    ]);
+    await db.execute(sql`CREATE TABLE documents (id SERIAL PRIMARY KEY, name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL)`);
   },
   down: async ({ db }) => {
-    await db.run(sql`DROP TABLE documents`);
+    await db.execute(sql`DROP TABLE documents`);
   },
 };
+
+async function getPublicRelationNames({ db }: { db: Database }) {
+  const result = await db.execute(sql`SELECT c.relname AS name FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind IN ('r', 'i') ORDER BY c.relname`);
+
+  return getRawQueryRows<{ name: string }>(result).map(({ name }) => name);
+}
 
 describe('migrations usecases', () => {
   describe('runMigrations', () => {
     test('should run all migrations that are not already applied', async () => {
-      const { db } = setupDatabase({ url: ':memory:' });
+      const { db } = setupInMemoryDatabase();
 
       const migrations = [createTableUserMigration, createTableOrganizationMigration];
 
@@ -72,24 +74,27 @@ describe('migrations usecases', () => {
         { id: 3, name: 'create-table-document' },
       ]);
 
-      const { rows: tables } = await db.run(sql`SELECT name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'`);
-
       // Ensure all tables and indexes are created
-      expect(tables.map(t => t.name)).to.eql([
+      expect(await getPublicRelationNames({ db })).to.eql([
+        'documents',
+        'documents_pkey',
         'migrations',
         'migrations_name_index',
+        'migrations_pkey',
         'migrations_run_at_index',
-        'users',
-        'organizations',
         'organization_members',
-        'documents',
+        'organization_members_pkey',
+        'organizations',
+        'organizations_pkey',
+        'users',
+        'users_pkey',
       ]);
     });
   });
 
   describe('rollbackLastAppliedMigration', () => {
     test('the last migration down is called', async () => {
-      const { db } = setupDatabase({ url: ':memory:' });
+      const { db } = setupInMemoryDatabase();
 
       const migrations = [createTableUserMigration, createTableDocumentMigration];
 
@@ -103,8 +108,8 @@ describe('migrations usecases', () => {
       ]);
 
       // Ensure the tables exists, no error is thrown
-      await db.run(sql`SELECT * FROM users`);
-      await db.run(sql`SELECT * FROM documents`);
+      await db.execute(sql`SELECT * FROM users`);
+      await db.execute(sql`SELECT * FROM documents`);
 
       await rollbackLastAppliedMigration({ db, migrations });
 
@@ -115,12 +120,12 @@ describe('migrations usecases', () => {
       ]);
 
       // Ensure the table document is dropped
-      await db.run(sql`SELECT * FROM users`);
-      await expect(db.run(sql`SELECT * FROM documents`)).rejects.toThrow();
+      await db.execute(sql`SELECT * FROM users`);
+      await expect(db.execute(sql`SELECT * FROM documents`)).rejects.toThrow();
     });
 
     test('when their is no migration to rollback, nothing is done', async () => {
-      const { db } = setupDatabase({ url: ':memory:' });
+      const { db } = setupInMemoryDatabase();
 
       await rollbackLastAppliedMigration({ db });
 
@@ -130,7 +135,7 @@ describe('migrations usecases', () => {
     });
 
     test('when the last migration in the database does not exist in the migrations list, an error is thrown', async () => {
-      const { db } = setupDatabase({ url: ':memory:' });
+      const { db } = setupInMemoryDatabase();
 
       await runMigrations({ db, migrations: [createTableUserMigration], logger: createNoopLogger() });
 

@@ -1,46 +1,36 @@
 import type { ParentComponent } from 'solid-js';
-import { A, useParams } from '@solidjs/router';
+import { A, useLocation, useParams } from '@solidjs/router';
+import { useFeatureFlags } from '@/modules/feature-flags/feature-flags.provider';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { SideNav } from '@/modules/ui/components/sidenav';
+import { buildOrganizationSettingsNavigation, getOrganizationRouteHref, getOrganizationRouteLabelKey } from '@/modules/ui/navigation/organization-navigation';
 import { Button } from '../components/button';
-import { Sheet, SheetContent, SheetTrigger } from '../components/sheet';
+import { AppShell, ShellBreadcrumb } from './sidenav.layout';
 
 export const OrganizationSettingsLayout: ParentComponent = (props) => {
   const params = useParams();
+  const location = useLocation();
   const { t } = useI18n();
+  const { hasFlag } = useFeatureFlags();
 
-  const getNavigationItems = () => [
-    {
-      label: t('layout.menu.general-settings'),
-      href: `/organizations/${params.organizationId}/settings`,
-      icon: 'i-tabler-settings',
+  const getNavigationSections = () => buildOrganizationSettingsNavigation({
+    organizationId: params.organizationId,
+    capabilities: {
+      'invoicing': true,
+      'personal-finances': hasFlag('llc_finances'),
     },
-    {
-      label: t('layout.menu.usage'),
-      href: `/organizations/${params.organizationId}/settings/usage`,
-      icon: 'i-tabler-chart-bar',
-    },
-    {
-      label: t('layout.menu.intake-emails'),
-      href: `/organizations/${params.organizationId}/settings/intake-emails`,
-      icon: 'i-tabler-mail',
-    },
-    {
-      label: t('layout.menu.webhooks'),
-      href: `/organizations/${params.organizationId}/settings/webhooks`,
-      icon: 'i-tabler-webhook',
-    },
-  ];
+    translate: t,
+  });
 
-  const sidenav = () => (
+  const sideNav = () => (
     <SideNav
-      mainMenu={getNavigationItems()}
+      mainSections={getNavigationSections()}
       header={() => (
-        <div class="pl-6 py-3 border-b border-b-border flex items-center gap-1">
-          <Button variant="ghost" size="icon" class="text-muted-foreground" as={A} href={`/organizations/${params.organizationId}`}>
-            <div class="i-tabler-arrow-left size-5" />
+        <div class="flex h-12 items-center gap-1 px-1">
+          <Button variant="ghost" size="icon-sm" class="text-muted-foreground" as={A} href={getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'home' })} aria-label={t('layout.back')}>
+            <div class="i-tabler-arrow-left size-4" />
           </Button>
-          <h1 class="text-base font-bold">
+          <h1 class="text-sm font-semibold">
             {t('organization.settings.title')}
           </h1>
         </div>
@@ -49,26 +39,16 @@ export const OrganizationSettingsLayout: ParentComponent = (props) => {
   );
 
   return (
-    <div class="flex flex-row h-screen min-h-0">
-      <div class="w-280px border-r border-r-border flex-shrink-0 hidden md:block bg-card">
-        {sidenav()}
-      </div>
-      <div class="flex-1 min-h-0 flex flex-col">
-        <header class="h-14 flex items-center px-4 border-b bg-card md:hidden">
-          <Sheet>
-            <SheetTrigger>
-              <Button variant="ghost" size="icon" class="mr-2">
-                <div class="i-tabler-menu-2 size-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" class="bg-card p-0!">
-              {sidenav()}
-            </SheetContent>
-          </Sheet>
-          <span class="font-semibold text-sm">{t('organization.settings.title')}</span>
-        </header>
-        {props.children}
-      </div>
-    </div>
+    <AppShell
+      sideNav={sideNav}
+      header={() => (
+        <ShellBreadcrumb
+          parent={t('organization.settings.title')}
+          title={t(getOrganizationRouteLabelKey({ organizationId: params.organizationId, pathname: location.pathname }))}
+        />
+      )}
+    >
+      {props.children}
+    </AppShell>
   );
 };

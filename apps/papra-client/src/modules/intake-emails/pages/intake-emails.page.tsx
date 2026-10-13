@@ -136,7 +136,7 @@ const AllowedOriginsDialog: Component<{
                 </div>
                 <Button
                   variant="outline"
-                  aria-label="Delete allowed origin"
+                  aria-label={t('intake-emails.delete-origin')}
                   size="icon"
                   class="text-red"
                   onClick={() => deleteAllowedOrigin({ origin })}
@@ -256,7 +256,7 @@ export const IntakeEmailsPage: Component = () => {
   };
 
   return (
-    <div class="p-6 max-w-screen-md mx-auto mt-10">
+    <div class="page-narrow">
       <h1 class="text-xl font-semibold">{t('intake-emails.title')}</h1>
 
       <p class="text-muted-foreground mt-1">
@@ -350,7 +350,7 @@ export const IntakeEmailsPage: Component = () => {
                             setOpenDropdownId(isOpen ? intakeEmail.id : null);
                           }}
                         >
-                          <DropdownMenuTrigger as={Button} variant="outline" aria-label="More actions" size="icon">
+                          <DropdownMenuTrigger as={Button} variant="outline" aria-label={t('intake-emails.more-actions')} size="icon">
                             <div class="i-tabler-dots-vertical size-4" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>

@@ -4,7 +4,7 @@ import { createInMemoryDatabase } from '../database/database.test-utils';
 import { isDatabaseHealthy } from './health-check.repository';
 
 const faultyDatabase = {
-  run: async () => {
+  execute: async () => {
     throw new Error('Alerte générale !');
   },
 } as unknown as Database;

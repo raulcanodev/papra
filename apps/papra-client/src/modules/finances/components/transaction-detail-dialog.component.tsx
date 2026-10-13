@@ -1,12 +1,16 @@
 import type { Component } from 'solid-js';
 import type { Transaction } from '../finances.types';
-import { For, Show } from 'solid-js';
+import type { Tag } from '@/modules/tags/tags.types';
 import { useQuery } from '@tanstack/solid-query';
+import { For, Show } from 'solid-js';
 import { TransactionCustomPropertiesPanel } from '@/modules/custom-properties/components/transaction-custom-properties-panel.component';
 import { fetchCustomPropertyDefinitions } from '@/modules/custom-properties/custom-properties.services';
+import { getDocumentLocale } from '@/modules/i18n/document-locale';
+import { useI18n } from '@/modules/i18n/i18n.provider';
 import { TransactionTagsList } from '@/modules/tags/components/tag-list.component';
 import { Badge } from '@/modules/ui/components/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/modules/ui/components/dialog';
+import { getClassificationLabelKey } from '../finances-labels';
 import { fetchTransactionCustomProperties } from '../finances.services';
 
 const classificationColors: Record<string, string> = {
@@ -16,19 +20,12 @@ const classificationColors: Record<string, string> = {
   internal_transfer: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
 };
 
-const classificationLabels: Record<string, string> = {
-  expense: 'Expense',
-  income: 'Income',
-  owner_transfer: 'Owner Transfer',
-  internal_transfer: 'Internal Transfer',
-};
-
 function formatCurrency(amount: number, currency: string) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 2 }).format(amount);
+  return new Intl.NumberFormat(getDocumentLocale(), { style: 'currency', currency, minimumFractionDigits: 2 }).format(amount);
 }
 
 function formatDate(date: Date | string) {
-  return new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(date));
+  return new Intl.DateTimeFormat(getDocumentLocale(), { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(date));
 }
 
 export const TransactionDetailDialog: Component<{
@@ -37,6 +34,7 @@ export const TransactionDetailDialog: Component<{
   onClose: () => void;
   organizationId: string;
 }> = (props) => {
+  const { t } = useI18n();
   const rawDataParsed = () => {
     if (!props.transaction?.rawData) {
       return null;
@@ -82,12 +80,11 @@ export const TransactionDetailDialog: Component<{
     enabled: props.isOpen,
   }));
 
-
   return (
     <Dialog open={props.isOpen} onOpenChange={open => !open && props.onClose()}>
       <DialogContent class="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Transaction Details</DialogTitle>
+          <DialogTitle>{t('finances.transaction.title')}</DialogTitle>
         </DialogHeader>
 
         <Show when={props.transaction}>
@@ -95,36 +92,36 @@ export const TransactionDetailDialog: Component<{
             <div class="flex flex-col gap-3 mt-4">
               <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <div class="text-xs text-muted-foreground mb-0.5">Date</div>
+                  <div class="text-xs text-muted-foreground mb-0.5">{t('finances.transactions.table.date')}</div>
                   <div class="text-sm font-medium">{formatDate(txn().date)}</div>
                 </div>
                 <div>
-                  <div class="text-xs text-muted-foreground mb-0.5">Amount</div>
+                  <div class="text-xs text-muted-foreground mb-0.5">{t('finances.transactions.table.amount')}</div>
                   <div class={`text-sm font-mono font-medium ${txn().amount < 0 ? 'text-red-500' : 'text-green-600'}`}>
                     {formatCurrency(txn().amount, txn().currency)}
                   </div>
                 </div>
                 <div class="col-span-2">
-                  <div class="text-xs text-muted-foreground mb-0.5">Description</div>
+                  <div class="text-xs text-muted-foreground mb-0.5">{t('finances.transactions.table.description')}</div>
                   <div class="text-sm">{txn().description}</div>
                 </div>
                 <div>
-                  <div class="text-xs text-muted-foreground mb-0.5">Counterparty</div>
+                  <div class="text-xs text-muted-foreground mb-0.5">{t('finances.transactions.table.counterparty')}</div>
                   <div class="text-sm">{txn().counterparty ?? '—'}</div>
                 </div>
                 <div>
-                  <div class="text-xs text-muted-foreground mb-0.5">Status</div>
+                  <div class="text-xs text-muted-foreground mb-0.5">{t('finances.transaction.status')}</div>
                   <div class="text-sm capitalize">{txn().status}</div>
                 </div>
                 <div>
-                  <div class="text-xs text-muted-foreground mb-0.5">Provider</div>
+                  <div class="text-xs text-muted-foreground mb-0.5">{t('finances.transaction.provider')}</div>
                   <div class="text-sm capitalize">{txn().provider}</div>
                 </div>
                 <div>
-                  <div class="text-xs text-muted-foreground mb-0.5">Classification</div>
-                  <Show when={txn().classification} fallback={<span class="text-sm text-muted-foreground">Unclassified</span>}>
+                  <div class="text-xs text-muted-foreground mb-0.5">{t('finances.transactions.table.classification')}</div>
+                  <Show when={txn().classification} fallback={<span class="text-sm text-muted-foreground">{t('finances.classification.unclassified')}</span>}>
                     <Badge class={classificationColors[txn().classification!]}>
-                      {classificationLabels[txn().classification!] ?? txn().classification}
+                      {getClassificationLabelKey(txn().classification!) ? t(getClassificationLabelKey(txn().classification!)!) : txn().classification}
                     </Badge>
                   </Show>
                 </div>
@@ -132,9 +129,9 @@ export const TransactionDetailDialog: Component<{
 
               <Show when={(txn().tags ?? []).length > 0}>
                 <div>
-                  <div class="text-xs text-muted-foreground mb-1">Tags</div>
+                  <div class="text-xs text-muted-foreground mb-1">{t('finances.transactions.table.tags')}</div>
                   <TransactionTagsList
-                    tags={txn().tags ?? []}
+                    tags={(txn().tags ?? []) as Tag[]}
                     transactionId={txn().id}
                     organizationId={props.organizationId}
                   />
@@ -142,7 +139,7 @@ export const TransactionDetailDialog: Component<{
               </Show>
               <Show when={!(txn().tags ?? []).length}>
                 <div>
-                  <div class="text-xs text-muted-foreground mb-0.5">Tags</div>
+                  <div class="text-xs text-muted-foreground mb-0.5">{t('finances.transactions.table.tags')}</div>
                   <TransactionTagsList
                     tags={[]}
                     transactionId={txn().id}
@@ -165,7 +162,7 @@ export const TransactionDetailDialog: Component<{
               <Show when={rawDataParsed()}>
                 {data => (
                   <div>
-                    <div class="text-xs text-muted-foreground mb-1.5 mt-2">Raw Provider Data</div>
+                    <div class="text-xs text-muted-foreground mb-1.5 mt-2">{t('finances.transaction.raw-data')}</div>
                     <div class="bg-muted rounded-lg p-3 max-h-60 overflow-y-auto">
                       <table class="w-full text-xs">
                         <tbody>

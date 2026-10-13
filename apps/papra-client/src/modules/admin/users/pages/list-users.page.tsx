@@ -93,7 +93,7 @@ export const AdminListUsersPage: Component = () => {
   };
 
   return (
-    <div class="p-6">
+    <div class="page">
       <div class="border-b mb-6 pb-4">
         <h1 class="text-xl font-bold mb-1">
           {t('admin.users.title')}

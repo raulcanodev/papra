@@ -1,4 +1,4 @@
-import { integer, text } from 'drizzle-orm/sqlite-core';
+import { text, timestamp } from 'drizzle-orm/pg-core';
 import { generateId } from '../random/ids';
 
 export function createPrimaryKeyField({
@@ -14,7 +14,7 @@ export function createPrimaryKeyField({
 
 export function createCreatedAtField() {
   return {
-    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    createdAt: timestamp('created_at', { mode: 'date', withTimezone: true, precision: 3 })
       .notNull()
       .$default(() => new Date()),
   };
@@ -22,7 +22,7 @@ export function createCreatedAtField() {
 
 export function createUpdatedAtField() {
   return {
-    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+    updatedAt: timestamp('updated_at', { mode: 'date', withTimezone: true, precision: 3 })
       .notNull()
       .$default(() => new Date()),
   };

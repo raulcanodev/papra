@@ -11,6 +11,7 @@ import type { PolymorphicProps } from '@kobalte/core/polymorphic';
 import type { ComponentProps, ValidComponent, VoidProps } from 'solid-js';
 import { NumberField as NumberFieldPrimitive } from '@kobalte/core/number-field';
 import { splitProps } from 'solid-js';
+import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cn } from '@/modules/shared/style/cn';
 import { textfieldLabel } from './textfield';
 
@@ -109,6 +110,7 @@ export function NumberFieldInput<T extends ValidComponent = 'input'>(props: Poly
 type numberFieldDecrementTriggerProps<T extends ValidComponent = 'button'> = VoidProps<NumberFieldDecrementTriggerProps<T> & { class?: string }>;
 
 export function NumberFieldDecrementTrigger<T extends ValidComponent = 'button',>(props: PolymorphicProps<T, VoidProps<numberFieldDecrementTriggerProps<T>>>) {
+  const { t } = useI18n();
   const [local, rest] = splitProps(props as numberFieldDecrementTriggerProps, ['class']);
 
   return (
@@ -132,7 +134,7 @@ export function NumberFieldDecrementTrigger<T extends ValidComponent = 'button',
           stroke-width="2"
           d="M5 12h14"
         />
-        <title>Decrease number</title>
+        <title>{t('ui.number-field.decrease')}</title>
       </svg>
     </NumberFieldPrimitive.DecrementTrigger>
   );
@@ -141,6 +143,7 @@ export function NumberFieldDecrementTrigger<T extends ValidComponent = 'button',
 type numberFieldIncrementTriggerProps<T extends ValidComponent = 'button'> = VoidProps<NumberFieldIncrementTriggerProps<T> & { class?: string }>;
 
 export function NumberFieldIncrementTrigger<T extends ValidComponent = 'button',>(props: PolymorphicProps<T, numberFieldIncrementTriggerProps<T>>) {
+  const { t } = useI18n();
   const [local, rest] = splitProps(props as numberFieldIncrementTriggerProps, ['class']);
 
   return (
@@ -164,7 +167,7 @@ export function NumberFieldIncrementTrigger<T extends ValidComponent = 'button',
           stroke-width="2"
           d="M12 5v14m-7-7h14"
         />
-        <title>Increase number</title>
+        <title>{t('ui.number-field.increase')}</title>
       </svg>
     </NumberFieldPrimitive.IncrementTrigger>
   );

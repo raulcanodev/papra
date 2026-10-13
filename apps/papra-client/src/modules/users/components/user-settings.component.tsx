@@ -22,32 +22,31 @@ export const UserSettingsDropdown: Component<{ class?: string; userName?: string
       <DropdownMenuTrigger
         as={Button}
         class={cn(
-          'relative w-full justify-start items-center gap-2 dark:text-muted-foreground truncate',
+          'relative h-12 w-full justify-start items-center gap-2 px-2 font-normal truncate hover:bg-sidebar-accent data-[expanded]:bg-sidebar-accent',
           props.class,
         )}
         variant="ghost"
-        aria-label="User menu"
+        aria-label={t('user-menu.aria-label')}
       >
         <div class="relative shrink-0">
-          <div class="i-tabler-user size-5 text-muted-foreground opacity-50" />
+          <span class="flex size-8 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground">
+            {(props.userName || props.userEmail || '?').trim().charAt(0).toUpperCase()}
+          </span>
           <Show when={getPendingInvitationsCount() > 0}>
-            <div class="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground rounded-xl text-xs px-1 leading-tight font-bold">
+            <div class="absolute -top-1 -right-1 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] font-semibold leading-4 text-primary-foreground">
               {getPendingInvitationsCount()}
             </div>
           </Show>
         </div>
-        <Show when={props.userName || props.userEmail}>
-          <div class="flex flex-col items-start min-w-0 flex-1">
-            <Show when={props.userName}>
-              <span class="text-sm font-medium truncate leading-tight text-foreground">{props.userName}</span>
-            </Show>
-            <Show when={props.userEmail}>
-              <span class="text-xs text-muted-foreground truncate leading-tight">{props.userEmail}</span>
-            </Show>
-          </div>
-        </Show>
+        <div class="grid min-w-0 flex-1 text-left leading-tight">
+          <span class="truncate text-sm font-medium text-foreground">{props.userName || props.userEmail?.split('@')[0]}</span>
+          <Show when={props.userEmail}>
+            <span class="truncate text-xs text-muted-foreground">{props.userEmail}</span>
+          </Show>
+        </div>
+        <div class="i-tabler-selector size-4 shrink-0 text-muted-foreground" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent class="min-w-48">
+      <DropdownMenuContent class="min-w-56">
         <DropdownMenuItem class="flex items-center gap-2 cursor-pointer" as={A} href="/settings">
           <div class="i-tabler-settings size-4 text-muted-foreground" />
           {t('user-menu.account-settings')}

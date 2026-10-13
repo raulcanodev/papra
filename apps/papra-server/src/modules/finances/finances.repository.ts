@@ -3,11 +3,11 @@ import type { TransactionClassification } from './finances.constants';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { injectArguments } from '@corentinth/chisels';
-import { and, desc, eq, gt, gte, isNull, like, lt, lte, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, gte, ilike, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import { decrypt, encrypt } from '../shared/crypto/encryption';
 import { withPagination } from '../shared/db/pagination';
 import { createBankConnectionNotFoundError, createTransactionNotFoundError } from './finances.errors';
-import { bankConnectionsTable, classificationRulesTable, financeGoalBucketsTable, financeGoalVersionsTable, financeGoalsTable, subscriptionsTable, transactionsTable } from './finances.table';
+import { bankConnectionsTable, classificationRulesTable, financeGoalBucketsTable, financeGoalsTable, financeGoalVersionsTable, subscriptionsTable, transactionsTable } from './finances.table';
 
 function deriveKey(secret: string): Buffer {
   // AUTH_SECRET can be any length; derive a fixed 32-byte key with SHA-256
@@ -267,8 +267,12 @@ async function upsertTransactions({ db, transactions }: {
 
 function buildAmountFilter(amountFilter?: string, amountValue?: number) {
   if (!amountFilter || amountValue == null) {
-    if (amountFilter === 'positive') return gt(transactionsTable.amount, 0);
-    if (amountFilter === 'negative') return lt(transactionsTable.amount, 0);
+    if (amountFilter === 'positive') {
+      return gt(transactionsTable.amount, 0);
+    }
+    if (amountFilter === 'negative') {
+      return lt(transactionsTable.amount, 0);
+    }
     return undefined;
   }
   switch (amountFilter) {
@@ -284,18 +288,24 @@ function buildAmountFilter(amountFilter?: string, amountValue?: number) {
 }
 
 function buildSearchFilter(search?: string) {
-  if (!search || search.trim().length === 0) return undefined;
+  if (!search || search.trim().length === 0) {
+    return undefined;
+  }
   const term = `%${search.trim()}%`;
   return or(
-    like(transactionsTable.description, term),
-    like(transactionsTable.counterparty, term),
+    ilike(transactionsTable.description, term),
+    ilike(transactionsTable.counterparty, term),
   );
 }
 
 function buildDateFilter(dateFrom?: number, dateTo?: number) {
   const filters = [];
-  if (dateFrom != null) filters.push(gte(transactionsTable.date, new Date(dateFrom)));
-  if (dateTo != null) filters.push(lte(transactionsTable.date, new Date(dateTo)));
+  if (dateFrom != null) {
+    filters.push(gte(transactionsTable.date, new Date(dateFrom)));
+  }
+  if (dateTo != null) {
+    filters.push(lte(transactionsTable.date, new Date(dateTo)));
+  }
   return filters.length > 0 ? and(...filters) : undefined;
 }
 
@@ -349,7 +359,7 @@ async function getTransactionsCount({ db, organizationId, bankConnectionId, clas
     ? isNull(transactionsTable.classification)
     : classification ? eq(transactionsTable.classification, classification) : undefined;
 
-  const [result] = await db.select({ count: sql<number>`count(*)` }).from(transactionsTable).where(and(
+  const [result] = await db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(transactionsTable).where(and(
     eq(transactionsTable.organizationId, organizationId),
     bankConnectionId ? eq(transactionsTable.bankConnectionId, bankConnectionId) : undefined,
     classificationFilter,
@@ -376,7 +386,7 @@ async function getTransactionsTotalAmount({ db, organizationId, bankConnectionId
     ? isNull(transactionsTable.classification)
     : classification ? eq(transactionsTable.classification, classification) : undefined;
 
-  const [result] = await db.select({ totalAmount: sql<number>`coalesce(sum(${transactionsTable.amount}), 0)` }).from(transactionsTable).where(and(
+  const [result] = await db.select({ totalAmount: sql<number>`coalesce(sum(${transactionsTable.amount}), 0)`.mapWith(Number) }).from(transactionsTable).where(and(
     eq(transactionsTable.organizationId, organizationId),
     bankConnectionId ? eq(transactionsTable.bankConnectionId, bankConnectionId) : undefined,
     classificationFilter,
@@ -455,7 +465,7 @@ async function createClassificationRule({ db, rule }: {
   };
 }) {
   if (rule.priority === undefined || rule.priority === 0) {
-    const defaultQuery = await db.select({ maxPriority: sql<number>`max(${classificationRulesTable.priority})` })
+    const defaultQuery = await db.select({ maxPriority: sql<number>`max(${classificationRulesTable.priority})`.mapWith(Number) })
       .from(classificationRulesTable)
       .where(and(
         eq(classificationRulesTable.organizationId, rule.organizationId),
@@ -466,6 +476,7 @@ async function createClassificationRule({ db, rule }: {
 
   const [result] = await db.insert(classificationRulesTable).values({
     ...rule,
+    classification: rule.classification ?? '',
     conditions: JSON.stringify(rule.conditions),
     conditionMatchMode: rule.conditionMatchMode ?? 'all',
     tagIds: JSON.stringify(rule.tagIds ?? []),
@@ -534,24 +545,24 @@ async function getOverviewStats({ db, organizationId }: {
 
   const [monthlySummary, classificationBreakdown, unclassifiedResult] = await Promise.all([
     db.select({
-      month: sql<string>`strftime('%Y-%m', datetime(${transactionsTable.date} / 1000, 'unixepoch'))`,
-      income: sql<number>`COALESCE(SUM(CASE WHEN ${transactionsTable.amount} > 0 AND (${transactionsTable.classification} IS NULL OR ${transactionsTable.classification} NOT IN ('internal_transfer', 'owner_transfer')) THEN ${transactionsTable.amount} ELSE 0 END), 0)`,
-      expenses: sql<number>`COALESCE(SUM(CASE WHEN ${transactionsTable.amount} < 0 AND (${transactionsTable.classification} IS NULL OR ${transactionsTable.classification} NOT IN ('internal_transfer', 'owner_transfer')) THEN ABS(${transactionsTable.amount}) ELSE 0 END), 0)`,
+      month: sql<string>`to_char(${transactionsTable.date} AT TIME ZONE 'UTC', 'YYYY-MM')`,
+      income: sql<number>`COALESCE(SUM(CASE WHEN ${transactionsTable.amount} > 0 AND (${transactionsTable.classification} IS NULL OR ${transactionsTable.classification} NOT IN ('internal_transfer', 'owner_transfer')) THEN ${transactionsTable.amount} ELSE 0 END), 0)`.mapWith(Number),
+      expenses: sql<number>`COALESCE(SUM(CASE WHEN ${transactionsTable.amount} < 0 AND (${transactionsTable.classification} IS NULL OR ${transactionsTable.classification} NOT IN ('internal_transfer', 'owner_transfer')) THEN ABS(${transactionsTable.amount}) ELSE 0 END), 0)`.mapWith(Number),
     }).from(transactionsTable).where(and(
       eq(transactionsTable.organizationId, organizationId),
       gte(transactionsTable.date, sixMonthsAgo),
-    )).groupBy(sql`strftime('%Y-%m', datetime(${transactionsTable.date} / 1000, 'unixepoch'))`).orderBy(sql`strftime('%Y-%m', datetime(${transactionsTable.date} / 1000, 'unixepoch'))`),
+    )).groupBy(sql`to_char(${transactionsTable.date} AT TIME ZONE 'UTC', 'YYYY-MM')`).orderBy(sql`to_char(${transactionsTable.date} AT TIME ZONE 'UTC', 'YYYY-MM')`),
 
     db.select({
       classification: transactionsTable.classification,
-      total: sql<number>`COALESCE(SUM(ABS(${transactionsTable.amount})), 0)`,
-      count: sql<number>`COUNT(*)`,
+      total: sql<number>`COALESCE(SUM(ABS(${transactionsTable.amount})), 0)`.mapWith(Number),
+      count: sql<number>`COUNT(*)`.mapWith(Number),
     }).from(transactionsTable).where(and(
       eq(transactionsTable.organizationId, organizationId),
       gte(transactionsTable.date, sixMonthsAgo),
     )).groupBy(transactionsTable.classification).orderBy(desc(sql`SUM(ABS(${transactionsTable.amount}))`)),
 
-    db.select({ count: sql<number>`COUNT(*)` }).from(transactionsTable).where(and(
+    db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) }).from(transactionsTable).where(and(
       eq(transactionsTable.organizationId, organizationId),
       isNull(transactionsTable.classification),
     )),
@@ -648,21 +659,21 @@ async function searchTransactionsAggregate({ db, organizationId, searchText, dat
   const filters = and(
     eq(transactionsTable.organizationId, organizationId),
     or(
-      like(transactionsTable.counterparty, searchPattern),
-      like(transactionsTable.description, searchPattern),
+      ilike(transactionsTable.counterparty, searchPattern),
+      ilike(transactionsTable.description, searchPattern),
     ),
     dateFrom ? gte(transactionsTable.date, dateFrom) : undefined,
     dateTo ? lte(transactionsTable.date, dateTo) : undefined,
   );
 
   const [stats] = await db.select({
-    count: sql<number>`COUNT(*)`,
-    totalAmount: sql<number>`COALESCE(SUM(${transactionsTable.amount}), 0)`,
-    totalExpenses: sql<number>`COALESCE(SUM(CASE WHEN ${transactionsTable.amount} < 0 THEN ABS(${transactionsTable.amount}) ELSE 0 END), 0)`,
-    totalIncome: sql<number>`COALESCE(SUM(CASE WHEN ${transactionsTable.amount} > 0 THEN ${transactionsTable.amount} ELSE 0 END), 0)`,
-    avgAmount: sql<number>`COALESCE(AVG(${transactionsTable.amount}), 0)`,
-    minDate: sql<string>`MIN(datetime(${transactionsTable.date} / 1000, 'unixepoch'))`,
-    maxDate: sql<string>`MAX(datetime(${transactionsTable.date} / 1000, 'unixepoch'))`,
+    count: sql<number>`COUNT(*)`.mapWith(Number),
+    totalAmount: sql<number>`COALESCE(SUM(${transactionsTable.amount}), 0)`.mapWith(Number),
+    totalExpenses: sql<number>`COALESCE(SUM(CASE WHEN ${transactionsTable.amount} < 0 THEN ABS(${transactionsTable.amount}) ELSE 0 END), 0)`.mapWith(Number),
+    totalIncome: sql<number>`COALESCE(SUM(CASE WHEN ${transactionsTable.amount} > 0 THEN ${transactionsTable.amount} ELSE 0 END), 0)`.mapWith(Number),
+    avgAmount: sql<number>`COALESCE(AVG(${transactionsTable.amount}), 0)`.mapWith(Number),
+    minDate: sql<string>`to_char(MIN(${transactionsTable.date}) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')`,
+    maxDate: sql<string>`to_char(MAX(${transactionsTable.date}) AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')`,
   }).from(transactionsTable).where(filters);
 
   const transactions = await db.select({
@@ -708,11 +719,11 @@ async function getSpendingBreakdown({ db, organizationId, groupBy, dateFrom, dat
 
   const rows = await db.select({
     group: groupColumn,
-    count: sql<number>`COUNT(*)`,
-    totalAmount: sql<number>`COALESCE(SUM(${transactionsTable.amount}), 0)`,
-    totalExpenses: sql<number>`COALESCE(SUM(CASE WHEN ${transactionsTable.amount} < 0 THEN ABS(${transactionsTable.amount}) ELSE 0 END), 0)`,
-    totalIncome: sql<number>`COALESCE(SUM(CASE WHEN ${transactionsTable.amount} > 0 THEN ${transactionsTable.amount} ELSE 0 END), 0)`,
-    avgAmount: sql<number>`COALESCE(AVG(${transactionsTable.amount}), 0)`,
+    count: sql<number>`COUNT(*)`.mapWith(Number),
+    totalAmount: sql<number>`COALESCE(SUM(${transactionsTable.amount}), 0)`.mapWith(Number),
+    totalExpenses: sql<number>`COALESCE(SUM(CASE WHEN ${transactionsTable.amount} < 0 THEN ABS(${transactionsTable.amount}) ELSE 0 END), 0)`.mapWith(Number),
+    totalIncome: sql<number>`COALESCE(SUM(CASE WHEN ${transactionsTable.amount} > 0 THEN ${transactionsTable.amount} ELSE 0 END), 0)`.mapWith(Number),
+    avgAmount: sql<number>`COALESCE(AVG(${transactionsTable.amount}), 0)`.mapWith(Number),
   }).from(transactionsTable).where(filters).groupBy(groupColumn).orderBy(desc(sql`SUM(ABS(${transactionsTable.amount}))`)).limit(limit);
 
   return { breakdown: rows };
@@ -722,7 +733,7 @@ async function getUnclassifiedCounterpartySummary({ db, organizationId }: {
   db: Database;
   organizationId: string;
 }) {
-  const [totalRow] = await db.select({ count: sql<number>`COUNT(*)` })
+  const [totalRow] = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) })
     .from(transactionsTable)
     .where(and(
       eq(transactionsTable.organizationId, organizationId),
@@ -753,14 +764,16 @@ async function getUnclassifiedCounterpartySummary({ db, organizationId }: {
 
 function tokenizeDescription(text: string): string[] {
   return text
-    .replace(/[*\/\\(){}[\]#@!?.,;:'"<>+=|~`^&%$_]/g, ' ')
+    .replace(/[*/\\(){}[\]#@!?.,;:'"<>+=|~`^&%$_]/g, ' ')
     .split(/\s+/)
     .map(w => w.toLowerCase())
     .filter(w => w.length >= 4 && !/^\d+$/.test(w) && !/^\d+[.,]\d+$/.test(w));
 }
 
 function extractTransactionPatterns(transactions: Array<{ description: string | null; amount: number | null; counterparty: string | null }>) {
-  if (transactions.length === 0) return [];
+  if (transactions.length === 0) {
+    return [];
+  }
 
   // Step 1: Detect template words — words at the SAME position in >20% of descriptions.
   // "Sent Money to Raul" / "Sent Money to Pedro" → "sent"(pos 0), "money"(pos 1) are templates.
@@ -814,14 +827,25 @@ function extractTransactionPatterns(transactions: Array<{ description: string | 
           existing.count++;
           existing.firstPositionCount++; // counterparty is always "first"
           existing.totalAmount += amount;
-          if (amount > 0) existing.positiveCount++;
-          if (amount < 0) existing.negativeCount++;
-          if (existing.sampleDescriptions.size < 3) existing.sampleDescriptions.add(desc);
+          if (amount > 0) {
+            existing.positiveCount++;
+          }
+          if (amount < 0) {
+            existing.negativeCount++;
+          }
+          if (existing.sampleDescriptions.size < 3) {
+            existing.sampleDescriptions.add(desc);
+          }
         } else {
           keywordStats.set(key, {
-            count: 1, firstPositionCount: 1, laterPositionCount: 0,
-            positiveCount: amount > 0 ? 1 : 0, negativeCount: amount < 0 ? 1 : 0,
-            totalAmount: amount, sampleDescriptions: new Set([desc]), field: 'counterparty',
+            count: 1,
+            firstPositionCount: 1,
+            laterPositionCount: 0,
+            positiveCount: amount > 0 ? 1 : 0,
+            negativeCount: amount < 0 ? 1 : 0,
+            totalAmount: amount,
+            sampleDescriptions: new Set([desc]),
+            field: 'counterparty',
           });
         }
       }
@@ -830,8 +854,12 @@ function extractTransactionPatterns(transactions: Array<{ description: string | 
     // Description entity keywords (skip template words)
     let entityIndex = 0;
     for (const word of words) {
-      if (entityIndex >= 2) break;
-      if (templateWords.has(word)) continue;
+      if (entityIndex >= 2) {
+        break;
+      }
+      if (templateWords.has(word)) {
+        continue;
+      }
 
       const key = `desc:${word}`;
       const isFirst = entityIndex === 0;
@@ -840,12 +868,21 @@ function extractTransactionPatterns(transactions: Array<{ description: string | 
       const existing = keywordStats.get(key);
       if (existing) {
         existing.count++;
-        if (isFirst) existing.firstPositionCount++;
-        else existing.laterPositionCount++;
+        if (isFirst) {
+          existing.firstPositionCount++;
+        } else {
+          existing.laterPositionCount++;
+        }
         existing.totalAmount += amount;
-        if (amount > 0) existing.positiveCount++;
-        if (amount < 0) existing.negativeCount++;
-        if (existing.sampleDescriptions.size < 3) existing.sampleDescriptions.add(desc);
+        if (amount > 0) {
+          existing.positiveCount++;
+        }
+        if (amount < 0) {
+          existing.negativeCount++;
+        }
+        if (existing.sampleDescriptions.size < 3) {
+          existing.sampleDescriptions.add(desc);
+        }
       } else {
         keywordStats.set(key, {
           count: 1,
@@ -853,7 +890,9 @@ function extractTransactionPatterns(transactions: Array<{ description: string | 
           laterPositionCount: isFirst ? 0 : 1,
           positiveCount: amount > 0 ? 1 : 0,
           negativeCount: amount < 0 ? 1 : 0,
-          totalAmount: amount, sampleDescriptions: new Set([desc]), field: 'description',
+          totalAmount: amount,
+          sampleDescriptions: new Set([desc]),
+          field: 'description',
         });
       }
     }
@@ -863,10 +902,14 @@ function extractTransactionPatterns(transactions: Array<{ description: string | 
   const totalTx = transactions.length;
   const candidates = [...keywordStats.entries()].filter(([_, v]) => {
     // Must appear in 2+ transactions
-    if (v.count < 2) return false;
+    if (v.count < 2) {
+      return false;
+    }
 
     // Hard cap: >40% of all transactions = too generic
-    if (v.count > totalTx * 0.4) return false;
+    if (v.count > totalTx * 0.4) {
+      return false;
+    }
 
     // POSITION-BASED NOISE DETECTION:
     // A real entity keyword (merchant/person) is usually the FIRST significant word.
@@ -875,7 +918,9 @@ function extractTransactionPatterns(transactions: Array<{ description: string | 
     // (Counterparty keywords skip this check — they're always the entity)
     if (v.field === 'description') {
       const firstRatio = v.firstPositionCount / v.count;
-      if (firstRatio < 0.4) return false;
+      if (firstRatio < 0.4) {
+        return false;
+      }
     }
 
     return true;
@@ -906,7 +951,9 @@ function extractTransactionPatterns(transactions: Array<{ description: string | 
         break;
       }
     }
-    if (isDuplicate) continue;
+    if (isDuplicate) {
+      continue;
+    }
 
     usedKeywords.add(rawKeyword);
 
@@ -983,9 +1030,7 @@ async function updateFinanceGoal({ db, goalId, organizationId, updates }: {
 }
 
 async function getFinanceGoalBuckets({ db, goalId }: { db: Database; goalId: string }) {
-  const buckets = await db.select().from(financeGoalBucketsTable)
-    .where(eq(financeGoalBucketsTable.goalId, goalId))
-    .orderBy(financeGoalBucketsTable.position);
+  const buckets = await db.select().from(financeGoalBucketsTable).where(eq(financeGoalBucketsTable.goalId, goalId)).orderBy(financeGoalBucketsTable.position);
 
   return {
     buckets: buckets.map(b => ({
@@ -1076,9 +1121,7 @@ async function snapshotGoalVersion({ db, goalId, organizationId }: { db: Databas
     .where(and(eq(financeGoalsTable.id, goalId), eq(financeGoalsTable.organizationId, organizationId)))
     .limit(1);
 
-  const buckets = await db.select().from(financeGoalBucketsTable)
-    .where(eq(financeGoalBucketsTable.goalId, goalId))
-    .orderBy(financeGoalBucketsTable.position);
+  const buckets = await db.select().from(financeGoalBucketsTable).where(eq(financeGoalBucketsTable.goalId, goalId)).orderBy(financeGoalBucketsTable.position);
 
   const bucketsSnapshot = JSON.stringify(buckets.map(b => ({
     id: b.id,
@@ -1133,7 +1176,13 @@ async function listGoalVersions({ db, goalId }: { db: Database; goalId: string }
     versions: versions.map(v => ({
       ...v,
       buckets: JSON.parse(v.bucketsSnapshot as unknown as string) as Array<{
-        id: string; name: string; targetPercentage: number; color: string; position: number; tagIds: string[]; classifications: string[];
+        id: string;
+        name: string;
+        targetPercentage: number;
+        color: string;
+        position: number;
+        tagIds: string[];
+        classifications: string[];
       }>,
     })),
   };
@@ -1149,9 +1198,14 @@ async function restoreGoalVersion({ db, versionId, goalId, organizationId }: { d
     throw new Error('Goal version not found');
   }
 
-  const snapshotBuckets: Array<{
-    name: string; targetPercentage: number; color: string; position: number; tagIds: string[]; classifications: string[];
-  }> = JSON.parse(version.bucketsSnapshot as unknown as string);
+  const snapshotBuckets = JSON.parse(version.bucketsSnapshot as unknown as string) as Array<{
+    name: string;
+    targetPercentage: number;
+    color: string;
+    position: number;
+    tagIds: string[];
+    classifications: string[];
+  }>;
 
   // Restore goal name
   await db.update(financeGoalsTable)

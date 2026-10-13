@@ -124,6 +124,9 @@ function buildCustomPropertiesResponse({
     }));
 }
 
+// Step of a previewed onboarding flow, kept until the page reloads
+let demoOnboardingStep: string | null = null;
+
 const inMemoryApiMock: Record<string, { handler: any }> = {
   ...defineHandler({
     path: '/api/config',
@@ -745,6 +748,34 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
     handler: async ({ params: { apiKeyId } }) => {
       await apiKeyStorage.removeItem(apiKeyId);
     },
+  }),
+
+  // The demo account is already set up; the onboarding can still be previewed with `/onboarding?flow=new-user` in development
+  ...defineHandler({
+    path: '/api/onboarding',
+    method: 'GET',
+    handler: async () => {
+      const [organization] = await getValues(organizationStorage);
+      // A forced step reopens the setup of the demo company
+      const pendingOrganizations = demoOnboardingStep && organization ? [{ id: organization.id, name: organization.name, step: demoOnboardingStep }] : [];
+
+      return { flow: null, user: { completedAt: new Date().toISOString(), step: demoOnboardingStep }, pendingOrganizations, pendingInvitationsCount: 0 };
+    },
+  }),
+
+  ...defineHandler({
+    path: '/api/onboarding',
+    method: 'PUT',
+    handler: async ({ body }) => {
+      // Lets the dev tools resume a previewed flow at a given step
+      demoOnboardingStep = get(body, ['completed']) ? null : (get(body, ['step']) as string | null) ?? null;
+    },
+  }),
+
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/onboarding',
+    method: 'PUT',
+    handler: async () => {},
   }),
 
   ...defineHandler({

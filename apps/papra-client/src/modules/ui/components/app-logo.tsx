@@ -2,6 +2,7 @@ import type { PolymorphicProps } from '@kobalte/core/polymorphic';
 import type { ValidComponent } from 'solid-js';
 import { Polymorphic } from '@kobalte/core/polymorphic';
 import { splitProps } from 'solid-js';
+import { appBrand } from '@/modules/config/branding';
 import { cn } from '@/modules/shared/style/cn';
 
 export function AppLogo<T extends ValidComponent = 'div'>(props: PolymorphicProps<T, { class?: string }>) {
@@ -14,7 +15,7 @@ export function AppLogo<T extends ValidComponent = 'div'>(props: PolymorphicProp
       {...rest}
     >
       <div class="i-tabler-file-text text-primary rotate-12 size-6 group-hover:rotate-25 transition" />
-      Papra
+      {appBrand.name}
     </Polymorphic>
   );
 }

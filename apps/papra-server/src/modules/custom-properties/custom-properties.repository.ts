@@ -2,7 +2,7 @@ import type { Database } from '../app/database/database.types';
 import type { CustomPropertyType } from './custom-properties.constants';
 import { injectArguments, safely } from '@corentinth/chisels';
 import { and, asc, count, eq, inArray } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/sqlite-core';
+import { alias } from 'drizzle-orm/pg-core';
 import { documentsTable } from '../documents/documents.table';
 import { isUniqueConstraintError } from '../shared/db/constraints.models';
 import { createError } from '../shared/errors/errors';

@@ -77,7 +77,6 @@ export function ComboboxTrigger<T extends ValidComponent = 'button'>(props: Poly
                   stroke-width="2"
                   d="m8 9l4-4l4 4m0 6l-4 4l-4-4"
                 />
-                <title>Arrow</title>
               </svg>
             </ComboboxPrimitive.Icon>
           </ComboboxPrimitive.Trigger>
@@ -101,7 +100,7 @@ export function ComboboxContent<T extends ValidComponent = 'div'>(props: Polymor
     <ComboboxPrimitive.Portal>
       <ComboboxPrimitive.Content
         class={cn(
-          'relative z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md data-[expanded]:(animate-in fade-in-0 zoom-in-95) data-[closed]:(animate-out fade-out-0 zoom-out-95) origin-[--kb-combobox-content-transform-origin]',
+          'relative z-50 min-w-[8rem] overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-lg shadow-black/5 dark:shadow-black/40 data-[expanded]:(animate-in fade-in-0 zoom-in-95) data-[closed]:(animate-out fade-out-0 zoom-out-95) origin-[--kb-combobox-content-transform-origin]',
           local.class,
         )}
         {...rest}
@@ -147,7 +146,6 @@ export function ComboboxItem<T extends ValidComponent = 'li'>(props: Polymorphic
             stroke-width="2"
             d="m5 12l5 5L20 7"
           />
-          <title>Checked</title>
         </svg>
       </ComboboxPrimitive.ItemIndicator>
       <ComboboxPrimitive.ItemLabel>

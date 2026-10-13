@@ -3,15 +3,13 @@ import { asc, eq, sql } from 'drizzle-orm';
 import { migrationsTable } from './migration.tables';
 
 export async function setupMigrationTableIfNotExists({ db }: { db: Database }) {
-  await db.batch([
-    db.run(sql`CREATE TABLE IF NOT EXISTS migrations (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, run_at INTEGER NOT NULL)`),
-    db.run(sql`CREATE INDEX IF NOT EXISTS migrations_name_index ON migrations (name)`),
-    db.run(sql`CREATE INDEX IF NOT EXISTS migrations_run_at_index ON migrations (run_at)`),
-  ]);
+  await db.execute(sql`CREATE TABLE IF NOT EXISTS migrations (id SERIAL PRIMARY KEY, name TEXT NOT NULL, run_at TIMESTAMP(3) WITH TIME ZONE NOT NULL)`);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS migrations_name_index ON migrations (name)`);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS migrations_run_at_index ON migrations (run_at)`);
 }
 
 export async function getMigrations({ db }: { db: Database }) {
-  const migrations = await db.select().from(migrationsTable).orderBy(asc(migrationsTable.runAt));
+  const migrations = await db.select().from(migrationsTable).orderBy(asc(migrationsTable.runAt), asc(migrationsTable.id));
 
   return { migrations };
 }

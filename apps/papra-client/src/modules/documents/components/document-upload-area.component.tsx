@@ -1,10 +1,12 @@
 import type { Component } from 'solid-js';
 import { createSignal } from 'solid-js';
+import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
 import { useDocumentUpload } from './document-import-status.component';
 
 export const DocumentUploadArea: Component = () => {
+  const { t } = useI18n();
   const [isDragging, setIsDragging] = createSignal(false);
 
   const { promptImport, uploadDocuments } = useDocumentUpload();
@@ -37,11 +39,11 @@ export const DocumentUploadArea: Component = () => {
       onDrop={handleDrop}
     >
       <div class="i-tabler-cloud-upload size-12 mb-4" />
-      <p>{isDragging() ? 'Drop files to upload' : 'Drag and drop files here to upload'}</p>
+      <p>{isDragging() ? t('documents.upload-area.dragging') : t('documents.upload-area.idle')}</p>
 
       <Button class="mt-4" variant="outline" onClick={promptImport}>
         <div class="i-tabler-upload mr-2" />
-        Select files
+        {t('documents.upload-area.select')}
       </Button>
     </div>
   );

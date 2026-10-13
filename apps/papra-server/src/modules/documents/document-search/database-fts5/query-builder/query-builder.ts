@@ -12,16 +12,16 @@ import { documentsFtsTable } from '../database-fts5.tables';
 import { handleCustomPropertyFilter, handleHasCustomPropertyFilter } from './query-builder.custom-properties';
 import { getCustomPropertyDefinition } from './query-builder.custom-properties.models';
 import {
+  buildFtsMatchCondition,
   createInvalidDateFormatQueryResult,
   createInvalidQueryResult,
   createUnsupportedOperatorQueryResult,
-  formatFts5QueryValue,
   getSqlOperator,
 } from './query-builder.models';
 
 export function handleEmptyExpression(): QueryResult {
   return {
-    sqlQuery: sql`1`,
+    sqlQuery: sql`true`,
     issues: [],
   };
 }
@@ -33,18 +33,10 @@ export function handleNameFilter({ expression, organizationId, db }: { expressio
     return createUnsupportedOperatorQueryResult({ operator, field });
   }
 
-  const { queryString } = formatFts5QueryValue({
-    value,
-    organizationId,
-    matchingColumns: [
-      documentsFtsTable.name.name,
-    ],
-  });
-
   return {
     sqlQuery: inArray(
       documentsTable.id,
-      db.selectDistinct({ documentId: documentsFtsTable.documentId }).from(documentsFtsTable).where(eq(documentsFtsTable, queryString)),
+      db.selectDistinct({ documentId: documentsFtsTable.documentId }).from(documentsFtsTable).where(buildFtsMatchCondition({ value, organizationId, matchingColumns: ['name'] })),
     ),
     issues: [],
   };
@@ -57,18 +49,10 @@ export function handleContentFilter({ expression, organizationId, db }: { expres
     return createUnsupportedOperatorQueryResult({ operator, field });
   }
 
-  const { queryString } = formatFts5QueryValue({
-    value,
-    organizationId,
-    matchingColumns: [
-      documentsFtsTable.content.name,
-    ],
-  });
-
   return {
     sqlQuery: inArray(
       documentsTable.id,
-      db.selectDistinct({ documentId: documentsFtsTable.documentId }).from(documentsFtsTable).where(eq(documentsFtsTable, queryString)),
+      db.selectDistinct({ documentId: documentsFtsTable.documentId }).from(documentsFtsTable).where(buildFtsMatchCondition({ value, organizationId, matchingColumns: ['content'] })),
     ),
     issues: [],
   };
@@ -76,19 +60,10 @@ export function handleContentFilter({ expression, organizationId, db }: { expres
 
 export function handleTextExpression({ expression, organizationId, db }: { expression: TextExpression; organizationId: string; db: Database }): QueryResult {
   const { value } = expression;
-  const { queryString } = formatFts5QueryValue({
-    value,
-    organizationId,
-    matchingColumns: [
-      documentsFtsTable.name.name,
-      documentsFtsTable.content.name,
-    ],
-  });
-
   return {
     sqlQuery: inArray(
       documentsTable.id,
-      db.selectDistinct({ documentId: documentsFtsTable.documentId }).from(documentsFtsTable).where(eq(documentsFtsTable, queryString)),
+      db.selectDistinct({ documentId: documentsFtsTable.documentId }).from(documentsFtsTable).where(buildFtsMatchCondition({ value, organizationId, matchingColumns: ['name', 'content'] })),
     ),
     issues: [],
   };
@@ -118,7 +93,7 @@ export function handleNotExpression({ expression, organizationId, db, now, custo
   if (!subQuery.sqlQuery) {
     // Should not happen, but just for type safety
     return {
-      sqlQuery: sql`0`,
+      sqlQuery: sql`false`,
       issues: [
         {
           message: 'NOT operator requires a valid operand',

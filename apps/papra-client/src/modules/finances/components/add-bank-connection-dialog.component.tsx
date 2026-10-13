@@ -2,6 +2,7 @@ import type { Component } from 'solid-js';
 import type { ProviderAccount } from '../finances.types';
 import { createMutation, useQueryClient } from '@tanstack/solid-query';
 import { createSignal, For, Show } from 'solid-js';
+import { useI18n } from '@/modules/i18n/i18n.provider';
 import { Button } from '@/modules/ui/components/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/modules/ui/components/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/modules/ui/components/select';
@@ -15,6 +16,7 @@ const providers = [
 ];
 
 export const AddBankConnectionDialog: Component<{ organizationId: string }> = (props) => {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = createSignal(false);
   const [step, setStep] = createSignal<1 | 2>(1);
@@ -43,7 +45,7 @@ export const AddBankConnectionDialog: Component<{ organizationId: string }> = (p
       setStep(2);
     },
     onError: () => {
-      createToast({ message: 'Failed to fetch accounts. Check your API key.', type: 'error' });
+      createToast({ message: t('finances.bank-connection.toast.fetch-error'), type: 'error' });
     },
   }));
 
@@ -56,13 +58,13 @@ export const AddBankConnectionDialog: Component<{ organizationId: string }> = (p
       accountId: accountId() || undefined,
     }),
     onSuccess: () => {
-      createToast({ message: 'Bank account connected', type: 'success' });
+      createToast({ message: t('finances.bank-connection.toast.connected'), type: 'success' });
       queryClient.invalidateQueries({ queryKey: ['organizations', props.organizationId, 'finances'] });
       setIsOpen(false);
       resetForm();
     },
     onError: () => {
-      createToast({ message: 'Failed to connect bank account.', type: 'error' });
+      createToast({ message: t('finances.bank-connection.toast.connect-error'), type: 'error' });
     },
   }));
 
@@ -78,17 +80,17 @@ export const AddBankConnectionDialog: Component<{ organizationId: string }> = (p
     >
       <DialogTrigger as={Button}>
         <div class="i-tabler-plus size-4 mr-1" />
-        Connect Bank
+        {t('finances.bank-connection.connect')}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{step() === 1 ? 'Connect Bank Account' : 'Select Account'}</DialogTitle>
+          <DialogTitle>{step() === 1 ? t('finances.bank-connection.connect.title') : t('finances.bank-connection.select.title')}</DialogTitle>
         </DialogHeader>
 
         <Show when={step() === 1}>
           <div class="flex flex-col gap-4 mt-4">
             <div>
-              <label class="text-sm font-medium mb-1.5 block">Provider</label>
+              <label class="text-sm font-medium mb-1.5 block">{t('finances.bank-connection.provider')}</label>
               <Select
                 options={providers}
                 optionValue="value"
@@ -105,10 +107,10 @@ export const AddBankConnectionDialog: Component<{ organizationId: string }> = (p
             </div>
 
             <div>
-              <label class="text-sm font-medium mb-1.5 block">Account Name</label>
+              <label class="text-sm font-medium mb-1.5 block">{t('finances.bank-connection.account-name')}</label>
               <TextFieldRoot>
                 <TextField
-                  placeholder="e.g. Mercury LLC Checking"
+                  placeholder={t('finances.bank-connection.account-name.placeholder')}
                   value={name()}
                   onInput={e => setName(e.currentTarget.value)}
                 />
@@ -116,18 +118,18 @@ export const AddBankConnectionDialog: Component<{ organizationId: string }> = (p
             </div>
 
             <div>
-              <label class="text-sm font-medium mb-1.5 block">API Key</label>
+              <label class="text-sm font-medium mb-1.5 block">{t('finances.bank-connection.api-key')}</label>
               <TextFieldRoot>
                 <TextField
                   type="password"
-                  placeholder="Paste your API key"
+                  placeholder={t('finances.bank-connection.api-key.placeholder')}
                   value={apiKey()}
                   onInput={e => setApiKey(e.currentTarget.value)}
                 />
               </TextFieldRoot>
               <Show when={provider() === 'wise'}>
                 <p class="text-xs text-muted-foreground mt-1.5">
-                  {'Find your API token in '}
+                  {t('finances.bank-connection.api-key.help')}
                   <a
                     href="https://wise.com/your-account/integrations-and-tools/api-tokens"
                     target="_blank"
@@ -140,7 +142,7 @@ export const AddBankConnectionDialog: Component<{ organizationId: string }> = (p
               </Show>
               <Show when={provider() === 'mercury'}>
                 <p class="text-xs text-muted-foreground mt-1.5">
-                  {'Find your API token in '}
+                  {t('finances.bank-connection.api-key.help')}
                   <a
                     href="https://app.mercury.com/settings/tokens"
                     target="_blank"
@@ -158,7 +160,7 @@ export const AddBankConnectionDialog: Component<{ organizationId: string }> = (p
               disabled={fetchAccountsMutation.isPending || !name() || !apiKey()}
               class="mt-2"
             >
-              {fetchAccountsMutation.isPending ? 'Fetching accounts...' : 'Next — Select Account'}
+              {fetchAccountsMutation.isPending ? t('finances.bank-connection.fetching') : t('finances.bank-connection.next')}
             </Button>
           </div>
         </Show>
@@ -166,7 +168,7 @@ export const AddBankConnectionDialog: Component<{ organizationId: string }> = (p
         <Show when={step() === 2}>
           <div class="flex flex-col gap-4 mt-4">
             <Show when={accounts().length > 0}>
-              <p class="text-sm text-muted-foreground">Select the account to track, or skip to auto-detect.</p>
+              <p class="text-sm text-muted-foreground">{t('finances.bank-connection.select.description')}</p>
               <div class="flex flex-col gap-2 max-h-60 overflow-y-auto">
                 <For each={accounts()}>
                   {account => (
@@ -190,7 +192,7 @@ export const AddBankConnectionDialog: Component<{ organizationId: string }> = (p
             </Show>
 
             <Show when={accounts().length === 0}>
-              <p class="text-sm text-muted-foreground">No accounts found. The first available account will be used automatically.</p>
+              <p class="text-sm text-muted-foreground">{t('finances.bank-connection.select.empty')}</p>
             </Show>
 
             <div class="flex gap-2 mt-2">
@@ -200,14 +202,14 @@ export const AddBankConnectionDialog: Component<{ organizationId: string }> = (p
                 onClick={() => setStep(1)}
                 disabled={createMut.isPending}
               >
-                Back
+                {t('finances.bank-connection.back')}
               </Button>
               <Button
                 class="flex-1"
                 onClick={() => createMut.mutate()}
                 disabled={createMut.isPending}
               >
-                {createMut.isPending ? 'Connecting...' : accountId() ? 'Connect Account' : 'Connect (Auto-detect)'}
+                {createMut.isPending ? t('finances.bank-connection.connecting') : accountId() ? t('finances.bank-connection.connect-account') : t('finances.bank-connection.connect-auto')}
               </Button>
             </div>
           </div>

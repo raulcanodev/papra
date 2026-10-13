@@ -1,24 +1,18 @@
 import type { ConfigDefinition } from 'figue';
-import * as v from 'valibot';
 import { urlSchema } from '../../config/config.schemas';
+import { coercedPositiveIntegerSchema } from '../../shared/schemas/number.schemas';
 
 export const databaseConfig = {
   url: {
-    doc: 'The URL of the database (default as "file:./app-data/db/db.sqlite" when using docker)',
+    doc: 'The PostgreSQL connection URL of the database (e.g. `postgresql://user:password@host:5432/dbname`). When using Supabase, use the session pooler connection string (port 5432), or the transaction pooler one (port 6543).',
     schema: urlSchema,
-    default: 'file:./db.sqlite',
+    default: 'postgresql://postgres:postgres@localhost:5432/papra',
     env: 'DATABASE_URL',
   },
-  authToken: {
-    doc: 'The auth token for the database',
-    schema: v.optional(v.string()),
-    default: undefined,
-    env: 'DATABASE_AUTH_TOKEN',
-  },
-  encryptionKey: {
-    doc: 'The encryption key for the database. If not provided, the database will not be encrypted at rest. Use with caution as if lost, the data will be unrecoverable.',
-    schema: v.optional(v.string()),
-    default: undefined,
-    env: 'DATABASE_ENCRYPTION_KEY',
+  poolMaxConnections: {
+    doc: 'The maximum number of connections in the database connection pool',
+    schema: coercedPositiveIntegerSchema,
+    default: 10,
+    env: 'DATABASE_POOL_MAX_CONNECTIONS',
   },
 } as const satisfies ConfigDefinition;

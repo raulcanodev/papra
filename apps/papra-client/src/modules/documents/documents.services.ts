@@ -1,5 +1,5 @@
 import type { AsDto } from '../shared/http/http-client.types';
-import type { Document, DocumentActivity } from './documents.types';
+import type { Document, DocumentActivity, DocumentFolder } from './documents.types';
 import { apiClient } from '../shared/http/api-client';
 import { coerceDates, getFormData } from '../shared/http/http-client.models';
 
@@ -219,4 +219,27 @@ export async function fetchDocumentActivities({
   return {
     activities: activities.map(coerceDates),
   };
+}
+
+export async function fetchDocumentFolders({ organizationId }: { organizationId: string }) {
+  const { folders } = await apiClient<{ folders: AsDto<DocumentFolder>[] }>({ method: 'GET', path: `/api/organizations/${organizationId}/document-folders` });
+  return { folders: folders.map(coerceDates) };
+}
+
+export async function createDocumentFolder({ organizationId, name, parentFolderId }: { organizationId: string; name: string; parentFolderId?: string | null }) {
+  const { folder } = await apiClient<{ folder: AsDto<DocumentFolder> }>({ method: 'POST', path: `/api/organizations/${organizationId}/document-folders`, body: { name, parentFolderId } });
+  return { folder: coerceDates(folder) };
+}
+
+export async function fetchFolderDocuments({ organizationId, folderId, pageIndex, pageSize, searchQuery }: { organizationId: string; folderId: string; pageIndex: number; pageSize: number; searchQuery?: string }) {
+  const response = await apiClient<{ folder: AsDto<DocumentFolder>; documents: AsDto<Document>[]; documentsCount: number }>({
+    method: 'GET',
+    path: `/api/organizations/${organizationId}/document-folders/${folderId}/documents`,
+    query: { pageIndex, pageSize, searchQuery },
+  });
+  return { folder: coerceDates(response.folder), documents: response.documents.map(coerceDates), documentsCount: response.documentsCount };
+}
+
+export async function moveDocumentToFolder({ organizationId, documentId, folderId }: { organizationId: string; documentId: string; folderId: string | null }) {
+  await apiClient({ method: 'PATCH', path: `/api/organizations/${organizationId}/documents/${documentId}/folder`, body: { folderId } });
 }

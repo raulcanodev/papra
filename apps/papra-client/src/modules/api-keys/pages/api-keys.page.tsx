@@ -85,7 +85,7 @@ export const ApiKeysPage: Component = () => {
   }));
 
   return (
-    <div class="p-6 mt-12 pb-32 mx-auto max-w-xl w-full">
+    <div class="page-narrow">
       <div class="border-b pb-4 flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-semibold mb-1">{t('api-keys.list.title')}</h1>

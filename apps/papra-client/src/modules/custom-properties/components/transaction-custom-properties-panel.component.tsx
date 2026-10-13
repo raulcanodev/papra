@@ -1,9 +1,9 @@
 import type { Component } from 'solid-js';
 import type { CustomPropertyDefinition } from '../custom-properties.types';
-import { createMemo, For, Match, Show, Switch as SolidSwitch } from 'solid-js';
 import { useMutation } from '@tanstack/solid-query';
-import { useI18n } from '@/modules/i18n/i18n.provider';
+import { createMemo, For, Match, Show, Switch as SolidSwitch } from 'solid-js';
 import { deleteTransactionCustomPropertyValue, setTransactionCustomPropertyValue } from '@/modules/finances/finances.services';
+import { useI18n } from '@/modules/i18n/i18n.provider';
 import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-errors';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { Separator } from '@/modules/ui/components/separator';

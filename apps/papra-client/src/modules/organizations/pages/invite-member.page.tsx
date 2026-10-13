@@ -89,7 +89,7 @@ export const InviteMemberPage: Component = () => {
   });
 
   return (
-    <div class="p-6 max-w-screen-md mx-auto mt-4">
+    <div class="page-narrow">
       <div class="border-b mb-6 pb-4">
         <h1 class="text-xl font-bold">
           {t('organizations.invite-member.title')}

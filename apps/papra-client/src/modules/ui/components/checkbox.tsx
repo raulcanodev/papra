@@ -42,7 +42,6 @@ export function CheckboxControl<T extends ValidComponent = 'div'>(props: Polymor
               stroke-width="2"
               d="m5 12l5 5L20 7"
             />
-            <title>Checkbox</title>
           </svg>
         </CheckboxPrimitive.Indicator>
       </CheckboxPrimitive.Control>

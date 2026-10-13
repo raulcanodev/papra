@@ -1,9 +1,9 @@
 import type { Role } from './roles.types';
-import { index, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
+import { index, pgTable, text, unique } from 'drizzle-orm/pg-core';
 import { createPrimaryKeyField, createTimestampColumns } from '../shared/db/columns.helpers';
 import { usersTable } from '../users/users.table';
 
-export const userRolesTable = sqliteTable(
+export const userRolesTable = pgTable(
   'user_roles',
   {
     ...createPrimaryKeyField({ prefix: 'rol' }),

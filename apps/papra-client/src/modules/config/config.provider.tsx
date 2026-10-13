@@ -2,6 +2,7 @@ import type { ParentComponent } from 'solid-js';
 import type { Config, RuntimePublicConfig } from './config';
 import { useQuery } from '@tanstack/solid-query';
 import { createContext, Match, Switch, useContext } from 'solid-js';
+import { useI18n } from '@/modules/i18n/i18n.provider';
 import { deepMerge } from '../shared/utils/object';
 import { Button } from '../ui/components/button';
 import { EmptyState } from '../ui/components/empty';
@@ -24,6 +25,7 @@ export function useConfig() {
 }
 
 export const ConfigProvider: ParentComponent = (props) => {
+  const { t } = useI18n();
   const query = useQuery(() => ({
     queryKey: ['config'],
     queryFn: fetchPublicConfig,
@@ -39,8 +41,8 @@ export const ConfigProvider: ParentComponent = (props) => {
 
     if (result.error) {
       createToast({
-        message: 'Server still unreachable',
-        description: 'The server remains unreachable, try again later.',
+        message: t('config.server-unreachable.toast.title'),
+        description: t('config.server-unreachable.toast.description'),
         type: 'error',
       });
     }
@@ -48,10 +50,15 @@ export const ConfigProvider: ParentComponent = (props) => {
 
   return (
     <Switch>
+      <Match when={query.error && window.location.pathname === '/'}>
+        <ConfigContext.Provider value={{ config: buildTimeConfig }}>
+          {props.children}
+        </ConfigContext.Provider>
+      </Match>
       <Match when={query.error}>
         <EmptyState
-          title="Server unreachable"
-          description="The server seems to be unreachable."
+          title={t('config.server-unreachable.title')}
+          description={t('config.server-unreachable.description')}
           icon="i-tabler-server-spark"
           class="p-6 pt-12 sm:pt-32"
           cta={(
@@ -60,7 +67,7 @@ export const ConfigProvider: ParentComponent = (props) => {
               variant="outline"
             >
               <span class="i-tabler-refresh size-4 mr-2 text-primary" />
-              Retry
+              {t('config.server-unreachable.retry')}
             </Button>
           )}
         />

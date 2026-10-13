@@ -59,7 +59,7 @@ export const PaginationControls: Component<{
 
         <div class="flex items-center space-x-2">
           <Button
-            aria-label="Go to first page"
+            aria-label={t('pagination.first')}
             variant="outline"
             class="flex size-8 p-0"
             onClick={() => props.setPagination(p => ({ ...p, pageIndex: 0 }))}
@@ -68,7 +68,7 @@ export const PaginationControls: Component<{
             <div class="size-4 i-tabler-chevrons-left" />
           </Button>
           <Button
-            aria-label="Go to previous page"
+            aria-label={t('pagination.previous')}
             variant="outline"
             size="icon"
             class="size-8"
@@ -78,7 +78,7 @@ export const PaginationControls: Component<{
             <div class="size-4 i-tabler-chevron-left" />
           </Button>
           <Button
-            aria-label="Go to next page"
+            aria-label={t('pagination.next')}
             variant="outline"
             size="icon"
             class="size-8"
@@ -88,7 +88,7 @@ export const PaginationControls: Component<{
             <div class="size-4 i-tabler-chevron-right" />
           </Button>
           <Button
-            aria-label="Go to last page"
+            aria-label={t('pagination.last')}
             variant="outline"
             size="icon"
             class="flex size-8"

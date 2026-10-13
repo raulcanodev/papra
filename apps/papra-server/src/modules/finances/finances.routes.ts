@@ -1,9 +1,9 @@
 import type { RouteDefinitionContext } from '../app/server.types';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { requireAuthentication } from '../app/auth/auth.middleware';
 import { createAiNotConfiguredError } from '../ai-assistant/ai-assistant.errors';
 import { createLlmModel, getApiKeyForProvider, getConfiguredProviders } from '../ai-assistant/ai-assistant.providers';
+import { requireAuthentication } from '../app/auth/auth.middleware';
 import { getUser } from '../app/auth/auth.models';
 import { createCustomPropertiesRepository } from '../custom-properties/custom-properties.repository';
 import { requireFeatureFlag } from '../feature-flags/feature-flags.middleware';
@@ -596,8 +596,7 @@ async function computeTotalBalance({ balances }: { balances: Array<{ balance: nu
         try {
           const converted = await convertCurrency({ amount: 1, from: currency, to: displayCurrency });
           exchangeRates[currency] = converted;
-        }
-        catch {
+        } catch {
           // If conversion fails, skip this currency from total
         }
       }
@@ -608,8 +607,7 @@ async function computeTotalBalance({ balances }: { balances: Array<{ balance: nu
   for (const b of balances) {
     if (b.currency === displayCurrency) {
       totalBalance += b.balance;
-    }
-    else {
+    } else {
       const rate = exchangeRates[b.currency];
       if (rate != null) {
         totalBalance += b.balance * rate;
@@ -734,7 +732,7 @@ function setupCreateSubscriptionRoute({ app, db, config }: RouteDefinitionContex
           search: body.transactionSearchQuery,
         });
         await Promise.all(
-          transactions.map(tx =>
+          transactions.map(async tx =>
             tagsRepository.addTagsToTransaction({ tagIds: body.tagIds!, transactionId: tx.id }),
           ),
         );
@@ -790,7 +788,7 @@ function setupUpdateSubscriptionRoute({ app, db, config }: RouteDefinitionContex
           search: updates.transactionSearchQuery,
         });
         await Promise.all(
-          transactions.map(tx =>
+          transactions.map(async tx =>
             tagsRepository.addTagsToTransaction({ tagIds: updates.tagIds!, transactionId: tx.id }),
           ),
         );

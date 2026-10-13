@@ -24,7 +24,7 @@ describe('health check routes e2e', () => {
 
       test('when their is an issue with the database, the /api/health returns a 500', async () => {
         const db = {
-          run: async () => {
+          execute: async () => {
             throw new Error('Alerte générale !');
           },
         } as unknown as Database;

@@ -28,14 +28,14 @@ export const DocumentContentEditionPanel: Component<{
       content,
     }),
     onSuccess: () => {
-      createToast({ type: 'success', message: 'Document content updated' });
+      createToast({ type: 'success', message: t('documents.content.toast.updated') });
       setIsEditing(false);
       queryClient.invalidateQueries({
         queryKey: ['organizations', props.organizationId, 'documents', props.documentId],
       });
     },
     onError: () => {
-      createToast({ type: 'error', message: 'Failed to update document content' });
+      createToast({ type: 'error', message: t('documents.content.toast.error') });
     },
   }));
 

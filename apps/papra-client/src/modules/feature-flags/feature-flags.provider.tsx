@@ -39,7 +39,7 @@ export const FeatureFlagsProvider: ParentComponent = (props) => {
     <FeatureFlagsContext.Provider
       value={{
         flags: query.data?.featureFlags ?? [],
-        hasFlag: (flagId: string) => query.data?.featureFlags.includes(flagId) ?? false,
+        hasFlag: (flagId: string) => query.data?.featureFlags?.includes(flagId) ?? false,
       }}
     >
       {props.children}

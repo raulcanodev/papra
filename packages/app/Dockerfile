@@ -48,7 +48,6 @@ ENV BUILD_DATE=${BUILD_DATE}
 
 ENV NODE_ENV=production
 ENV SERVER_SERVE_PUBLIC_DIR=true
-ENV DATABASE_URL=file:./app-data/db/db.sqlite
 ENV DOCUMENT_STORAGE_FILESYSTEM_ROOT=./app-data/documents
 ENV PAPRA_CONFIG_DIR=./app-data
 ENV EMAILS_DRY_RUN=true
@@ -57,7 +56,7 @@ ENV CLIENT_BASE_URL=http://localhost:1221
 # Disable Better Auth telemetry
 ENV BETTER_AUTH_TELEMETRY=0
 
-RUN mkdir -p ./app-data/db ./app-data/documents ./ingestion
+RUN mkdir -p ./app-data/documents ./ingestion
 
 HEALTHCHECK --interval=5s --timeout=3s --start-period=30s --retries=3 \
   CMD node -e "fetch('http://localhost:1221/api/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"

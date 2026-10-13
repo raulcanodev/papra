@@ -3,6 +3,7 @@ import type { TranslationsDictionary } from './locales.types';
 import { makePersisted } from '@solid-primitives/storage';
 import { createContext, createEffect, createResource, createSignal, Show, useContext } from 'solid-js';
 import { translations as defaultTranslations } from '../../locales/en.dictionary';
+import { applyBrandMetadata } from '../config/branding';
 import { locales } from './i18n.constants';
 import { createDateFormatter, createFragmentTranslator, createRelativeTimeFormatter, createTranslator, findMatchingLocale } from './i18n.models';
 
@@ -42,12 +43,21 @@ export const I18nProvider: ParentComponent = (props) => {
     preferredLocales: navigator.languages.map(x => new Intl.Locale(x)),
     supportedLocales: locales.map(x => new Intl.Locale(x.key)),
   });
-  const [getLocale, setLocale] = makePersisted(createSignal<Locale>(browserLocale), { name: 'papra_locale', storage: localStorage });
+  const [getStoredLocale, setLocale] = makePersisted(createSignal<Locale>(browserLocale), { name: 'papra_locale', storage: localStorage });
+  // A locale saved before it was removed from the app falls back to the browser match.
+  const getLocale = () => locales.some(locale => locale.key === getStoredLocale()) ? getStoredLocale() : browserLocale;
 
   const [dict] = createResource(getLocale, fetchDictionary);
 
   createEffect(() => {
     document.documentElement.lang = getLocale();
+  });
+
+  createEffect(() => {
+    const dictionary = dict.latest;
+    if (dictionary) {
+      applyBrandMetadata({ tagline: dictionary['app.tagline'], description: dictionary['app.description'] });
+    }
   });
 
   return (

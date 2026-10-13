@@ -1,0 +1,24 @@
+# Local development database (production runs on Supabase)
+# Usage: docker compose -f docker-compose.dev.yml up -d
+# Then in apps/papra-server/.env: DATABASE_URL=postgresql://papra:papra@localhost:5435/papra_dev
+services:
+  postgres:
+    container_name: papra-postgres-dev
+    image: postgres:17-alpine
+    restart: unless-stopped
+    ports:
+      - "5435:5432"
+    environment:
+      - POSTGRES_USER=papra
+      - POSTGRES_PASSWORD=papra
+      - POSTGRES_DB=papra_dev
+    volumes:
+      - papra-postgres-dev-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U papra -d papra_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  papra-postgres-dev-data:

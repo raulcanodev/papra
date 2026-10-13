@@ -3,10 +3,9 @@ import { defineConfig } from 'drizzle-kit';
 
 export default defineConfig({
   schema: ['./src/modules/**/*.table.ts', './src/modules/**/*.tables.ts'],
-  dialect: 'turso',
+  dialect: 'postgresql',
   out: './src/migrations',
   dbCredentials: {
-    url: env.DATABASE_URL ?? 'file:./db.sqlite',
-    authToken: env.DATABASE_AUTH_TOKEN,
+    url: env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/papra',
   },
 });

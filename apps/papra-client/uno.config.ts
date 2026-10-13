@@ -14,6 +14,12 @@ import { DEFAULT_DOCUMENT_ICON } from './src/modules/documents/documents.constan
 import { socials } from './src/modules/shared/socials.constants';
 
 export default defineConfig({
+  content: {
+    pipeline: {
+      // Also scan plain .ts modules: navigation and constants declare icon classes as strings.
+      include: [/\.([jt]sx?|mdx?|html)($|\?)/],
+    },
+  },
   presets: [
     presetWind4({
       dark: {
@@ -30,7 +36,8 @@ export default defineConfig({
     presetWebFonts({
       provider: 'bunny',
       fonts: {
-        sans: 'Inter:400,500,600,700,800,900',
+        sans: 'Geist:400,500,600,700',
+        mono: 'Geist Mono:400,500',
       },
     }),
     presetIcons({
@@ -42,6 +49,18 @@ export default defineConfig({
     }),
   ],
   transformers: [transformerVariantGroup(), transformerDirectives()],
+  shortcuts: {
+    // Page containers rendered inside the workspace shell.
+    // `page`: centered content with a comfortable max width (lists, dashboards, settings).
+    // `page-narrow`: centered, form-sized content.
+    // `page-full`: uses the whole workspace area (calendars, boards, viewers).
+    'page': 'mx-auto w-full max-w-6xl px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:py-8',
+    'page-narrow': 'mx-auto w-full max-w-3xl px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:py-8',
+    'page-full': 'flex h-full min-h-0 w-full flex-col px-4 py-6 sm:px-6 lg:px-8 lg:py-6',
+    'page-header': 'mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between',
+    'page-title': 'text-2xl font-semibold tracking-tight',
+    'page-description': 'mt-1 max-w-2xl text-sm text-muted-foreground',
+  },
   theme: {
     colors: {
       border: 'hsl(var(--border))',
@@ -65,6 +84,24 @@ export default defineConfig({
         DEFAULT: 'hsl(var(--warning))',
         foreground: 'hsl(var(--warning-foreground))',
       },
+      success: {
+        DEFAULT: 'hsl(var(--success))',
+        foreground: 'hsl(var(--success-foreground))',
+      },
+      field: 'hsl(var(--field))',
+      sidebar: {
+        DEFAULT: 'hsl(var(--sidebar))',
+        foreground: 'hsl(var(--sidebar-foreground))',
+        accent: 'hsl(var(--sidebar-accent))',
+        border: 'hsl(var(--sidebar-border))',
+      },
+      chart: {
+        1: 'hsl(var(--chart-1))',
+        2: 'hsl(var(--chart-2))',
+        3: 'hsl(var(--chart-3))',
+        4: 'hsl(var(--chart-4))',
+        5: 'hsl(var(--chart-5))',
+      },
       muted: {
         DEFAULT: 'hsl(var(--muted))',
         foreground: 'hsl(var(--muted-foreground))',
@@ -83,6 +120,7 @@ export default defineConfig({
       },
     },
     borderRadius: {
+      xl: 'calc(var(--radius) + 4px)',
       lg: 'var(--radius)',
       md: 'calc(var(--radius) - 2px)',
       sm: 'calc(var(--radius) - 4px)',

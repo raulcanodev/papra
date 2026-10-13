@@ -29,8 +29,7 @@ export async function registerSyncBankConnectionsTask({ taskServices, db, config
           });
           totalSynced += insertedCount;
           logger.info({ connectionId: connection.id, provider: connection.provider, insertedCount }, 'Bank connection synced');
-        }
-        catch (error) {
+        } catch (error) {
           errors++;
           logger.error({ connectionId: connection.id, provider: connection.provider, error }, 'Failed to sync bank connection');
         }

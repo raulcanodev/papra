@@ -36,7 +36,7 @@ export const OrganizationPage: Component = () => {
   const { promptImport } = useDocumentUpload();
 
   return (
-    <div class="p-6 mt-4 pb-32 max-w-5xl mx-auto">
+    <div class="page">
       <Suspense>
         {documentsQuery.data?.documents?.length === 0
           ? (

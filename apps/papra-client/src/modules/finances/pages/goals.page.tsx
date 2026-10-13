@@ -3,11 +3,15 @@ import type { FinanceGoalBucket, FinanceGoalVersion } from '../finances-goals.ty
 import { useParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
 import { createEffect, createSignal, For, Match, Show, Switch } from 'solid-js';
+import { getDocumentLocale } from '@/modules/i18n/document-locale';
+import { useI18n } from '@/modules/i18n/i18n.provider';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
 import { fetchTags } from '@/modules/tags/tags.services';
 import { Button } from '@/modules/ui/components/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/modules/ui/components/dialog';
 import { createToast } from '@/modules/ui/components/sonner';
+import { TextField } from '@/modules/ui/components/textfield';
 import {
   createFinanceGoalBucket,
   deleteFinanceGoalBucket,
@@ -17,6 +21,7 @@ import {
   restoreGoalVersion,
   updateFinanceGoalBucket,
 } from '../finances-goals.services';
+import { classificationLabelKeys, transactionClassifications } from '../finances-labels';
 
 // ── Donut Chart ──────────────────────────────────────────────────────────────
 
@@ -84,8 +89,9 @@ const MonthPicker: Component<{
   value: { year: number; month: number };
   onChange: (v: { year: number; month: number }) => void;
 }> = (props) => {
+  const { t } = useI18n();
   const label = () =>
-    new Date(props.value.year, props.value.month, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    new Date(props.value.year, props.value.month, 1).toLocaleString(getDocumentLocale(), { month: 'long', year: 'numeric' });
 
   const prev = () => {
     const d = new Date(props.value.year, props.value.month - 1, 1);
@@ -99,11 +105,11 @@ const MonthPicker: Component<{
 
   return (
     <div class="flex items-center gap-2">
-      <button type="button" class="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" onClick={prev}>
+      <button type="button" class="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" aria-label={t('finances.goals.previous-month')} onClick={prev}>
         <div class="i-tabler-chevron-left size-4" />
       </button>
-      <span class="text-sm font-medium w-36 text-center">{label()}</span>
-      <button type="button" class="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" onClick={next}>
+      <span class="text-sm font-medium w-40 text-center capitalize">{label()}</span>
+      <button type="button" class="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" aria-label={t('finances.goals.next-month')} onClick={next}>
         <div class="i-tabler-chevron-right size-4" />
       </button>
     </div>
@@ -113,7 +119,7 @@ const MonthPicker: Component<{
 // ── Bucket Card ──────────────────────────────────────────────────────────────
 
 const PRESET_COLORS = ['#4ade80', '#f97316', '#60a5fa', '#a78bfa', '#fb7185', '#facc15', '#2dd4bf', '#f472b6'];
-const ALL_CLASSIFICATIONS = ['expense', 'income', 'owner_transfer', 'internal_transfer'];
+const ALL_CLASSIFICATIONS = transactionClassifications;
 
 type BucketCardProps = {
   bucket: FinanceGoalBucket & { actualAmount?: number; actualPercentage?: number };
@@ -125,6 +131,7 @@ type BucketCardProps = {
 };
 
 const BucketCard: Component<BucketCardProps> = (props) => {
+  const { t } = useI18n();
   const [editing, setEditing] = createSignal(false);
   const [name, setName] = createSignal(props.bucket.name);
   const [targetPct, setTargetPct] = createSignal(props.bucket.targetPercentage);
@@ -162,10 +169,10 @@ const BucketCard: Component<BucketCardProps> = (props) => {
     onSuccess: () => {
       setEditing(false);
       props.onSaved();
-      createToast({ message: 'Bucket updated', type: 'success' });
+      createToast({ message: t('finances.goals.bucket.toast.updated'), type: 'success' });
     },
     onError: (err: any) => {
-      createToast({ message: err?.message ?? 'Failed to update bucket', type: 'error' });
+      createToast({ message: err?.message ?? t('finances.goals.bucket.toast.update-error'), type: 'error' });
     },
   }));
 
@@ -177,7 +184,7 @@ const BucketCard: Component<BucketCardProps> = (props) => {
     }),
     onSuccess: () => {
       props.onDeleted();
-      createToast({ message: 'Bucket deleted', type: 'success' });
+      createToast({ message: t('finances.goals.bucket.toast.deleted'), type: 'success' });
     },
   }));
 
@@ -240,24 +247,12 @@ const BucketCard: Component<BucketCardProps> = (props) => {
       {/* Progress bar */}
       <div class="space-y-1">
         <div class="flex justify-between text-xs text-muted-foreground">
-          <span>
-            Actual:
-            {' '}
-            <span class={cn('font-medium', actualPct() > targetPctVal() ? 'text-orange-500' : 'text-foreground')}>
-              {actualPct().toFixed(1)}
-              %
-            </span>
-            {' '}
-            / Target:
-            {' '}
-            <span class="font-medium text-foreground">
-              {targetPctVal()}
-              %
-            </span>
+          <span class={cn(actualPct() > targetPctVal() && 'text-orange-500')}>
+            {t('finances.goals.bucket.progress', { actual: actualPct().toFixed(1), target: targetPctVal() })}
           </span>
           <Show when={props.bucket.actualAmount !== undefined}>
             <span class="font-medium">
-              {new Intl.NumberFormat('en-US', { style: 'currency', currency: props.currency }).format(props.bucket.actualAmount!)}
+              {new Intl.NumberFormat(getDocumentLocale(), { style: 'currency', currency: props.currency }).format(props.bucket.actualAmount!)}
             </span>
           </Show>
         </div>
@@ -281,7 +276,7 @@ const BucketCard: Component<BucketCardProps> = (props) => {
       <Show when={editing()}>
         <div class="border-t pt-3 space-y-3">
           <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-muted-foreground">Name</label>
+            <label class="text-xs font-medium text-muted-foreground">{t('finances.goals.bucket.name')}</label>
             <input
               class="border rounded px-2 py-1.5 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-primary w-full"
               value={name()}
@@ -290,7 +285,7 @@ const BucketCard: Component<BucketCardProps> = (props) => {
           </div>
 
           <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-muted-foreground">Target %</label>
+            <label class="text-xs font-medium text-muted-foreground">{t('finances.goals.bucket.target')}</label>
             <input
               type="number"
               min="0"
@@ -302,7 +297,7 @@ const BucketCard: Component<BucketCardProps> = (props) => {
           </div>
 
           <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-muted-foreground">Color</label>
+            <label class="text-xs font-medium text-muted-foreground">{t('finances.goals.bucket.color')}</label>
             <div class="flex flex-wrap gap-1.5">
               <For each={PRESET_COLORS}>
                 {c => (
@@ -318,7 +313,7 @@ const BucketCard: Component<BucketCardProps> = (props) => {
           </div>
 
           <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-muted-foreground">Transaction Classifications</label>
+            <label class="text-xs font-medium text-muted-foreground">{t('finances.goals.bucket.classifications')}</label>
             <div class="flex flex-wrap gap-1.5">
               <For each={ALL_CLASSIFICATIONS}>
                 {cls => (
@@ -332,19 +327,19 @@ const BucketCard: Component<BucketCardProps> = (props) => {
                     )}
                     onClick={() => toggleClassification(cls)}
                   >
-                    {cls.replace('_', ' ')}
+                    {t(classificationLabelKeys[cls])}
                   </button>
                 )}
               </For>
             </div>
-            <p class="text-xs text-muted-foreground">Transactions matching these classifications will be counted in this bucket.</p>
+            <p class="text-xs text-muted-foreground">{t('finances.goals.bucket.classifications.help')}</p>
           </div>
 
           <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-muted-foreground">Transaction Tags</label>
+            <label class="text-xs font-medium text-muted-foreground">{t('finances.goals.bucket.tags')}</label>
             <Show
               when={availableTags().length > 0}
-              fallback={<p class="text-xs text-muted-foreground">No tags created yet.</p>}
+              fallback={<p class="text-xs text-muted-foreground">{t('finances.goals.bucket.tags.empty')}</p>}
             >
               <div class="flex flex-wrap gap-1.5">
                 <For each={availableTags()}>
@@ -366,13 +361,13 @@ const BucketCard: Component<BucketCardProps> = (props) => {
                 </For>
               </div>
             </Show>
-            <p class="text-xs text-muted-foreground">Transactions with these tags will also be counted in this bucket.</p>
+            <p class="text-xs text-muted-foreground">{t('finances.goals.bucket.tags.help')}</p>
           </div>
 
           <div class="flex justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
+            <Button variant="outline" size="sm" onClick={() => setEditing(false)}>{t('finances.common.cancel')}</Button>
             <Button size="sm" onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
-              {saveMut.isPending ? 'Saving…' : 'Save'}
+              {saveMut.isPending ? t('finances.common.saving') : t('finances.common.save')}
             </Button>
           </div>
         </div>
@@ -390,6 +385,7 @@ const AddBucketForm: Component<{
   onCreated: () => void;
   onCancel: () => void;
 }> = (props) => {
+  const { t } = useI18n();
   const [name, setName] = createSignal('');
   const [targetPct, setTargetPct] = createSignal(10);
   const [color, setColor] = createSignal(PRESET_COLORS[3]!);
@@ -426,41 +422,40 @@ const AddBucketForm: Component<{
     }),
     onSuccess: () => {
       props.onCreated();
-      createToast({ message: 'Bucket created', type: 'success' });
+      createToast({ message: t('finances.goals.bucket.toast.created'), type: 'success' });
     },
     onError: (err: any) => {
-      createToast({ message: err?.message ?? 'Failed to create bucket', type: 'error' });
+      createToast({ message: err?.message ?? t('finances.goals.bucket.toast.create-error'), type: 'error' });
     },
   }));
 
   return (
-    <div class="border rounded-lg p-4 space-y-3 border-dashed">
-      <p class="text-sm font-medium">New bucket</p>
+    <div class="space-y-4">
 
       <div class="flex flex-col gap-1">
-        <label class="text-xs font-medium text-muted-foreground">Name</label>
-        <input
-          class="border rounded px-2 py-1.5 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-primary w-full"
-          placeholder="e.g. Entertainment"
+        <label class="text-xs font-medium text-muted-foreground">{t('finances.goals.bucket.name')}</label>
+        <TextField
+          autoFocus
+          placeholder={t('finances.goals.bucket.name.placeholder')}
           value={name()}
           onInput={e => setName(e.currentTarget.value)}
         />
       </div>
 
       <div class="flex flex-col gap-1">
-        <label class="text-xs font-medium text-muted-foreground">Target %</label>
-        <input
+        <label class="text-xs font-medium text-muted-foreground">{t('finances.goals.bucket.target')}</label>
+        <TextField
           type="number"
           min="0"
           max="100"
-          class="border rounded px-2 py-1.5 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-primary w-24"
+          class="w-24"
           value={targetPct()}
           onInput={e => setTargetPct(Number(e.currentTarget.value))}
         />
       </div>
 
       <div class="flex flex-col gap-1">
-        <label class="text-xs font-medium text-muted-foreground">Color</label>
+        <label class="text-xs font-medium text-muted-foreground">{t('finances.goals.bucket.color')}</label>
         <div class="flex flex-wrap gap-1.5">
           <For each={PRESET_COLORS}>
             {c => (
@@ -476,7 +471,7 @@ const AddBucketForm: Component<{
       </div>
 
       <div class="flex flex-col gap-1">
-        <label class="text-xs font-medium text-muted-foreground">Transaction Classifications</label>
+        <label class="text-xs font-medium text-muted-foreground">{t('finances.goals.bucket.classifications')}</label>
         <div class="flex flex-wrap gap-1.5">
           <For each={ALL_CLASSIFICATIONS}>
             {cls => (
@@ -490,7 +485,7 @@ const AddBucketForm: Component<{
                 )}
                 onClick={() => toggleClassification(cls)}
               >
-                {cls.replace('_', ' ')}
+                {t(classificationLabelKeys[cls])}
               </button>
             )}
           </For>
@@ -498,10 +493,10 @@ const AddBucketForm: Component<{
       </div>
 
       <div class="flex flex-col gap-1">
-        <label class="text-xs font-medium text-muted-foreground">Transaction Tags</label>
+        <label class="text-xs font-medium text-muted-foreground">{t('finances.goals.bucket.tags')}</label>
         <Show
           when={availableTags().length > 0}
-          fallback={<p class="text-xs text-muted-foreground">No tags created yet.</p>}
+          fallback={<p class="text-xs text-muted-foreground">{t('finances.goals.bucket.tags.empty')}</p>}
         >
           <div class="flex flex-wrap gap-1.5">
             <For each={availableTags()}>
@@ -523,13 +518,13 @@ const AddBucketForm: Component<{
             </For>
           </div>
         </Show>
-        <p class="text-xs text-muted-foreground">Transactions with these tags will also be counted in this bucket.</p>
+        <p class="text-xs text-muted-foreground">{t('finances.goals.bucket.tags.help')}</p>
       </div>
 
-      <div class="flex justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={props.onCancel}>Cancel</Button>
-        <Button size="sm" onClick={() => createMut.mutate()} disabled={createMut.isPending || !name().trim()}>
-          {createMut.isPending ? 'Creating…' : 'Create'}
+      <div class="flex justify-end gap-2 pt-2">
+        <Button variant="ghost" onClick={props.onCancel}>{t('finances.common.cancel')}</Button>
+        <Button variant="primary" onClick={() => createMut.mutate()} disabled={createMut.isPending || !name().trim()}>
+          {createMut.isPending ? t('finances.common.creating') : t('finances.common.create')}
         </Button>
       </div>
     </div>
@@ -545,8 +540,8 @@ const VersionHistory: Component<{
   onRestore: (versionId: string) => void;
   restoring: boolean;
 }> = (props) => {
+  const { t } = useI18n();
   const [expanded, setExpanded] = createSignal(false);
-  const latest = () => props.versions[0];
 
   return (
     <div class="border rounded-lg overflow-hidden text-sm">
@@ -557,7 +552,7 @@ const VersionHistory: Component<{
       >
         <span class="flex items-center gap-2">
           <div class="i-tabler-history size-4" />
-          Version history
+          {t('finances.goals.versions.title')}
           <span class="text-xs bg-muted px-1.5 py-0.5 rounded-full">{props.versions.length}</span>
         </span>
         <div class={cn('i-tabler-chevron-down size-4 transition-transform', expanded() && 'rotate-180')} />
@@ -571,17 +566,16 @@ const VersionHistory: Component<{
                   <div class="flex items-center gap-2">
                     <span class="font-medium text-foreground truncate">{version.name}</span>
                     <Show when={i() === 0}>
-                      <span class="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full shrink-0">Current</span>
+                      <span class="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full shrink-0">{t('finances.goals.versions.current')}</span>
                     </Show>
                   </div>
                   <p class="text-xs text-muted-foreground">
-                    v{version.versionNumber}
+                    v
+                    {version.versionNumber}
                     {' · '}
-                    {new Date(version.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                    {new Date(version.createdAt).toLocaleString(getDocumentLocale(), { dateStyle: 'medium', timeStyle: 'short' })}
                     {' · '}
-                    {version.buckets.length}
-                    {' '}
-                    bucket{version.buckets.length !== 1 ? 's' : ''}
+                    {t('finances.goals.versions.buckets', { count: version.buckets.length })}
                   </p>
                 </div>
                 <Show when={i() !== 0}>
@@ -591,7 +585,7 @@ const VersionHistory: Component<{
                     disabled={props.restoring}
                     onClick={() => props.onRestore(version.id)}
                   >
-                    Restore
+                    {t('finances.goals.versions.restore')}
                   </Button>
                 </Show>
               </div>
@@ -604,6 +598,7 @@ const VersionHistory: Component<{
 };
 
 export const FinanceGoalsPage: Component = () => {
+  const { t } = useI18n();
   const params = useParams();
 
   const now = new Date();
@@ -656,12 +651,12 @@ export const FinanceGoalsPage: Component = () => {
       versionId,
     }),
     onSuccess: ({ restoredFrom }) => {
-      createToast({ message: `Restored to version ${restoredFrom}`, type: 'success' });
+      createToast({ message: t('finances.goals.versions.toast.restored', { version: restoredFrom }), type: 'success' });
       invalidateGoal();
       invalidateActuals();
       queryClient.invalidateQueries({ queryKey: ['organizations', params.organizationId, 'finance-goals', goal()?.id, 'versions'] });
     },
-    onError: () => createToast({ message: 'Failed to restore version', type: 'error' }),
+    onError: () => createToast({ message: t('finances.goals.versions.toast.restore-error'), type: 'error' }),
   }));
 
   const totalTarget = () => buckets().reduce((s, b) => s + b.targetPercentage, 0);
@@ -685,14 +680,14 @@ export const FinanceGoalsPage: Component = () => {
     }));
 
   return (
-    <div class="p-6 max-w-screen-lg mx-auto mt-4">
+    <div class="page">
       {/* Header */}
-      <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
+      <div class="page-header">
         <div>
-          <h1 class="text-xl font-bold">
-            {goal()?.name ?? 'Budget Goals'}
+          <h1 class="page-title">
+            {goal()?.name ?? t('finances.goals.title')}
           </h1>
-          <p class="text-sm text-muted-foreground mt-0.5">Track where your money goes each month.</p>
+          <p class="page-description">{t('finances.goals.description')}</p>
         </div>
         <MonthPicker value={selectedMonth()} onChange={setSelectedMonth} />
       </div>
@@ -701,29 +696,20 @@ export const FinanceGoalsPage: Component = () => {
       <Show when={isOver100()}>
         <div class="mb-4 px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-sm flex items-center gap-2">
           <div class="i-tabler-alert-triangle size-4 shrink-0" />
-          Total target is
-          {' '}
-          {totalTarget()}
-          % — must be 100% or less.
+          {t('finances.goals.warning.over', { total: totalTarget() })}
         </div>
       </Show>
       <Show when={isUnder100()}>
         <div class="mb-4 px-4 py-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-600 text-sm flex items-center gap-2">
           <div class="i-tabler-info-circle size-4 shrink-0" />
-          Total target is
-          {' '}
-          {totalTarget()}
-          % — you have
-          {' '}
-          {100 - totalTarget()}
-          % unallocated.
+          {t('finances.goals.warning.under', { total: totalTarget(), remaining: 100 - totalTarget() })}
         </div>
       </Show>
 
       <Show when={goalQuery.isPending}>
         <div class="flex items-center justify-center py-20 text-muted-foreground text-sm gap-2">
           <div class="i-tabler-loader-2 size-4 animate-spin" />
-          Loading...
+          {t('finances.common.loading')}
         </div>
       </Show>
 
@@ -745,15 +731,12 @@ export const FinanceGoalsPage: Component = () => {
               {actuals => (
                 <div class="text-center">
                   <p class="text-2xl font-bold">
-                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: actuals().currency }).format(actuals().totalAmount)}
+                    {new Intl.NumberFormat(getDocumentLocale(), { style: 'currency', currency: actuals().currency }).format(actuals().totalAmount)}
                   </p>
-                  <p class="text-xs text-muted-foreground">Total expenses this month</p>
+                  <p class="text-xs text-muted-foreground">{t('finances.goals.total-expenses')}</p>
                   <Show when={actuals().unassignedAmount > 0}>
                     <p class="text-xs text-muted-foreground mt-1">
-                      +
-                      {new Intl.NumberFormat('en-US', { style: 'currency', currency: actuals().currency }).format(actuals().unassignedAmount)}
-                      {' '}
-                      unassigned
+                      {t('finances.goals.unassigned', { amount: new Intl.NumberFormat(getDocumentLocale(), { style: 'currency', currency: actuals().currency }).format(actuals().unassignedAmount) })}
                     </p>
                   </Show>
                 </div>
@@ -776,32 +759,36 @@ export const FinanceGoalsPage: Component = () => {
               )}
             </For>
 
-            <Show when={addingBucket()}>
-              <AddBucketForm
-                goalId={goal()!.id}
-                organizationId={params.organizationId}
-                nextPosition={buckets().length}
-                onCreated={() => {
-                  setAddingBucket(false);
-                  onBucketChange();
-                }}
-                onCancel={() => setAddingBucket(false)}
-              />
-            </Show>
+            <Dialog open={addingBucket()} onOpenChange={setAddingBucket}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t('finances.goals.new-bucket')}</DialogTitle>
+                  <DialogDescription>{t('finances.goals.new-bucket.description')}</DialogDescription>
+                </DialogHeader>
+                <AddBucketForm
+                  goalId={goal()!.id}
+                  organizationId={params.organizationId}
+                  nextPosition={buckets().length}
+                  onCreated={() => {
+                    setAddingBucket(false);
+                    onBucketChange();
+                  }}
+                  onCancel={() => setAddingBucket(false)}
+                />
+              </DialogContent>
+            </Dialog>
 
-            <Show when={!addingBucket()}>
-              <button
-                type="button"
-                class="flex items-center gap-2 px-4 py-3 rounded-lg border border-dashed text-sm text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
-                onClick={() => setAddingBucket(true)}
-              >
-                <div class="i-tabler-plus size-4" />
-                Add bucket
-              </button>
-            </Show>
+            <button
+              type="button"
+              class="flex items-center gap-2 px-4 py-3 rounded-lg border border-dashed text-sm text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
+              onClick={() => setAddingBucket(true)}
+            >
+              <div class="i-tabler-plus size-4" />
+              {t('finances.goals.add-bucket')}
+            </button>
 
             {/* Version history */}
-            <Show when={versionsQuery.data?.versions && versionsQuery.data.versions.length > 0}>
+            <Show when={versionsQuery.data?.versions}>
               {versions => <VersionHistory versions={versions()} onRestore={v => restoreVersionMutation.mutate(v)} restoring={restoreVersionMutation.isPending} />}
             </Show>
           </div>

@@ -60,15 +60,11 @@ export const ${migrationObjectIdentifier} = {
   name: '${migrationName}',
 
   up: async ({ db }) => {
-    await db.batch([
-      db.run(sql\`SELECT 1\`),
-    ]);
+    await db.execute(sql\`SELECT 1\`);
   },
 
   down: async ({ db }) => {
-    await db.batch([
-      db.run(sql\`SELECT 1\`),
-    ]);
+    await db.execute(sql\`SELECT 1\`);
   },
 } satisfies Migration;`.trim());
 

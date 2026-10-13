@@ -3,9 +3,9 @@ import { isUniqueConstraintError } from './constraints.models';
 
 describe('constraints models', () => {
   describe('isUniqueConstraintError', () => {
-    test('in case of an insertion of a record with a unique constraint violation, an error with code SQLITE_CONSTRAINT_UNIQUE is raised by the db driver', () => {
-      expect(isUniqueConstraintError({ error: { code: 'SQLITE_CONSTRAINT_UNIQUE' } })).to.eql(true);
-      expect(isUniqueConstraintError({ error: Object.assign(new Error('error'), { code: 'SQLITE_CONSTRAINT_UNIQUE' }) })).to.eql(true);
+    test('in case of an insertion of a record with a unique constraint violation, an error with the postgres code 23505 is raised by the db driver', () => {
+      expect(isUniqueConstraintError({ error: { code: '23505' } })).to.eql(true);
+      expect(isUniqueConstraintError({ error: Object.assign(new Error('error'), { code: '23505' }) })).to.eql(true);
 
       expect(isUniqueConstraintError({ error: { code: 'other' } })).to.eql(false);
       expect(isUniqueConstraintError({ error: {} })).to.eql(false);
@@ -13,8 +13,9 @@ describe('constraints models', () => {
       expect(isUniqueConstraintError({ error: new Set([Symbol('bob')]) })).to.eql(false);
     });
 
-    test('when dealing with turso cloud db the error does not have the standard code but the message contains "unique constraint failed"', () => {
-      expect(isUniqueConstraintError({ error: { message: 'SQLITE_CONSTRAINT: SQLite error: UNIQUE constraint failed: tags.organization_id, tags.name' } })).to.eql(true);
+    test('when the database error is wrapped, the cause is inspected', () => {
+      expect(isUniqueConstraintError({ error: new Error('Failed query', { cause: { code: '23505' } }) })).to.eql(true);
+      expect(isUniqueConstraintError({ error: new Error('Failed query', { cause: { code: '23503' } }) })).to.eql(false);
     });
   });
 });

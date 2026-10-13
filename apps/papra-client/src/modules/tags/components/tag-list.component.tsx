@@ -3,6 +3,7 @@ import type { Component, ComponentProps } from 'solid-js';
 import type { Tag } from '../tags.types';
 import { useQuery } from '@tanstack/solid-query';
 import { createEffect, createSignal, For, splitProps, Suspense } from 'solid-js';
+import { addTagToTransaction, removeTagFromTransaction } from '@/modules/finances/finances.services';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
@@ -11,7 +12,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/modules/ui/components
 import { TextField, TextFieldRoot } from '@/modules/ui/components/textfield';
 import { CreateTagModal } from '../pages/tags.page';
 import { addTagToDocument, fetchTags, removeTagFromDocument } from '../tags.services';
-import { addTagToTransaction, removeTagFromTransaction } from '@/modules/finances/finances.services';
 import { TagPickerList } from './tag-picker-list.component';
 import { Tag as TagComponent, TagLink } from './tag.component';
 import { useTagPicker } from './use-tag-picker.hook';

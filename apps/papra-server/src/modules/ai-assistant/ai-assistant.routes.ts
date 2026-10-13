@@ -8,11 +8,11 @@ import { createOrganizationsRepository } from '../organizations/organizations.re
 import { ensureUserIsInOrganization } from '../organizations/organizations.usecases';
 import { legacyValidateJsonBody, legacyValidateParams } from '../shared/validation/validation.legacy';
 import { AI_CHAT_SESSION_ID_REGEX } from './ai-assistant.constants';
-import { AI_MODELS } from './ai-assistant.models';
 import { createAiNotConfiguredError } from './ai-assistant.errors';
+import { AI_MODELS } from './ai-assistant.models';
 import { createLlmModel, getApiKeyForProvider, getConfiguredProviders, getDefaultModel } from './ai-assistant.providers';
 import { createAiAssistantRepository } from './ai-assistant.repository';
-import { createAssistantTools, CONFIRMABLE_TOOL_SCHEMAS } from './ai-assistant.tools';
+import { CONFIRMABLE_TOOL_SCHEMAS, createAssistantTools } from './ai-assistant.tools';
 
 const SYSTEM_PROMPT = `You are Papra AI, an intelligent assistant embedded in the Papra document management platform. You help users manage their organization's documents, finances, and settings.
 
@@ -473,7 +473,7 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
         messages: messages.map((m) => {
           let metadata: MessageMetadata | undefined;
           if (m.metadata != null) {
-            metadata = JSON.parse(m.metadata as string) as MessageMetadata;
+            metadata = JSON.parse(m.metadata) as MessageMetadata;
           }
           return { id: m.id, role: m.role, content: m.content, metadata };
         }),

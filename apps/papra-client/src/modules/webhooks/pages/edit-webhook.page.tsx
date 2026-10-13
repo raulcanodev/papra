@@ -13,6 +13,7 @@ import { queryClient } from '@/modules/shared/query/query-client';
 import { Button } from '@/modules/ui/components/button';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextField, TextFieldLabel, TextFieldRoot } from '@/modules/ui/components/textfield';
+import { getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
 import { WebhookEventsPicker } from '../components/webhook-events-picker.component';
 import { WEBHOOK_EVENT_NAMES } from '../webhooks.constants';
 import { fetchWebhook, updateWebhook } from '../webhooks.services';
@@ -56,7 +57,7 @@ export const EditWebhookForm: Component<{ webhook: Webhook }> = (props) => {
         message: t('webhooks.update.success'),
       });
 
-      navigate(`/organizations/${params.organizationId}/settings/webhooks`);
+      navigate(getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'settingsWebhooks' }));
     },
     schema: v.object({
       name: v.pipe(
@@ -164,7 +165,7 @@ export const EditWebhookForm: Component<{ webhook: Webhook }> = (props) => {
       </Field>
 
       <div class="flex justify-end mt-6">
-        <Button type="button" variant="secondary" as={A} href={`/organizations/${params.organizationId}/settings/webhooks`}>
+        <Button type="button" variant="secondary" as={A} href={getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'settingsWebhooks' })}>
           {t('webhooks.update.cancel')}
         </Button>
         <Button type="submit" class="ml-2" isLoading={form.submitting}>
@@ -191,7 +192,7 @@ export const EditWebhookPage: Component = () => {
   }));
 
   return (
-    <div class="p-6 mt-12 pb-32 mx-auto max-w-xl w-full">
+    <div class="page-narrow">
       <div class="border-b pb-4 mb-6">
         <h1 class="text-2xl font-bold">{t('webhooks.update.title')}</h1>
         <p class="text-sm text-muted-foreground">{t('webhooks.update.description')}</p>

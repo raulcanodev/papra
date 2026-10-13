@@ -40,7 +40,7 @@ export function DropdownMenuContent<T extends ValidComponent = 'div'>(props: Pol
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
         class={cn(
-          'min-w-8rem z-50 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[expanded]:(animate-in fade-in-0 zoom-in-95) data-[closed]:(animate-out fade-out-0 zoom-out-95) focus-visible:(outline-none ring-1.5 ring-ring) transition-shadow',
+          'min-w-8rem z-50 overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg shadow-black/5 dark:shadow-black/40 data-[expanded]:(animate-in fade-in-0 zoom-in-95) data-[closed]:(animate-out fade-out-0 zoom-out-95) focus-visible:(outline-none ring-1.5 ring-ring) transition-shadow',
           local.class,
         )}
         {...rest}
@@ -172,7 +172,6 @@ export function DropdownMenuSubTrigger<T extends ValidComponent = 'div'>(props: 
           stroke-width="2"
           d="m9 6l6 6l-6 6"
         />
-        <title>Arrow</title>
       </svg>
     </DropdownMenuPrimitive.SubTrigger>
   );
@@ -192,7 +191,7 @@ export function DropdownMenuSubContent<T extends ValidComponent = 'div'>(props: 
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.SubContent
         class={cn(
-          'min-w-8rem z-50 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[expanded]:(animate-in fade-in-0 zoom-in-95) data-[closed]:(animate-out fade-out-0 zoom-out-95)',
+          'min-w-8rem z-50 overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg shadow-black/5 dark:shadow-black/40 data-[expanded]:(animate-in fade-in-0 zoom-in-95) data-[closed]:(animate-out fade-out-0 zoom-out-95)',
           local.class,
         )}
         {...rest}
@@ -231,7 +230,6 @@ export function DropdownMenuCheckboxItem<T extends ValidComponent = 'div'>(props
             stroke-width="2"
             d="m5 12l5 5L20 7"
           />
-          <title>Checkbox</title>
         </svg>
       </DropdownMenuPrimitive.ItemIndicator>
       {props.children}
@@ -277,7 +275,6 @@ export function DropdownMenuRadioItem<T extends ValidComponent = 'div'>(props: P
               d="M7 3.34a10 10 0 1 1-4.995 8.984L2 12l.005-.324A10 10 0 0 1 7 3.34"
             />
           </g>
-          <title>Radio</title>
         </svg>
       </DropdownMenuPrimitive.ItemIndicator>
       {props.children}

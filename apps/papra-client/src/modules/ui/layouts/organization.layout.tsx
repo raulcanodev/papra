@@ -2,9 +2,11 @@ import type { Component, ParentComponent } from 'solid-js';
 
 import type { Organization } from '@/modules/organizations/organizations.types';
 
-import { useNavigate, useParams } from '@solidjs/router';
+import { useLocation, useNavigate, useParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { createEffect, on, Show } from 'solid-js';
+import { AiAssistantPanelProvider, useAiAssistantPanel } from '@/modules/ai-assistant/ai-assistant-panel.provider';
+import { AiAssistant } from '@/modules/ai-assistant/pages/ai-assistant.page';
 import { useCommandPalette } from '@/modules/command-palette/command-palette.provider';
 import { useConfig } from '@/modules/config/config.provider';
 import { DocumentUploadProvider } from '@/modules/documents/components/document-import-status.component';
@@ -16,6 +18,7 @@ import { getErrorStatus } from '@/modules/shared/utils/errors';
 import { UpgradeDialog } from '@/modules/subscriptions/components/upgrade-dialog.component';
 import { fetchOrganizationSubscription } from '@/modules/subscriptions/subscriptions.services';
 import { SideNav } from '@/modules/ui/components/sidenav';
+import { buildOrganizationWorkspaceNavigation, getOrganizationRouteHref, getOrganizationRouteLabelKey } from '@/modules/ui/navigation/organization-navigation';
 import { UserSettingsDropdown } from '@/modules/users/components/user-settings.component';
 import { useCurrentUser } from '@/modules/users/composables/useCurrentUser';
 import { Button } from '../components/button';
@@ -26,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/select';
-import { SidenavLayout } from './sidenav.layout';
+import { ShellBreadcrumb, SidenavLayout } from './sidenav.layout';
 
 const UpgradeCTAFooter: Component<{ organizationId: string }> = (props) => {
   const { t } = useI18n();
@@ -49,9 +52,9 @@ const UpgradeCTAFooter: Component<{ organizationId: string }> = (props) => {
     <div>
       <Show when={shouldShowUpgradeCTA()}>
 
-        <div class="p-4 mx-4 mt-4 bg-background bg-gradient-to-br from-primary/15 to-transparent rounded-lg">
+        <div class="rounded-lg border border-sidebar-border bg-background p-3">
           <div class="flex items-center gap-2 text-sm font-medium">
-            <div class="i-tabler-sparkles size-4 text-primary" />
+            <div class="i-tabler-sparkles size-4 text-muted-foreground" />
             {t('layout.upgrade-cta.title')}
           </div>
           <div class="text-xs mt-1 mb-3 text-muted-foreground">
@@ -71,6 +74,10 @@ const UpgradeCTAFooter: Component<{ organizationId: string }> = (props) => {
   );
 };
 
+function getInitial(value?: string) {
+  return value?.trim().charAt(0).toUpperCase() || '?';
+}
+
 const OrganizationLayoutSideNav: Component = () => {
   const navigate = useNavigate();
   const params = useParams();
@@ -79,78 +86,22 @@ const OrganizationLayoutSideNav: Component = () => {
   const { openCommandPalette } = useCommandPalette();
   const { user, hasPermission } = useCurrentUser();
 
-  const getMainMenuItems = () => [
-    {
-      label: 'Chat',
-      icon: 'i-tabler-message-circle',
-      href: `/organizations/${params.organizationId}/ai-assistant`,
-    },
-    {
-      label: t('layout.menu.documents'),
-      icon: 'i-tabler-file-text',
-      href: `/organizations/${params.organizationId}/documents`,
-    },
+  const getCapabilities = () => ({
+    'invoicing': true,
+    'personal-finances': hasFlag('llc_finances'),
+  } as const);
 
-    {
-      label: t('layout.menu.tags'),
-      icon: 'i-tabler-tag',
-      href: `/organizations/${params.organizationId}/tags`,
-    },
-    {
-      label: t('layout.menu.custom-properties'),
-      icon: 'i-tabler-forms',
-      href: `/organizations/${params.organizationId}/custom-properties`,
-    },
-    {
-      label: 'Rules',
-      icon: 'i-tabler-list-check',
-      href: `/organizations/${params.organizationId}/tagging-rules`,
-    },
-    {
-      label: t('layout.menu.members'),
-      icon: 'i-tabler-users',
-      href: `/organizations/${params.organizationId}/members`,
-    },
-    ...(hasFlag('llc_finances')
-      ? [{
-          label: 'Finances',
-          icon: 'i-tabler-report-money',
-          children: [
-            {
-              label: 'Overview',
-              icon: 'i-tabler-chart-bar',
-              href: `/organizations/${params.organizationId}/finances/overview`,
-            },
-            {
-              label: 'Transactions',
-              icon: 'i-tabler-arrows-exchange',
-              href: `/organizations/${params.organizationId}/finances/transactions`,
-            },
-            {
-              label: 'Subscriptions',
-              icon: 'i-tabler-repeat',
-              href: `/organizations/${params.organizationId}/finances/subscriptions`,
-            },
-            {
-              label: 'Goals',
-              icon: 'i-tabler-chart-pie',
-              href: `/organizations/${params.organizationId}/finances/goals`,
-            },
-          ],
-        }]
-      : []),
-  ];
+  const getMainMenuSections = () => buildOrganizationWorkspaceNavigation({
+    organizationId: params.organizationId,
+    capabilities: getCapabilities(),
+    translate: t,
+  });
 
   const getFooterMenuItems = () => [
     {
-      label: t('layout.menu.deleted-documents'),
-      icon: 'i-tabler-trash',
-      href: `/organizations/${params.organizationId}/deleted`,
-    },
-    {
       label: t('layout.menu.organization-settings'),
       icon: 'i-tabler-settings',
-      href: `/organizations/${params.organizationId}/settings`,
+      href: getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'settingsGeneral' }),
     },
     ...(hasPermission('bo:access')
       ? [{
@@ -189,17 +140,13 @@ const OrganizationLayoutSideNav: Component = () => {
 
   return (
     <SideNav
-      mainMenu={getMainMenuItems()}
+      mainSections={getMainMenuSections()}
       footerMenu={getFooterMenuItems()}
       preFooter={() => <UpgradeCTAFooter organizationId={params.organizationId} />}
-      footer={() => (
-        <div class="px-4 pb-4 pt-2 border-t border-border">
-          <UserSettingsDropdown userName={user.name} userEmail={user.email} />
-        </div>
-      )}
+      footer={() => <UserSettingsDropdown userName={user.name} userEmail={user.email} />}
       header={() =>
         (
-          <div class="p-4 pb-0 min-w-0 max-w-full">
+          <div class="flex min-w-0 max-w-full flex-col gap-2">
             <Select
               class="w-full"
               options={[...organizationsQuery.data?.organizations ?? [], { id: 'create' }]}
@@ -221,28 +168,37 @@ const OrganizationLayoutSideNav: Component = () => {
                     <SelectItem class="cursor-pointer" item={props.item}>
                       <div class="flex items-center gap-2 text-muted-foreground">
                         <div class="i-tabler-plus size-4" />
-                        <div>Create new organization</div>
+                        <div>{t('layout.organization.create')}</div>
                       </div>
                     </SelectItem>
                   )
                 : (
-                    <SelectItem class="cursor-pointer" item={props.item}>{props.item.rawValue.name}</SelectItem>
+                    <SelectItem class="cursor-pointer" item={props.item}>
+                      <div class="flex min-w-0 items-center gap-2">
+                        <span class="flex size-6 shrink-0 items-center justify-center rounded-sm border text-xs font-medium">
+                          {getInitial(props.item.rawValue.name)}
+                        </span>
+                        <span class="truncate">{props.item.rawValue.name}</span>
+                      </div>
+                    </SelectItem>
                   )}
             >
-              <SelectTrigger class="hover:bg-accent/50 transition rounded-lg h-auto pl-2" caretIcon={<div class="i-tabler-chevron-down size-4 opacity-50 ml-2 flex-shrink-0" />}>
-                <SelectValue<Organization | undefined> class="flex items-center gap-2 min-w-0">
+              <SelectTrigger
+                class="h-12 rounded-md border-0 bg-transparent px-2 shadow-none transition-colors hover:bg-sidebar-accent focus:ring-0 data-[expanded]:bg-sidebar-accent"
+                caretIcon={<div class="i-tabler-selector size-4 shrink-0 text-muted-foreground" />}
+              >
+                <SelectValue<Organization | undefined> class="flex min-w-0 items-center gap-2">
                   {state => (
                     <>
-                      <span class="p-1.5 rounded text-lg font-bold flex items-center bg-muted light:border dark:bg-primary/10 text-primary transition flex-shrink-0">
-                        <div class="i-tabler-file-text size-5.5" />
+                      <span class="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
+                        {getInitial(state.selectedOption()?.name)}
                       </span>
 
-                      <span class="truncate text-base font-medium">
+                      <span class="truncate text-sm font-semibold">
                         {state.selectedOption()?.name}
                       </span>
                     </>
                   )}
-
                 </SelectValue>
               </SelectTrigger>
 
@@ -252,20 +208,98 @@ const OrganizationLayoutSideNav: Component = () => {
             <button
               type="button"
               onClick={openCommandPalette}
-              class="mt-3 flex items-center gap-2 w-full rounded-lg border bg-background px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors"
+              class="flex h-8 w-full items-center gap-2 rounded-md border border-sidebar-border bg-background px-2 text-sm text-muted-foreground shadow-xs transition-colors hover:text-foreground"
             >
               <div class="i-tabler-search size-4 shrink-0" />
-              <span class="flex-1 text-left">{t('layout.search.placeholder')}</span>
-              <kbd class="inline-flex items-center gap-1 rounded border bg-muted px-1.5 py-0.5 text-xs font-medium shrink-0">
-                <span class="text-[1rem] leading-none">⌘</span>
-                <span class="font-mono">K</span>
+              <span class="flex-1 truncate text-left">{t('layout.search.placeholder')}</span>
+              <kbd class="inline-flex items-center gap-0.5 rounded border bg-card px-1.5 font-sans text-[11px] font-medium leading-5 shrink-0">
+                <span>⌘</span>
+                <span>K</span>
               </kbd>
             </button>
-
           </div>
         )}
     />
 
+  );
+};
+
+const OrganizationWorkspaceHeader: Component<{ organizationName?: string }> = (props) => {
+  const params = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { t } = useI18n();
+  const assistantPanel = useAiAssistantPanel();
+  const assistantHref = () => getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'assistant' });
+  const isAssistantPage = () => location.pathname === assistantHref();
+
+  const handleAssistantClick = () => {
+    if (isAssistantPage()) {
+      navigate(getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'home' }));
+      assistantPanel.open();
+      return;
+    }
+
+    assistantPanel.toggle();
+  };
+
+  return (
+    <div class="flex min-w-0 flex-1 items-center justify-between gap-3">
+      <ShellBreadcrumb
+        parent={props.organizationName}
+        title={t(getOrganizationRouteLabelKey({ organizationId: params.organizationId, pathname: location.pathname }))}
+      />
+
+      <Button
+        variant={assistantPanel.isOpen() && !isAssistantPage() ? 'secondary' : 'ghost'}
+        size="sm"
+        class="h-8 gap-1.5 -mr-2"
+        onClick={handleAssistantClick}
+        aria-pressed={assistantPanel.isOpen() && !isAssistantPage()}
+      >
+        <div class="i-tabler-sparkles size-4" />
+        <span class="hidden sm:inline">Papra AI</span>
+      </Button>
+    </div>
+  );
+};
+
+const OrganizationAiAssistantPanel: Component = () => {
+  const params = useParams();
+  const navigate = useNavigate();
+  const assistantPanel = useAiAssistantPanel();
+
+  return (
+    <AiAssistant
+      mode="panel"
+      onClose={assistantPanel.close}
+      onExpand={() => {
+        assistantPanel.close();
+        navigate(getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'assistant' }));
+      }}
+    />
+  );
+};
+
+const OrganizationWorkspaceShell: ParentComponent<{ organizationName?: string }> = (props) => {
+  const params = useParams();
+  const location = useLocation();
+  const assistantPanel = useAiAssistantPanel();
+
+  const isAssistantPanelOpen = () => {
+    const assistantHref = getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'assistant' });
+    return assistantPanel.isOpen() && location.pathname !== assistantHref;
+  };
+
+  return (
+    <SidenavLayout
+      sideNav={OrganizationLayoutSideNav}
+      header={() => <OrganizationWorkspaceHeader organizationName={props.organizationName} />}
+      rightPanel={OrganizationAiAssistantPanel}
+      isRightPanelOpen={isAssistantPanelOpen}
+    >
+      {props.children}
+    </SidenavLayout>
   );
 };
 
@@ -294,10 +328,11 @@ export const OrganizationLayout: ParentComponent = (props) => {
 
   return (
     <DocumentUploadProvider organizationId={params.organizationId}>
-      <SidenavLayout
-        children={props.children}
-        sideNav={OrganizationLayoutSideNav}
-      />
+      <AiAssistantPanelProvider>
+        <OrganizationWorkspaceShell organizationName={query.data?.organization.name}>
+          {props.children}
+        </OrganizationWorkspaceShell>
+      </AiAssistantPanelProvider>
     </DocumentUploadProvider>
   );
 };

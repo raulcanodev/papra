@@ -11,10 +11,10 @@ import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-err
 import { Button } from '@/modules/ui/components/button';
 import { Separator } from '@/modules/ui/components/separator';
 import { TextField, TextFieldLabel, TextFieldRoot } from '@/modules/ui/components/textfield';
-import { AuthLayout } from '../../ui/layouts/auth-layout.component';
 import { authPagesPaths } from '../auth.constants';
 import { getEnabledSsoProviderConfigs } from '../auth.models';
 import { authWithProvider, signUp } from '../auth.services';
+import { AuthBackgroundLayout, AuthCard } from '../components/auth-card-layout.component';
 import { AuthLegalLinks } from '../components/legal-links.component';
 import { NoAuthProviderWarning } from '../components/no-auth-provider';
 import { SsoProviderButton } from '../components/sso-provider-button.component';
@@ -100,7 +100,7 @@ export const EmailRegisterForm: Component = () => {
         )}
       </Field>
 
-      <Button type="submit" class="w-full">{t('auth.register.form.submit')}</Button>
+      <Button type="submit" class="w-full" isLoading={form.submitting}>{t('auth.register.form.submit')}</Button>
 
       <div class="text-red-500 text-sm mt-4">{form.response.message}</div>
 
@@ -114,27 +114,21 @@ export const RegisterPage: Component = () => {
 
   if (!config.auth.isRegistrationEnabled) {
     return (
-      <AuthLayout>
-        <div class="flex items-center justify-center h-full p-6 sm:pb-32">
-          <div class="max-w-sm w-full">
-            <h1 class="text-xl font-bold">
-              {t('auth.register.registration-disabled.title')}
-            </h1>
-            <p class="text-muted-foreground mt-1 mb-4">
-              {t('auth.register.registration-disabled.description')}
-            </p>
+      <AuthBackgroundLayout>
+        <AuthCard>
+          <p class="text-xs uppercase tracking-[0.16em] font-semibold text-primary mb-3">{t('auth.login.eyebrow')}</p>
+          <h1 class="text-3xl font-semibold tracking-[-0.035em]">{t('auth.register.registration-disabled.title')}</h1>
+          <p class="text-muted-foreground mt-2 mb-7 leading-6">{t('auth.register.registration-disabled.description')}</p>
 
-            <p class="text-muted-foreground mt-4">
-              {t('auth.register.have-account')}
-              {' '}
-              <Button variant="link" as={A} class="inline px-0" href="/login">
-                {t('auth.register.login')}
-              </Button>
-            </p>
-
-          </div>
-        </div>
-      </AuthLayout>
+          <p class="text-muted-foreground mt-6 text-center text-sm">
+            {t('auth.register.have-account')}
+            {' '}
+            <Button variant="link" as={A} class="inline px-0" href="/login">
+              {t('auth.register.login')}
+            </Button>
+          </p>
+        </AuthCard>
+      </AuthBackgroundLayout>
     );
   }
 
@@ -146,20 +140,15 @@ export const RegisterPage: Component = () => {
 
   const getHasSsoProviders = () => getEnabledSsoProviderConfigs({ config }).length > 0;
 
-  if (!config.auth.providers.email.isEnabled && !getHasSsoProviders()) {
-    return <AuthLayout><NoAuthProviderWarning /></AuthLayout>;
-  }
+  const hasNoAuthProviders = !config.auth.providers.email.isEnabled && !getHasSsoProviders();
 
   return (
-    <AuthLayout>
-      <div class="flex items-center justify-center h-full p-6 sm:pb-32">
-        <div class="max-w-sm w-full">
-          <h1 class="text-xl font-bold">
-            {t('auth.register.title')}
-          </h1>
-          <p class="text-muted-foreground mt-1 mb-4">
-            {t('auth.register.description')}
-          </p>
+    <AuthBackgroundLayout>
+      <Show when={!hasNoAuthProviders} fallback={<NoAuthProviderWarning />}>
+        <AuthCard>
+          <p class="text-xs uppercase tracking-[0.16em] font-semibold text-primary mb-3">{t('auth.login.eyebrow')}</p>
+          <h1 class="text-3xl font-semibold tracking-[-0.035em]">{t('auth.register.title')}</h1>
+          <p class="text-muted-foreground mt-2 mb-7 leading-6">{t('auth.register.description')}</p>
 
           <Show when={config.auth.providers.email.isEnabled}>
             {getShowEmailRegister() || !getHasSsoProviders()
@@ -177,7 +166,6 @@ export const RegisterPage: Component = () => {
           </Show>
 
           <Show when={getHasSsoProviders()}>
-
             <div class="flex flex-col gap-2">
               <For each={getEnabledSsoProviderConfigs({ config })}>
                 {provider => (
@@ -192,7 +180,7 @@ export const RegisterPage: Component = () => {
             </div>
           </Show>
 
-          <p class="text-muted-foreground mt-4">
+          <p class="text-muted-foreground mt-6 text-center text-sm">
             {t('auth.register.have-account')}
             {' '}
             <Button variant="link" as={A} class="inline px-0" href="/login">
@@ -201,8 +189,8 @@ export const RegisterPage: Component = () => {
           </p>
 
           <AuthLegalLinks />
-        </div>
-      </div>
-    </AuthLayout>
+        </AuthCard>
+      </Show>
+    </AuthBackgroundLayout>
   );
 };

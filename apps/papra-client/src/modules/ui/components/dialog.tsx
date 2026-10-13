@@ -7,6 +7,7 @@ import type { PolymorphicProps } from '@kobalte/core/polymorphic';
 import type { ComponentProps, ParentProps, ValidComponent } from 'solid-js';
 import { Dialog as DialogPrimitive } from '@kobalte/core/dialog';
 import { splitProps } from 'solid-js';
+import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cn } from '@/modules/shared/style/cn';
 
 export const Dialog = DialogPrimitive;
@@ -19,6 +20,7 @@ type dialogContentProps<T extends ValidComponent = 'div'> = ParentProps<
 >;
 
 export function DialogContent<T extends ValidComponent = 'div'>(props: PolymorphicProps<T, dialogContentProps<T>>) {
+  const { t } = useI18n();
   const [local, rest] = splitProps(props as dialogContentProps, [
     'class',
     'children',
@@ -28,13 +30,13 @@ export function DialogContent<T extends ValidComponent = 'div'>(props: Polymorph
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay
         class={cn(
-          'fixed inset-0 z-50 bg-background/80 data-[expanded]:(animate-in fade-in-0) data-[closed]:(animate-out fade-out-0)',
+          'fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] data-[expanded]:(animate-in fade-in-0) data-[closed]:(animate-out fade-out-0)',
         )}
         {...rest}
       />
       <DialogPrimitive.Content
         class={cn(
-          'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-card p-6 shadow-lg duration-200 data-[expanded]:(animate-in fade-in-0 zoom-in-95 duration-200) data-[closed]:(animate-out fade-out-0 zoom-out-95 duration-200) md:w-full sm:rounded-lg max-h-100vh overflow-y-auto',
+          'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-card p-6 shadow-xl shadow-black/10 dark:shadow-black/50 duration-200 data-[expanded]:(animate-in fade-in-0 zoom-in-95 duration-200) data-[closed]:(animate-out fade-out-0 zoom-out-95 duration-200) md:w-full sm:rounded-xl max-h-100vh overflow-y-auto',
           local.class,
         )}
         {...rest}
@@ -54,7 +56,7 @@ export function DialogContent<T extends ValidComponent = 'div'>(props: Polymorph
               stroke-width="2"
               d="M18 6L6 18M6 6l12 12"
             />
-            <title>Close</title>
+            <title>{t('ui.close')}</title>
           </svg>
         </DialogPrimitive.CloseButton>
       </DialogPrimitive.Content>

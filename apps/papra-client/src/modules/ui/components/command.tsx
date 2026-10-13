@@ -11,6 +11,7 @@ import type {
 import type { ComponentProps, VoidProps } from 'solid-js';
 import { Command as CommandPrimitive } from 'cmdk-solid';
 import { splitProps } from 'solid-js';
+import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cn } from '@/modules/shared/style/cn';
 import { Dialog, DialogContent } from './dialog';
 
@@ -54,6 +55,7 @@ export function CommandList(props: CommandListProps) {
 }
 
 export function CommandInput(props: VoidProps<CommandInputProps>) {
+  const { t } = useI18n();
   const [local, rest] = splitProps(props, ['class']);
 
   return (
@@ -71,7 +73,7 @@ export function CommandInput(props: VoidProps<CommandInputProps>) {
           stroke-width="2"
           d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0-14 0m18 11l-6-6"
         />
-        <title>Search</title>
+        <title>{t('ui.search')}</title>
       </svg>
       <CommandPrimitive.Input
         class={cn(

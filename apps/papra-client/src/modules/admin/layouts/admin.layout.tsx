@@ -2,9 +2,8 @@ import type { ParentComponent } from 'solid-js';
 import { A, Navigate } from '@solidjs/router';
 import { Show } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
-import { Button } from '@/modules/ui/components/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/modules/ui/components/sheet';
 import { SideNav } from '@/modules/ui/components/sidenav';
+import { AppShell, ShellBreadcrumb } from '@/modules/ui/layouts/sidenav.layout';
 import { useCurrentUser } from '@/modules/users/composables/useCurrentUser';
 
 const AdminLayout: ParentComponent = (props) => {
@@ -27,65 +26,38 @@ const AdminLayout: ParentComponent = (props) => {
       icon: 'i-tabler-building-community',
     },
     {
-      label: 'Feature Flags',
+      label: t('admin.layout.menu.feature-flags'),
       href: '/admin/feature-flags',
       icon: 'i-tabler-flag',
     },
+    {
+      label: 'VERI*FACTU',
+      href: '/admin/verifactu',
+      icon: 'i-tabler-receipt-tax',
+    },
   ];
 
-  const sidenav = () => (
+  const sideNav = () => (
     <SideNav
       header={() => (
-        <A href="/admin" class="flex items-center gap-2 pl-6 h-14 w-260px">
-          <div class="i-tabler-layout-dashboard text-primary size-7" />
-          <div class="font-medium text-base">
+        <A href="/admin" class="flex h-12 items-center gap-2 rounded-md px-2 transition-colors hover:bg-sidebar-accent">
+          <span class="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <div class="i-tabler-shield-lock size-4" />
+          </span>
+          <span class="truncate text-sm font-semibold">
             {t('admin.layout.header')}
-          </div>
+          </span>
         </A>
       )}
       mainMenu={getNavigationMenu()}
-      footer={() => (
-        <div class="px-4 text-sm text-muted-foreground text-center">
-          Papra &copy;
-          {' '}
-          {new Date().getFullYear()}
-        </div>
-      )}
+      footerMenu={[{ label: t('admin.layout.back-to-app'), icon: 'i-tabler-arrow-left', href: '/' }]}
     />
   );
 
   return (
-    <div class="h-screen bg-card flex flex-row flex-1 min-h-0">
-      <div class="w-280px flex-shrink-0 hidden md:block">
-        {sidenav()}
-      </div>
-      <div class="flex-1 flex flex-col min-h-0 min-w-0">
-        <header class="h-14 flex items-center px-4 justify-between">
-          <Sheet>
-            <SheetTrigger>
-              <Button variant="ghost" size="icon" class="md:hidden mr-2">
-                <div class="i-tabler-menu-2 size-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" class="bg-card p-0!">
-              {sidenav()}
-            </SheetContent>
-          </Sheet>
-
-          <Button
-            variant="outline"
-            as={A}
-            href="/"
-          >
-            {t('admin.layout.back-to-app')}
-          </Button>
-        </header>
-
-        <div class="flex-1 min-h-0 flex flex-col md:rounded-tl-lg md:border-l border-t bg-background">
-          {props.children}
-        </div>
-      </div>
-    </div>
+    <AppShell sideNav={sideNav} header={() => <ShellBreadcrumb title={t('admin.layout.header')} />}>
+      {props.children}
+    </AppShell>
   );
 };
 

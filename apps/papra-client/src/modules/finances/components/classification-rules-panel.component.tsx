@@ -1,7 +1,7 @@
 import type { Component } from 'solid-js';
 import type { RuleCondition } from '../finances.types';
 import { createMutation, useQuery, useQueryClient } from '@tanstack/solid-query';
-import { createSignal, For, Index, Show } from 'solid-js';
+import { createSignal, For, Show } from 'solid-js';
 import { createStore, produce, reconcile } from 'solid-js/store';
 import { useConfirmModal } from '@/modules/shared/confirm';
 import { cn } from '@/modules/shared/style/cn';
@@ -359,7 +359,10 @@ export const ClassificationRulesPanel: Component<{ organizationId: string }> = (
 
             {/* Description */}
             <div>
-              <label class="text-sm font-medium mb-1.5 block">Description <span class="text-muted-foreground font-normal">(optional)</span></label>
+              <label class="text-sm font-medium mb-1.5 block">
+                Description
+                <span class="text-muted-foreground font-normal">(optional)</span>
+              </label>
               <p class="text-xs text-muted-foreground mb-1.5">Describe what this rule detects — used by AI to suggest conditions</p>
               <TextFieldRoot>
                 <TextField

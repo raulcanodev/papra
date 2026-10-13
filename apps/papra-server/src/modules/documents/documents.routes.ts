@@ -13,6 +13,7 @@ import { getFileStreamFromMultipartForm } from '../shared/streams/file-upload';
 import { legacyValidateJsonBody, legacyValidateParams, legacyValidateQuery } from '../shared/validation/validation.legacy';
 import { createSubscriptionsRepository } from '../subscriptions/subscriptions.repository';
 import { createTagsRepository } from '../tags/tags.repository';
+import { createDocumentFoldersRepository } from './document-folders.repository';
 import { searchOrganizationDocuments } from './document-search/document-search.usecase';
 import { createDocumentIsNotDeletedError } from './documents.errors';
 import { formatDocumentForApi, formatDocumentsForApi, isDocumentSizeLimitEnabled } from './documents.models';
@@ -32,6 +33,7 @@ export function registerDocumentsRoutes(context: RouteDefinitionContext) {
   setupDeleteDocumentRoute(context);
   setupGetDocumentFileRoute(context);
   setupUpdateDocumentRoute(context);
+  setupDocumentFoldersRoutes(context);
 }
 
 function setupCreateDocumentRoute({ app, ...deps }: RouteDefinitionContext) {
@@ -278,15 +280,64 @@ function setupGetDocumentsRoute({ app, db, documentSearchServices }: RouteDefini
       const organizationsRepository = createOrganizationsRepository({ db });
       const customPropertiesRepository = createCustomPropertiesRepository({ db });
       const tagsRepository = createTagsRepository({ db });
+      const foldersRepository = createDocumentFoldersRepository({ db });
 
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
       const { documents, documentsCount } = await searchOrganizationDocuments({ organizationId, searchQuery, pageIndex, pageSize, documentSearchServices });
       const { enrichedDocuments } = await enrichAndFormatDocumentsForApi({ documents, tagsRepository, customPropertiesRepository });
+      const { documentFolders } = await foldersRepository.getDocumentFolders({ organizationId, documentIds: enrichedDocuments.map(document => document.id) });
 
-      return context.json({ documents: enrichedDocuments, documentsCount });
+      return context.json({ documents: enrichedDocuments.map(document => ({ ...document, folder: documentFolders.get(document.id) ?? null })), documentsCount });
     },
   );
+}
+
+function setupDocumentFoldersRoutes({ app, db }: RouteDefinitionContext) {
+  app.get('/api/organizations/:organizationId/document-folders', requireAuthentication({ apiKeyPermissions: ['documents:read'] }), legacyValidateParams(z.object({ organizationId: organizationIdSchema })), async (context) => {
+    const { userId } = getUser({ context });
+    const { organizationId } = context.req.valid('param');
+    await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository: createOrganizationsRepository({ db }) });
+    return context.json(await createDocumentFoldersRepository({ db }).listFolders({ organizationId }));
+  });
+
+  app.post('/api/organizations/:organizationId/document-folders', requireAuthentication({ apiKeyPermissions: ['documents:create'] }), legacyValidateParams(z.object({ organizationId: organizationIdSchema })), legacyValidateJsonBody(z.object({ name: z.string().trim().min(1).max(120), parentFolderId: z.string().min(1).nullable().optional() })), async (context) => {
+    const { userId } = getUser({ context });
+    const { organizationId } = context.req.valid('param');
+    await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository: createOrganizationsRepository({ db }) });
+    return context.json(await createDocumentFoldersRepository({ db }).createFolder({ organizationId, ...context.req.valid('json') }));
+  });
+
+  app.patch('/api/organizations/:organizationId/documents/:documentId/folder', requireAuthentication({ apiKeyPermissions: ['documents:update'] }), legacyValidateParams(z.object({ organizationId: organizationIdSchema, documentId: documentIdSchema })), legacyValidateJsonBody(z.object({ folderId: z.string().min(1).nullable() })), async (context) => {
+    const { userId } = getUser({ context });
+    const { organizationId, documentId } = context.req.valid('param');
+    const { folderId } = context.req.valid('json');
+    await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository: createOrganizationsRepository({ db }) });
+    await ensureDocumentExists({ documentId, organizationId, documentsRepository: createDocumentsRepository({ db }) });
+    const foldersRepository = createDocumentFoldersRepository({ db });
+    if (folderId === null) {
+      await foldersRepository.removeDocumentFromFolder({ organizationId, documentId });
+    } else {
+      await foldersRepository.assignDocument({ organizationId, documentId, folderId });
+    }
+    return context.body(null, 204);
+  });
+
+  app.get('/api/organizations/:organizationId/document-folders/:folderId/documents', requireAuthentication({ apiKeyPermissions: ['documents:read'] }), legacyValidateParams(z.object({ organizationId: organizationIdSchema, folderId: z.string().min(1) })), legacyValidateQuery(z.object({ searchQuery: z.string().optional().default(''), pageIndex: z.coerce.number().min(0).int().optional().default(0), pageSize: z.coerce.number().min(1).max(100).int().optional().default(100) })), async (context) => {
+    const { userId } = getUser({ context });
+    const { organizationId, folderId } = context.req.valid('param');
+    const query = context.req.valid('query');
+    await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository: createOrganizationsRepository({ db }) });
+    const foldersRepository = createDocumentFoldersRepository({ db });
+    const { folders } = await foldersRepository.listFolders({ organizationId });
+    const folder = folders.find(item => item.id === folderId);
+    if (!folder) {
+      return context.json({ message: 'Folder not found' }, 404);
+    }
+    const { documents, documentsCount } = await foldersRepository.listFolderDocuments({ organizationId, folderId, ...query });
+    const { enrichedDocuments } = await enrichAndFormatDocumentsForApi({ documents, tagsRepository: createTagsRepository({ db }), customPropertiesRepository: createCustomPropertiesRepository({ db }) });
+    return context.json({ folder, documents: enrichedDocuments.map(document => ({ ...document, folder })), documentsCount });
+  });
 }
 
 function setupGetOrganizationDocumentsStatsRoute({ app, db }: RouteDefinitionContext) {

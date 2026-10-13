@@ -1,4 +1,5 @@
 import type { IntakeEmail } from '@/modules/intake-emails/intake-emails.types';
+import type { VerifactuConfiguration, VerifactuMode } from '@/modules/invoicing/invoicing.types';
 import type { Organization } from '@/modules/organizations/organizations.types';
 import type { User } from '@/modules/users/users.types';
 import type { Webhook } from '@/modules/webhooks/webhooks.types';
@@ -92,4 +93,24 @@ export async function getOrganizationStats({ organizationId }: { organizationId:
   });
 
   return { stats };
+}
+
+export type VerifactuConfigurationInput = {
+  mode: VerifactuMode;
+  applicabilityReason: string | null;
+  legalName: string | null;
+  taxId: string | null;
+  certificateConfigured: boolean;
+  aeatValidationPassed: boolean;
+  responsibleDeclarationAccepted: boolean;
+  transmissionsPaused: boolean;
+  pauseReason: string | null;
+};
+
+export async function getOrganizationVerifactu({ organizationId }: { organizationId: string }) {
+  return apiClient<{ configuration: VerifactuConfiguration | null }>({ method: 'GET', path: `/api/admin/organizations/${organizationId}/verifactu` });
+}
+
+export async function saveOrganizationVerifactu({ organizationId, configuration }: { organizationId: string; configuration: VerifactuConfigurationInput }) {
+  return apiClient<{ configuration: VerifactuConfiguration }>({ method: 'PUT', path: `/api/admin/organizations/${organizationId}/verifactu`, body: configuration });
 }

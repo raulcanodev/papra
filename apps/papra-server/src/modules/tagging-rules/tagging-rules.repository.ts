@@ -1,7 +1,7 @@
 import type { Database } from '../app/database/database.types';
 import type { ConditionMatchMode, DbInsertableTaggingRule, TaggingRuleField, TaggingRuleOperator } from './tagging-rules.types';
 import { injectArguments } from '@corentinth/chisels';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { createError } from '../shared/errors/errors';
 import { omitUndefined } from '../shared/objects';
 import { tagsTable } from '../tags/tags.table';
@@ -26,6 +26,15 @@ export function createTaggingRulesRepository({ db }: { db: Database }) {
   );
 }
 
+const taggingRulesJoinOrder = [
+  asc(taggingRulesTable.createdAt),
+  asc(taggingRulesTable.id),
+  asc(taggingRuleConditionsTable.createdAt),
+  asc(taggingRuleConditionsTable.id),
+  asc(taggingRuleActionsTable.createdAt),
+  asc(taggingRuleActionsTable.id),
+];
+
 async function getOrganizationTaggingRules({ organizationId, db }: { organizationId: string; db: Database }) {
   const rawTaggingRules = await db
     .select()
@@ -33,7 +42,9 @@ async function getOrganizationTaggingRules({ organizationId, db }: { organizatio
     .where(eq(taggingRulesTable.organizationId, organizationId))
     .leftJoin(taggingRuleConditionsTable, eq(taggingRulesTable.id, taggingRuleConditionsTable.taggingRuleId))
     .leftJoin(taggingRuleActionsTable, eq(taggingRulesTable.id, taggingRuleActionsTable.taggingRuleId))
-    .leftJoin(tagsTable, eq(taggingRuleActionsTable.tagId, tagsTable.id));
+    .leftJoin(tagsTable, eq(taggingRuleActionsTable.tagId, tagsTable.id))
+    // Deterministic ordering (insertion order), postgres does not guarantee any order without ORDER BY
+    .orderBy(...taggingRulesJoinOrder);
 
   return aggregateTaggingRules({ rawTaggingRules });
 }
@@ -45,7 +56,9 @@ async function getOrganizationTaggingRule({ organizationId, taggingRuleId, db }:
     .where(and(eq(taggingRulesTable.id, taggingRuleId), eq(taggingRulesTable.organizationId, organizationId)))
     .leftJoin(taggingRuleConditionsTable, eq(taggingRulesTable.id, taggingRuleConditionsTable.taggingRuleId))
     .leftJoin(taggingRuleActionsTable, eq(taggingRulesTable.id, taggingRuleActionsTable.taggingRuleId))
-    .leftJoin(tagsTable, eq(taggingRuleActionsTable.tagId, tagsTable.id));
+    .leftJoin(tagsTable, eq(taggingRuleActionsTable.tagId, tagsTable.id))
+    // Deterministic ordering (insertion order), postgres does not guarantee any order without ORDER BY
+    .orderBy(...taggingRulesJoinOrder);
 
   const { taggingRules = [] } = aggregateTaggingRules({ rawTaggingRules });
   const [taggingRule] = taggingRules;
@@ -65,7 +78,9 @@ async function getOrganizationEnabledTaggingRules({ organizationId, db }: { orga
     ))
     .leftJoin(taggingRuleConditionsTable, eq(taggingRulesTable.id, taggingRuleConditionsTable.taggingRuleId))
     .leftJoin(taggingRuleActionsTable, eq(taggingRulesTable.id, taggingRuleActionsTable.taggingRuleId))
-    .leftJoin(tagsTable, eq(taggingRuleActionsTable.tagId, tagsTable.id));
+    .leftJoin(tagsTable, eq(taggingRuleActionsTable.tagId, tagsTable.id))
+    // Deterministic ordering (insertion order), postgres does not guarantee any order without ORDER BY
+    .orderBy(...taggingRulesJoinOrder);
 
   return aggregateTaggingRules({ rawTaggingRules });
 }

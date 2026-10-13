@@ -36,6 +36,10 @@ export const adminRoutes: RouteDefinition = {
       component: lazy(() => import('./feature-flags/feature-flags.page').then(m => ({ default: m.AdminFeatureFlagsPage }))),
     },
     {
+      path: '/verifactu',
+      component: lazy(() => import('./verifactu/verifactu.page')),
+    },
+    {
       path: '/*404',
       component: NotFoundPage,
     },

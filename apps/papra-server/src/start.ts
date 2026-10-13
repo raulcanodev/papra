@@ -5,7 +5,6 @@ import { env } from 'node:process';
 import { createAuthEmailsServices } from './modules/app/auth/auth.emails.services';
 import { getAuth } from './modules/app/auth/auth.services';
 import { setupDatabase } from './modules/app/database/database';
-import { ensureLocalDatabaseDirectoryExists } from './modules/app/database/database.services';
 import { registerEventHandlers } from './modules/app/events/events.handlers';
 import { createEventServices } from './modules/app/events/events.services';
 import { createGracefulShutdownService } from './modules/app/graceful-shutdown/graceful-shutdown.services';
@@ -50,7 +49,6 @@ async function startWorkerMode({ logger, ...deps }: { logger: Logger } & GlobalD
 async function buildServices({ config }: { config: Config }): Promise<GlobalDependencies> {
   const shutdownServices = createGracefulShutdownService();
 
-  await ensureLocalDatabaseDirectoryExists({ config });
   const { db } = setupDatabase({ ...config.database, shutdownServices });
 
   const documentsStorageService = createDocumentStorageService({ documentStorageConfig: config.documentsStorage });

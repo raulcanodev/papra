@@ -13,6 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuGroup
 import { createToast } from '@/modules/ui/components/sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/modules/ui/components/tooltip';
+import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
 import { useCurrentUserRole } from '../organizations.composables';
 import { ORGANIZATION_ROLES } from '../organizations.constants';
 import { getIsMemberRoleDisabled } from '../organizations.models';
@@ -172,11 +173,11 @@ export const MembersPage: Component = () => {
   const { getIsAtLeastAdmin } = useCurrentUserRole({ organizationId: params.organizationId });
 
   return (
-    <div class="flex flex-col h-full">
-      <div class="border-b px-6 py-3 flex items-center justify-between shrink-0 bg-background">
+    <div class="page">
+      <div class="page-header">
         <div>
-          <h1 class="text-sm font-semibold leading-none">{t('organizations.members.title')}</h1>
-          <p class="text-xs text-muted-foreground mt-0.5">{t('organizations.members.description')}</p>
+          <h1 class="page-title">{t('organizations.members.title')}</h1>
+          <p class="page-description">{t('organizations.members.description')}</p>
         </div>
         <div class="flex items-center gap-2">
           <Show
@@ -195,11 +196,11 @@ export const MembersPage: Component = () => {
               </Tooltip>
             )}
           >
-            <Button as={A} href={`/organizations/${params.organizationId}/invitations`} variant="outline">
+            <Button as={A} href={getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'settingsMembers', childPath: 'invitations' })} variant="outline">
               <div class="i-tabler-mail size-4 mr-2" />
               {t('organizations.invitations.title')}
             </Button>
-            <Button as={A} href={`/organizations/${params.organizationId}/invite`}>
+            <Button as={A} href={getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'settingsMembers', childPath: 'invite' })}>
               <div class="i-tabler-plus size-4 mr-2" />
               {t('organizations.members.invite-member')}
             </Button>

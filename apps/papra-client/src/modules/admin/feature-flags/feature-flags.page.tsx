@@ -1,7 +1,9 @@
 import type { Component } from 'solid-js';
 import type { FeatureFlagEntry } from './feature-flags.services';
+import type { TranslationKeys } from '@/modules/i18n/locales.types';
 import { createMutation, useQuery, useQueryClient } from '@tanstack/solid-query';
 import { createSignal, For, Show } from 'solid-js';
+import { useI18n } from '@/modules/i18n/i18n.provider';
 import { useConfirmModal } from '@/modules/shared/confirm';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
@@ -11,8 +13,8 @@ import { createToast } from '@/modules/ui/components/sonner';
 import { listUsers } from '../users/users.services';
 import { addFeatureFlagEntry, listFeatureFlagEntries, removeFeatureFlagEntry } from './feature-flags.services';
 
-const knownFlags: { id: string; name: string; description: string }[] = [
-  { id: 'llc_finances', name: 'LLC Finances', description: 'Access to the finances module: bank connections, transactions, subscriptions, and financial overview.' },
+const knownFlagDefinitions: { id: string; nameKey: TranslationKeys; descriptionKey: TranslationKeys }[] = [
+  { id: 'llc_finances', nameKey: 'admin.feature-flags.flag.llc-finances.name', descriptionKey: 'admin.feature-flags.flag.llc-finances.description' },
 ];
 
 function groupByFlag(entries: FeatureFlagEntry[]): Record<string, FeatureFlagEntry[]> {
@@ -26,6 +28,12 @@ function groupByFlag(entries: FeatureFlagEntry[]): Record<string, FeatureFlagEnt
 }
 
 export const AdminFeatureFlagsPage: Component = () => {
+  const { t } = useI18n();
+  const knownFlags = knownFlagDefinitions.map(flag => ({ id: flag.id, get name() {
+    return t(flag.nameKey);
+  }, get description() {
+    return t(flag.descriptionKey);
+  } }));
   const queryClient = useQueryClient();
   const { confirm } = useConfirmModal();
   const [newFlagId, setNewFlagId] = createSignal('');
@@ -48,24 +56,24 @@ export const AdminFeatureFlagsPage: Component = () => {
     mutationFn: ({ flagId, userEmail }: { flagId: string; userEmail: string }) =>
       addFeatureFlagEntry({ flagId, userEmail }),
     onSuccess: () => {
-      createToast({ message: 'Entry added', type: 'success' });
+      createToast({ message: t('admin.feature-flags.toast.added'), type: 'success' });
       setNewFlagId('');
       setNewEmail('');
       queryClient.invalidateQueries({ queryKey: ['admin', 'feature-flags'] });
     },
     onError: () => {
-      createToast({ message: 'Failed to add entry', type: 'error' });
+      createToast({ message: t('admin.feature-flags.toast.add-error'), type: 'error' });
     },
   }));
 
   const removeMutation = createMutation(() => ({
     mutationFn: (entryId: string) => removeFeatureFlagEntry({ entryId }),
     onSuccess: () => {
-      createToast({ message: 'Entry removed', type: 'success' });
+      createToast({ message: t('admin.feature-flags.toast.removed'), type: 'success' });
       queryClient.invalidateQueries({ queryKey: ['admin', 'feature-flags'] });
     },
     onError: () => {
-      createToast({ message: 'Failed to remove entry', type: 'error' });
+      createToast({ message: t('admin.feature-flags.toast.remove-error'), type: 'error' });
     },
   }));
 
@@ -80,9 +88,9 @@ export const AdminFeatureFlagsPage: Component = () => {
 
   const handleRemove = async (entry: FeatureFlagEntry) => {
     const ok = await confirm({
-      title: 'Remove feature flag entry',
-      message: `Remove access to "${entry.flagId}" for ${entry.userEmail}?`,
-      confirmButton: { text: 'Remove', variant: 'destructive' },
+      title: t('admin.feature-flags.remove.title'),
+      message: t('admin.feature-flags.remove.message', { flag: entry.flagId, email: entry.userEmail }),
+      confirmButton: { text: t('admin.feature-flags.remove.confirm'), variant: 'destructive' },
     });
     if (ok) {
       removeMutation.mutate(entry.id);
@@ -93,17 +101,17 @@ export const AdminFeatureFlagsPage: Component = () => {
   const flagIds = () => Object.keys(grouped()).sort();
 
   return (
-    <div class="p-6 max-w-3xl">
-      <div class="border-b mb-6 pb-4">
-        <h1 class="text-xl font-bold mb-1">Feature Flags</h1>
-        <p class="text-sm text-muted-foreground">
-          Manage which users have access to specific features. Changes take effect on next page load.
-        </p>
+    <div class="page-narrow">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">{t('admin.feature-flags.title')}</h1>
+          <p class="page-description">{t('admin.feature-flags.description')}</p>
+        </div>
       </div>
 
       {/* Add new entry */}
       <div class="mb-8 border rounded-lg p-4 bg-card">
-        <h2 class="text-sm font-semibold mb-3">Add access</h2>
+        <h2 class="text-sm font-semibold mb-3">{t('admin.feature-flags.add.title')}</h2>
         <div class="flex flex-col sm:flex-row gap-2">
           <Select
             options={knownFlags.map(f => f.id)}
@@ -116,7 +124,7 @@ export const AdminFeatureFlagsPage: Component = () => {
             )}
           >
             <SelectTrigger class="flex-1">
-              <SelectValue<string>>{state => knownFlags.find(f => f.id === state.selectedOption())?.name ?? 'Select flag...'}</SelectValue>
+              <SelectValue<string>>{state => knownFlags.find(f => f.id === state.selectedOption())?.name ?? t('admin.feature-flags.add.select-flag')}</SelectValue>
             </SelectTrigger>
             <SelectContent />
           </Select>
@@ -128,7 +136,7 @@ export const AdminFeatureFlagsPage: Component = () => {
             optionValue={email => email}
             optionTextValue={email => email}
             optionLabel={email => email}
-            placeholder="Search users..."
+            placeholder={t('admin.feature-flags.add.search-users')}
             itemComponent={props => (
               <ComboboxItem item={props.item}>{props.item.rawValue}</ComboboxItem>
             )}
@@ -145,14 +153,14 @@ export const AdminFeatureFlagsPage: Component = () => {
             disabled={addMutation.isPending || !newFlagId().trim() || !newEmail().trim()}
           >
             <div class="i-tabler-plus size-4" />
-            Add
+            {t('admin.feature-flags.add.submit')}
           </Button>
         </div>
       </div>
 
       {/* Known flags reference */}
       <div class="mb-8">
-        <h2 class="text-sm font-semibold mb-3">Available flags</h2>
+        <h2 class="text-sm font-semibold mb-3">{t('admin.feature-flags.available')}</h2>
         <div class="grid gap-3">
           <For each={knownFlags}>
             {flag => (
@@ -162,10 +170,7 @@ export const AdminFeatureFlagsPage: Component = () => {
                   <div class="flex items-center gap-2">
                     <span class="font-mono text-sm font-semibold">{flag.id}</span>
                     <Badge variant="outline" class="text-xs">
-                      {grouped()[flag.id]?.length ?? 0}
-                      {' '}
-                      user
-                      {(grouped()[flag.id]?.length ?? 0) === 1 ? '' : 's'}
+                      {t('admin.feature-flags.users-count', { count: grouped()[flag.id]?.length ?? 0 })}
                     </Badge>
                   </div>
                   <p class="text-xs text-muted-foreground mt-0.5">{flag.description}</p>
@@ -182,11 +187,11 @@ export const AdminFeatureFlagsPage: Component = () => {
         fallback={(
           <div class="text-center py-16 text-muted-foreground">
             <div class="i-tabler-flag size-12 mx-auto opacity-30 mb-4" />
-            <p class="text-sm">No feature flag entries yet.</p>
+            <p class="text-sm">{t('admin.feature-flags.empty')}</p>
           </div>
         )}
       >
-        <h2 class="text-sm font-semibold mb-3">Assigned users</h2>
+        <h2 class="text-sm font-semibold mb-3">{t('admin.feature-flags.assigned')}</h2>
         <div class="flex flex-col gap-6">
           <For each={flagIds()}>
             {flagId => (
@@ -202,10 +207,7 @@ export const AdminFeatureFlagsPage: Component = () => {
                       </span>
                     </Show>
                     <Badge variant="outline" class="text-xs ml-auto">
-                      {grouped()[flagId]?.length ?? 0}
-                      {' '}
-                      user
-                      {(grouped()[flagId]?.length ?? 0) === 1 ? '' : 's'}
+                      {t('admin.feature-flags.users-count', { count: grouped()[flagId]?.length ?? 0 })}
                     </Badge>
                   </div>
                 </div>
@@ -220,6 +222,7 @@ export const AdminFeatureFlagsPage: Component = () => {
                           size="icon"
                           class="size-7 text-destructive hover:text-destructive"
                           onClick={() => handleRemove(entry)}
+                          aria-label={t('admin.feature-flags.remove')}
                           disabled={removeMutation.isPending}
                         >
                           <div class="i-tabler-trash size-3.5" />

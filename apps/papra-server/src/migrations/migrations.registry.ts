@@ -1,71 +1,7 @@
 import type { Migration } from './migrations.types';
 
-import { initialSchemaSetupMigration } from './list/0001-initial-schema-setup.migration';
-import { documentsFtsMigration } from './list/0002-documents-fts.migration';
-import { taggingRulesMigration } from './list/0003-tagging-rules.migration';
-import { apiKeysMigration } from './list/0004-api-keys.migration';
-import { organizationsWebhooksMigration } from './list/0005-organizations-webhooks.migration';
-import { organizationsInvitationsImprovementMigration } from './list/0006-organizations-invitations-improvement.migration';
-import { documentActivityLogMigration } from './list/0007-document-activity-log.migration';
-import { documentActivityLogOnDeleteSetNullMigration } from './list/0008-document-activity-log-on-delete-set-null.migration';
-import { dropLegacyMigrationsMigration } from './list/0009-drop-legacy-migrations.migration';
-import { documentFileEncryptionMigration } from './list/0010-document-file-encryption.migration';
-import { softDeleteOrganizationsMigration } from './list/0011-soft-delete-organizations.migration';
-import { taggingRuleConditionMatchModeMigration } from './list/0012-tagging-rule-condition-match-mode.migration';
-import { dropFts5TriggersMigration } from './list/0013-drop-fts-5-triggers.migration';
-import { twoFactorAuthenticationMigration } from './list/0014-two-factor-authentication.migration';
-import { indexDocumentsFtsIdsMigration } from './list/0015-index-documents-fts-ids.migration';
-import { caseInsensitiveTagNameUniqConstraintMigration } from './list/0016-case-insensitive-tag-name-uniq-constraint.migration';
-import { documentsDateMigration } from './list/0017-documents-date.migration';
-import { customPropertiesMigration } from './list/0018-custom-properties.migration';
-import { financesMigration } from './list/0019-finances.migration';
-import { classificationRulesMigration } from './list/0020-classification-rules.migration';
-import { classificationRulesConditionsMigration } from './list/0021-classification-rules-conditions.migration';
-import { financeSubscriptionsMigration } from './list/0022-finance-subscriptions.migration';
-import { aiChatHistoryMigration } from './list/0023-ai-chat-history.migration';
-import { transactionTagsAndPropertiesMigration } from './list/0024-transaction-tags-and-properties.migration';
-import { bankConnectionBalanceMigration } from './list/0025-bank-connection-balance.migration';
-import { featureFlagsMigration } from './list/0026-feature-flags.migration';
-import { aiChatMessageMetadataMigration } from './list/0027-ai-chat-message-metadata.migration';
-import { userAiProfilesMigration } from './list/0028-user-ai-profiles.migration';
-import { financeGoalsMigration } from './list/0029-finance-goals.migration';
-import { financeGoalVersionsMigration } from './list/0030-finance-goal-versions.migration';
-import { financeSubscriptionTransactionSearchMigration } from './list/0031-finance-subscription-transaction-search.migration';
-import { financeSubscriptionTagIdsMigration } from './list/0032-finance-subscription-tag-ids.migration';
-import { classificationRuleDescriptionMigration } from './list/0033-classification-rule-description.migration';
+import { postgresInitialSchemaMigration } from './list/0001-postgres-initial-schema.migration';
 
 export const migrations: Migration[] = [
-  initialSchemaSetupMigration,
-  documentsFtsMigration,
-  taggingRulesMigration,
-  apiKeysMigration,
-  organizationsWebhooksMigration,
-  organizationsInvitationsImprovementMigration,
-  documentActivityLogMigration,
-  documentActivityLogOnDeleteSetNullMigration,
-  dropLegacyMigrationsMigration,
-  documentFileEncryptionMigration,
-  softDeleteOrganizationsMigration,
-  taggingRuleConditionMatchModeMigration,
-  dropFts5TriggersMigration,
-  twoFactorAuthenticationMigration,
-  indexDocumentsFtsIdsMigration,
-  caseInsensitiveTagNameUniqConstraintMigration,
-  documentsDateMigration,
-  customPropertiesMigration,
-  financesMigration,
-  classificationRulesMigration,
-  classificationRulesConditionsMigration,
-  financeSubscriptionsMigration,
-  aiChatHistoryMigration,
-  transactionTagsAndPropertiesMigration,
-  bankConnectionBalanceMigration,
-  featureFlagsMigration,
-  aiChatMessageMetadataMigration,
-  userAiProfilesMigration,
-  financeGoalsMigration,
-  financeGoalVersionsMigration,
-  financeSubscriptionTransactionSearchMigration,
-  financeSubscriptionTagIdsMigration,
-  classificationRuleDescriptionMigration,
+  postgresInitialSchemaMigration,
 ];

@@ -1,9 +1,11 @@
 import type { Component, JSX } from 'solid-js';
 import type { ChatMessage, ChatSession, ToolConfirmation } from '../ai-assistant.services';
+import type { TranslationKeys } from '@/modules/i18n/locales.types';
 import { useParams } from '@solidjs/router';
 import remarkGfm from 'remark-gfm';
 import { createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { SolidMarkdown } from 'solid-markdown';
+import { getClassificationLabelKey } from '@/modules/finances/finances-labels';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
@@ -19,20 +21,13 @@ const PLACEHOLDER_SUGGESTION_CONFIG = [
   { icon: 'i-tabler-help', key: 'ai-assistant.suggestion.unclassified' as const },
 ];
 
-const TOOL_LABELS: Record<string, string> = {
-  createClassificationRule: 'Create Classification Rule',
-  updateClassificationRule: 'Update Classification Rule',
-  deleteClassificationRule: 'Delete Classification Rule',
-  createTaggingRule: 'Create Document Rule',
-  updateTaggingRule: 'Update Document Rule',
-  deleteTaggingRule: 'Delete Document Rule',
-};
-
-const CLASSIFICATION_LABELS: Record<string, string> = {
-  expense: 'Expense',
-  income: 'Income',
-  owner_transfer: 'Owner Transfer',
-  internal_transfer: 'Internal Transfer',
+const TOOL_LABEL_KEYS: Record<string, TranslationKeys> = {
+  createClassificationRule: 'ai-assistant.tool.create-classification-rule',
+  updateClassificationRule: 'ai-assistant.tool.update-classification-rule',
+  deleteClassificationRule: 'ai-assistant.tool.delete-classification-rule',
+  createTaggingRule: 'ai-assistant.tool.create-tagging-rule',
+  updateTaggingRule: 'ai-assistant.tool.update-tagging-rule',
+  deleteTaggingRule: 'ai-assistant.tool.delete-tagging-rule',
 };
 
 const CLASSIFICATION_COLORS: Record<string, string> = {
@@ -51,6 +46,7 @@ type RuleCardData = {
 };
 
 const RulePreviewCard: Component<{ rule: RuleCardData }> = (props) => {
+  const { t } = useI18n();
   return (
     <div class="not-prose my-2 rounded-lg border border-border/60 bg-card/50 overflow-hidden">
       <div class="flex items-center gap-2 px-3 py-2 bg-muted/30 border-b border-border/40">
@@ -60,16 +56,16 @@ const RulePreviewCard: Component<{ rule: RuleCardData }> = (props) => {
       <div class="px-3 py-2 space-y-1.5">
         <Show when={props.rule.classification}>
           <div class="flex items-center gap-2">
-            <span class="text-xs text-muted-foreground">Classification:</span>
+            <span class="text-xs text-muted-foreground">{t('ai-assistant.rule.classification')}</span>
             <span class={cn('text-xs font-medium px-1.5 py-0.5 rounded', CLASSIFICATION_COLORS[props.rule.classification!] ?? 'text-foreground bg-muted')}>
-              {CLASSIFICATION_LABELS[props.rule.classification!] ?? props.rule.classification}
+              {getClassificationLabelKey(props.rule.classification!) ? t(getClassificationLabelKey(props.rule.classification!)!) : props.rule.classification}
             </span>
           </div>
         </Show>
         <Show when={props.rule.conditions && props.rule.conditions.length > 0}>
           <div class="flex items-start gap-2">
             <span class="text-xs text-muted-foreground mt-0.5 shrink-0">
-              {props.rule.matchMode === 'any' ? 'Any of:' : 'All of:'}
+              {props.rule.matchMode === 'any' ? t('ai-assistant.rule.any-of') : t('ai-assistant.rule.all-of')}
             </span>
             <div class="flex flex-col gap-1">
               <For each={props.rule.conditions}>
@@ -77,7 +73,11 @@ const RulePreviewCard: Component<{ rule: RuleCardData }> = (props) => {
                   <div class="text-xs flex items-center gap-1">
                     <span class="font-medium text-foreground">{cond.field}</span>
                     <span class="text-muted-foreground">{cond.operator}</span>
-                    <span class="font-mono text-primary bg-primary/5 px-1 rounded">"{cond.value}"</span>
+                    <span class="font-mono text-primary bg-primary/5 px-1 rounded">
+                      "
+                      {cond.value}
+                      "
+                    </span>
                   </div>
                 )}
               </For>
@@ -86,7 +86,7 @@ const RulePreviewCard: Component<{ rule: RuleCardData }> = (props) => {
         </Show>
         <Show when={props.rule.tags && props.rule.tags.length > 0}>
           <div class="flex items-center gap-2">
-            <span class="text-xs text-muted-foreground">Tags:</span>
+            <span class="text-xs text-muted-foreground">{t('ai-assistant.rule.tags')}</span>
             <div class="flex gap-1 flex-wrap">
               <For each={props.rule.tags}>
                 {tag => <span class="text-xs bg-muted px-1.5 py-0.5 rounded">{tag}</span>}
@@ -160,22 +160,28 @@ const DataDisplayCard: Component<{ data: DataCardData }> = (props) => {
 };
 
 function getTextContent(children: unknown): string {
-  if (typeof children === 'string') return children;
-  if (Array.isArray(children)) return children.map(getTextContent).join('');
+  if (typeof children === 'string') {
+    return children;
+  }
+  if (Array.isArray(children)) {
+    return children.map(getTextContent).join('');
+  }
   return String(children ?? '');
 }
 
 // Clean up AI content: strip tool result markers and papra-* fences, re-wrap JSON properly
 function preprocessMessageContent(content: string): string {
   // 0. Strip [APPROVED: ...] and [SKIPPED: ...] markers (tool result context not meant for display)
-  let cleaned = content.replace(/\[(?:APPROVED|SKIPPED):\s*\w+(?:\s+Result:\s*\{[^]*?\})?\]/g, '');
+  let cleaned = content.replace(/\[(?:APPROVED|SKIPPED):\s*\w+(?:\s+Result:\s*\{[\s\S]*?\})?\]/g, '');
 
   // 1. Remove any papra-rule/papra-data fence markers (open and close), leaving just the JSON
   cleaned = cleaned.replace(/```papra-(rule|data)\s*/g, '');
   cleaned = cleaned.replace(/```\s*(?=\n|$)/g, (match, offset: number) => {
     // Only strip closing ``` that look like they close a papra fence (preceded by JSON-like content)
     const before = cleaned.slice(Math.max(0, offset - 200), offset);
-    if (/\}\s*$/.test(before)) return '';
+    if (/\}\s*$/.test(before)) {
+      return '';
+    }
     return match;
   });
 
@@ -199,7 +205,8 @@ function preprocessMessageContent(content: string): string {
   return cleaned;
 }
 
-function CodeBlock(props: { lang?: string; code: string; className?: string; children?: JSX.Element }) {
+function CodeBlock(props: { lang?: string; code: string; class?: string; children?: JSX.Element }) {
+  const { t } = useI18n();
   const [copied, setCopied] = createSignal(false);
 
   const copyToClipboard = async () => {
@@ -218,10 +225,10 @@ function CodeBlock(props: { lang?: string; code: string; className?: string; chi
           class="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-muted-foreground/15 transition-colors text-muted-foreground/70 hover:text-muted-foreground"
         >
           <div class={copied() ? 'i-tabler-check text-green-500' : 'i-tabler-copy'} style={{ 'font-size': '14px' }} />
-          <span>{copied() ? 'Copied' : 'Copy'}</span>
+          <span>{copied() ? t('ai-assistant.code.copied') : t('ai-assistant.code.copy')}</span>
         </button>
       </div>
-      <pre class="p-3 overflow-x-auto text-sm leading-relaxed"><code class={props.className}>{props.children}</code></pre>
+      <pre class="p-3 overflow-x-auto text-sm leading-relaxed"><code class={props.class}>{props.children}</code></pre>
     </div>
   );
 }
@@ -253,7 +260,7 @@ const markdownComponents = {
     }
 
     // Default code block
-    return <CodeBlock lang={lang} code={raw} className={props.className}>{props.children}</CodeBlock>;
+    return <CodeBlock lang={lang} code={raw} class={props.className}>{props.children}</CodeBlock>;
   },
 };
 
@@ -262,6 +269,7 @@ const ToolConfirmationCard: Component<{
   organizationId: string;
   onStatusChange: (toolCallId: string, status: 'approved' | 'rejected', result?: unknown) => void;
 }> = (props) => {
+  const { t } = useI18n();
   const [isLoading, setIsLoading] = createSignal(false);
 
   const handleApprove = async () => {
@@ -274,15 +282,19 @@ const ToolConfirmationCard: Component<{
       });
       props.onStatusChange(props.confirmation.toolCallId, 'approved', result);
     } catch (err) {
-      props.onStatusChange(props.confirmation.toolCallId, 'approved', { error: err instanceof Error ? err.message : 'Failed' });
+      props.onStatusChange(props.confirmation.toolCallId, 'approved', { error: err instanceof Error ? err.message : t('ai-assistant.confirmation.failed') });
     } finally {
       setIsLoading(false);
     }
   };
 
   const statusBorder = () => {
-    if (props.confirmation.status === 'approved') return 'border-green-500/40';
-    if (props.confirmation.status === 'rejected') return 'border-muted-foreground/20 opacity-60';
+    if (props.confirmation.status === 'approved') {
+      return 'border-green-500/40';
+    }
+    if (props.confirmation.status === 'rejected') {
+      return 'border-muted-foreground/20 opacity-60';
+    }
     return 'border-primary/40';
   };
 
@@ -297,19 +309,21 @@ const ToolConfirmationCard: Component<{
       <div class={cn(
         'flex items-center gap-2 px-3 py-2',
         props.confirmation.status === 'approved' ? 'bg-green-500/5' : props.confirmation.status === 'rejected' ? 'bg-muted/30' : 'bg-primary/5',
-      )}>
+      )}
+      >
         <div class={cn(
           'size-4 shrink-0',
           props.confirmation.status === 'approved' ? 'i-tabler-check text-green-600' : props.confirmation.status === 'rejected' ? 'i-tabler-x text-muted-foreground' : isDelete() ? 'i-tabler-trash text-destructive' : 'i-tabler-rule text-primary',
-        )} />
+        )}
+        />
         <span class="text-sm font-medium flex-1">
-          {TOOL_LABELS[props.confirmation.toolName] ?? props.confirmation.toolName}
+          {TOOL_LABEL_KEYS[props.confirmation.toolName] ? t(TOOL_LABEL_KEYS[props.confirmation.toolName]!) : props.confirmation.toolName}
         </span>
         <Show when={props.confirmation.status === 'approved'}>
-          <span class="text-xs font-medium text-green-600">Approved</span>
+          <span class="text-xs font-medium text-green-600">{t('ai-assistant.confirmation.approved')}</span>
         </Show>
         <Show when={props.confirmation.status === 'rejected'}>
-          <span class="text-xs text-muted-foreground">Skipped</span>
+          <span class="text-xs text-muted-foreground">{t('ai-assistant.confirmation.skipped')}</span>
         </Show>
       </div>
 
@@ -318,22 +332,22 @@ const ToolConfirmationCard: Component<{
         <div class="px-3 py-2 space-y-1.5 border-t border-border/30">
           <Show when={args().name}>
             <div class="flex items-center gap-2">
-              <span class="text-xs text-muted-foreground shrink-0">Name:</span>
+              <span class="text-xs text-muted-foreground shrink-0">{t('ai-assistant.rule.name')}</span>
               <span class="text-xs font-medium text-foreground">{args().name as string}</span>
             </div>
           </Show>
           <Show when={args().classification}>
             <div class="flex items-center gap-2">
-              <span class="text-xs text-muted-foreground shrink-0">Classification:</span>
+              <span class="text-xs text-muted-foreground shrink-0">{t('ai-assistant.rule.classification')}</span>
               <span class={cn('text-xs font-medium px-1.5 py-0.5 rounded', CLASSIFICATION_COLORS[args().classification as string] ?? 'text-foreground bg-muted')}>
-                {CLASSIFICATION_LABELS[args().classification as string] ?? (args().classification as string)}
+                {getClassificationLabelKey(args().classification as string) ? t(getClassificationLabelKey(args().classification as string)!) : (args().classification as string)}
               </span>
             </div>
           </Show>
           <Show when={Array.isArray(args().conditions) && (args().conditions as unknown[]).length > 0}>
             <div class="flex items-start gap-2">
               <span class="text-xs text-muted-foreground mt-0.5 shrink-0">
-                {(args().conditionMatchMode as string) === 'any' ? 'Any of:' : 'All of:'}
+                {(args().conditionMatchMode as string) === 'any' ? t('ai-assistant.rule.any-of') : t('ai-assistant.rule.all-of')}
               </span>
               <div class="flex flex-col gap-1">
                 <For each={args().conditions as Array<{ field: string; operator: string; value: string }>}>
@@ -341,7 +355,11 @@ const ToolConfirmationCard: Component<{
                     <div class="text-xs flex items-center gap-1 flex-wrap">
                       <span class="font-medium text-foreground">{cond.field}</span>
                       <span class="text-muted-foreground">{cond.operator}</span>
-                      <span class="font-mono text-primary bg-primary/5 px-1 rounded">"{cond.value}"</span>
+                      <span class="font-mono text-primary bg-primary/5 px-1 rounded">
+                        "
+                        {cond.value}
+                        "
+                      </span>
                     </div>
                   )}
                 </For>
@@ -370,11 +388,11 @@ const ToolConfirmationCard: Component<{
         <div class="flex gap-2 px-3 py-2 border-t border-border/30 bg-muted/20">
           <Button size="sm" class="h-7 text-xs gap-1" onClick={() => void handleApprove()} disabled={isLoading()} isLoading={isLoading()}>
             <div class="i-tabler-check size-3.5" />
-            Approve
+            {t('ai-assistant.confirmation.approve')}
           </Button>
           <Button variant="outline" size="sm" class="h-7 text-xs gap-1" onClick={() => props.onStatusChange(props.confirmation.toolCallId, 'rejected')} disabled={isLoading()}>
             <div class="i-tabler-x size-3.5" />
-            Skip
+            {t('ai-assistant.confirmation.skip')}
           </Button>
         </div>
       </Show>
@@ -383,7 +401,7 @@ const ToolConfirmationCard: Component<{
       <Show when={props.confirmation.status === 'approved' && props.confirmation.result}>
         <div class="px-3 py-1.5 border-t border-green-500/20 bg-green-500/5">
           <p class="text-xs text-green-600">
-            {(props.confirmation.result as Record<string, string>)?.message ?? 'Done'}
+            {(props.confirmation.result as Record<string, string>)?.message ?? t('ai-assistant.confirmation.done')}
           </p>
         </div>
       </Show>
@@ -391,25 +409,29 @@ const ToolConfirmationCard: Component<{
   );
 };
 
-const TOOL_ACTIVITY_LABELS: Record<string, { icon: string; label: string }> = {
-  webSearch: { icon: 'i-tabler-world-search', label: 'Searching the internet...' },
-  searchDocuments: { icon: 'i-tabler-file-search', label: 'Searching documents...' },
-  getDocumentById: { icon: 'i-tabler-file-text', label: 'Reading document...' },
-  listTransactions: { icon: 'i-tabler-list-search', label: 'Loading transactions...' },
-  searchTransactions: { icon: 'i-tabler-search', label: 'Searching transactions...' },
-  getSpendingBreakdown: { icon: 'i-tabler-chart-pie', label: 'Analyzing spending...' },
-  getAccountBalances: { icon: 'i-tabler-wallet', label: 'Checking balances...' },
-  getFinancialOverview: { icon: 'i-tabler-report-analytics', label: 'Loading overview...' },
-  analyzeUnclassifiedTransactions: { icon: 'i-tabler-analyze', label: 'Analyzing transactions...' },
-  listClassificationRules: { icon: 'i-tabler-tags', label: 'Loading rules...' },
-  listTaggingRules: { icon: 'i-tabler-tags', label: 'Loading rules...' },
-  autoClassifyTransactions: { icon: 'i-tabler-robot', label: 'Classifying transactions...' },
-  getUserProfile: { icon: 'i-tabler-user-check', label: 'Reading your profile...' },
-  updateUserProfile: { icon: 'i-tabler-user-edit', label: 'Updating your profile...' },
+const TOOL_ACTIVITY_LABELS: Record<string, { icon: string; labelKey: TranslationKeys }> = {
+  webSearch: { icon: 'i-tabler-world-search', labelKey: 'ai-assistant.activity.web-search' },
+  searchDocuments: { icon: 'i-tabler-file-search', labelKey: 'ai-assistant.activity.search-documents' },
+  getDocumentById: { icon: 'i-tabler-file-text', labelKey: 'ai-assistant.activity.read-document' },
+  listTransactions: { icon: 'i-tabler-list-search', labelKey: 'ai-assistant.activity.load-transactions' },
+  searchTransactions: { icon: 'i-tabler-search', labelKey: 'ai-assistant.activity.search-transactions' },
+  getSpendingBreakdown: { icon: 'i-tabler-chart-pie', labelKey: 'ai-assistant.activity.spending' },
+  getAccountBalances: { icon: 'i-tabler-wallet', labelKey: 'ai-assistant.activity.balances' },
+  getFinancialOverview: { icon: 'i-tabler-report-analytics', labelKey: 'ai-assistant.activity.overview' },
+  analyzeUnclassifiedTransactions: { icon: 'i-tabler-analyze', labelKey: 'ai-assistant.activity.analyze-transactions' },
+  listClassificationRules: { icon: 'i-tabler-tags', labelKey: 'ai-assistant.activity.rules' },
+  listTaggingRules: { icon: 'i-tabler-tags', labelKey: 'ai-assistant.activity.rules' },
+  autoClassifyTransactions: { icon: 'i-tabler-robot', labelKey: 'ai-assistant.activity.classify' },
+  getUserProfile: { icon: 'i-tabler-user-check', labelKey: 'ai-assistant.activity.read-profile' },
+  updateUserProfile: { icon: 'i-tabler-user-edit', labelKey: 'ai-assistant.activity.update-profile' },
 };
 
 function ToolActivityIndicator(props: { toolName: string }) {
-  const info = () => TOOL_ACTIVITY_LABELS[props.toolName] ?? { icon: 'i-tabler-loader', label: 'Working...' };
+  const { t } = useI18n();
+  const info = () => {
+    const activity = TOOL_ACTIVITY_LABELS[props.toolName] ?? { icon: 'i-tabler-loader', labelKey: 'ai-assistant.activity.working' };
+    return { icon: activity.icon, label: t(activity.labelKey) };
+  };
 
   return (
     <div class="flex items-center gap-2 py-1.5 px-2 rounded-md bg-muted/50 border border-border/50 text-muted-foreground text-xs">
@@ -430,14 +452,18 @@ function ToolActivityStack(props: { toolNames: string[] }) {
 }
 
 function WebSourceBadges(props: { sources: Array<{ title: string; url: string }> }) {
+  const { t } = useI18n();
   return (
     <div class="not-prose flex flex-wrap gap-1.5 mt-3 pt-2 border-t border-border/30">
-      <span class="text-xs text-muted-foreground/60 self-center mr-0.5">Sources:</span>
+      <span class="text-xs text-muted-foreground/60 self-center mr-0.5">{t('ai-assistant.sources')}</span>
       <For each={props.sources}>
-        {source => {
+        {(source) => {
           const hostname = () => {
-            try { return new URL(source.url).hostname.replace('www.', ''); }
-            catch { return source.url; }
+            try {
+              return new URL(source.url).hostname.replace('www.', '');
+            } catch {
+              return source.url;
+            }
           };
           return (
             <a
@@ -458,6 +484,7 @@ function WebSourceBadges(props: { sources: Array<{ title: string; url: string }>
 }
 
 const MessageBubble: Component<{ message: ChatMessage; isStreaming?: boolean; organizationId: string; onToolStatusChange?: (toolCallId: string, status: 'approved' | 'rejected', result?: unknown) => void }> = (props) => {
+  const { t } = useI18n();
   const isUser = () => props.message.role === 'user';
   const [thinkingOpen, setThinkingOpen] = createSignal(false);
   const hasThinking = () => !!props.message.thinking;
@@ -478,7 +505,7 @@ const MessageBubble: Component<{ message: ChatMessage; isStreaming?: boolean; or
               <Show when={isThinkingLive()}>
                 <div class="flex items-center gap-2 py-1.5 px-2 mb-2 rounded-md bg-muted/50 border border-border/50 text-muted-foreground text-xs">
                   <div class="i-tabler-brain size-3.5 animate-pulse" />
-                  <span class="font-medium">Thinking...</span>
+                  <span class="font-medium">{t('ai-assistant.thinking.live')}</span>
                 </div>
               </Show>
               <Show when={!isThinkingLive()}>
@@ -489,7 +516,7 @@ const MessageBubble: Component<{ message: ChatMessage; isStreaming?: boolean; or
                 >
                   <div class={cn('i-tabler-chevron-right size-3.5 transition-transform', thinkingOpen() && 'rotate-90')} />
                   <div class="i-tabler-brain size-3.5" />
-                  <span>Thinking</span>
+                  <span>{t('ai-assistant.thinking')}</span>
                 </button>
                 <Show when={thinkingOpen()}>
                   <div class="mb-2 py-2 px-3 rounded-md bg-muted/30 border border-border/40 text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto">
@@ -499,13 +526,16 @@ const MessageBubble: Component<{ message: ChatMessage; isStreaming?: boolean; or
               </Show>
             </Show>
             <Show when={!props.message.content && props.isStreaming && !isThinkingLive()}>
-              <Show when={(props.message.activeToolCalls ?? []).length > 0} fallback={
-                <div class="flex items-center gap-1.5 py-1 text-muted-foreground">
-                  <div class="size-1.5 rounded-full bg-current animate-pulse" />
-                  <div class="size-1.5 rounded-full bg-current animate-pulse" style={{ 'animation-delay': '0.15s' }} />
-                  <div class="size-1.5 rounded-full bg-current animate-pulse" style={{ 'animation-delay': '0.3s' }} />
-                </div>
-              }>
+              <Show
+                when={(props.message.activeToolCalls ?? []).length > 0}
+                fallback={(
+                  <div class="flex items-center gap-1.5 py-1 text-muted-foreground">
+                    <div class="size-1.5 rounded-full bg-current animate-pulse" />
+                    <div class="size-1.5 rounded-full bg-current animate-pulse" style={{ 'animation-delay': '0.15s' }} />
+                    <div class="size-1.5 rounded-full bg-current animate-pulse" style={{ 'animation-delay': '0.3s' }} />
+                  </div>
+                )}
+              >
                 <ToolActivityStack toolNames={props.message.activeToolCalls!} />
               </Show>
             </Show>
@@ -543,6 +573,7 @@ const ChatHistoryItem: Component<{
   onDelete: () => void;
   onRename: (newTitle: string) => void;
 }> = (props) => {
+  const { t } = useI18n();
   const [editing, setEditing] = createSignal(false);
   let inputRef: HTMLInputElement | undefined;
 
@@ -563,7 +594,7 @@ const ChatHistoryItem: Component<{
   return (
     <Show
       when={!editing()}
-      fallback={
+      fallback={(
         <div class="w-full px-3 py-1.5 rounded-lg bg-muted flex items-center gap-2">
           <input
             ref={inputRef}
@@ -571,12 +602,16 @@ const ChatHistoryItem: Component<{
             value={props.session.title}
             onBlur={commitEdit}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') commitEdit();
-              if (e.key === 'Escape') setEditing(false);
+              if (e.key === 'Enter') {
+                commitEdit();
+              }
+              if (e.key === 'Escape') {
+                setEditing(false);
+              }
             }}
           />
         </div>
-      }
+      )}
     >
       <button
         type="button"
@@ -593,15 +628,19 @@ const ChatHistoryItem: Component<{
         <div
           role="button"
           tabIndex={0}
+          aria-label={t('ai-assistant.history.rename')}
           class="i-tabler-pencil size-3.5 shrink-0 opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity"
           onClick={startEdit}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') startEdit(e);
+            if (e.key === 'Enter' || e.key === ' ') {
+              startEdit(e);
+            }
           }}
         />
         <div
           role="button"
           tabIndex={0}
+          aria-label={t('ai-assistant.history.delete')}
           class="i-tabler-x size-3.5 shrink-0 opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity"
           onClick={(e) => {
             e.stopPropagation();
@@ -619,7 +658,13 @@ const ChatHistoryItem: Component<{
   );
 };
 
-export const AiAssistantPage: Component = () => {
+type AiAssistantProps = {
+  mode?: 'page' | 'panel';
+  onClose?: () => void;
+  onExpand?: () => void;
+};
+
+export const AiAssistant: Component<AiAssistantProps> = (props) => {
   const { t } = useI18n();
   const params = useParams();
   const [messages, setMessages] = createSignal<ChatMessage[]>([]);
@@ -633,15 +678,20 @@ export const AiAssistantPage: Component = () => {
   let textareaRef: HTMLTextAreaElement | undefined;
 
   const orgId = () => params.organizationId;
+  const isPanel = () => props.mode === 'panel';
 
   function handleToolStatusChange(toolCallId: string, status: 'approved' | 'rejected', result?: unknown) {
     setMessages((prev) => {
       const updated = prev.map((msg) => {
-        if (!msg.toolConfirmations) return msg;
+        if (!msg.toolConfirmations) {
+          return msg;
+        }
         const updatedConfs = msg.toolConfirmations.map(tc =>
           tc.toolCallId === toolCallId ? { ...tc, status, result } : tc,
         );
-        if (updatedConfs === msg.toolConfirmations) return msg;
+        if (updatedConfs === msg.toolConfirmations) {
+          return msg;
+        }
         const updatedMsg = { ...msg, toolConfirmations: updatedConfs };
         // Persist to server if we have message id and session
         if (updatedMsg.id && activeChatId()) {
@@ -796,7 +846,9 @@ export const AiAssistantPage: Component = () => {
               return prev;
             }
             const current = last.activeToolCalls ?? [];
-            if (current.includes(toolName)) return prev;
+            if (current.includes(toolName)) {
+              return prev;
+            }
             return [
               ...prev.slice(0, -1),
               { ...last, activeToolCalls: [...current, toolName] },
@@ -834,15 +886,15 @@ export const AiAssistantPage: Component = () => {
         return;
       }
 
-      const errorMessage = error instanceof Error ? error.message : 'Something went wrong';
+      const errorMessage = error instanceof Error ? error.message : t('ai-assistant.error.generic');
       setMessages((prev) => {
         const last = prev[prev.length - 1];
         if (!last || last.role !== 'assistant') {
-          return [...prev, { role: 'assistant', content: `Error: ${errorMessage}` }];
+          return [...prev, { role: 'assistant', content: t('ai-assistant.error.prefix', { message: errorMessage }) }];
         }
         return [
           ...prev.slice(0, -1),
-          { ...last, content: last.content || `Error: ${errorMessage}` },
+          { ...last, content: last.content || t('ai-assistant.error.prefix', { message: errorMessage }) },
         ];
       });
     } finally {
@@ -897,10 +949,14 @@ export const AiAssistantPage: Component = () => {
   }
 
   return (
-    <div class="flex h-[calc(100vh-4rem)]">
+    <div class="relative flex h-full min-h-0 bg-background">
       {/* History sidebar */}
       <Show when={showHistory()}>
-        <div class="w-64 border-r bg-background shrink-0 flex flex-col min-h-0 h-full">
+        <div class={cn(
+          'border-r bg-background shrink-0 flex flex-col min-h-0 h-full',
+          isPanel() ? 'absolute inset-0 z-20 w-full' : 'w-64',
+        )}
+        >
           <div class="p-3 border-b flex items-center justify-between">
             <span class="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('ai-assistant.history.title')}</span>
             <button
@@ -933,9 +989,9 @@ export const AiAssistantPage: Component = () => {
       </Show>
 
       {/* Main chat area */}
-      <div class="flex flex-col flex-1 min-w-0">
+      <div class="flex flex-col flex-1 min-w-0 min-h-0">
         {/* Header */}
-        <div class="border-b px-6 py-3 flex items-center justify-between shrink-0 bg-background">
+        <div class={cn('border-b flex items-center justify-between shrink-0 bg-background', isPanel() ? 'px-3 py-2' : 'px-5 py-2.5')}>
           <div class="flex items-center gap-3">
             <button
               type="button"
@@ -944,33 +1000,40 @@ export const AiAssistantPage: Component = () => {
             >
               <div class="i-tabler-layout-sidebar-left-expand size-4 text-muted-foreground" />
             </button>
-            <div>
+            <div class={cn(isPanel() && 'sr-only')}>
               <h1 class="text-sm font-semibold leading-none">Papra AI</h1>
               <p class="text-xs text-muted-foreground mt-0.5">{t('ai-assistant.subtitle')}</p>
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <Button variant="outline" size="sm" class="h-8 text-xs gap-1.5" onClick={handleNewChat}>
+            <Button variant="ghost" size="icon-sm" class="rounded-full" onClick={handleNewChat} aria-label={t('ai-assistant.new-chat')}>
               <div class="i-tabler-plus size-3.5" />
-              {t('ai-assistant.new-chat')}
             </Button>
+            <Show when={isPanel()}>
+              <Button variant="ghost" size="icon-sm" class="rounded-full" onClick={props.onExpand} aria-label={t('ai-assistant.open-full-page')}>
+                <div class="i-tabler-arrows-maximize size-4" />
+              </Button>
+              <Button variant="ghost" size="icon-sm" class="rounded-full" onClick={props.onClose} aria-label={t('ai-assistant.close-panel')}>
+                <div class="i-tabler-x size-4" />
+              </Button>
+            </Show>
           </div>
         </div>
 
         {/* Messages area */}
         <div class="flex-1 overflow-y-auto">
-          <div class="max-w-3xl mx-auto px-6">
+          <div class={cn('mx-auto w-full', isPanel() ? 'max-w-xl px-4' : 'max-w-3xl px-6')}>
             <Show
               when={messages().length > 0}
               fallback={(
-                <div class="flex flex-col items-center justify-center h-full min-h-[calc(100vh-14rem)] gap-8">
+                <div class={cn('flex flex-col items-center justify-center h-full gap-8 py-10', isPanel() ? 'min-h-[28rem]' : 'min-h-[calc(100vh-14rem)]')}>
                   <div class="text-center">
                     <h2 class="text-2xl font-bold tracking-tight mb-2">Papra AI</h2>
                     <p class="text-muted-foreground text-sm max-w-md">
                       {t('ai-assistant.welcome.description')}
                     </p>
                   </div>
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl w-full">
+                  <div class={cn('grid grid-cols-1 gap-3 max-w-xl w-full', !isPanel() && 'sm:grid-cols-2')}>
                     <For each={suggestions()}>
                       {suggestion => (
                         <button
@@ -1005,7 +1068,7 @@ export const AiAssistantPage: Component = () => {
         </div>
 
         {/* Input area */}
-        <div class="bg-background/80 backdrop-blur-sm px-6 py-4 shrink-0">
+        <div class={cn('bg-background/90 backdrop-blur-sm shrink-0', isPanel() ? 'px-3 py-3' : 'px-6 py-4')}>
           <div class="max-w-3xl mx-auto">
             <div class="relative flex items-end gap-2 rounded-2xl border bg-background shadow-sm focus-within:ring-1 focus-within:ring-ring transition-shadow">
               <textarea
@@ -1044,41 +1107,41 @@ export const AiAssistantPage: Component = () => {
             <div class="flex items-center justify-between mt-2">
               <Show when={models().length > 1}>
                 <div class="flex items-center gap-3">
-                <DropdownMenu>
-                  <DropdownMenuTrigger class="inline-flex items-center gap-1 h-6 px-2 rounded text-[11px] text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/50 transition-colors font-normal cursor-pointer select-none outline-none">
-                    <div class={cn(
-                      'size-1.5 rounded-full shrink-0',
-                      { anthropic: 'bg-orange-500', xai: 'bg-blue-500', google: 'bg-yellow-500', openai: 'bg-green-500' }[models().find(m => m.id === currentModel())?.provider ?? 'openai'],
-                    )}
-                    />
-                    <span>{models().find(m => m.id === currentModel())?.label ?? modelsData()?.defaultModel ?? t('ai-assistant.model.select')}</span>
-                    <div class="i-tabler-chevron-down size-3 opacity-50" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent class="min-w-40">
-                    <For each={models()}>
-                      {m => (
-                        <DropdownMenuItem
-                          class="flex items-center gap-2 cursor-pointer text-xs"
-                          onClick={() => selectModel(m.id)}
-                        >
-                          <div class={cn(
-                            'size-1.5 rounded-full',
-                            { anthropic: 'bg-orange-500', xai: 'bg-blue-500', google: 'bg-yellow-500', openai: 'bg-green-500' }[m.provider],
-                          )}
-                          />
-                          {m.label}
-                          <Show when={m.id === currentModel()}>
-                            <div class="i-tabler-check size-3 ml-auto text-primary" />
-                          </Show>
-                        </DropdownMenuItem>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger class="inline-flex items-center gap-1 h-6 px-2 rounded text-[11px] text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/50 transition-colors font-normal cursor-pointer select-none outline-none">
+                      <div class={cn(
+                        'size-1.5 rounded-full shrink-0',
+                        { anthropic: 'bg-orange-500', xai: 'bg-blue-500', google: 'bg-yellow-500', openai: 'bg-green-500' }[models().find(m => m.id === currentModel())?.provider ?? 'openai'],
                       )}
-                    </For>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <span class="inline-flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] text-muted-foreground/50 bg-muted/50">
-                  <div class="i-tabler-world-search size-3" />
-                  Search
-                </span>
+                      />
+                      <span>{models().find(m => m.id === currentModel())?.label ?? modelsData()?.defaultModel ?? t('ai-assistant.model.select')}</span>
+                      <div class="i-tabler-chevron-down size-3 opacity-50" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent class="min-w-40">
+                      <For each={models()}>
+                        {m => (
+                          <DropdownMenuItem
+                            class="flex items-center gap-2 cursor-pointer text-xs"
+                            onClick={() => selectModel(m.id)}
+                          >
+                            <div class={cn(
+                              'size-1.5 rounded-full',
+                              { anthropic: 'bg-orange-500', xai: 'bg-blue-500', google: 'bg-yellow-500', openai: 'bg-green-500' }[m.provider],
+                            )}
+                            />
+                            {m.label}
+                            <Show when={m.id === currentModel()}>
+                              <div class="i-tabler-check size-3 ml-auto text-primary" />
+                            </Show>
+                          </DropdownMenuItem>
+                        )}
+                      </For>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <span class="inline-flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] text-muted-foreground/50 bg-muted/50">
+                    <div class="i-tabler-world-search size-3" />
+                    {t('ai-assistant.web-search')}
+                  </span>
                 </div>
               </Show>
               <Show when={models().length <= 1}>
@@ -1091,7 +1154,7 @@ export const AiAssistantPage: Component = () => {
                   <span>{models()[0]?.label ?? modelsData()?.models?.[0]?.label ?? currentModel() ?? '—'}</span>
                   <span class="inline-flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] text-muted-foreground/50">
                     <div class="i-tabler-world-search size-3" />
-                    Search
+                    {t('ai-assistant.web-search')}
                   </span>
                 </div>
               </Show>
@@ -1105,3 +1168,5 @@ export const AiAssistantPage: Component = () => {
     </div>
   );
 };
+
+export const AiAssistantPage: Component = () => <AiAssistant mode="page" />;

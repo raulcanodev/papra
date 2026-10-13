@@ -1,9 +1,9 @@
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { createPrimaryKeyField, createTimestampColumns } from '../../shared/db/columns.helpers';
 import { customPropertyDefinitionsTable } from '../custom-properties.table';
 import { CUSTOM_PROPERTY_SELECT_OPTION_ID_PREFIX } from './custom-properties-options.constants';
 
-export const customPropertySelectOptionsTable = sqliteTable(
+export const customPropertySelectOptionsTable = pgTable(
   'custom_property_select_options',
   {
     ...createPrimaryKeyField({ prefix: CUSTOM_PROPERTY_SELECT_OPTION_ID_PREFIX }),
@@ -14,4 +14,8 @@ export const customPropertySelectOptionsTable = sqliteTable(
     key: text('key').notNull(),
     displayOrder: integer('display_order').notNull().default(0),
   },
+  table => [
+    uniqueIndex('custom_property_select_options_definition_id_key_unique').on(table.propertyDefinitionId, table.key),
+    uniqueIndex('custom_property_select_options_definition_id_name_unique').on(table.propertyDefinitionId, table.name),
+  ],
 );

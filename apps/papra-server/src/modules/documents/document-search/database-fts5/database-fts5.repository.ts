@@ -38,7 +38,7 @@ async function searchOrganizationDocuments({ organizationId, searchQuery, pageIn
 
   const [totalCountResult, documents] = await Promise.all([
     db
-      .select({ count: sql<number>`COUNT(DISTINCT ${documentsTable.id})` })
+      .select({ count: sql<number>`COUNT(DISTINCT ${documentsTable.id})`.mapWith(Number) })
       .from(documentsTable)
       .where(searchWhereClause),
 
@@ -64,6 +64,14 @@ async function indexDocument({ document, db }: { document: DocumentSearchableDat
       organizationId: document.organizationId,
       name: document.name,
       content: document.content,
+    })
+    .onConflictDoUpdate({
+      target: documentsFtsTable.documentId,
+      set: {
+        organizationId: document.organizationId,
+        name: document.name,
+        content: document.content,
+      },
     });
 }
 

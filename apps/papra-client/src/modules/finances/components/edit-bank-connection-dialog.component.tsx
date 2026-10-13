@@ -1,6 +1,7 @@
 import type { Component } from 'solid-js';
 import { createMutation, useQueryClient } from '@tanstack/solid-query';
 import { createEffect, createSignal } from 'solid-js';
+import { useI18n } from '@/modules/i18n/i18n.provider';
 import { Button } from '@/modules/ui/components/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/modules/ui/components/dialog';
 import { createToast } from '@/modules/ui/components/sonner';
@@ -16,6 +17,7 @@ export const EditBankConnectionDialog: Component<{
   isOpen: boolean;
   onClose: () => void;
 }> = (props) => {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [name, setName] = createSignal(props.initialName);
   const [accountId, setAccountId] = createSignal(props.initialAccountId ?? '');
@@ -38,31 +40,31 @@ export const EditBankConnectionDialog: Component<{
       apiKey: apiKey() || undefined,
     }),
     onSuccess: () => {
-      createToast({ message: 'Bank account updated', type: 'success' });
+      createToast({ message: t('finances.bank-connection.toast.updated'), type: 'success' });
       queryClient.invalidateQueries({ queryKey: ['organizations', props.organizationId, 'finances'] });
       props.onClose();
     },
     onError: () => {
-      createToast({ message: 'Failed to update bank account', type: 'error' });
+      createToast({ message: t('finances.bank-connection.toast.update-error'), type: 'error' });
     },
   }));
 
-  const accountIdLabel = () => props.provider === 'wise' ? 'Profile:Balance ID' : 'Account ID';
-  const accountIdPlaceholder = () => props.provider === 'wise' ? 'e.g. 12345:67890' : 'Account ID (optional)';
+  const accountIdLabel = () => props.provider === 'wise' ? t('finances.bank-connection.wise-account-id') : t('finances.bank-connection.account-id');
+  const accountIdPlaceholder = () => props.provider === 'wise' ? t('finances.bank-connection.wise-account-id.placeholder') : t('finances.bank-connection.account-id.placeholder');
 
   return (
     <Dialog open={props.isOpen} onOpenChange={open => !open && props.onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit Bank Connection</DialogTitle>
+          <DialogTitle>{t('finances.bank-connection.edit')}</DialogTitle>
         </DialogHeader>
 
         <div class="flex flex-col gap-4 mt-4">
           <div>
-            <label class="text-sm font-medium mb-1.5 block">Account Name</label>
+            <label class="text-sm font-medium mb-1.5 block">{t('finances.bank-connection.account-name')}</label>
             <TextFieldRoot>
               <TextField
-                placeholder="e.g. Mercury LLC Checking"
+                placeholder={t('finances.bank-connection.account-name.placeholder')}
                 value={name()}
                 onInput={e => setName(e.currentTarget.value)}
               />
@@ -73,7 +75,7 @@ export const EditBankConnectionDialog: Component<{
             <label class="text-sm font-medium mb-1.5 block">
               {accountIdLabel()}
               {' '}
-              <span class="text-muted-foreground">(optional)</span>
+              <span class="text-muted-foreground">{t('finances.bank-connection.optional')}</span>
             </label>
             <TextFieldRoot>
               <TextField
@@ -86,14 +88,14 @@ export const EditBankConnectionDialog: Component<{
 
           <div>
             <label class="text-sm font-medium mb-1.5 block">
-              New API Key
+              {t('finances.bank-connection.new-api-key')}
               {' '}
-              <span class="text-muted-foreground">(leave empty to keep current)</span>
+              <span class="text-muted-foreground">{t('finances.bank-connection.new-api-key.help')}</span>
             </label>
             <TextFieldRoot>
               <TextField
                 type="password"
-                placeholder="Paste new API key to replace"
+                placeholder={t('finances.bank-connection.new-api-key.placeholder')}
                 value={apiKey()}
                 onInput={e => setApiKey(e.currentTarget.value)}
               />
@@ -107,14 +109,14 @@ export const EditBankConnectionDialog: Component<{
               onClick={props.onClose}
               disabled={mutation.isPending}
             >
-              Cancel
+              {t('finances.common.cancel')}
             </Button>
             <Button
               class="flex-1"
               onClick={() => mutation.mutate()}
               disabled={mutation.isPending || !name()}
             >
-              {mutation.isPending ? 'Saving...' : 'Save Changes'}
+              {mutation.isPending ? t('finances.common.saving') : t('finances.common.save-changes')}
             </Button>
           </div>
         </div>

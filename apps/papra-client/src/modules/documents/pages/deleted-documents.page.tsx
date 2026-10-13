@@ -161,7 +161,7 @@ export const DeletedDocumentsPage: Component = () => {
   }));
 
   return (
-    <div class="p-6 mt-4 pb-32">
+    <div class="page">
       <h1 class="text-2xl font-bold">{t('documents.deleted.title')}</h1>
 
       <Alert variant="muted" class="my-4 flex items-center gap-6 xl:gap-4">

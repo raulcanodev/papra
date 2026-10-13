@@ -206,7 +206,7 @@ export const DocumentPage: Component = () => {
   const getDataUrl = () => documentFileQuery.data ? URL.createObjectURL(documentFileQuery.data) : undefined;
 
   return (
-    <div class="p-6 flex gap-6 h-full flex-col md:flex-row max-w-7xl mx-auto">
+    <div class="page-full gap-6 md:flex-row">
       <Suspense>
         <div class="md:flex-1 md:border-r">
           <Show when={documentQuery.data?.document}>

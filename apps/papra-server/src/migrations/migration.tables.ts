@@ -1,14 +1,14 @@
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
 
-export const migrationsTable = sqliteTable(
+export const migrationsTable = pgTable(
   'migrations',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     name: text('name').notNull(),
-    runAt: integer('run_at', { mode: 'timestamp_ms' }).notNull().$default(() => new Date()),
+    runAt: timestamp('run_at', { mode: 'date', withTimezone: true, precision: 3 }).notNull().$default(() => new Date()),
   },
   t => [
-    index('name_index').on(t.name),
-    index('run_at_index').on(t.runAt),
+    index('migrations_name_index').on(t.name),
+    index('migrations_run_at_index').on(t.runAt),
   ],
 );

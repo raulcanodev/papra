@@ -4,10 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
     <meta name="theme-color" content="#000000" />
-    <title>Papra - Document archiving and sharing platform</title>
+    <title>Papra — Your business, finally in order.</title>
 
-    <meta name="title" content="Papra - Document archiving and sharing platform">
-    <meta name="description" content="Papra, the document archiving and sharing platform.">
+    <meta name="title" content="Papra — Your business, finally in order.">
+    <meta name="description" content="Documents, invoices and finances in one calm workspace.">
  
     <link rel="author" href="humans.txt" />
     <link rel="canonical" href="https://papra.app/" />
@@ -15,15 +15,15 @@
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://papra.app/">
-    <meta property="og:title" content="Papra - Document archiving and sharing platform">
-    <meta property="og:description" content="Papra, the document archiving and sharing platform.">
+    <meta property="og:title" content="Papra — Your business, finally in order.">
+    <meta property="og:description" content="Documents, invoices and finances in one calm workspace.">
     <meta property="og:image" content="https://papra.app/og-image.png">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="https://papra.app/">
-    <meta property="twitter:title" content="Papra - Document archiving and sharing platform">
-    <meta property="twitter:description" content="Papra, the document archiving and sharing platform.">
+    <meta property="twitter:title" content="Papra — Your business, finally in order.">
+    <meta property="twitter:description" content="Documents, invoices and finances in one calm workspace.">
     <meta property="twitter:image" content="https://papra.app/og-image.png">
 
     <!-- Favicon and Icons -->
@@ -52,7 +52,7 @@
       "@type": "WebApplication",
       "name": "Papra",
       "url": "https://papra.app/",
-      "description": "Papra, the document archiving and sharing platform.",
+      "description": "Documents, invoices and finances in one calm workspace.",
       "applicationCategory": "Utilities",
       "operatingSystem": "Web",
       "browserRequirements": "Requires JavaScript",
@@ -66,13 +66,14 @@
 
     <style>.sr-only {position: absolute;width: 1px;height: 1px;padding: 0;margin: -1px;overflow: hidden;clip: rect(0, 0, 0, 0);white-space: nowrap;border-width: 0;}</style>
 
-    <!-- Prevent FOUC, default to dark theme -->
+    <!-- Prevent FOUC, default to system theme -->
     <script>
       (function () {
         try{
           const stored = localStorage?.getItem('papra_color_mode');
           const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          const isLight = stored === 'light' || (stored === 'system' && !systemPrefersDark);
+          const followsSystem = stored !== 'light' && stored !== 'dark';
+          const isLight = stored === 'light' || (followsSystem && !systemPrefersDark);
 
           document.documentElement.setAttribute('data-kb-theme', isLight ? 'light' : 'dark');
         } catch {}
@@ -80,8 +81,8 @@
     </script>
   </head>
   <body class="bg-background text-foreground">
-    <h1 class="sr-only">Papra - Document archiving and sharing platform</h1>
-    <p class="sr-only">Papra, the document archiving and sharing platform.</p>
+    <h1 class="sr-only">Papra — Your business, finally in order.</h1>
+    <p class="sr-only">Documents, invoices and finances in one calm workspace.</p>
 
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>

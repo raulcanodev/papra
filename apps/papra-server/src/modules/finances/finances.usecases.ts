@@ -1,11 +1,11 @@
-import type { TagsRepository } from '../tags/tags.repository';
 import type { Database } from '../app/database/database.types';
+import type { TagsRepository } from '../tags/tags.repository';
 import type { BankProvider, TransactionClassification } from './finances.constants';
 import type { FinancesRepository } from './finances.repository';
 import { and, desc, eq, gte, lte } from 'drizzle-orm';
 import { transactionTagsTable } from '../tags/tags.table';
-import { financeGoalVersionsTable, transactionsTable } from './finances.table';
 import { createBankSyncError } from './finances.errors';
+import { financeGoalVersionsTable, transactionsTable } from './finances.table';
 import { getBankProviderAdapter } from './providers/provider.registry';
 
 export async function syncBankTransactions({
@@ -232,7 +232,9 @@ export async function autoClassifyTransactions({
         classification: '__unclassified__',
       });
 
-      if (transactions.length === 0) break;
+      if (transactions.length === 0) {
+        break;
+      }
 
       for (const transaction of transactions) {
         for (const rule of activeRules) {
@@ -257,7 +259,9 @@ export async function autoClassifyTransactions({
         }
       }
 
-      if (transactions.length < pageSize) break;
+      if (transactions.length < pageSize) {
+        break;
+      }
       pageIndex++;
     }
   }
@@ -277,18 +281,22 @@ export async function autoClassifyTransactions({
         pageSize,
       });
 
-      if (transactions.length === 0) break;
+      if (transactions.length === 0) {
+        break;
+      }
 
       for (const transaction of transactions) {
         for (const rule of tagOnlyRules) {
           if (doesRuleMatch(rule, transaction)) {
-            await tagsRepository.addTagsToTransaction({ tagIds: rule.tagIds!, transactionId: transaction.id });
+            await tagsRepository.addTagsToTransaction({ tagIds: rule.tagIds, transactionId: transaction.id });
             break; // First matching tag-only rule wins
           }
         }
       }
 
-      if (transactions.length < pageSize) break;
+      if (transactions.length < pageSize) {
+        break;
+      }
       pageIndex++;
     }
   }
@@ -326,8 +334,13 @@ export async function computeGoalActuals({
 
     if (activeVersion) {
       const parsed = JSON.parse(activeVersion.bucketsSnapshot as unknown as string) as Array<{
-        id: string; name: string; targetPercentage: number; color: string;
-        position: number; tagIds: string[]; classifications: string[];
+        id: string;
+        name: string;
+        targetPercentage: number;
+        color: string;
+        position: number;
+        tagIds: string[];
+        classifications: string[];
       }>;
       return { buckets: parsed };
     }
@@ -352,7 +365,7 @@ export async function computeGoalActuals({
 
   // Fetch tag associations for those transactions
   const txnIds = txns.map(t => t.id);
-  let tagMap: Map<string, string[]> = new Map();
+  const tagMap: Map<string, string[]> = new Map();
 
   if (txnIds.length > 0) {
     const tagRows = await db.select({
@@ -392,12 +405,12 @@ export async function computeGoalActuals({
     for (const bucket of buckets) {
       const matchesClassification
         = bucket.classifications.length > 0
-        && txn.classification !== null
-        && bucket.classifications.includes(txn.classification);
+          && txn.classification !== null
+          && bucket.classifications.includes(txn.classification);
 
       const matchesTag
         = bucket.tagIds.length > 0
-        && txnTags.some(tagId => bucket.tagIds.includes(tagId));
+          && txnTags.some(tagId => bucket.tagIds.includes(tagId));
 
       if (matchesClassification || matchesTag) {
         bucketTotals[bucket.id] = (bucketTotals[bucket.id] ?? 0) + Math.abs(txn.amount);

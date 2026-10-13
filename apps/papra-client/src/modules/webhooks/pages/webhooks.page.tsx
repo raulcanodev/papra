@@ -9,6 +9,7 @@ import { queryClient } from '@/modules/shared/query/query-client';
 import { Button } from '@/modules/ui/components/button';
 import { EmptyState } from '@/modules/ui/components/empty';
 import { createToast } from '@/modules/ui/components/sonner';
+import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
 import { deleteWebhook, fetchWebhooks } from '../webhooks.services';
 
 export const WebhookCard: Component<{ webhook: Webhook }> = (props) => {
@@ -74,7 +75,7 @@ export const WebhookCard: Component<{ webhook: Webhook }> = (props) => {
           variant="outline"
           size="icon"
           as={A}
-          href={`/organizations/${params.organizationId}/settings/webhooks/${props.webhook.id}`}
+          href={getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'settingsWebhooks', childPath: props.webhook.id })}
         >
           <div class="i-tabler-edit text-muted-foreground size-4" />
         </Button>
@@ -100,7 +101,7 @@ export const WebhooksPage: Component = () => {
   }));
 
   return (
-    <div class="p-6 mt-10 pb-32 mx-auto max-w-screen-md w-full">
+    <div class="page-narrow">
 
       <div class="flex gap-4 items-center justify-between">
         <div>
@@ -114,7 +115,7 @@ export const WebhooksPage: Component = () => {
         </div>
 
         <Show when={query.data?.webhooks?.length}>
-          <Button as={A} href={`/organizations/${params.organizationId}/settings/webhooks/create`} class="gap-2">
+          <Button as={A} href={getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'settingsWebhooks', childPath: 'create' })} class="gap-2">
             <div class="i-tabler-plus size-4" />
             {t('webhooks.list.create')}
           </Button>
@@ -131,7 +132,7 @@ export const WebhooksPage: Component = () => {
                 icon="i-tabler-webhook"
                 class="p-0"
                 cta={(
-                  <Button as={A} href={`/organizations/${params.organizationId}/settings/webhooks/create`} class="gap-2">
+                  <Button as={A} href={getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'settingsWebhooks', childPath: 'create' })} class="gap-2">
                     <div class="i-tabler-plus size-4" />
                     {t('webhooks.list.create')}
                   </Button>

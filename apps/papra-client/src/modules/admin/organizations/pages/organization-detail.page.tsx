@@ -1,22 +1,113 @@
 import type { Component } from 'solid-js';
+import type { VerifactuConfigurationInput } from '../organizations.services';
 import { formatBytes } from '@corentinth/chisels';
 import { A, useParams } from '@solidjs/router';
-import { useQuery } from '@tanstack/solid-query';
-import { For, Show, Suspense } from 'solid-js';
+import { createMutation, useQuery } from '@tanstack/solid-query';
+import { createEffect, createSignal, For, Show, Suspense } from 'solid-js';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
+import { queryClient } from '@/modules/shared/query/query-client';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/modules/ui/components/card';
+import { createToast } from '@/modules/ui/components/sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
+import { TextArea } from '@/modules/ui/components/textarea';
+import { TextField } from '@/modules/ui/components/textfield';
 import { UserListDetail } from '../../users/components/user-list-detail.component';
 import {
   getOrganizationBasicInfo,
   getOrganizationIntakeEmails,
   getOrganizationMembers,
   getOrganizationStats,
+  getOrganizationVerifactu,
   getOrganizationWebhooks,
+  saveOrganizationVerifactu,
 } from '../organizations.services';
+
+const selectClass = 'flex h-9 w-full rounded-md border border-input bg-field px-3 py-1 text-sm shadow-xs';
+
+const OrganizationVerifactu: Component<{ organizationId: string }> = (props) => {
+  const { t } = useI18n();
+  const query = useQuery(() => ({ queryKey: ['admin', 'organizations', props.organizationId, 'verifactu'], queryFn: () => getOrganizationVerifactu({ organizationId: props.organizationId }) }));
+  const [form, setForm] = createSignal<VerifactuConfigurationInput>({ mode: 'disabled', applicabilityReason: null, legalName: null, taxId: null, certificateConfigured: false, aeatValidationPassed: false, responsibleDeclarationAccepted: false, transmissionsPaused: false, pauseReason: null });
+  createEffect(() => {
+    const saved = query.data?.configuration;
+    if (saved) {
+      setForm({ mode: saved.mode, applicabilityReason: saved.applicabilityReason, legalName: saved.legalName, taxId: saved.taxId, certificateConfigured: saved.certificateConfigured, aeatValidationPassed: saved.aeatValidationPassedAt !== null, responsibleDeclarationAccepted: saved.responsibleDeclarationAcceptedAt !== null, transmissionsPaused: saved.transmissionsPaused, pauseReason: saved.pauseReason });
+    }
+  });
+  const mutation = createMutation(() => ({
+    mutationFn: () => saveOrganizationVerifactu({ organizationId: props.organizationId, configuration: form() }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'organizations', props.organizationId, 'verifactu'] });
+      createToast({ type: 'success', message: t('admin.verifactu.org.toast.saved') });
+    },
+    onError: () => createToast({ type: 'error', message: t('admin.verifactu.org.toast.error') }),
+  }));
+  const field = <K extends keyof VerifactuConfigurationInput>(key: K, value: VerifactuConfigurationInput[K]) => setForm(current => ({ ...current, [key]: value }));
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>VERI*FACTU</CardTitle>
+        <CardDescription>{t('admin.verifactu.org.description')}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form
+          class="grid gap-4 sm:grid-cols-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            mutation.mutate();
+          }}
+        >
+          <label class="text-sm font-medium">
+            {t('verifactu.page.mode')}
+            <select class={`${selectClass} mt-1.5`} value={form().mode} onChange={event => field('mode', event.currentTarget.value as VerifactuConfigurationInput['mode'])}>
+              <option value="disabled">{t('verifactu.mode.disabled')}</option>
+              <option value="test">{t('verifactu.mode.test')}</option>
+              <option value="production">{t('verifactu.mode.production')}</option>
+              <option value="not_applicable">{t('verifactu.mode.not_applicable')}</option>
+            </select>
+          </label>
+          <label class="text-sm font-medium">
+            {t('admin.verifactu.org.tax-id')}
+            <TextField class="mt-1.5" value={form().taxId ?? ''} onInput={event => field('taxId', event.currentTarget.value || null)} />
+          </label>
+          <label class="text-sm font-medium sm:col-span-2">
+            {t('admin.verifactu.org.legal-name')}
+            <TextField class="mt-1.5" value={form().legalName ?? ''} onInput={event => field('legalName', event.currentTarget.value || null)} />
+          </label>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={form().certificateConfigured} onChange={event => field('certificateConfigured', event.currentTarget.checked)} />
+            {' '}
+            {t('admin.verifactu.org.certificate')}
+          </label>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={form().responsibleDeclarationAccepted} onChange={event => field('responsibleDeclarationAccepted', event.currentTarget.checked)} />
+            {' '}
+            {t('admin.verifactu.org.declaration')}
+          </label>
+          <label class="flex items-center gap-2 text-sm sm:col-span-2">
+            <input type="checkbox" checked={form().aeatValidationPassed} onChange={event => field('aeatValidationPassed', event.currentTarget.checked)} />
+            {' '}
+            {t('admin.verifactu.org.aeat-validation')}
+          </label>
+          <label class="flex items-center gap-2 text-sm sm:col-span-2">
+            <input type="checkbox" checked={form().transmissionsPaused} onChange={event => field('transmissionsPaused', event.currentTarget.checked)} />
+            {' '}
+            {t('admin.verifactu.org.pause')}
+          </label>
+          <label class="text-sm font-medium sm:col-span-2">
+            {t('admin.verifactu.org.reason')}
+            <TextArea class="mt-1.5" value={form().pauseReason ?? form().applicabilityReason ?? ''} onInput={event => field(form().mode === 'not_applicable' ? 'applicabilityReason' : 'pauseReason', event.currentTarget.value || null)} />
+          </label>
+          <div class="sm:col-span-2 flex justify-end"><Button type="submit" isLoading={mutation.isPending}>{t('admin.verifactu.org.save')}</Button></div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+};
 
 const OrganizationBasicInfo: Component<{ organizationId: string }> = (props) => {
   const { t } = useI18n();
@@ -278,7 +369,7 @@ export const AdminOrganizationDetailPage: Component = () => {
   const params = useParams<{ organizationId: string }>();
 
   return (
-    <div class="p-6 mt-4">
+    <div class="page">
       <div class="mb-6">
         <Button as={A} href="/admin/organizations" variant="ghost" size="sm" class="mb-4">
           <div class="i-tabler-arrow-left size-4 mr-2" />
@@ -303,6 +394,8 @@ export const AdminOrganizationDetailPage: Component = () => {
             <OrganizationStats organizationId={params.organizationId} />
           </Suspense>
         </div>
+
+        <OrganizationVerifactu organizationId={params.organizationId} />
 
         <div class="grid gap-6 md:grid-cols-2">
           <Suspense fallback={<div class="text-center py-4 text-muted-foreground">{t('admin.organization-detail.loading.intake-emails')}</div>}>

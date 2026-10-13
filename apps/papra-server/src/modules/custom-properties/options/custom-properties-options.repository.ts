@@ -1,4 +1,3 @@
-import type { BatchItem } from 'drizzle-orm/batch';
 import type { Database } from '../../app/database/database.types';
 import { injectArguments } from '@corentinth/chisels';
 import { and, eq, inArray } from 'drizzle-orm';
@@ -85,9 +84,9 @@ async function syncSelectOptions({ propertyDefinitionId, options, db }: {
     return;
   }
 
-  await db.batch([
-    ...optionsToUpdate.map(option =>
-      db
+  await db.transaction(async (tx) => {
+    for (const option of optionsToUpdate) {
+      await tx
         .update(customPropertySelectOptionsTable)
         .set({
           name: option.name,
@@ -99,31 +98,29 @@ async function syncSelectOptions({ propertyDefinitionId, options, db }: {
             eq(customPropertySelectOptionsTable.id, option.id),
             eq(customPropertySelectOptionsTable.propertyDefinitionId, propertyDefinitionId),
           ),
-        ) as BatchItem<'sqlite'>,
-    ),
-    ...(hasCreates
-      ? [
-          db
-            .insert(customPropertySelectOptionsTable)
-            .values(optionsToCreate.map(option => ({
-              propertyDefinitionId,
-              name: option.name,
-              key: generatePropertyKey({ name: option.name }),
-              displayOrder: option.displayOrder,
-            }))),
-        ]
-      : []),
-    ...(hasDeletes
-      ? [
-          db
-            .delete(customPropertySelectOptionsTable)
-            .where(
-              and(
-                inArray(customPropertySelectOptionsTable.id, optionsIdsToDelete),
-                eq(customPropertySelectOptionsTable.propertyDefinitionId, propertyDefinitionId),
-              ),
-            ),
-        ]
-      : []),
-  ] as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
+        );
+    }
+
+    if (hasCreates) {
+      await tx
+        .insert(customPropertySelectOptionsTable)
+        .values(optionsToCreate.map(option => ({
+          propertyDefinitionId,
+          name: option.name,
+          key: generatePropertyKey({ name: option.name }),
+          displayOrder: option.displayOrder,
+        })));
+    }
+
+    if (hasDeletes) {
+      await tx
+        .delete(customPropertySelectOptionsTable)
+        .where(
+          and(
+            inArray(customPropertySelectOptionsTable.id, optionsIdsToDelete),
+            eq(customPropertySelectOptionsTable.propertyDefinitionId, propertyDefinitionId),
+          ),
+        );
+    }
+  });
 }

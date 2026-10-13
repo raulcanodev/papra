@@ -50,7 +50,7 @@ export const DeletedOrganizationsPage: Component = () => {
   };
 
   return (
-    <div class="p-6 mt-4 pb-32 max-w-5xl mx-auto">
+    <div class="page">
       <Button variant="ghost" as={A} href="/organizations" class="text-muted-foreground gap-2 ml--4">
         <div class="i-tabler-arrow-left size-5" />
         {t('organizations.list.back')}

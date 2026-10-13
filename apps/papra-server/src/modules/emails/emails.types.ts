@@ -1,3 +1,4 @@
+import type { Buffer } from 'node:buffer';
 import type { Config } from '../config/config.types';
 import type { Logger } from '../shared/logger/logger';
 
@@ -8,6 +9,11 @@ export type EmailServices = {
     subject: string;
     html: string;
     from?: string;
+    attachments?: Array<{
+      filename: string;
+      content: Buffer;
+      contentType: string;
+    }>;
   }) => Promise<void>;
 };
 

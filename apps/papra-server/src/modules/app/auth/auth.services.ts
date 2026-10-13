@@ -68,7 +68,7 @@ export function getAuth({
     database: drizzleAdapter(
       db,
       {
-        provider: 'sqlite',
+        provider: 'pg',
         schema: {
           user: usersTable,
           account: accountsTable,

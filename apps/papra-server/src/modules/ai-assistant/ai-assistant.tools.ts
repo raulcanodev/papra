@@ -1,43 +1,55 @@
-import type { AiAssistantRepository } from './ai-assistant.repository';
 import type { Database } from '../app/database/database.types';
 import type { DocumentSearchServices } from '../documents/document-search/document-search.types';
 import type { FinancesRepository } from '../finances/finances.repository';
+import type { AiAssistantRepository } from './ai-assistant.repository';
 import { tool, zodSchema } from 'ai';
 import { z } from 'zod';
+import { createCustomPropertiesRepository } from '../custom-properties/custom-properties.repository';
 import { searchOrganizationDocuments } from '../documents/document-search/document-search.usecase';
 import { createDocumentsRepository } from '../documents/documents.repository';
-import { createFinancesRepository } from '../finances/finances.repository';
 import { convertCurrency } from '../finances/exchange-rates';
+import { createFinancesRepository } from '../finances/finances.repository';
 import { autoClassifyTransactions, computeGoalActuals } from '../finances/finances.usecases';
 import { createSubscriptionsRepository } from '../subscriptions/subscriptions.repository';
 import { createTaggingRulesRepository } from '../tagging-rules/tagging-rules.repository';
 import { createTaggingRule as createTaggingRuleUsecase } from '../tagging-rules/tagging-rules.usecases';
 import { createTagsRepository } from '../tags/tags.repository';
-import { createCustomPropertiesRepository } from '../custom-properties/custom-properties.repository';
 
 export const CONFIRMABLE_TOOL_SCHEMAS: Record<string, z.ZodSchema> = {
   createClassificationRule: z.object({
-    name: z.string(), classification: z.enum(['expense', 'income', 'owner_transfer', 'internal_transfer']),
+    name: z.string(),
+    classification: z.enum(['expense', 'income', 'owner_transfer', 'internal_transfer']),
     conditions: z.array(z.object({ field: z.string(), operator: z.string(), value: z.string() })),
-    conditionMatchMode: z.enum(['all', 'any']).default('all'), tagIds: z.array(z.string()).default([]),
+    conditionMatchMode: z.enum(['all', 'any']).default('all'),
+    tagIds: z.array(z.string()).default([]),
   }),
   updateClassificationRule: z.object({
-    ruleId: z.string(), name: z.string().optional(), classification: z.enum(['expense', 'income', 'owner_transfer', 'internal_transfer']).optional(),
+    ruleId: z.string(),
+    name: z.string().optional(),
+    classification: z.enum(['expense', 'income', 'owner_transfer', 'internal_transfer']).optional(),
     conditions: z.array(z.object({ field: z.string(), operator: z.string(), value: z.string() })).optional(),
-    conditionMatchMode: z.enum(['all', 'any']).optional(), tagIds: z.array(z.string()).optional(), isActive: z.boolean().optional(),
+    conditionMatchMode: z.enum(['all', 'any']).optional(),
+    tagIds: z.array(z.string()).optional(),
+    isActive: z.boolean().optional(),
   }),
   deleteClassificationRule: z.object({ ruleId: z.string() }),
   consolidateClassificationRules: z.object({
-    ruleIds: z.array(z.string()), name: z.string(),
+    ruleIds: z.array(z.string()),
+    name: z.string(),
     classification: z.enum(['expense', 'income', 'owner_transfer', 'internal_transfer']),
   }),
   createTaggingRule: z.object({
-    name: z.string(), description: z.string().optional(), conditionMatchMode: z.enum(['all', 'any']).default('all'),
+    name: z.string(),
+    description: z.string().optional(),
+    conditionMatchMode: z.enum(['all', 'any']).default('all'),
     conditions: z.array(z.object({ field: z.string(), operator: z.string(), value: z.string() })),
     tagIds: z.array(z.string()),
   }),
   updateTaggingRule: z.object({
-    taggingRuleId: z.string(), name: z.string(), description: z.string().optional(), enabled: z.boolean().optional(),
+    taggingRuleId: z.string(),
+    name: z.string(),
+    description: z.string().optional(),
+    enabled: z.boolean().optional(),
     conditionMatchMode: z.enum(['all', 'any']).optional(),
     conditions: z.array(z.object({ field: z.string(), operator: z.string(), value: z.string() })),
     tagIds: z.array(z.string()),
@@ -50,7 +62,8 @@ function describeToolAction(toolName: string, args: Record<string, unknown>): st
   switch (toolName) {
     case 'createClassificationRule': {
       const conds = (args.conditions as Array<{ field: string; operator: string; value: string }>)
-        ?.map(c => `${c.field} ${c.operator} "${c.value}"`).join(', ') ?? '';
+        ?.map(c => `${c.field} ${c.operator} "${c.value}"`)
+        .join(', ') ?? '';
       return `Create rule "${args.name}": classify as ${args.classification} when ${conds}`;
     }
     case 'updateClassificationRule':
@@ -63,7 +76,8 @@ function describeToolAction(toolName: string, args: Record<string, unknown>): st
     }
     case 'createTaggingRule': {
       const conds = (args.conditions as Array<{ field: string; operator: string; value: string }>)
-        ?.map(c => `${c.field} ${c.operator} "${c.value}"`).join(', ') ?? '';
+        ?.map(c => `${c.field} ${c.operator} "${c.value}"`)
+        .join(', ') ?? '';
       return `Create document rule "${args.name}": auto-tag when ${conds}`;
     }
     case 'updateTaggingRule':
@@ -383,7 +397,7 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
     createClassificationRule: tool({
       description: 'Create a new classification rule. The rule will automatically classify future transactions that match the conditions and optionally apply tags. Condition fields: counterparty, description, amount. Operators: contains, equals, starts_with, gt, lt. Classifications: expense, income, owner_transfer, internal_transfer. Use listTags first to get tag IDs if you want to apply tags.',
       inputSchema: zodSchema(createRuleParams),
-      execute: async (args) => confirmationResult('createClassificationRule', args as unknown as Record<string, unknown>),
+      execute: async args => confirmationResult('createClassificationRule', args as unknown as Record<string, unknown>),
     }),
 
     autoClassifyTransactions: tool({
@@ -466,15 +480,13 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
         for (const b of balances) {
           if (b.currency === displayCurrency) {
             totalBalance += b.balance;
-          }
-          else {
+          } else {
             try {
               if (exchangeRates[b.currency] == null) {
                 exchangeRates[b.currency] = await convertCurrency({ amount: 1, from: b.currency, to: displayCurrency });
               }
               totalBalance += b.balance * exchangeRates[b.currency]!;
-            }
-            catch {
+            } catch {
               // skip if conversion fails
             }
           }
@@ -618,8 +630,7 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
         if (args.entityType === 'document') {
           await tagsRepo.addTagToDocument({ tagId: args.tagId, documentId: args.entityId });
           return { success: true, message: `Tag applied to document.` };
-        }
-        else {
+        } else {
           await tagsRepo.addTagToTransaction({ tagId: args.tagId, transactionId: args.entityId });
           return { success: true, message: `Tag applied to transaction.` };
         }
@@ -633,8 +644,7 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
         if (args.entityType === 'document') {
           await tagsRepo.removeTagFromDocument({ tagId: args.tagId, documentId: args.entityId });
           return { success: true, message: `Tag removed from document.` };
-        }
-        else {
+        } else {
           await tagsRepo.removeTagFromTransaction({ tagId: args.tagId, transactionId: args.entityId });
           return { success: true, message: `Tag removed from transaction.` };
         }
@@ -644,37 +654,37 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
     updateClassificationRule: tool({
       description: 'Update an existing classification rule (transaction rule). You can change its name, classification, conditions, tags, match mode, or active status. Use listClassificationRules first to get rule IDs. Only provide the fields you want to change.',
       inputSchema: zodSchema(updateClassificationRuleParams),
-      execute: async (args) => confirmationResult('updateClassificationRule', args as unknown as Record<string, unknown>),
+      execute: async args => confirmationResult('updateClassificationRule', args as unknown as Record<string, unknown>),
     }),
 
     deleteClassificationRule: tool({
       description: 'Delete a classification rule (transaction rule). This cannot be undone.',
       inputSchema: zodSchema(deleteClassificationRuleParams),
-      execute: async (args) => confirmationResult('deleteClassificationRule', args as unknown as Record<string, unknown>),
+      execute: async args => confirmationResult('deleteClassificationRule', args as unknown as Record<string, unknown>),
     }),
 
     consolidateClassificationRules: tool({
       description: 'Merge multiple classification rules into a single consolidated rule with conditionMatchMode "any". All conditions from the source rules are deduplicated and combined. The old rules are deleted. Use this when the user has many individual rules that should be one rule. Use listClassificationRules first to get rule IDs.',
       inputSchema: zodSchema(consolidateClassificationRulesParams),
-      execute: async (args) => confirmationResult('consolidateClassificationRules', args as unknown as Record<string, unknown>),
+      execute: async args => confirmationResult('consolidateClassificationRules', args as unknown as Record<string, unknown>),
     }),
 
     createTaggingRule: tool({
       description: 'Create a new document tagging rule. The rule will automatically tag documents whose name or content matches the conditions. Conditions use fields: "name" (document name), "content" (extracted text). Operators: equal, not_equal, contains, not_contains, starts_with, ends_with. You MUST provide at least one tag ID — use listTags to find IDs, or createTag to make a new tag first.',
       inputSchema: zodSchema(createTaggingRuleParams),
-      execute: async (args) => confirmationResult('createTaggingRule', args as unknown as Record<string, unknown>),
+      execute: async args => confirmationResult('createTaggingRule', args as unknown as Record<string, unknown>),
     }),
 
     updateTaggingRule: tool({
       description: 'Update an existing document tagging rule. Replaces conditions and tags entirely. Use listTaggingRules to find rule IDs.',
       inputSchema: zodSchema(updateTaggingRuleParams),
-      execute: async (args) => confirmationResult('updateTaggingRule', args as unknown as Record<string, unknown>),
+      execute: async args => confirmationResult('updateTaggingRule', args as unknown as Record<string, unknown>),
     }),
 
     deleteTaggingRule: tool({
       description: 'Delete a document tagging rule. This cannot be undone.',
       inputSchema: zodSchema(deleteTaggingRuleParams),
-      execute: async (args) => confirmationResult('deleteTaggingRule', args as unknown as Record<string, unknown>),
+      execute: async args => confirmationResult('deleteTaggingRule', args as unknown as Record<string, unknown>),
     }),
 
     analyzeUnclassifiedTransactions: tool({
@@ -708,45 +718,47 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
       },
     }),
 
-    ...(tavilyApiKey ? {
-      webSearch: tool({
-        description: 'Search the internet for up-to-date information. Use this when the user asks about legal requirements, regulations, filing deadlines, tax rules, compliance topics, country-specific business information, or anything that requires current external knowledge. Combine with searchDocuments/getDocumentById to cross-reference internet info with the user\'s own documents. Examples: "What are the Wyoming LLC annual report requirements?", "Spain tax obligations for US LLC owners", "How to fill out Form W-8BEN".',
-        inputSchema: zodSchema(webSearchParams),
-        execute: async (args) => {
-          const response = await fetch('https://api.tavily.com/search', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              api_key: tavilyApiKey,
-              query: args.query,
-              search_depth: args.searchDepth,
-              max_results: args.maxResults,
-              include_answer: true,
-            }),
-          });
+    ...(tavilyApiKey
+      ? {
+          webSearch: tool({
+            description: 'Search the internet for up-to-date information. Use this when the user asks about legal requirements, regulations, filing deadlines, tax rules, compliance topics, country-specific business information, or anything that requires current external knowledge. Combine with searchDocuments/getDocumentById to cross-reference internet info with the user\'s own documents. Examples: "What are the Wyoming LLC annual report requirements?", "Spain tax obligations for US LLC owners", "How to fill out Form W-8BEN".',
+            inputSchema: zodSchema(webSearchParams),
+            execute: async (args) => {
+              const response = await fetch('https://api.tavily.com/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  api_key: tavilyApiKey,
+                  query: args.query,
+                  search_depth: args.searchDepth,
+                  max_results: args.maxResults,
+                  include_answer: true,
+                }),
+              });
 
-          if (!response.ok) {
-            return { error: `Web search failed (${response.status})` };
-          }
+              if (!response.ok) {
+                return { error: `Web search failed (${response.status})` };
+              }
 
-          const data = await response.json() as {
-            answer?: string;
-            results: Array<{ title: string; url: string; content: string; score: number }>;
-          };
+              const data = await response.json() as {
+                answer?: string;
+                results: Array<{ title: string; url: string; content: string; score: number }>;
+              };
 
-          return {
-            answer: data.answer ?? null,
-            results: data.results.map(r => ({
-              title: r.title,
-              url: r.url,
-              snippet: r.content,
-              relevanceScore: r.score,
-            })),
-            query: args.query,
-          };
-        },
-      }),
-    } : {}),
+              return {
+                answer: data.answer ?? null,
+                results: data.results.map(r => ({
+                  title: r.title,
+                  url: r.url,
+                  snippet: r.content,
+                  relevanceScore: r.score,
+                })),
+                query: args.query,
+              };
+            },
+          }),
+        }
+      : {}),
 
     getFinanceBudgetGoal: tool({
       description: 'Get the organization\'s finance budget goal configuration: goal name, current version, and all buckets with their name, target percentage, color, and which transaction classifications/tags they cover. Use this to understand how the budget is structured before answering questions about spending goals.',
@@ -802,7 +814,7 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
         versionId: z.string().describe('The ID of the version to restore (from listFinanceBudgetVersions)'),
         goalId: z.string().optional().describe('Goal ID. If omitted, the default goal is used.'),
       })),
-      execute: async (args) => confirmationResult('restoreFinanceBudgetVersion', args as unknown as Record<string, unknown>),
+      execute: async args => confirmationResult('restoreFinanceBudgetVersion', args as unknown as Record<string, unknown>),
     }),
 
     getFinanceBudgetActuals: tool({

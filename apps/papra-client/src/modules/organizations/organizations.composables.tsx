@@ -1,29 +1,8 @@
 import { useNavigate, useParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
-import { useI18n } from '@/modules/i18n/i18n.provider';
 import { queryClient } from '@/modules/shared/query/query-client';
-import { createToast } from '@/modules/ui/components/sonner';
 import { ORGANIZATION_ROLES } from './organizations.constants';
-import { createOrganization, deleteOrganization, getMembership, updateOrganization } from './organizations.services';
-
-export function useCreateOrganization() {
-  const navigate = useNavigate();
-  const { t } = useI18n();
-
-  return {
-    createOrganization: async ({ organizationName }: { organizationName: string }) => {
-      const { organization } = await createOrganization({ name: organizationName });
-
-      createToast({ type: 'success', message: t('organizations.create.success') });
-
-      await queryClient.invalidateQueries({
-        queryKey: ['organizations'],
-      });
-
-      navigate(`/organizations/${organization.id}`);
-    },
-  };
-}
+import { deleteOrganization, getMembership, updateOrganization } from './organizations.services';
 
 export function useUpdateOrganization() {
   return {

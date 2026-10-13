@@ -1,12 +1,12 @@
 import type { ApiKeyPermissions } from './api-keys.types';
 
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { boolean, index, jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 import { organizationMembersTable } from '../organizations/organizations.table';
 import { createPrimaryKeyField, createTimestampColumns } from '../shared/db/columns.helpers';
 import { usersTable } from '../users/users.table';
 import { API_KEY_ID_PREFIX } from './api-keys.constants';
 
-export const apiKeysTable = sqliteTable(
+export const apiKeysTable = pgTable(
   'api_keys',
   {
     ...createPrimaryKeyField({ prefix: API_KEY_ID_PREFIX }),
@@ -19,10 +19,10 @@ export const apiKeysTable = sqliteTable(
     userId: text('user_id')
       .notNull()
       .references(() => usersTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
-    lastUsedAt: integer('last_used_at', { mode: 'timestamp_ms' }),
-    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }),
-    permissions: text('permissions', { mode: 'json' }).notNull().$type<ApiKeyPermissions[]>().default([]),
-    allOrganizations: integer('all_organizations', { mode: 'boolean' }).notNull().default(false),
+    lastUsedAt: timestamp('last_used_at', { mode: 'date', withTimezone: true, precision: 3 }),
+    expiresAt: timestamp('expires_at', { mode: 'date', withTimezone: true, precision: 3 }),
+    permissions: jsonb('permissions').notNull().$type<ApiKeyPermissions[]>().default([]),
+    allOrganizations: boolean('all_organizations').notNull().default(false),
   },
   table => [
     // To get an API key by its token
@@ -32,7 +32,7 @@ export const apiKeysTable = sqliteTable(
 
 // We use an intermediate table (instead of a json array) to link API keys to organization members, so the relationship between
 // the api key and the organization is deleted on cascade when the organization is deleted or the member is removed from the organization.
-export const apiKeyOrganizationsTable = sqliteTable('api_key_organizations', {
+export const apiKeyOrganizationsTable = pgTable('api_key_organizations', {
   apiKeyId: text('api_key_id')
     .notNull()
     .references(() => apiKeysTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),

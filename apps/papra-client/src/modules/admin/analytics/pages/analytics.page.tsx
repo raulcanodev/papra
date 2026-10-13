@@ -20,7 +20,7 @@ const AnalyticsCard: Component<{
   };
 
   return (
-    <div class="bg-card rounded-lg px-6 py-4 border">
+    <div class="bg-card rounded-xl px-6 py-4 border border-border/80 shadow-xs dark:shadow-none">
       <div class="flex flex-row items-center mb-4 gap-2">
         <div class="flex items-center justify-center size-6 bg-muted rounded">
           <div class={`${props.icon} text-muted-foreground size-4`} />
@@ -56,8 +56,8 @@ export const AdminAnalyticsPage: Component = () => {
   }));
 
   return (
-    <div class="px-6 pt-4">
-      <h1 class="text-2xl font-medium mb-1">{t('admin.analytics.title')}</h1>
+    <div class="page">
+      <h1 class="page-title mb-1">{t('admin.analytics.title')}</h1>
       <p class="text-muted-foreground">{t('admin.analytics.description')}</p>
 
       <div class="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

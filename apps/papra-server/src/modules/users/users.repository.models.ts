@@ -1,4 +1,4 @@
-import { eq, like, or } from 'drizzle-orm';
+import { eq, ilike, or } from 'drizzle-orm';
 import { escapeLikeWildcards } from '../shared/db/sql.helpers';
 import { isNilOrEmptyString } from '../shared/utils';
 import { USER_ID_REGEX } from './users.constants';
@@ -19,7 +19,7 @@ export function createSearchUserWhereClause({ search }: { search?: string }) {
   const likeSearch = `%${escapedSearch}%`;
 
   return or(
-    like(usersTable.email, likeSearch),
-    like(usersTable.name, likeSearch),
+    ilike(usersTable.email, likeSearch),
+    ilike(usersTable.name, likeSearch),
   );
 }

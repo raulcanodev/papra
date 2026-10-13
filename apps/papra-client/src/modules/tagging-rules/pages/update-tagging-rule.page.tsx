@@ -7,6 +7,7 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { Button } from '@/modules/ui/components/button';
 import { createToast } from '@/modules/ui/components/sonner';
+import { getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
 import { TaggingRuleForm } from '../components/tagging-rule-form.component';
 import { getTaggingRule, updateTaggingRule } from '../tagging-rules.services';
 
@@ -31,7 +32,7 @@ export const UpdateTaggingRulePage: Component = () => {
         message: t('tagging-rules.create.success'),
         type: 'success',
       });
-      navigate(`/organizations/${params.organizationId}/tagging-rules`);
+      navigate(getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'settingsAutomations' }));
     },
     onError: () => {
       createToast({
@@ -42,7 +43,7 @@ export const UpdateTaggingRulePage: Component = () => {
   }));
 
   return (
-    <div class="p-6 max-w-screen-md mx-auto mt-4">
+    <div class="page-narrow">
       <div class="border-b mb-6 pb-4">
         <h1 class="text-xl font-bold">
           {t('tagging-rules.update.title')}

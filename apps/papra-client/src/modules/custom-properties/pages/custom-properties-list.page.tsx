@@ -12,6 +12,7 @@ import { Button } from '@/modules/ui/components/button';
 import { EmptyState } from '@/modules/ui/components/empty';
 import { createToast } from '@/modules/ui/components/sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
+import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
 import { PROPERTY_TYPE_LABEL_I18N_KEYS } from '../custom-properties.constants';
 import {
   deleteCustomPropertyDefinition,
@@ -94,7 +95,7 @@ export const CustomPropertiesPage: Component = () => {
         accessorKey: 'name',
         sortingFn: 'alphanumeric',
         cell: data => (
-          <A href={`/organizations/${params.organizationId}/custom-properties/${data.row.original.id}`} class="font-medium hover:underline">{data.getValue<string>()}</A>
+          <A href={getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'settingsCustomProperties', childPath: data.row.original.id })} class="font-medium hover:underline">{data.getValue<string>()}</A>
         ),
       },
       {
@@ -136,7 +137,7 @@ export const CustomPropertiesPage: Component = () => {
           <div class="flex gap-2 justify-end">
             <Button
               as={A}
-              href={`/organizations/${params.organizationId}/custom-properties/${data.row.original.id}`}
+              href={getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'settingsCustomProperties', childPath: data.row.original.id })}
               size="icon"
               variant="outline"
               class="size-7"
@@ -161,20 +162,20 @@ export const CustomPropertiesPage: Component = () => {
   });
 
   return (
-    <div class="flex flex-col h-full">
-      <div class="border-b px-6 py-3 flex items-center justify-between shrink-0 bg-background">
+    <div class="page">
+      <div class="page-header">
         <div>
-          <h1 class="text-sm font-semibold leading-none">{t('custom-properties.list.title')}</h1>
-          <p class="text-xs text-muted-foreground mt-0.5">{t('custom-properties.list.description')}</p>
+          <h1 class="page-title">{t('custom-properties.list.title')}</h1>
+          <p class="page-description">{t('custom-properties.list.description')}</p>
         </div>
         <div class="flex items-center gap-2">
-          <Button as={A} href={`/organizations/${params.organizationId}/custom-properties/create`}>
+          <Button as={A} href={getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'settingsCustomProperties', childPath: 'create' })}>
             <div class="i-tabler-plus size-4 mr-2" />
             {t('custom-properties.list.create-button')}
           </Button>
         </div>
       </div>
-      <div class="p-6 pb-32 max-w-5xl mx-auto w-full overflow-y-auto flex-1">
+      <div>
         <Suspense>
           <Show when={query.data?.propertyDefinitions}>
             {getPropertyDefinitions => (
@@ -186,7 +187,7 @@ export const CustomPropertiesPage: Component = () => {
                     icon="i-tabler-forms"
                     description={t('custom-properties.list.empty.description')}
                     cta={(
-                      <Button as={A} href={`/organizations/${params.organizationId}/custom-properties/create`}>
+                      <Button as={A} href={getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'settingsCustomProperties', childPath: 'create' })}>
                         <div class="i-tabler-plus size-4 mr-2" />
                         {t('custom-properties.list.create-button')}
                       </Button>
@@ -194,59 +195,59 @@ export const CustomPropertiesPage: Component = () => {
                   />
                 )}
               >
-              <Table>
-                <TableHeader>
-                  <For each={table.getHeaderGroups()}>
-                    {headerGroup => (
-                      <TableRow>
-                        <For each={headerGroup.headers}>
-                          {header => (
-                            <TableHead>
-                              <Show
-                                when={header.column.getCanSort()}
-                                fallback={flexRender(header.column.columnDef.header, header.getContext())}
-                              >
-                                <button
-                                  class="flex items-center gap-1 cursor-pointer select-none"
-                                  onClick={header.column.getToggleSortingHandler()}
+                <Table>
+                  <TableHeader>
+                    <For each={table.getHeaderGroups()}>
+                      {headerGroup => (
+                        <TableRow>
+                          <For each={headerGroup.headers}>
+                            {header => (
+                              <TableHead>
+                                <Show
+                                  when={header.column.getCanSort()}
+                                  fallback={flexRender(header.column.columnDef.header, header.getContext())}
                                 >
-                                  {flexRender(header.column.columnDef.header, header.getContext())}
-                                  <Show when={header.column.getIsSorted() === 'asc'}>
-                                    <div class="i-tabler-arrow-down size-3.5" />
-                                  </Show>
-                                  <Show when={header.column.getIsSorted() === 'desc'}>
-                                    <div class="i-tabler-arrow-up size-3.5" />
-                                  </Show>
-                                  <Show when={!header.column.getIsSorted()}>
-                                    <div class="i-tabler-arrows-sort size-3.5 opacity-40" />
-                                  </Show>
-                                </button>
-                              </Show>
-                            </TableHead>
-                          )}
-                        </For>
-                      </TableRow>
-                    )}
-                  </For>
-                </TableHeader>
-                <TableBody>
-                  <For each={table.getRowModel().rows}>
-                    {row => (
-                      <TableRow>
-                        <For each={row.getVisibleCells()}>
-                          {cell => (
-                            <TableCell>
-                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                            </TableCell>
-                          )}
-                        </For>
-                      </TableRow>
-                    )}
-                  </For>
-                </TableBody>
-              </Table>
-            </Show>
-          )}
+                                  <button
+                                    class="flex items-center gap-1 cursor-pointer select-none"
+                                    onClick={header.column.getToggleSortingHandler()}
+                                  >
+                                    {flexRender(header.column.columnDef.header, header.getContext())}
+                                    <Show when={header.column.getIsSorted() === 'asc'}>
+                                      <div class="i-tabler-arrow-down size-3.5" />
+                                    </Show>
+                                    <Show when={header.column.getIsSorted() === 'desc'}>
+                                      <div class="i-tabler-arrow-up size-3.5" />
+                                    </Show>
+                                    <Show when={!header.column.getIsSorted()}>
+                                      <div class="i-tabler-arrows-sort size-3.5 opacity-40" />
+                                    </Show>
+                                  </button>
+                                </Show>
+                              </TableHead>
+                            )}
+                          </For>
+                        </TableRow>
+                      )}
+                    </For>
+                  </TableHeader>
+                  <TableBody>
+                    <For each={table.getRowModel().rows}>
+                      {row => (
+                        <TableRow>
+                          <For each={row.getVisibleCells()}>
+                            {cell => (
+                              <TableCell>
+                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                              </TableCell>
+                            )}
+                          </For>
+                        </TableRow>
+                      )}
+                    </For>
+                  </TableBody>
+                </Table>
+              </Show>
+            )}
           </Show>
         </Suspense>
       </div>

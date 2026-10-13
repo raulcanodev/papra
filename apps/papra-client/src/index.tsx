@@ -6,6 +6,7 @@ import { QueryClientProvider } from '@tanstack/solid-query';
 import { lazy, Suspense } from 'solid-js';
 import { render } from 'solid-js/web';
 import { CommandPaletteProvider } from './modules/command-palette/command-palette.provider';
+import { applyBrandMetadata } from './modules/config/branding';
 import { isDemoMode } from './modules/config/config';
 import { ConfigProvider } from './modules/config/config.provider';
 import { RenameDocumentDialogProvider } from './modules/documents/components/rename-document-button.component';
@@ -21,8 +22,15 @@ import { routes } from './routes';
 import 'virtual:uno.css';
 import './app.css';
 
+applyBrandMetadata();
+
 const DemoIndicator = isDemoMode
   ? lazy(() => import('./modules/demo/demo.provider').then(mod => ({ default: mod.DemoIndicator })))
+  : null;
+
+// Local development only: never part of a production build.
+const DevTools = import.meta.env.DEV
+  ? lazy(() => import('./modules/dev-tools/dev-tools.component').then(mod => ({ default: mod.DevTools })))
   : null;
 
 render(
@@ -47,6 +55,7 @@ render(
                             </div>
                           </RenameDocumentDialogProvider>
                           {DemoIndicator && <DemoIndicator />}
+                          {DevTools && <DevTools />}
                         </AboutDialogProvider>
                       </ConfigProvider>
 

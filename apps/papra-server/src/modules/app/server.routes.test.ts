@@ -10,6 +10,7 @@ function setValidParams(path: string) {
     .replaceAll(':organizationId', 'org_111111111111111111111111')
     .replaceAll(':userId', 'user_222222222222222222222222')
     .replaceAll(':documentId', 'doc_333333333333333333333333')
+    .replaceAll(':folderId', 'fld_333333333333333333333333')
     .replaceAll(':tagId', 'tag_444444444444444444444444')
     .replaceAll(':taggingRuleId', 'rule_555555555555555555555555')
     .replaceAll(':intakeEmailId', 'email_666666666666666666666666')
@@ -18,7 +19,19 @@ function setValidParams(path: string) {
     .replaceAll(':memberId', 'org_mem_999999999999999999999999')
     .replaceAll(':invitationId', 'inv_101010101010101010101010')
     .replaceAll(':propertyDefinitionId', 'cpd_111111111111111111111111')
-    .replaceAll(':optionId', 'cpso_222222222222222222222222');
+    .replaceAll(':optionId', 'cpso_222222222222222222222222')
+    .replaceAll(':entryId', 'flag_333333333333333333333333')
+    .replaceAll(':bankConnectionId', 'bank_333333333333333333333333')
+    .replaceAll(':transactionId', 'txn_333333333333333333333333')
+    .replaceAll(':ruleId', 'rule_333333333333333333333333')
+    .replaceAll(':subscriptionId', 'sub_333333333333333333333333')
+    .replaceAll(':goalId', 'goal_333333333333333333333333')
+    .replaceAll(':bucketId', 'bucket_333333333333333333333333')
+    .replaceAll(':versionId', 'version_333333333333333333333333')
+    .replaceAll(':sessionId', 'session_333333333333333333333333')
+    .replaceAll(':messageId', 'message_333333333333333333333333')
+    .replaceAll(':key', 'profile-key')
+    .replaceAll(':resourceId', 'resource_333333333333333333333333');
 
   // throw if there are any remaining params
   if (newPath.match(/:\w+/g)) {

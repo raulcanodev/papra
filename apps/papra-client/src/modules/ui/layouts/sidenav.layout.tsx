@@ -1,10 +1,12 @@
 import type { Component, ParentComponent } from 'solid-js';
+import { makePersisted } from '@solid-primitives/storage';
 import { useParams } from '@solidjs/router';
-import { For, Show, Suspense } from 'solid-js';
+import { createSignal, For, onCleanup, Show, Suspense } from 'solid-js';
 
 import { useDocumentUpload } from '@/modules/documents/components/document-import-status.component';
 import { GlobalDropArea } from '@/modules/documents/components/global-drop-area.component';
 import { useI18n } from '@/modules/i18n/i18n.provider';
+import { cn } from '@/modules/shared/style/cn';
 import { UsageWarningCard } from '@/modules/subscriptions/components/usage-warning-card';
 import { Button } from '@/modules/ui/components/button';
 import { DropdownMenuRadioGroup, DropdownMenuRadioItem } from '../components/dropdown-menu';
@@ -39,45 +41,163 @@ export const LanguageSwitcher: Component = () => {
   );
 };
 
+/**
+ * Dashboard shell: a sidebar on the app canvas and the workspace as an inset, rounded panel.
+ * Pages choose their own width with the `page`, `page-narrow` or `page-full` shortcuts.
+ */
+export const AppShell: ParentComponent<{
+  sideNav: Component;
+  header?: Component;
+  banner?: Component;
+  aside?: Component;
+  isSidebarOpen?: () => boolean;
+  onToggleSidebar?: () => void;
+}> = (props) => {
+  const { t } = useI18n();
+  const [isMobileNavOpen, setIsMobileNavOpen] = createSignal(false);
+  const isSidebarOpen = () => props.isSidebarOpen?.() ?? true;
+
+  return (
+    <div class="flex h-dvh min-h-0 w-full bg-sidebar text-sidebar-foreground">
+      <div class={cn('hidden shrink-0 overflow-hidden transition-[width] duration-200 ease-linear md:block', isSidebarOpen() ? 'w-64' : 'w-0')}>
+        <div class="h-full w-64">
+          <props.sideNav />
+        </div>
+      </div>
+
+      <div class={cn('flex min-w-0 flex-1 transition-[padding] duration-200 ease-linear md:p-2', isSidebarOpen() && 'md:pl-0')}>
+        <div class="relative flex min-w-0 flex-1 overflow-hidden bg-background text-foreground md:(rounded-xl border border-border/80 shadow-xs) dark:shadow-none">
+          <div class="flex min-w-0 flex-1 flex-col">
+            {props.banner && <props.banner />}
+
+            <header class="flex h-12 shrink-0 items-center gap-2 border-b border-border/80 px-4 lg:px-6">
+              <Show when={props.onToggleSidebar}>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  class="hidden -ml-2 size-7 text-muted-foreground md:inline-flex"
+                  onClick={() => props.onToggleSidebar?.()}
+                  aria-label={t('layout.shell.toggle-sidebar')}
+                >
+                  <div class="i-tabler-layout-sidebar size-4" />
+                </Button>
+              </Show>
+
+              <div class="md:hidden">
+                <Sheet open={isMobileNavOpen()} onOpenChange={setIsMobileNavOpen}>
+                  <SheetTrigger as={Button} variant="ghost" size="icon-sm" class="-ml-2 size-7" aria-label={t('layout.shell.open-navigation')}>
+                    <div class="i-tabler-layout-sidebar size-4" />
+                  </SheetTrigger>
+                  <SheetContent side="left" class="bg-sidebar p-0!" onClick={(event: MouseEvent) => (event.target as HTMLElement).closest('a[href]') && setIsMobileNavOpen(false)}>
+                    <props.sideNav />
+                  </SheetContent>
+                </Sheet>
+              </div>
+
+              <div class={cn('mx-1 h-4 w-px bg-border', !props.onToggleSidebar && 'md:hidden')} />
+              {props.header && <props.header />}
+            </header>
+
+            <main class="relative min-h-0 flex-1 overflow-y-auto">
+              <Suspense>
+                {props.children}
+              </Suspense>
+            </main>
+          </div>
+
+          {props.aside && <props.aside />}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const ShellBreadcrumb: Component<{ parent?: string; title?: string }> = (props) => {
+  const { t } = useI18n();
+
+  return (
+    <nav aria-label={t('layout.shell.breadcrumb')} class="flex min-w-0 items-center gap-1.5 text-sm">
+      <Show when={props.parent}>
+        <span class="hidden truncate text-muted-foreground sm:inline">{props.parent}</span>
+        <span class="hidden text-muted-foreground/60 sm:inline">/</span>
+      </Show>
+      <span class="truncate font-medium">{props.title}</span>
+    </nav>
+  );
+};
+
 export const SidenavLayout: ParentComponent<{
   sideNav: Component;
+  header?: Component;
+  rightPanel?: Component;
+  isRightPanelOpen?: () => boolean;
 }> = (props) => {
   const params = useParams();
   const { uploadDocuments } = useDocumentUpload();
+  const { t } = useI18n();
+  const [isSidebarOpen, setIsSidebarOpen] = makePersisted(createSignal(true), {
+    name: 'papra:workspace-sidebar-open',
+    storage: localStorage,
+  });
+  const [rightPanelWidth, setRightPanelWidth] = makePersisted(createSignal(430), {
+    name: 'papra:ai-assistant:panel-width',
+    storage: localStorage,
+  });
+
+  let stopPanelResize: (() => void) | undefined;
+
+  const startPanelResize = (event: PointerEvent) => {
+    event.preventDefault();
+
+    const initialX = event.clientX;
+    const initialWidth = rightPanelWidth();
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      setRightPanelWidth(Math.min(720, Math.max(360, initialWidth + initialX - moveEvent.clientX)));
+    };
+
+    stopPanelResize?.();
+    stopPanelResize = () => {
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', stopPanelResize!);
+      document.body.style.removeProperty('cursor');
+      document.body.style.removeProperty('user-select');
+      stopPanelResize = undefined;
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', stopPanelResize);
+  };
+
+  onCleanup(() => stopPanelResize?.());
 
   return (
-    <div class="flex flex-row h-screen min-h-0">
-      <div class="w-280px border-r border-r-border  flex-shrink-0 hidden lg:block bg-card">
-        <props.sideNav />
-
-      </div>
-
-      <div class="flex-1 min-h-0 flex flex-col">
-        <UsageWarningCard organizationId={params.organizationId} />
-
-        <div class="flex items-center px-4 pt-3 lg:hidden">
-          <Sheet>
-            <SheetTrigger>
-              <Button variant="ghost" size="icon" class="mr-2">
-                <div class="i-tabler-menu-2 size-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" class="bg-card p-0!">
-              <props.sideNav />
-            </SheetContent>
-          </Sheet>
-        </div>
-
-        <GlobalDropArea onFilesDrop={uploadDocuments} />
-
-        <div class="flex-1 overflow-auto max-w-screen">
-          <Suspense>
-            {props.children}
-
-          </Suspense>
-        </div>
-      </div>
-
-    </div>
+    <AppShell
+      sideNav={props.sideNav}
+      header={props.header}
+      isSidebarOpen={isSidebarOpen}
+      onToggleSidebar={() => setIsSidebarOpen(value => !value)}
+      banner={() => <UsageWarningCard organizationId={params.organizationId} />}
+      aside={() => (
+        <Show when={props.rightPanel && (props.isRightPanelOpen?.() ?? true)}>
+          <aside
+            class="fixed inset-0 z-50 flex h-full min-h-0 w-full shrink-0 overflow-hidden bg-card md:(relative z-auto w-[var(--right-panel-width)] max-w-[55vw] border-l)"
+            style={{ '--right-panel-width': `${rightPanelWidth()}px` }}
+          >
+            <button
+              type="button"
+              class="absolute inset-y-0 left-0 z-10 hidden w-1 -translate-x-1/2 cursor-col-resize bg-transparent transition-colors hover:bg-ring/40 md:block"
+              onPointerDown={startPanelResize}
+              aria-label={t('layout.shell.resize-panel')}
+            />
+            {props.rightPanel && <props.rightPanel />}
+          </aside>
+        </Show>
+      )}
+    >
+      <GlobalDropArea onFilesDrop={uploadDocuments} />
+      {props.children}
+    </AppShell>
   );
 };

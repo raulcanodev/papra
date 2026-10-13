@@ -1,69 +1,105 @@
+/*
+ * Neutral, low-contrast SaaS palette (inspired by zenex-cms).
+ * Light: white sidebar + soft grey workspace with white cards.
+ * Dark: zinc-tinted near-black with raised surfaces.
+ */
 :root {
-  --background: 0 0% 100%;
-  --foreground: 0 0% 7%;
+  --background: 0 0% 96%;
+  --foreground: 0 0% 9%;
 
-  --card: 0 0% 97%;
-  --card-foreground: 0 0% 7%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 9%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 7%;
+  --popover-foreground: 0 0% 9%;
 
-  --primary: 153 60% 53%;
-  --primary-foreground: 0 0% 7%;
+  --primary: 0 0% 9%;
+  --primary-foreground: 0 0% 98%;
 
-  --secondary: 0 0% 95%;
+  --secondary: 0 0% 91%;
   --secondary-foreground: 0 0% 9%;
 
-  --muted: 0 0% 95%;
+  --muted: 0 0% 92%;
   --muted-foreground: 0 0% 45%;
 
-  --accent: 153 60% 95%;
-  --accent-foreground: 153 60% 30%;
+  --accent: 0 0% 93%;
+  --accent-foreground: 0 0% 9%;
 
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 0 0% 0%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
 
-  --warning: 31 98% 50%;
-  --warning-foreground: 0 0% 0%;
+  --warning: 32 95% 44%;
+  --warning-foreground: 0 0% 100%;
 
-  --border: 0 0% 90%;
-  --input: 0 0% 90%;
-  --ring: 153 60% 53%;
+  --success: 152 60% 36%;
+  --success-foreground: 0 0% 100%;
 
-  --radius: 0.5rem;
+  --border: 0 0% 89%;
+  --input: 0 0% 86%;
+  /* Opaque background for form fields, in any container. */
+  --field: 0 0% 100%;
+  --ring: 0 0% 64%;
+
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 0 0% 9%;
+  --sidebar-accent: 0 0% 95%;
+  --sidebar-border: 0 0% 90%;
+
+  --chart-1: 221 83% 53%;
+  --chart-2: 152 60% 42%;
+  --chart-3: 38 92% 50%;
+  --chart-4: 0 72% 51%;
+  --chart-5: 262 83% 58%;
+
+  --radius: 0.625rem;
 }
 
 [data-kb-theme="dark"] {
-  --background: 0 0% 9%;
-  --foreground: 0 0% 98%;
+  --background: 240 6% 7%;
+  --foreground: 240 5% 96%;
 
-  --card: 0 0% 14%;
-  --card-foreground: 0 0% 98%;
+  --card: 240 5% 11%;
+  --card-foreground: 240 5% 96%;
 
-  --popover: 0 0% 12%;
-  --popover-foreground: 0 0% 98%;
+  --popover: 240 6% 13%;
+  --popover-foreground: 240 5% 96%;
 
-  --primary: 153 60% 53%;
-  --primary-foreground: 0 0% 7%;
+  --primary: 240 5% 96%;
+  --primary-foreground: 240 6% 10%;
 
-  --secondary: 0 0% 19%;
-  --secondary-foreground: 0 0% 98%;
+  --secondary: 240 5% 16%;
+  --secondary-foreground: 240 5% 96%;
 
-  --muted: 0 0% 19%;
-  --muted-foreground: 0 0% 64%;
+  --muted: 240 5% 16%;
+  --muted-foreground: 240 5% 65%;
 
-  --accent: 0 0% 19%;
-  --accent-foreground: 0 0% 98%;
+  --accent: 240 5% 19%;
+  --accent-foreground: 240 5% 96%;
 
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 0 0% 98%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
 
-  --warning: 31 98% 50%;
-  --warning-foreground: 0 0% 0%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 240 6% 10%;
 
-  --border: 0 0% 22%;
-  --input: 0 0% 22%;
-  --ring: 153 60% 53%;
+  --success: 152 55% 45%;
+  --success-foreground: 240 6% 10%;
+
+  --border: 240 5% 20%;
+  --input: 240 5% 22%;
+  --field: 240 6% 13%;
+  --ring: 240 4% 46%;
+
+  --sidebar: 240 6% 9%;
+  --sidebar-foreground: 240 5% 96%;
+  --sidebar-accent: 240 5% 15%;
+  --sidebar-border: 240 5% 18%;
+
+  --chart-1: 217 91% 60%;
+  --chart-2: 152 55% 45%;
+  --chart-3: 38 92% 50%;
+  --chart-4: 0 72% 51%;
+  --chart-5: 262 83% 66%;
 }
 
 
@@ -92,8 +128,24 @@
 }
 
 body {
-  @apply bg-background text-foreground;
+  @apply bg-background text-foreground antialiased;
+  font-feature-settings: "cv11", "ss01";
 }
+
+::selection {
+  background: hsl(var(--foreground) / 0.12);
+}
+/* Number inputs without the native stepper (used where a suffix sits inside the field). */
+input.no-spinner::-webkit-inner-spin-button,
+input.no-spinner::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input.no-spinner {
+  -moz-appearance: textfield;
+}
+
 input[type="search"]::-webkit-search-cancel-button {
   -webkit-appearance: none;
 }

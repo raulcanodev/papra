@@ -1,7 +1,7 @@
-import type { SQLiteSelect } from 'drizzle-orm/sqlite-core';
+import type { PgSelect } from 'drizzle-orm/pg-core';
 import type { ArrayElement } from '../../shared/types';
 
-export function createIterator<T extends SQLiteSelect>({
+export function createIterator<T extends PgSelect>({
   query,
   batchSize = 100,
 }: { query: T; batchSize?: number }): AsyncGenerator<ArrayElement<T['_']['result']>> {
@@ -36,4 +36,17 @@ export async function* createBatchedIterator<T>({
 
     offset += batchSize;
   }
+}
+
+// The result of a raw `db.execute` query depends on the driver: an array of rows for postgres-js, a `{ rows }` object for pglite (used in tests)
+export function getRawQueryRows<T extends Record<string, unknown>>(result: unknown): T[] {
+  if (Array.isArray(result)) {
+    return result as T[];
+  }
+
+  if (typeof result === 'object' && result !== null && 'rows' in result && Array.isArray(result.rows)) {
+    return result.rows as T[];
+  }
+
+  return [];
 }

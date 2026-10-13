@@ -1,11 +1,11 @@
-import { primaryKey, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
+import { pgTable, primaryKey, text, unique } from 'drizzle-orm/pg-core';
 import { documentsTable } from '../documents/documents.table';
 import { transactionsTable } from '../finances/finances.table';
 import { organizationsTable } from '../organizations/organizations.table';
 import { createPrimaryKeyField, createTimestampColumns } from '../shared/db/columns.helpers';
 import { tagIdPrefix } from './tags.constants';
 
-export const tagsTable = sqliteTable(
+export const tagsTable = pgTable(
   'tags',
   {
     ...createPrimaryKeyField({ prefix: tagIdPrefix }),
@@ -23,7 +23,7 @@ export const tagsTable = sqliteTable(
   ],
 );
 
-export const documentsTagsTable = sqliteTable(
+export const documentsTagsTable = pgTable(
   'documents_tags',
   {
     documentId: text('document_id').notNull().references(() => documentsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
@@ -37,7 +37,7 @@ export const documentsTagsTable = sqliteTable(
   ],
 );
 
-export const transactionTagsTable = sqliteTable(
+export const transactionTagsTable = pgTable(
   'transaction_tags',
   {
     transactionId: text('transaction_id').notNull().references(() => transactionsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),

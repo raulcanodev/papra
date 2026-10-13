@@ -1,4 +1,6 @@
 import type { RouteDefinition } from '@solidjs/router';
+import type { OrganizationRouteId } from './modules/ui/navigation/organization-navigation';
+import type { OrganizationPlaceholderPageId } from './modules/ui/pages/organization-placeholder.page';
 import { Navigate, useParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { Match, Show, Suspense, Switch } from 'solid-js';
@@ -7,6 +9,7 @@ import { AiAssistantPage } from './modules/ai-assistant/pages/ai-assistant.page'
 import { ApiKeysPage } from './modules/api-keys/pages/api-keys.page';
 import { CreateApiKeyPage } from './modules/api-keys/pages/create-api-key.page';
 import { authPagesPaths } from './modules/auth/auth.constants';
+import { AppEntryGate } from './modules/auth/components/app-entry-gate.component';
 import { PublicOnlyPage } from './modules/auth/middleware/protected-page.middleware';
 import { EmailValidationRequiredPage } from './modules/auth/pages/email-validation-required.page';
 import { EmailVerificationPage } from './modules/auth/pages/email-verification.page';
@@ -14,6 +17,7 @@ import { LoginPage } from './modules/auth/pages/login.page';
 import { RegisterPage } from './modules/auth/pages/register.page';
 import { RequestPasswordResetPage } from './modules/auth/pages/request-password-reset.page';
 import { ResetPasswordPage } from './modules/auth/pages/reset-password.page';
+import { CalendarPage } from './modules/calendar/pages/calendar.page';
 import { CreateCustomPropertyPage } from './modules/custom-properties/pages/create-custom-property.page';
 import { CustomPropertiesPage } from './modules/custom-properties/pages/custom-properties-list.page';
 import { UpdateCustomPropertyPage } from './modules/custom-properties/pages/update-custom-property.page';
@@ -28,10 +32,20 @@ import { SubscriptionsPage } from './modules/finances/pages/subscriptions.page';
 import { TransactionsPage } from './modules/finances/pages/transactions.page';
 import { IntakeEmailsPage } from './modules/intake-emails/pages/intake-emails.page';
 import { InvitationsPage } from './modules/invitations/pages/invitations.page';
+import { CreateInvoicePage } from './modules/invoicing/pages/create-invoice.page';
+import { CustomersPage } from './modules/invoicing/pages/customers.page';
+import { FiscalProfilePage } from './modules/invoicing/pages/fiscal-profile.page';
+import { InvoiceBrandingPage } from './modules/invoicing/pages/invoice-branding.page';
+import { InvoiceSeriesPage } from './modules/invoicing/pages/invoice-series.page';
+import { InvoicesPage } from './modules/invoicing/pages/invoices.page';
+import { ProductsPage } from './modules/invoicing/pages/products.page';
+import { SalesRepresentativesPage } from './modules/invoicing/pages/sales-representatives.page';
+import { TaxesPage } from './modules/invoicing/pages/taxes.page';
+import { VerifactuPage } from './modules/invoicing/pages/verifactu.page';
+import { OnboardingGate } from './modules/onboarding/components/onboarding-gate.component';
+import { OnboardingPage, OrganizationSetupPage } from './modules/onboarding/pages/onboarding.page';
 import { useLastOrganization } from './modules/organizations/composables/use-last-organization';
 import { fetchOrganizations } from './modules/organizations/organizations.services';
-import { CreateFirstOrganizationPage } from './modules/organizations/pages/create-first-organization.page';
-import { CreateOrganizationPage } from './modules/organizations/pages/create-organization.page';
 import { DeletedOrganizationsPage } from './modules/organizations/pages/deleted-organizations.page';
 import { InvitationsListPage } from './modules/organizations/pages/invitations-list.page';
 import { InviteMemberPage } from './modules/organizations/pages/invite-member.page';
@@ -50,20 +64,38 @@ import { TagsPage } from './modules/tags/pages/tags.page';
 import { OrganizationSettingsLayout } from './modules/ui/layouts/organization-settings.layout';
 import { OrganizationLayout } from './modules/ui/layouts/organization.layout';
 import { SettingsLayout } from './modules/ui/layouts/settings.layout';
-import { CurrentUserProvider } from './modules/users/composables/useCurrentUser';
+import { getOrganizationNestedRoutePath, getOrganizationRouteChildHref, getOrganizationRouteHref } from './modules/ui/navigation/organization-navigation';
+import { OrganizationPlaceholderPage } from './modules/ui/pages/organization-placeholder.page';
 import { UserSettingsPage } from './modules/users/pages/user-settings.page';
 import { CreateWebhookPage } from './modules/webhooks/pages/create-webhook.page';
 import { EditWebhookPage } from './modules/webhooks/pages/edit-webhook.page';
 import { WebhooksPage } from './modules/webhooks/pages/webhooks.page';
 
+function OrganizationRouteRedirect(props: { routeId: OrganizationRouteId; childPath?: string }) {
+  const params = useParams();
+  const href = () => props.childPath
+    ? getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: props.routeId, childPath: props.childPath })
+    : getOrganizationRouteHref({ organizationId: params.organizationId, routeId: props.routeId });
+
+  return <Navigate href={href()} />;
+}
+
+function OrganizationPlaceholder(props: { pageId: OrganizationPlaceholderPageId }) {
+  return <OrganizationPlaceholderPage pageId={props.pageId} />;
+}
+
 export const routes: RouteDefinition[] = [
   {
     path: '/',
-    component: CurrentUserProvider,
+    component: AppEntryGate,
     children: [
       {
         path: '/',
-        component: FeatureFlagsProvider,
+        component: props => (
+          <FeatureFlagsProvider>
+            <OnboardingGate>{props.children}</OnboardingGate>
+          </FeatureFlagsProvider>
+        ),
         children: [
           {
             path: '/',
@@ -94,7 +126,7 @@ export const routes: RouteDefinition[] = [
                           </Match>
 
                           <Match when={getOrgs().length === 0}>
-                            <Navigate href="/organizations/first" />
+                            <Navigate href="/organizations/create" />
                           </Match>
                         </Switch>
                       )}
@@ -104,6 +136,10 @@ export const routes: RouteDefinition[] = [
 
               );
             },
+          },
+          {
+            path: '/onboarding',
+            component: OnboardingPage,
           },
           {
             path: '/organizations',
@@ -137,10 +173,14 @@ export const routes: RouteDefinition[] = [
                     children: [
                       {
                         path: '/',
-                        component: () => <Navigate href="ai-assistant" />,
+                        component: () => <OrganizationRouteRedirect routeId="home" />,
                       },
                       {
-                        path: '/documents',
+                        path: getOrganizationNestedRoutePath('home'),
+                        component: () => <OrganizationPlaceholder pageId="home" />,
+                      },
+                      {
+                        path: getOrganizationNestedRoutePath('documents'),
                         component: DocumentsPage,
                       },
                       {
@@ -148,16 +188,52 @@ export const routes: RouteDefinition[] = [
                         component: DocumentPage,
                       },
                       {
-                        path: '/deleted',
+                        path: getOrganizationNestedRoutePath('deletedDocuments'),
                         component: DeletedDocumentsPage,
                       },
                       {
+                        path: getOrganizationNestedRoutePath('invoices'),
+                        component: InvoicesPage,
+                      },
+                      {
+                        path: getOrganizationNestedRoutePath('calendar'),
+                        component: CalendarPage,
+                      },
+                      {
+                        path: ['/invoicing/invoices/new', '/invoicing/invoices/:invoiceId/edit'],
+                        component: CreateInvoicePage,
+                      },
+                      {
+                        path: getOrganizationNestedRoutePath('customers'),
+                        component: CustomersPage,
+                      },
+                      {
+                        path: getOrganizationNestedRoutePath('products'),
+                        component: ProductsPage,
+                      },
+                      {
+                        path: getOrganizationNestedRoutePath('salesRepresentatives'),
+                        component: SalesRepresentativesPage,
+                      },
+                      {
+                        path: '/invoicing/calendar',
+                        component: () => <OrganizationRouteRedirect routeId="calendar" />,
+                      },
+                      {
+                        path: '/invoicing',
+                        component: () => <OrganizationRouteRedirect routeId="invoices" />,
+                      },
+                      {
+                        path: '/deleted',
+                        component: () => <OrganizationRouteRedirect routeId="deletedDocuments" />,
+                      },
+                      {
                         path: '/tags',
-                        component: TagsPage,
+                        component: () => <OrganizationRouteRedirect routeId="settingsTags" />,
                       },
                       {
                         path: '/custom-properties',
-                        component: CustomPropertiesPage,
+                        component: () => <OrganizationRouteRedirect routeId="settingsCustomProperties" />,
                       },
                       {
                         path: '/custom-properties/create',
@@ -169,7 +245,7 @@ export const routes: RouteDefinition[] = [
                       },
                       {
                         path: '/tagging-rules',
-                        component: TaggingRulesPage,
+                        component: () => <OrganizationRouteRedirect routeId="settingsAutomations" />,
                       },
                       {
                         path: '/tagging-rules/create',
@@ -181,7 +257,7 @@ export const routes: RouteDefinition[] = [
                       },
                       {
                         path: '/members',
-                        component: MembersPage,
+                        component: () => <OrganizationRouteRedirect routeId="settingsMembers" />,
                       },
                       {
                         path: '/finances',
@@ -209,16 +285,16 @@ export const routes: RouteDefinition[] = [
                         ],
                       },
                       {
-                        path: '/ai-assistant',
+                        path: getOrganizationNestedRoutePath('assistant'),
                         component: AiAssistantPage,
                       },
                       {
                         path: '/invite',
-                        component: InviteMemberPage,
+                        component: () => <OrganizationRouteRedirect routeId="settingsMembers" childPath="invite" />,
                       },
                       {
                         path: '/invitations',
-                        component: InvitationsListPage,
+                        component: () => <OrganizationRouteRedirect routeId="settingsMembers" childPath="invitations" />,
                       },
 
                     ],
@@ -238,8 +314,100 @@ export const routes: RouteDefinition[] = [
                     component: OrganizationsSettingsPage,
                   },
                   {
-                    path: '/usage',
+                    path: getOrganizationNestedRoutePath('settingsMembers'),
+                    component: MembersPage,
+                  },
+                  {
+                    path: '/members/invite',
+                    component: InviteMemberPage,
+                  },
+                  {
+                    path: '/members/invitations',
+                    component: InvitationsListPage,
+                  },
+                  {
+                    path: getOrganizationNestedRoutePath('settingsModules'),
+                    component: () => <OrganizationPlaceholder pageId="modules" />,
+                  },
+                  {
+                    path: getOrganizationNestedRoutePath('settingsTags'),
+                    component: TagsPage,
+                  },
+                  {
+                    path: getOrganizationNestedRoutePath('settingsCustomProperties'),
+                    component: CustomPropertiesPage,
+                  },
+                  {
+                    path: '/documents/custom-properties/create',
+                    component: CreateCustomPropertyPage,
+                  },
+                  {
+                    path: '/documents/custom-properties/:propertyDefinitionId',
+                    component: UpdateCustomPropertyPage,
+                  },
+                  {
+                    path: getOrganizationNestedRoutePath('settingsAutomations'),
+                    component: TaggingRulesPage,
+                  },
+                  {
+                    path: '/documents/automations/create',
+                    component: CreateTaggingRulePage,
+                  },
+                  {
+                    path: '/documents/automations/:taggingRuleId',
+                    component: UpdateTaggingRulePage,
+                  },
+                  {
+                    path: getOrganizationNestedRoutePath('settingsIntakeEmails'),
+                    component: IntakeEmailsPage,
+                  },
+                  {
+                    path: getOrganizationNestedRoutePath('settingsFiscalProfile'),
+                    component: FiscalProfilePage,
+                  },
+                  {
+                    path: getOrganizationNestedRoutePath('settingsInvoiceSeries'),
+                    component: InvoiceSeriesPage,
+                  },
+                  {
+                    path: getOrganizationNestedRoutePath('settingsTaxes'),
+                    component: TaxesPage,
+                  },
+                  {
+                    path: getOrganizationNestedRoutePath('settingsVerifactu'),
+                    component: VerifactuPage,
+                  },
+                  {
+                    path: getOrganizationNestedRoutePath('settingsInvoiceBranding'),
+                    component: InvoiceBrandingPage,
+                  },
+                  {
+                    path: getOrganizationNestedRoutePath('settingsUsage'),
                     component: OrganizationUsagePage,
+                  },
+                  {
+                    path: '/integrations/webhooks/create',
+                    component: CreateWebhookPage,
+                  },
+                  {
+                    path: '/integrations/webhooks/:webhookId',
+                    component: EditWebhookPage,
+                  },
+                  {
+                    path: getOrganizationNestedRoutePath('settingsWebhooks'),
+                    component: WebhooksPage,
+                  },
+                  {
+                    path: '/usage',
+                    component: () => <OrganizationRouteRedirect routeId="settingsUsage" />,
+                  },
+                  {
+                    path: '/intake-emails',
+                    component: () => <OrganizationRouteRedirect routeId="settingsIntakeEmails" />,
+                  },
+                  {
+                    path: '/webhooks',
+                    component: () => <OrganizationRouteRedirect routeId="settingsWebhooks" />,
                   },
                   {
                     path: '/webhooks/create',
@@ -249,23 +417,22 @@ export const routes: RouteDefinition[] = [
                     path: '/webhooks/:webhookId',
                     component: EditWebhookPage,
                   },
-                  {
-                    path: '/intake-emails',
-                    component: IntakeEmailsPage,
-                  },
-                  {
-                    path: '/webhooks',
-                    component: WebhooksPage,
-                  },
                 ],
               },
               {
                 path: '/create',
-                component: CreateOrganizationPage,
+                component: OrganizationSetupPage,
+              },
+              {
+                path: '/:organizationId/setup',
+                matchFilters: {
+                  organizationId: /^org_[a-zA-Z0-9]+$/,
+                },
+                component: OrganizationSetupPage,
               },
               {
                 path: '/first',
-                component: CreateFirstOrganizationPage,
+                component: () => <Navigate href="/onboarding" />,
               },
             ],
           },

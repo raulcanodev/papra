@@ -1,4 +1,5 @@
 import type { Component } from 'solid-js';
+import { useI18n } from '@/modules/i18n/i18n.provider';
 import {
   OTPField,
   OTPFieldGroup,
@@ -12,6 +13,8 @@ export const TotpField: Component<{
   value?: string;
   onValueChange?: (value: string) => void;
 }> = (props) => {
+  const { t } = useI18n();
+
   return (
     <OTPField
       maxLength={6}
@@ -19,7 +22,7 @@ export const TotpField: Component<{
       value={props.value}
       onValueChange={props.onValueChange}
     >
-      <OTPFieldInput pattern={REGEXP_ONLY_DIGITS} aria-label="Enter the 6-digit verification code" />
+      <OTPFieldInput pattern={REGEXP_ONLY_DIGITS} aria-label={t('auth.otp.aria-label')} />
       <OTPFieldGroup>
         <OTPFieldSlot index={0} />
         <OTPFieldSlot index={1} />

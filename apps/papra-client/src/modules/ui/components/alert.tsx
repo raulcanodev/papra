@@ -12,9 +12,9 @@ export const alertVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-background text-foreground',
+        default: 'bg-card text-foreground',
         destructive: 'border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive',
-        primary: 'bg-background text-foreground border-primary',
+        primary: 'bg-card text-foreground border-primary',
         muted: 'bg-muted text-muted-foreground border-muted',
       },
     },

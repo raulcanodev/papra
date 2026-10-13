@@ -8,6 +8,9 @@ import { createUnsupportedEncryptionAlgorithmError } from './document-encryption
 
 export function wrapWithEncryptionLayer({ storageDriver, encryptionConfig }: { storageDriver: StorageDriver; encryptionConfig: Config['documentsStorage']['encryption'] }): StorageServices {
   const { isEncryptionEnabled, documentKeyEncryptionKeys } = encryptionConfig;
+  // Fail during application startup, before any encrypted bytes can be written,
+  // when encryption is enabled without a usable key-encryption key.
+  const currentKek = isEncryptionEnabled ? getMostRecentDocumentKek({ documentKeyEncryptionKeys }) : undefined;
 
   return {
     ...storageDriver,
@@ -30,7 +33,7 @@ export function wrapWithEncryptionLayer({ storageDriver, encryptionConfig }: { s
       });
 
       // In order to store the encryption key, we encrypt it with the most recent KEK from the config
-      const kek = getMostRecentDocumentKek({ documentKeyEncryptionKeys });
+      const kek = currentKek!;
 
       return {
         fileEncryptionKeyWrapped: wrapEncryptionKey({ encryptionKey, kek }),

@@ -1,9 +1,9 @@
-import { index, integer, real, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
+import { boolean, doublePrecision, index, integer, pgTable, text, timestamp, unique } from 'drizzle-orm/pg-core';
 import { organizationsTable } from '../organizations/organizations.table';
 import { createPrimaryKeyField, createTimestampColumns } from '../shared/db/columns.helpers';
 import { BANK_CONNECTION_ID_PREFIX, CLASSIFICATION_RULE_ID_PREFIX, FINANCE_GOAL_BUCKET_ID_PREFIX, FINANCE_GOAL_ID_PREFIX, FINANCE_GOAL_VERSION_ID_PREFIX, SUBSCRIPTION_ID_PREFIX, TRANSACTION_ID_PREFIX } from './finances.constants';
 
-export const bankConnectionsTable = sqliteTable('bank_connections', {
+export const bankConnectionsTable = pgTable('bank_connections', {
   ...createPrimaryKeyField({ prefix: BANK_CONNECTION_ID_PREFIX }),
   ...createTimestampColumns(),
 
@@ -11,26 +11,26 @@ export const bankConnectionsTable = sqliteTable('bank_connections', {
   provider: text('provider').notNull(),
   name: text('name').notNull(),
   apiKey: text('api_key').notNull(),
-  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
-  lastSyncedAt: integer('last_synced_at', { mode: 'timestamp_ms' }),
+  isActive: boolean('is_active').notNull().default(true),
+  lastSyncedAt: timestamp('last_synced_at', { mode: 'date', withTimezone: true, precision: 3 }),
   providerAccountId: text('provider_account_id'),
-  cachedBalance: real('cached_balance'),
+  cachedBalance: doublePrecision('cached_balance'),
   balanceCurrency: text('balance_currency'),
-  lastBalanceFetchedAt: integer('last_balance_fetched_at', { mode: 'timestamp_ms' }),
+  lastBalanceFetchedAt: timestamp('last_balance_fetched_at', { mode: 'date', withTimezone: true, precision: 3 }),
 }, t => [
   index('bank_connections_organization_id_index').on(t.organizationId),
 ]);
 
-export const transactionsTable = sqliteTable('transactions', {
+export const transactionsTable = pgTable('transactions', {
   ...createPrimaryKeyField({ prefix: TRANSACTION_ID_PREFIX }),
   ...createTimestampColumns(),
 
   organizationId: text('organization_id').notNull().references(() => organizationsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
   bankConnectionId: text('bank_connection_id').notNull().references(() => bankConnectionsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
   externalId: text('external_id').notNull(),
-  date: integer('date', { mode: 'timestamp_ms' }).notNull(),
+  date: timestamp('date', { mode: 'date', withTimezone: true, precision: 3 }).notNull(),
   description: text('description').notNull(),
-  amount: real('amount').notNull(),
+  amount: doublePrecision('amount').notNull(),
   currency: text('currency').notNull().default('USD'),
   counterparty: text('counterparty'),
   status: text('status').notNull().default('posted'),
@@ -44,7 +44,7 @@ export const transactionsTable = sqliteTable('transactions', {
   unique('transactions_external_id_bank_connection_unique').on(t.externalId, t.bankConnectionId),
 ]);
 
-export const classificationRulesTable = sqliteTable('classification_rules', {
+export const classificationRulesTable = pgTable('classification_rules', {
   ...createPrimaryKeyField({ prefix: CLASSIFICATION_RULE_ID_PREFIX }),
   ...createTimestampColumns(),
 
@@ -56,31 +56,31 @@ export const classificationRulesTable = sqliteTable('classification_rules', {
   conditionMatchMode: text('condition_match_mode').notNull().default('all'), // 'all' | 'any'
   tagIds: text('tag_ids').notNull().default('[]'), // JSON array of tag IDs to apply when rule matches
   priority: integer('priority').notNull().default(0),
-  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  isActive: boolean('is_active').notNull().default(true),
 }, t => [
   index('classification_rules_organization_id_index').on(t.organizationId),
 ]);
 
-export const subscriptionsTable = sqliteTable('finance_subscriptions', {
+export const subscriptionsTable = pgTable('finance_subscriptions', {
   ...createPrimaryKeyField({ prefix: SUBSCRIPTION_ID_PREFIX }),
   ...createTimestampColumns(),
 
   organizationId: text('organization_id').notNull().references(() => organizationsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
   name: text('name').notNull(),
-  amount: real('amount').notNull(),
+  amount: doublePrecision('amount').notNull(),
   currency: text('currency').notNull().default('USD'),
   billingCycle: text('billing_cycle').notNull().default('monthly'),
-  nextPaymentAt: integer('next_payment_at', { mode: 'timestamp_ms' }),
+  nextPaymentAt: timestamp('next_payment_at', { mode: 'date', withTimezone: true, precision: 3 }),
   category: text('category'),
   notes: text('notes'),
-  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  isActive: boolean('is_active').notNull().default(true),
   transactionSearchQuery: text('transaction_search_query'),
   tagIds: text('tag_ids').notNull().default('[]'),
 }, t => [
   index('finance_subscriptions_organization_id_index').on(t.organizationId),
 ]);
 
-export const financeGoalsTable = sqliteTable('finance_goals', {
+export const financeGoalsTable = pgTable('finance_goals', {
   ...createPrimaryKeyField({ prefix: FINANCE_GOAL_ID_PREFIX }),
   ...createTimestampColumns(),
 
@@ -90,7 +90,7 @@ export const financeGoalsTable = sqliteTable('finance_goals', {
   index('finance_goals_organization_id_index').on(t.organizationId),
 ]);
 
-export const financeGoalVersionsTable = sqliteTable('finance_goal_versions', {
+export const financeGoalVersionsTable = pgTable('finance_goal_versions', {
   ...createPrimaryKeyField({ prefix: FINANCE_GOAL_VERSION_ID_PREFIX }),
   ...createTimestampColumns(),
 
@@ -103,7 +103,7 @@ export const financeGoalVersionsTable = sqliteTable('finance_goal_versions', {
   index('finance_goal_versions_goal_id_index').on(t.goalId),
 ]);
 
-export const financeGoalBucketsTable = sqliteTable('finance_goal_buckets', {
+export const financeGoalBucketsTable = pgTable('finance_goal_buckets', {
   ...createPrimaryKeyField({ prefix: FINANCE_GOAL_BUCKET_ID_PREFIX }),
   ...createTimestampColumns(),
 

@@ -12,20 +12,29 @@ export const autosendEmailDriverFactory = defineEmailDriverFactory(({ config, lo
 
   return {
     name: AUTOSEND_EMAIL_DRIVER_NAME,
-    sendEmail: async ({ to, subject, html, from }) => {
+    sendEmail: async ({ to, subject, html, from, attachments }) => {
+      if ((attachments?.length ?? 0) > 0) {
+        throw createError({
+          code: 'email.attachments_unsupported',
+          message: 'The AutoSend email driver does not support attachments',
+          statusCode: 501,
+          isInternal: true,
+        });
+      }
       const fromAddress = from ?? fromEmail;
-      const fromParts = fromAddress.match(/^(.+?)\s*<(.+?)>$/);
+      const separatorIndex = fromAddress.lastIndexOf('<');
+      const hasNamedAddress = separatorIndex > 0 && fromAddress.endsWith('>');
 
       const { error } = await autosendClient.emails.send({
-        from: fromParts
-          ? { name: fromParts[1]!.trim(), email: fromParts[2]! }
+        from: hasNamedAddress
+          ? { name: fromAddress.slice(0, separatorIndex).trim(), email: fromAddress.slice(separatorIndex + 1, -1).trim() }
           : { email: fromAddress },
         to: { email: to },
         subject,
         html,
       });
 
-      if (error) {
+      if (error !== null && error !== undefined) {
         logger.error({ error, to, subject, from }, 'Failed to send email with AutoSend');
 
         throw createError({

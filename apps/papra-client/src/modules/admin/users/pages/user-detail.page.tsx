@@ -20,7 +20,7 @@ export const AdminUserDetailPage: Component = () => {
   }));
 
   return (
-    <div class="p-6 max-w-screen-lg mx-auto mt-4">
+    <div class="page">
       <div class="mb-6">
         <Button as={A} href="/admin/users" variant="ghost" size="sm" class="mb-4">
           <div class="i-tabler-arrow-left size-4 mr-2" />

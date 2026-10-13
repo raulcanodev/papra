@@ -206,7 +206,6 @@ async function deleteUserProfileKey({ db, userId, key }: {
 }) {
   const { profile: existing } = await getUserProfile({ db, userId });
 
-  // eslint-disable-next-line ts/no-dynamic-delete
   delete (existing as Record<string, unknown>)[key];
 
   const profileJson = JSON.stringify(existing);

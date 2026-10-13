@@ -40,7 +40,7 @@ async function getOrganizationTags({ organizationId, db }: { organizationId: str
   const tags = await db
     .select({
       ...getTableColumns(tagsTable),
-      documentsCount: sql<number>`COUNT(${documentsTagsTable.documentId}) FILTER (WHERE ${documentsTable.isDeleted} = false)`.as('documentsCount'),
+      documentsCount: sql<number>`COUNT(${documentsTagsTable.documentId}) FILTER (WHERE ${documentsTable.isDeleted} = false)`.mapWith(Number).as('documentsCount'),
     })
     .from(tagsTable)
     .leftJoin(documentsTagsTable, eq(tagsTable.id, documentsTagsTable.tagId))
@@ -222,7 +222,9 @@ async function addTagToTransaction({ tagId, transactionId, db }: { tagId: string
 }
 
 async function addTagsToTransaction({ tagIds, transactionId, db }: { tagIds: string[]; transactionId: string; db: Database }) {
-  if (tagIds.length === 0) return;
+  if (tagIds.length === 0) {
+    return;
+  }
   await db.insert(transactionTagsTable).values(tagIds.map(tagId => ({ tagId, transactionId }))).onConflictDoNothing();
 }
 

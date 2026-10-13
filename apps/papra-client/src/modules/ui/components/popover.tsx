@@ -6,6 +6,7 @@ import type {
 import type { ParentProps, ValidComponent } from 'solid-js';
 import { Popover as PopoverPrimitive } from '@kobalte/core/popover';
 import { mergeProps, splitProps } from 'solid-js';
+import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cn } from '@/modules/shared/style/cn';
 
 export const PopoverTrigger = PopoverPrimitive.Trigger;
@@ -32,6 +33,7 @@ type popoverContentProps<T extends ValidComponent = 'div'> = ParentProps<
 >;
 
 export function PopoverContent<T extends ValidComponent = 'div'>(props: PolymorphicProps<T, popoverContentProps<T>>) {
+  const { t } = useI18n();
   const [local, rest] = splitProps(props as popoverContentProps, [
     'class',
     'children',
@@ -42,7 +44,7 @@ export function PopoverContent<T extends ValidComponent = 'div'>(props: Polymorp
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
         class={cn(
-          'z-50 w-72 rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none data-[expanded]:(animate-in fade-in-0 zoom-in-95) data-[closed]:(animate-out fade-out-0 zoom-out-95)',
+          'z-50 w-72 rounded-lg border bg-popover p-4 text-popover-foreground shadow-lg shadow-black/5 dark:shadow-black/40 outline-none data-[expanded]:(animate-in fade-in-0 zoom-in-95) data-[closed]:(animate-out fade-out-0 zoom-out-95)',
           local.class,
         )}
         {...rest}
@@ -63,7 +65,7 @@ export function PopoverContent<T extends ValidComponent = 'div'>(props: Polymorp
                 stroke-width="2"
                 d="M18 6L6 18M6 6l12 12"
               />
-              <title>Close</title>
+              <title>{t('ui.close')}</title>
             </svg>
           </PopoverPrimitive.CloseButton>
         )}

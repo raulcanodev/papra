@@ -1,0 +1,153 @@
+/* eslint-disable style/max-statements-per-line */
+import type { AsDto } from '../shared/http/http-client.types';
+import type { CustomerInput, FiscalProfile, FiscalProfileInput, Invoice, InvoiceBranding, InvoiceBrandingInput, InvoiceDraftInput, InvoiceSeries, InvoiceSeriesInput, InvoicingCustomer, InvoicingProduct, InvoicingTaxRate, ProductInput, SalesRepresentative, SalesRepresentativeInput, TaxRateInput, VerifactuConfiguration, VerifactuRecord } from './invoicing.types';
+import { buildTimeConfig } from '../config/config';
+import { apiClient } from '../shared/http/api-client';
+import { coerceDates } from '../shared/http/http-client.models';
+
+const basePath = (organizationId: string) => `/api/organizations/${organizationId}/invoicing`;
+
+export async function fetchFiscalProfile({ organizationId }: { organizationId: string }) {
+  const { profile } = await apiClient<{ profile: AsDto<FiscalProfile> | null }>({ path: `${basePath(organizationId)}/profile`, method: 'GET' });
+  return { profile: profile ? coerceDates(profile) : null };
+}
+
+export async function saveFiscalProfile({ organizationId, profile }: { organizationId: string; profile: FiscalProfileInput }) {
+  const result = await apiClient<{ profile: AsDto<FiscalProfile> }>({ path: `${basePath(organizationId)}/profile`, method: 'PUT', body: profile });
+  return { profile: coerceDates(result.profile) };
+}
+
+export async function fetchVerifactuConfiguration({ organizationId }: { organizationId: string }) {
+  const { configuration } = await apiClient<{ configuration: AsDto<VerifactuConfiguration> | null }>({ path: `${basePath(organizationId)}/verifactu/configuration`, method: 'GET' });
+  return { configuration: configuration ? coerceDates(configuration) as VerifactuConfiguration : null };
+}
+
+export async function fetchVerifactuRecords({ organizationId }: { organizationId: string }) {
+  const { records } = await apiClient<{ records: AsDto<VerifactuRecord>[] }>({ path: `${basePath(organizationId)}/verifactu/records`, method: 'GET' });
+  return { records: records.map(record => ({ ...record, generatedAt: new Date(record.generatedAt), createdAt: new Date(record.createdAt), acceptedAt: record.acceptedAt ? new Date(record.acceptedAt) : null })) };
+}
+
+export async function fetchCustomers({ organizationId }: { organizationId: string }) {
+  const { customers } = await apiClient<{ customers: AsDto<InvoicingCustomer>[] }>({ path: `${basePath(organizationId)}/customers`, method: 'GET' });
+  return { customers: customers.map(coerceDates) };
+}
+
+export async function createCustomer({ organizationId, customer }: { organizationId: string; customer: CustomerInput }) {
+  const result = await apiClient<{ customer: AsDto<InvoicingCustomer> }>({ path: `${basePath(organizationId)}/customers`, method: 'POST', body: customer });
+  return { customer: coerceDates(result.customer) };
+}
+
+export async function updateCustomer({ organizationId, customerId, customer }: { organizationId: string; customerId: string; customer: CustomerInput }) {
+  const result = await apiClient<{ customer: AsDto<InvoicingCustomer> }>({ path: `${basePath(organizationId)}/customers/${customerId}`, method: 'PUT', body: customer });
+  return { customer: coerceDates(result.customer) };
+}
+
+export async function fetchProducts({ organizationId }: { organizationId: string }) {
+  const { products } = await apiClient<{ products: AsDto<InvoicingProduct>[] }>({ path: `${basePath(organizationId)}/products`, method: 'GET' }); return { products: products.map(product => coerceDates(product) as InvoicingProduct) };
+}
+export async function createProduct({ organizationId, product }: { organizationId: string; product: ProductInput }) {
+  return apiClient<{ product: AsDto<InvoicingProduct> }>({ path: `${basePath(organizationId)}/products`, method: 'POST', body: product });
+}
+export async function updateProduct({ organizationId, productId, product }: { organizationId: string; productId: string; product: ProductInput }) {
+  return apiClient<{ product: AsDto<InvoicingProduct> }>({ path: `${basePath(organizationId)}/products/${productId}`, method: 'PUT', body: product });
+}
+
+export async function fetchTaxRates({ organizationId }: { organizationId: string }) {
+  const { taxRates } = await apiClient<{ taxRates: AsDto<InvoicingTaxRate>[] }>({ path: `${basePath(organizationId)}/tax-rates`, method: 'GET' }); return { taxRates: taxRates.map(taxRate => coerceDates(taxRate) as InvoicingTaxRate) };
+}
+export async function createTaxRate({ organizationId, taxRate }: { organizationId: string; taxRate: TaxRateInput }) {
+  return apiClient<{ taxRate: AsDto<InvoicingTaxRate> }>({ path: `${basePath(organizationId)}/tax-rates`, method: 'POST', body: taxRate });
+}
+export async function updateTaxRate({ organizationId, taxRateId, taxRate }: { organizationId: string; taxRateId: string; taxRate: TaxRateInput }) {
+  return apiClient<{ taxRate: AsDto<InvoicingTaxRate> }>({ path: `${basePath(organizationId)}/tax-rates/${taxRateId}`, method: 'PUT', body: taxRate });
+}
+
+export async function fetchSalesRepresentatives({ organizationId }: { organizationId: string }) {
+  const { salesRepresentatives } = await apiClient<{ salesRepresentatives: AsDto<SalesRepresentative>[] }>({ path: `${basePath(organizationId)}/sales-representatives`, method: 'GET' }); return { salesRepresentatives: salesRepresentatives.map(representative => coerceDates(representative) as SalesRepresentative) };
+}
+export async function createSalesRepresentative({ organizationId, representative }: { organizationId: string; representative: SalesRepresentativeInput }) {
+  return apiClient<{ salesRepresentative: AsDto<SalesRepresentative> }>({ path: `${basePath(organizationId)}/sales-representatives`, method: 'POST', body: representative });
+}
+export async function updateSalesRepresentative({ organizationId, representativeId, representative }: { organizationId: string; representativeId: string; representative: SalesRepresentativeInput }) {
+  return apiClient<{ salesRepresentative: AsDto<SalesRepresentative> }>({ path: `${basePath(organizationId)}/sales-representatives/${representativeId}`, method: 'PUT', body: representative });
+}
+
+export async function fetchInvoiceSeries({ organizationId }: { organizationId: string }) {
+  const { series } = await apiClient<{ series: AsDto<InvoiceSeries>[] }>({ path: `${basePath(organizationId)}/series`, method: 'GET' }); return { series: series.map(item => coerceDates(item) as InvoiceSeries) };
+}
+export async function createInvoiceSeries({ organizationId, series }: { organizationId: string; series: InvoiceSeriesInput }) {
+  return apiClient<{ series: AsDto<InvoiceSeries> }>({ path: `${basePath(organizationId)}/series`, method: 'POST', body: series });
+}
+export async function updateInvoiceSeries({ organizationId, seriesId, series }: { organizationId: string; seriesId: string; series: InvoiceSeriesInput }) {
+  return apiClient<{ series: AsDto<InvoiceSeries> }>({ path: `${basePath(organizationId)}/series/${seriesId}`, method: 'PUT', body: series });
+}
+
+export async function fetchInvoiceBranding({ organizationId }: { organizationId: string }) {
+  const { branding } = await apiClient<{ branding: AsDto<InvoiceBranding> | null }>({ path: `${basePath(organizationId)}/branding`, method: 'GET' }); return { branding: branding ? coerceDates(branding) : null };
+}
+export async function saveInvoiceBranding({ organizationId, branding }: { organizationId: string; branding: InvoiceBrandingInput }) {
+  return apiClient<{ branding: AsDto<InvoiceBranding> }>({ path: `${basePath(organizationId)}/branding`, method: 'PUT', body: branding });
+}
+
+export async function fetchInvoices({ organizationId }: { organizationId: string }) {
+  const { invoices } = await apiClient<{ invoices: AsDto<Invoice>[] }>({ path: `${basePath(organizationId)}/invoices`, method: 'GET' });
+  return { invoices: invoices.map(coerceInvoice) };
+}
+
+export async function fetchInvoice({ organizationId, invoiceId }: { organizationId: string; invoiceId: string }) {
+  const { invoice } = await apiClient<{ invoice: AsDto<Invoice> }>({ path: `${basePath(organizationId)}/invoices/${invoiceId}`, method: 'GET' });
+  return { invoice: coerceInvoice(invoice) };
+}
+
+export async function createInvoice({ organizationId, invoice }: { organizationId: string; invoice: InvoiceDraftInput }) {
+  const result = await apiClient<{ invoice: AsDto<Invoice> }>({ path: `${basePath(organizationId)}/invoices`, method: 'POST', body: invoice });
+  return { invoice: coerceInvoice(result.invoice) };
+}
+
+export async function updateInvoice({ organizationId, invoiceId, invoice }: { organizationId: string; invoiceId: string; invoice: InvoiceDraftInput }) {
+  const result = await apiClient<{ invoice: AsDto<Invoice> }>({ path: `${basePath(organizationId)}/invoices/${invoiceId}`, method: 'PUT', body: invoice });
+  return { invoice: coerceInvoice(result.invoice) };
+}
+
+export async function issueInvoice({ organizationId, invoiceId }: { organizationId: string; invoiceId: string }) {
+  const result = await apiClient<{ invoice: AsDto<Invoice> }>({ path: `${basePath(organizationId)}/invoices/${invoiceId}/issue`, method: 'POST' });
+  return { invoice: coerceInvoice(result.invoice) };
+}
+
+export async function sendInvoice({ organizationId, invoiceId }: { organizationId: string; invoiceId: string }) {
+  const result = await apiClient<{ invoice: AsDto<Invoice> }>({ path: `${basePath(organizationId)}/invoices/${invoiceId}/send`, method: 'POST' });
+  return { invoice: coerceInvoice(result.invoice) };
+}
+
+export async function markInvoicePaid({ organizationId, invoiceId }: { organizationId: string; invoiceId: string }) {
+  const result = await apiClient<{ invoice: AsDto<Invoice> }>({ path: `${basePath(organizationId)}/invoices/${invoiceId}/paid`, method: 'POST' });
+  return { invoice: coerceInvoice(result.invoice) };
+}
+
+export async function downloadInvoicePdf({ organizationId, invoiceId, filename }: { organizationId: string; invoiceId: string; filename: string }) {
+  const blob = await apiClient<Blob, 'blob'>({ path: `${basePath(organizationId)}/invoices/${invoiceId}/pdf`, method: 'GET', responseType: 'blob' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `${filename}.pdf`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+export function getInvoiceDocumentUrl({ organizationId, documentId }: { organizationId: string; documentId: string }) {
+  return `${buildTimeConfig.baseUrl}/organizations/${organizationId}/documents/${documentId}`;
+}
+
+function coerceInvoice(invoice: AsDto<Invoice>): Invoice {
+  return {
+    ...invoice,
+    issueDate: new Date(invoice.issueDate),
+    dueDate: new Date(invoice.dueDate),
+    createdAt: new Date(invoice.createdAt),
+    updatedAt: new Date(invoice.updatedAt),
+    issuedAt: invoice.issuedAt ? new Date(invoice.issuedAt) : null,
+    sentAt: invoice.sentAt ? new Date(invoice.sentAt) : null,
+    paidAt: invoice.paidAt ? new Date(invoice.paidAt) : null,
+    voidedAt: invoice.voidedAt ? new Date(invoice.voidedAt) : null,
+  } as Invoice;
+}

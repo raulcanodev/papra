@@ -20,13 +20,13 @@ export const OrganizationsPage: Component = () => {
     () => query.data?.organizations,
     (orgs) => {
       if (orgs && orgs.length === 0) {
-        navigate('/organizations/first');
+        navigate('/organizations/create');
       }
     },
   ));
 
   return (
-    <div class="p-6 mt-4 pb-32 max-w-5xl mx-auto">
+    <div class="page">
       <div class="flex items-start justify-between mb-2">
         <div class="flex-1">
           <h2 class="text-xl font-bold">

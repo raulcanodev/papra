@@ -14,10 +14,10 @@ import { Checkbox, CheckboxControl, CheckboxLabel } from '@/modules/ui/component
 import { Separator } from '@/modules/ui/components/separator';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextField, TextFieldLabel, TextFieldRoot } from '@/modules/ui/components/textfield';
-import { AuthLayout } from '../../ui/layouts/auth-layout.component';
 import { authPagesPaths } from '../auth.constants';
 import { getEnabledSsoProviderConfigs, isEmailVerificationRequiredError } from '../auth.models';
 import { authWithProvider, signIn, twoFactor } from '../auth.services';
+import { AuthBackgroundLayout, AuthCard } from '../components/auth-card-layout.component';
 import { AuthLegalLinks } from '../components/legal-links.component';
 import { NoAuthProviderWarning } from '../components/no-auth-provider';
 import { SsoProviderButton } from '../components/sso-provider-button.component';
@@ -298,68 +298,70 @@ export const LoginPage: Component = () => {
   const hasNoAuthProviders = !config.auth.providers.email.isEnabled && !getHasSsoProviders();
 
   return (
-    <AuthLayout>
+    <AuthBackgroundLayout>
       <Show when={!hasNoAuthProviders} fallback={<NoAuthProviderWarning />}>
-        <div class="flex items-center justify-center h-full p-6 sm:pb-32">
-          <div class="max-w-sm w-full">
-            <Show
-              when={!showTwoFactorForm()}
-              fallback={(
-                <>
-                  <h1 class="text-xl font-bold">{t('auth.login.two-factor.title')}</h1>
-                  <TwoFactorVerificationForm onBack={() => setShowTwoFactorForm(false)} />
-                </>
-              )}
-            >
-              <h1 class="text-xl font-bold">{t('auth.login.title')}</h1>
-              <p class="text-muted-foreground mt-1 mb-4">{t('auth.login.description')}</p>
-
-              <Show when={config.auth.providers.email.isEnabled}>
-                {getShowEmailLoginForm() || !getHasSsoProviders()
-                  ? <EmailLoginForm onTwoFactorRequired={() => setShowTwoFactorForm(true)} />
-                  : (
-                      <Button onClick={() => setShowEmailLoginForm(true)} class="w-full">
-                        <div class="i-tabler-mail mr-2 size-4.5" />
-                        {t('auth.login.login-with-provider', { provider: 'Email' })}
-                      </Button>
-                    )}
-              </Show>
-
-              <Show when={config.auth.providers.email.isEnabled && getHasSsoProviders()}>
-                <Separator class="my-4" />
-              </Show>
-
-              <Show when={getHasSsoProviders()}>
-
-                <div class="flex flex-col gap-2">
-                  <For each={getEnabledSsoProviderConfigs({ config })}>
-                    {provider => (
-                      <SsoProviderButton
-                        name={provider.name}
-                        icon={provider.icon}
-                        onClick={() => loginWithProvider(provider)}
-                        label={t('auth.login.login-with-provider', { provider: provider.name })}
-                      />
-                    )}
-                  </For>
+        <AuthCard>
+          <Show
+            when={!showTwoFactorForm()}
+            fallback={(
+              <>
+                <div class="size-11 rounded-xl bg-primary/12 text-primary grid place-items-center mb-6">
+                  <span class="i-tabler-shield-lock size-5" />
                 </div>
-              </Show>
+                <h1 class="text-2xl font-semibold tracking-tight">{t('auth.login.two-factor.title')}</h1>
+                <TwoFactorVerificationForm onBack={() => setShowTwoFactorForm(false)} />
+              </>
+            )}
+          >
+            <p class="text-xs uppercase tracking-[0.16em] font-semibold text-primary mb-3">{t('auth.login.eyebrow')}</p>
+            <h1 class="text-3xl font-semibold tracking-[-0.035em]">{t('auth.login.welcome')}</h1>
+            <p class="text-muted-foreground mt-2 mb-7 leading-6">{t('auth.login.welcome-description')}</p>
 
-              <Show when={config.auth.isRegistrationEnabled}>
-                <p class="text-muted-foreground mt-4">
-                  {t('auth.login.no-account')}
-                  {' '}
-                  <Button variant="link" as={A} class="inline px-0" href="/register">
-                    {t('auth.login.register')}
-                  </Button>
-                </p>
-              </Show>
-
-              <AuthLegalLinks />
+            <Show when={config.auth.providers.email.isEnabled}>
+              {getShowEmailLoginForm() || !getHasSsoProviders()
+                ? <EmailLoginForm onTwoFactorRequired={() => setShowTwoFactorForm(true)} />
+                : (
+                    <Button onClick={() => setShowEmailLoginForm(true)} class="w-full">
+                      <div class="i-tabler-mail mr-2 size-4.5" />
+                      {t('auth.login.login-with-provider', { provider: 'Email' })}
+                    </Button>
+                  )}
             </Show>
-          </div>
-        </div>
+
+            <Show when={config.auth.providers.email.isEnabled && getHasSsoProviders()}>
+              <Separator class="my-4" />
+            </Show>
+
+            <Show when={getHasSsoProviders()}>
+
+              <div class="flex flex-col gap-2">
+                <For each={getEnabledSsoProviderConfigs({ config })}>
+                  {provider => (
+                    <SsoProviderButton
+                      name={provider.name}
+                      icon={provider.icon}
+                      onClick={() => loginWithProvider(provider)}
+                      label={t('auth.login.login-with-provider', { provider: provider.name })}
+                    />
+                  )}
+                </For>
+              </div>
+            </Show>
+
+            <Show when={config.auth.isRegistrationEnabled}>
+              <p class="text-muted-foreground mt-6 text-center text-sm">
+                {t('auth.login.no-account')}
+                {' '}
+                <Button variant="link" as={A} class="inline px-0" href="/register">
+                  {t('auth.login.register')}
+                </Button>
+              </p>
+            </Show>
+
+            <AuthLegalLinks />
+          </Show>
+        </AuthCard>
       </Show>
-    </AuthLayout>
+    </AuthBackgroundLayout>
   );
 };

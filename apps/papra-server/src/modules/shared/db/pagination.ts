@@ -1,12 +1,12 @@
 import type { SQL } from 'drizzle-orm';
-import type { SQLiteColumn, SQLiteSelect } from 'drizzle-orm/sqlite-core';
+import type { PgColumn, PgSelect } from 'drizzle-orm/pg-core';
 
-export function withPagination<T extends SQLiteSelect>(query: T, {
+export function withPagination<T extends PgSelect>(query: T, {
   orderByColumn,
   pageIndex,
   pageSize,
 }: {
-  orderByColumn: SQLiteColumn | SQL;
+  orderByColumn: PgColumn | SQL;
   pageIndex: number;
   pageSize: number;
 }) {

@@ -1,6 +1,8 @@
 import type { Database } from './database.types';
 import { createNoopLogger } from '@crowlog/logger';
-import { sql } from 'drizzle-orm';
+import { PGlite } from '@electric-sql/pglite';
+import { drizzle } from 'drizzle-orm/pglite';
+import { onTestFinished } from 'vitest';
 import { runMigrations } from '../../../migrations/migrations.usecases';
 import { apiKeyOrganizationsTable, apiKeysTable } from '../../api-keys/api-keys.tables';
 import { customPropertyDefinitionsTable, documentCustomPropertyValuesTable } from '../../custom-properties/custom-properties.table';
@@ -14,23 +16,57 @@ import { taggingRuleActionsTable, taggingRuleConditionsTable, taggingRulesTable 
 import { documentsTagsTable, tagsTable } from '../../tags/tags.table';
 import { usersTable } from '../../users/users.table';
 import { webhookDeliveriesTable, webhookEventsTable, webhooksTable } from '../../webhooks/webhooks.tables';
-import { setupDatabase } from './database';
 
-export { createInMemoryDatabase, seedDatabase };
+export { createInMemoryDatabase, seedDatabase, setupInMemoryDatabase };
+
+// In-memory PostgreSQL (PGlite, wasm) used for tests
+function setupInMemoryDatabase({ loadDataDir }: { loadDataDir?: Blob | File } = {}) {
+  const client = new PGlite({ loadDataDir });
+  const db: Database = drizzle(client);
+
+  return { db, client };
+}
+
+// Running the migrations on each new database is slow, so we migrate a template database once
+// and clone its data directory for each new in-memory database
+let migratedDataDirPromise: Promise<Blob | File> | undefined;
+
+async function getMigratedDataDir() {
+  migratedDataDirPromise ??= (async () => {
+    const { db, client } = setupInMemoryDatabase();
+
+    await runMigrations({
+      db,
+      // In memory logger to avoid polluting the console with migrations logs
+      logger: createNoopLogger(),
+    });
+
+    const dataDir = await client.dumpDataDir('none');
+    await client.close();
+
+    return dataDir;
+  })();
+
+  return migratedDataDirPromise;
+}
 
 async function createInMemoryDatabase(seedOptions: Omit<Parameters<typeof seedDatabase>[0], 'db'> | undefined = {}) {
-  const { db } = setupDatabase({ url: ':memory:' });
+  const { db, client } = setupInMemoryDatabase({ loadDataDir: await getMigratedDataDir() });
 
-  await runMigrations({
-    db,
-    // In memory logger to avoid polluting the console with migrations logs
-    logger: createNoopLogger(),
-  });
+  // Free the wasm memory once the test is done, when created within a test (not possible when created in a describe block)
+  try {
+    onTestFinished(async () => {
+      if (!client.closed) {
+        await client.close();
+      }
+    });
+  } catch {}
 
   await seedDatabase({ db, ...seedOptions });
 
   return {
     db,
+    client,
   };
 }
 
@@ -63,44 +99,14 @@ type SeedTablesRows = {
 };
 
 async function seedDatabase({ db, ...seedRows }: { db: Database } & SeedTablesRows) {
-  await Promise.all(
-    Object
-      .entries(seedRows)
-      .map(async ([table, rows]) => db
-        .insert(seedTables[table as keyof typeof seedTables])
-        .values(rows)
-        .execute(),
-      ),
-  );
-}
+  // Inserted sequentially, following the seedTables order, so foreign keys are satisfied
+  for (const [table, schema] of Object.entries(seedTables)) {
+    const rows = seedRows[table as keyof typeof seedTables];
 
-/*
-PRAGMA encoding;
-PRAGMA page_size;
-PRAGMA auto_vacuum;
-PRAGMA journal_mode;      -- WAL is persistent
-PRAGMA user_version;
-PRAGMA application_id;
+    if (rows === undefined || rows.length === 0) {
+      continue;
+    }
 
-*/
-
-export async function serializeSchema({ db }: { db: Database }) {
-  const result = await db.batch([
-    // db.run(sql`PRAGMA encoding`),
-    // db.run(sql`PRAGMA page_size`),
-    // db.run(sql`PRAGMA auto_vacuum`),
-    // db.run(sql`PRAGMA journal_mode`),
-    // db.run(sql`PRAGMA user_version`),
-    // db.run(sql`PRAGMA application_id`),
-    db.run(sql`SELECT sql FROM sqlite_schema WHERE sql IS NOT NULL AND type IN ('table','index','view','trigger') ORDER BY type, name`),
-  ]);
-
-  return Array
-    .from(result.values())
-    .flatMap(({ rows }) => rows.map(({ sql }) => minifyQuery(String(sql))))
-    .join('\n');
-}
-
-function minifyQuery(query: string) {
-  return `${query.replace(/\s+/g, ' ').trim().replace(/;$/, '')};`;
+    await db.insert(schema).values(rows as never[]).execute();
+  }
 }

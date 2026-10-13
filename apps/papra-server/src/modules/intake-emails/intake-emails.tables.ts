@@ -1,14 +1,14 @@
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { boolean, jsonb, pgTable, text } from 'drizzle-orm/pg-core';
 import { organizationsTable } from '../organizations/organizations.table';
 import { createPrimaryKeyField, createTimestampColumns } from '../shared/db/columns.helpers';
 import { INTAKE_EMAIL_ID_PREFIX } from './intake-emails.constants';
 
-export const intakeEmailsTable = sqliteTable('intake_emails', {
+export const intakeEmailsTable = pgTable('intake_emails', {
   ...createPrimaryKeyField({ prefix: INTAKE_EMAIL_ID_PREFIX }),
   ...createTimestampColumns(),
 
   emailAddress: text('email_address').notNull().unique(),
   organizationId: text('organization_id').notNull().references(() => organizationsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
-  allowedOrigins: text('allowed_origins', { mode: 'json' }).notNull().$type<string[]>().default([]),
-  isEnabled: integer('is_enabled', { mode: 'boolean' }).notNull().default(true),
+  allowedOrigins: jsonb('allowed_origins').notNull().$type<string[]>().default([]),
+  isEnabled: boolean('is_enabled').notNull().default(true),
 });

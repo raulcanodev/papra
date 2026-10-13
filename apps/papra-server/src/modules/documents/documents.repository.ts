@@ -209,11 +209,11 @@ async function getOrganizationStats({ organizationId, db }: { organizationId: st
   const [record] = await db
     .select({
       totalDocumentsCount: count(documentsTable.id),
-      totalDocumentsSize: sql<number>`COALESCE(SUM(${documentsTable.originalSize}), 0)`.as('totalDocumentsSize'),
-      deletedDocumentsCount: sql<number>`COUNT(${documentsTable.id}) FILTER (WHERE ${documentsTable.isDeleted} = true)`.as('deletedDocumentsCount'),
-      documentsCount: sql<number>`COUNT(${documentsTable.id}) FILTER (WHERE ${documentsTable.isDeleted} = false)`.as('documentsCount'),
-      documentsSize: sql<number>`COALESCE(SUM(${documentsTable.originalSize}) FILTER (WHERE ${documentsTable.isDeleted} = false), 0)`.as('documentsSize'),
-      deletedDocumentsSize: sql<number>`COALESCE(SUM(${documentsTable.originalSize}) FILTER (WHERE ${documentsTable.isDeleted} = true), 0)`.as('deletedDocumentsSize'),
+      totalDocumentsSize: sql<number>`COALESCE(SUM(${documentsTable.originalSize}), 0)`.mapWith(Number).as('totalDocumentsSize'),
+      deletedDocumentsCount: sql<number>`COUNT(${documentsTable.id}) FILTER (WHERE ${documentsTable.isDeleted} = true)`.mapWith(Number).as('deletedDocumentsCount'),
+      documentsCount: sql<number>`COUNT(${documentsTable.id}) FILTER (WHERE ${documentsTable.isDeleted} = false)`.mapWith(Number).as('documentsCount'),
+      documentsSize: sql<number>`COALESCE(SUM(${documentsTable.originalSize}) FILTER (WHERE ${documentsTable.isDeleted} = false), 0)`.mapWith(Number).as('documentsSize'),
+      deletedDocumentsSize: sql<number>`COALESCE(SUM(${documentsTable.originalSize}) FILTER (WHERE ${documentsTable.isDeleted} = true), 0)`.mapWith(Number).as('deletedDocumentsSize'),
     })
     .from(documentsTable)
     .where(
@@ -323,11 +323,11 @@ async function getGlobalDocumentsStats({ db }: { db: Database }) {
   const [record] = await db
     .select({
       totalDocumentsCount: count(documentsTable.id),
-      totalDocumentsSize: sql<number>`COALESCE(SUM(${documentsTable.originalSize}), 0)`.as('totalDocumentsSize'),
-      deletedDocumentsCount: sql<number>`COUNT(${documentsTable.id}) FILTER (WHERE ${documentsTable.isDeleted} = true)`.as('deletedDocumentsCount'),
-      documentsCount: sql<number>`COUNT(${documentsTable.id}) FILTER (WHERE ${documentsTable.isDeleted} = false)`.as('documentsCount'),
-      documentsSize: sql<number>`COALESCE(SUM(${documentsTable.originalSize}) FILTER (WHERE ${documentsTable.isDeleted} = false), 0)`.as('documentsSize'),
-      deletedDocumentsSize: sql<number>`COALESCE(SUM(${documentsTable.originalSize}) FILTER (WHERE ${documentsTable.isDeleted} = true), 0)`.as('deletedDocumentsSize'),
+      totalDocumentsSize: sql<number>`COALESCE(SUM(${documentsTable.originalSize}), 0)`.mapWith(Number).as('totalDocumentsSize'),
+      deletedDocumentsCount: sql<number>`COUNT(${documentsTable.id}) FILTER (WHERE ${documentsTable.isDeleted} = true)`.mapWith(Number).as('deletedDocumentsCount'),
+      documentsCount: sql<number>`COUNT(${documentsTable.id}) FILTER (WHERE ${documentsTable.isDeleted} = false)`.mapWith(Number).as('documentsCount'),
+      documentsSize: sql<number>`COALESCE(SUM(${documentsTable.originalSize}) FILTER (WHERE ${documentsTable.isDeleted} = false), 0)`.mapWith(Number).as('documentsSize'),
+      deletedDocumentsSize: sql<number>`COALESCE(SUM(${documentsTable.originalSize}) FILTER (WHERE ${documentsTable.isDeleted} = true), 0)`.mapWith(Number).as('deletedDocumentsSize'),
     })
     .from(documentsTable);
 

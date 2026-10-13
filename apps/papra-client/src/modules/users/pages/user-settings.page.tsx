@@ -130,6 +130,7 @@ const UpdateFullNameCard: Component<{ name: string }> = (props) => {
 };
 
 const AiMemoryCard: Component = () => {
+  const { t } = useI18n();
   const [profile, setProfile] = createSignal<Record<string, string>>({});
   const [isLoading, setIsLoading] = createSignal(true);
   const [isError, setIsError] = createSignal(false);
@@ -189,14 +190,14 @@ const AiMemoryCard: Component = () => {
   return (
     <Card>
       <CardHeader class="border-b">
-        <CardTitle>AI Memory</CardTitle>
+        <CardTitle>{t('user.settings.ai-memory.title')}</CardTitle>
         <CardDescription>
-          Facts the AI has learned about you from conversations. You can edit or remove any entry.
+          {t('user.settings.ai-memory.description')}
         </CardDescription>
       </CardHeader>
       <CardContent class="pt-4">
-        <Show when={!isLoading()} fallback={<div class="text-sm text-muted-foreground">Loading...</div>}>
-          <Show when={!isError()} fallback={<p class="text-sm text-muted-foreground">Could not load AI memory.</p>}>
+        <Show when={!isLoading()} fallback={<div class="text-sm text-muted-foreground">{t('user.settings.ai-memory.loading')}</div>}>
+          <Show when={!isError()} fallback={<p class="text-sm text-muted-foreground">{t('user.settings.ai-memory.error')}</p>}>
             <div class="flex flex-col gap-2">
               <For each={Object.entries(profile())}>
                 {([key, value]) => (
@@ -207,10 +208,10 @@ const AiMemoryCard: Component = () => {
                       fallback={(
                         <>
                           <span class="flex-1">{value}</span>
-                          <Button variant="ghost" size="sm" onClick={() => startEdit(key, value)}>
+                          <Button variant="ghost" size="sm" aria-label={t('user.settings.ai-memory.edit')} onClick={() => startEdit(key, value)}>
                             <div class="i-tabler-edit size-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDelete(key)}>
+                          <Button variant="ghost" size="sm" aria-label={t('user.settings.ai-memory.delete')} onClick={() => handleDelete(key)}>
                             <div class="i-tabler-trash size-4" />
                           </Button>
                         </>
@@ -224,22 +225,22 @@ const AiMemoryCard: Component = () => {
                           class="flex-1 min-w-0"
                         />
                       </TextFieldRoot>
-                      <Button size="sm" onClick={() => saveEdit(key)}>Save</Button>
-                      <Button variant="ghost" size="sm" onClick={() => setEditingKey(null)}>Cancel</Button>
+                      <Button size="sm" onClick={() => saveEdit(key)}>{t('user.settings.ai-memory.save')}</Button>
+                      <Button variant="ghost" size="sm" onClick={() => setEditingKey(null)}>{t('user.settings.ai-memory.cancel')}</Button>
                     </Show>
                   </div>
                 )}
               </For>
 
               <Show when={Object.keys(profile()).length === 0}>
-                <p class="text-sm text-muted-foreground">No entries yet. The AI will learn about you as you chat.</p>
+                <p class="text-sm text-muted-foreground">{t('user.settings.ai-memory.empty')}</p>
               </Show>
 
               <div class="flex items-center gap-2 mt-2 pt-2 border-t">
                 <TextFieldRoot class="min-w-24 max-w-32 flex">
                   <TextField
                     type="text"
-                    placeholder="Key"
+                    placeholder={t('user.settings.ai-memory.key')}
                     value={newKey()}
                     onInput={e => setNewKey(e.currentTarget.value)}
                     class="w-full text-sm"
@@ -248,13 +249,13 @@ const AiMemoryCard: Component = () => {
                 <TextFieldRoot class="flex-1 flex">
                   <TextField
                     type="text"
-                    placeholder="Value"
+                    placeholder={t('user.settings.ai-memory.value')}
                     value={newValue()}
                     onInput={e => setNewValue(e.currentTarget.value)}
                     class="w-full text-sm"
                   />
                 </TextFieldRoot>
-                <Button size="sm" onClick={addEntry} disabled={!newKey().trim() || !newValue().trim()}>Add</Button>
+                <Button size="sm" onClick={addEntry} disabled={!newKey().trim() || !newValue().trim()}>{t('user.settings.ai-memory.add')}</Button>
               </div>
             </div>
           </Show>
@@ -272,7 +273,7 @@ export const UserSettingsPage: Component = () => {
   }));
 
   return (
-    <div class="p-6 mt-12 pb-32 mx-auto max-w-xl">
+    <div class="page-narrow">
       <Suspense>
         <Show when={query.data?.user}>
           {getUser => (

@@ -2,11 +2,10 @@ import type { PolymorphicProps } from '@kobalte/core/polymorphic';
 import type {
   TextFieldDescriptionProps,
   TextFieldErrorMessageProps,
-  TextFieldInputProps,
   TextFieldLabelProps,
   TextFieldRootProps,
 } from '@kobalte/core/text-field';
-import type { ValidComponent, VoidProps } from 'solid-js';
+import type { JSX, ValidComponent } from 'solid-js';
 import { TextField as TextFieldPrimitive } from '@kobalte/core/text-field';
 import { cva } from 'class-variance-authority';
 import { splitProps } from 'solid-js';
@@ -95,19 +94,16 @@ export function TextFieldDescription<T extends ValidComponent = 'div'>(props: Po
   );
 }
 
-type textFieldInputProps<T extends ValidComponent = 'input'> = VoidProps<
-  TextFieldInputProps<T> & {
-    class?: string;
-  }
->;
+type textFieldInputProps = JSX.InputHTMLAttributes<HTMLInputElement> & { class?: string; autoFocus?: boolean };
 
-export function TextField<T extends ValidComponent = 'input'>(props: PolymorphicProps<T, textFieldInputProps<T>>) {
-  const [local, rest] = splitProps(props as textFieldInputProps, ['class']);
+export function TextField(props: textFieldInputProps) {
+  const [local, rest] = splitProps(props, ['class', 'autoFocus']);
 
   return (
-    <TextFieldPrimitive.Input
+    <input
+      autofocus={local.autoFocus}
       class={cn(
-        'flex h-9 w-full rounded-md border border-input bg-inherit px-3 py-1 text-sm file:(border-0 bg-transparent text-sm font-medium) placeholder:text-muted-foreground focus-visible:(outline-none ring-1.5 ring-ring) disabled:(cursor-not-allowed opacity-50) transition-shadow',
+        'flex h-9 w-full rounded-md border border-input bg-field px-3 py-1 text-sm shadow-xs file:(border-0 bg-transparent text-sm font-medium) placeholder:text-muted-foreground focus-visible:(outline-none border-ring ring-3 ring-ring/30) aria-[invalid=true]:border-destructive disabled:(cursor-not-allowed opacity-50) transition-[color,box-shadow,border-color]',
         local.class,
       )}
       {...rest}

@@ -18,6 +18,19 @@ export type Document = {
   content: string;
   tags: Tag[];
   customProperties?: DocumentCustomProperty[];
+  folder?: DocumentFolder | null;
+};
+
+export type DocumentFolder = {
+  id: string;
+  organizationId: string;
+  parentFolderId?: string | null;
+  customerId?: string | null;
+  name: string;
+  kind: 'manual' | 'customer';
+  documentsCount: number;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type DocumentActivityEvent = (typeof DOCUMENT_ACTIVITY_EVENTS)[keyof typeof DOCUMENT_ACTIVITY_EVENTS];

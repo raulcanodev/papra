@@ -8,22 +8,34 @@ import { splitProps } from 'solid-js';
 import { cn } from '@/modules/shared/style/cn';
 
 export const buttonVariants = cva(
-  'inline-flex items-center justify-center rounded-md text-sm font-medium focus-visible:(outline-none ring-1.5 ring-ring) disabled:(pointer-events-none opacity-50) bg-inherit',
+  'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all outline-none focus-visible:(ring-3 ring-ring/40) disabled:(pointer-events-none opacity-50)',
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-primary/90',
-        destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
-        outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
+        // Soft, slightly glossy surface: a light top edge and a shaded bottom, pressed in on click.
+        default: [
+          'border border-neutral-300 bg-gradient-to-b from-white to-neutral-100 text-foreground',
+          'shadow-[inset_0_1px_0_rgb(255_255_255),inset_0_-2px_1px_rgb(0_0_0/0.06),0_1px_2px_rgb(0_0_0/0.08)]',
+          'hover:(from-neutral-50 to-neutral-200/70)',
+          'active:(shadow-[inset_0_2px_3px_rgb(0_0_0/0.1)] from-neutral-100 to-neutral-100)',
+          'dark:(border-white/10 from-zinc-700 to-zinc-800 text-foreground)',
+          'dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.12),inset_0_-2px_1px_rgb(0_0_0/0.3),0_1px_2px_rgb(0_0_0/0.4)]',
+          'dark:hover:(from-zinc-600 to-zinc-700)',
+          'dark:active:(shadow-[inset_0_2px_3px_rgb(0_0_0/0.4)] from-zinc-800 to-zinc-800)',
+        ].join(' '),
+        primary: 'bg-primary text-primary-foreground shadow-xs hover:bg-primary/90',
+        destructive: 'bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90 dark:bg-destructive/70',
+        outline: 'border border-border bg-card shadow-xs hover:(bg-accent text-accent-foreground) dark:(bg-field border-input hover:bg-accent)',
         secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-        ghost: 'hover:(bg-accent/50 text-accent-foreground)',
-        link: 'text-primary underline-offset-4 hover:underline',
+        ghost: 'hover:(bg-accent text-accent-foreground) dark:hover:bg-accent/60',
+        link: 'text-foreground underline-offset-4 hover:underline',
       },
       size: {
-        default: 'h-9 px-4 py-2',
-        sm: 'h-8 px-3 text-xs',
-        lg: 'h-10 px-8',
-        icon: 'h-9 w-9',
+        'default': 'h-9 px-4 py-2',
+        'sm': 'h-8 gap-1.5 px-3',
+        'lg': 'h-10 px-6',
+        'icon': 'h-9 w-9',
+        'icon-sm': 'h-8 w-8',
       },
     },
     defaultVariants: {

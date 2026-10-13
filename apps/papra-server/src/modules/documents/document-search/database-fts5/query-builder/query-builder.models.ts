@@ -1,37 +1,37 @@
 import type { Operator } from '@papra/search-parser';
-import type { BinaryOperator } from 'drizzle-orm';
+import type { BinaryOperator, SQL } from 'drizzle-orm';
 import type { QueryResult } from './query-builder.types';
-import { eq, gt, gte, lt, lte, sql } from 'drizzle-orm';
+import { and, eq, gt, gte, lt, lte, or, sql } from 'drizzle-orm';
 import { documentsFtsTable } from '../database-fts5.tables';
 
-function joinColumnNames(columns: string[]): string {
-  return columns.join(' ');
+export type FtsColumn = 'name' | 'content';
+
+const tsvectorColumns = {
+  name: documentsFtsTable.nameTsv,
+  content: documentsFtsTable.contentTsv,
+} as const;
+
+// Builds a phrase query where the last term is matched as a prefix, mimicking the previous FTS5 `"foo bar"*` behavior.
+// Tokenization is delegated to Postgres (phraseto_tsquery) so the query is tokenized the same way as the indexed documents
+export function buildFtsPrefixPhraseQuery({ value }: { value: string }): SQL {
+  return sql`to_tsquery('simple', regexp_replace(phraseto_tsquery('simple', ${value.trim()})::text, '''$', ''':*'))`;
 }
 
-export function formatFts5QueryValue({
+export function buildFtsMatchCondition({
   value,
   organizationId,
-  matchingColumns = [
-    documentsFtsTable.name.name,
-    documentsFtsTable.content.name,
-  ],
+  matchingColumns = ['name', 'content'],
 }: {
   value: string;
   organizationId: string;
-  matchingColumns?: string[];
-}) {
-  const formattedValue = value
-    .trim()
-    .replace(/["'‘’“”]/g, ' '); // Replace various quote characters with space so they don't interfere with FTS5 syntax
+  matchingColumns?: FtsColumn[];
+}): SQL | undefined {
+  const tsQuery = buildFtsPrefixPhraseQuery({ value });
 
-  const queryString = [
-    `${documentsFtsTable.organizationId.name}:"${organizationId}"`,
-    matchingColumns.length === 0
-      ? `"${formattedValue}"*`
-      : `{${joinColumnNames(matchingColumns)}}:"${formattedValue}"*`,
-  ].join(' ');
-
-  return { queryString };
+  return and(
+    eq(documentsFtsTable.organizationId, organizationId),
+    or(...matchingColumns.map(column => sql`${tsvectorColumns[column]} @@ ${tsQuery}`)),
+  );
 }
 
 const operatorsMap: Record<Operator, BinaryOperator> = {
@@ -48,7 +48,7 @@ export function getSqlOperator({ operator }: { operator: Operator }): BinaryOper
 
 export function createInvalidQueryResult({ message, code}: { message: string; code: string }): QueryResult {
   return {
-    sqlQuery: sql`0`,
+    sqlQuery: sql`false`,
     issues: [{
       message,
       code,

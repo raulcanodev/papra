@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/modules/ui/components/separator';
 import { TextArea } from '@/modules/ui/components/textarea';
 import { TextField, TextFieldLabel, TextFieldRoot } from '@/modules/ui/components/textfield';
+import { getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
 import { CONDITION_MATCH_MODES, CONDITION_MATCH_MODES_LOCALIZATION_KEYS, TAGGING_RULE_FIELDS, TAGGING_RULE_FIELDS_LOCALIZATION_KEYS, TAGGING_RULE_OPERATORS, TAGGING_RULE_OPERATORS_LOCALIZATION_KEYS } from '../tagging-rules.constants';
 
 export const TaggingRuleForm: Component<{
@@ -279,7 +280,7 @@ export const TaggingRuleForm: Component<{
 
       <div class="flex justify-end mt-6 gap-2">
         <Show when={props.taggingRule}>
-          <Button variant="outline" as={A} href={`/organizations/${props.organizationId}/tagging-rules`}>
+          <Button variant="outline" as={A} href={getOrganizationRouteHref({ organizationId: props.organizationId, routeId: 'settingsAutomations' })}>
             {t('tagging-rules.update.cancel')}
           </Button>
         </Show>

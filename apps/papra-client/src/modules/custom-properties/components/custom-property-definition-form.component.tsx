@@ -11,6 +11,7 @@ import { Button } from '@/modules/ui/components/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/modules/ui/components/select';
 import { TextArea } from '@/modules/ui/components/textarea';
 import { TextField, TextFieldLabel, TextFieldRoot } from '@/modules/ui/components/textfield';
+import { getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
 import { PROPERTY_TYPE_LABEL_I18N_KEYS } from '../custom-properties.constants';
 
 const PROPERTY_TYPES: CustomPropertyType[] = ['text', 'number', 'date', 'boolean', 'select', 'multi_select', 'user_relation', 'document_relation'];
@@ -209,7 +210,7 @@ export const CustomPropertyDefinitionForm: Component<{
       </Show>
 
       <div class="flex justify-end mt-8 gap-2">
-        <Button variant="outline" as={A} href={`/organizations/${props.organizationId}/custom-properties`}>
+        <Button variant="outline" as={A} href={getOrganizationRouteHref({ organizationId: props.organizationId, routeId: 'settingsCustomProperties' })}>
           {t('custom-properties.form.cancel')}
         </Button>
         {props.submitButton}

@@ -12,7 +12,7 @@ type DocumentKeyEncryptionKey = {
 };
 
 export function getMostRecentDocumentKek({ documentKeyEncryptionKeys = [] }: { documentKeyEncryptionKeys?: DocumentKeyEncryptionKey[] }): DocumentKeyEncryptionKey {
-  const sortedKeys = documentKeyEncryptionKeys.sort((a, b) => a.version.localeCompare(b.version));
+  const sortedKeys = [...documentKeyEncryptionKeys].sort((a, b) => a.version.localeCompare(b.version));
   const mostRecentKey = sortedKeys[sortedKeys.length - 1];
 
   if (isNil(mostRecentKey)) {

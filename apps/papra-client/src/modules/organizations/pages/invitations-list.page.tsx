@@ -13,6 +13,7 @@ import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { EmptyState } from '@/modules/ui/components/empty';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
+import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
 import { useCurrentUserRole } from '../organizations.composables';
 import { ORGANIZATION_INVITATION_STATUS } from '../organizations.constants';
 import { fetchOrganizationInvitations } from '../organizations.services';
@@ -173,7 +174,7 @@ const InvitationsList: Component = () => {
           description={t('organizations.invitations.list.empty.description')}
           icon="i-tabler-mail"
           cta={(
-            <Button as={A} href={`/organizations/${params.organizationId}/invite`} variant="outline">
+            <Button as={A} href={getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'settingsMembers', childPath: 'invite' })} variant="outline">
               <div class="i-tabler-plus size-4 mr-2" />
               {t('organizations.invitations.list.cta')}
             </Button>
@@ -222,7 +223,7 @@ export const InvitationsListPage: Component = () => {
   });
 
   return (
-    <div class="p-6 max-w-screen-md mx-auto mt-4 ">
+    <div class="page-narrow">
       <div class="border-b mb-6 pb-4">
 
         <div>

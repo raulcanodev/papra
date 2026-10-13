@@ -21,18 +21,24 @@ export type SideNavMenuItem = {
   children?: SideNavSubMenuItem[];
 };
 
+export type SideNavMenuSection = {
+  id: string;
+  label?: string;
+  items: SideNavMenuItem[];
+};
+
 const MenuItemButton: Component<SideNavMenuItem & { end?: boolean; indent?: boolean }> = (props) => {
   return (
     <Button
-      class={cn('justify-start items-center gap-2 dark:text-muted-foreground truncate', props.indent && 'pl-8 h-8 text-sm')}
+      class={cn('group/item h-8 justify-start items-center gap-2 rounded-md px-2 text-sm font-normal text-sidebar-foreground/75 truncate hover:(bg-sidebar-accent text-sidebar-foreground)', props.indent && 'pl-8')}
       variant="ghost"
       {...(props.onClick
         ? { onClick: props.onClick }
-        : { as: A, href: props.href, activeClass: 'bg-accent/50! text-accent-foreground! truncate', end: props.end ?? true } as ComponentProps<typeof Button>)
+        : { as: A, href: props.href, activeClass: 'bg-sidebar-accent! text-sidebar-foreground! font-medium! [&>.nav-icon]:text-sidebar-foreground!', end: props.end ?? true } as ComponentProps<typeof Button>)
       }
     >
-      <div class={cn(props.icon, props.indent ? 'size-4' : 'size-5', 'text-muted-foreground opacity-50')} />
-      <div>{props.label}</div>
+      <div class={cn(props.icon, 'nav-icon size-4 shrink-0 text-muted-foreground transition-colors group-hover/item:text-sidebar-foreground')} />
+      <div class="truncate">{props.label}</div>
       {props.badge && <div class="ml-auto">{props.badge}</div>}
     </Button>
   );
@@ -44,11 +50,11 @@ const MenuItemGroup: Component<SideNavMenuItem> = (props) => {
   return (
     <div class="flex flex-col gap-0.5">
       <Button
-        class="justify-start items-center gap-2 dark:text-muted-foreground truncate"
+        class="h-8 justify-start items-center gap-2 px-2 text-sm font-normal text-sidebar-foreground/75 truncate hover:(bg-sidebar-accent text-sidebar-foreground)"
         variant="ghost"
         onClick={() => setIsOpen(v => !v)}
       >
-        <div class={cn(props.icon, 'size-5 text-muted-foreground opacity-50')} />
+        <div class={cn(props.icon, 'size-4 text-muted-foreground')} />
         <div class="flex-1 text-left">{props.label}</div>
         <div class={cn('i-tabler-chevron-right size-4 text-muted-foreground opacity-50 transition-transform', isOpen() && 'rotate-90')} />
       </Button>
@@ -65,27 +71,41 @@ const MenuItemGroup: Component<SideNavMenuItem> = (props) => {
 
 export const SideNav: Component<{
   mainMenu?: SideNavMenuItem[];
+  mainSections?: SideNavMenuSection[];
   footerMenu?: SideNavMenuItem[];
   header?: Component;
   footer?: Component;
   preFooter?: Component;
 }> = (props) => {
+  const getMainSections = (): SideNavMenuSection[] => props.mainSections ?? (props.mainMenu
+    ? [{ id: 'main', items: props.mainMenu }]
+    : []);
+
   return (
-    <div class="flex h-full">
-      {(props.header || props.mainMenu || props.footerMenu || props.footer || props.preFooter) && (
-        <div class="h-full flex flex-col pb-6 flex-1 min-w-0">
+    <div class="flex h-full bg-sidebar text-sidebar-foreground">
+      {(props.header || props.mainMenu || props.mainSections || props.footerMenu || props.footer || props.preFooter) && (
+        <div class="h-full flex flex-col gap-2 p-2 flex-1 min-w-0">
           {props.header && <props.header />}
 
-          {props.mainMenu && (
-            <nav class="flex flex-col gap-0.5 mt-4 px-4">
-              <For each={props.mainMenu}>
-                {menuItem => (
-                  <Show
-                    when={menuItem.children && menuItem.children.length > 0}
-                    fallback={<MenuItemButton {...menuItem} />}
-                  >
-                    <MenuItemGroup {...menuItem} />
-                  </Show>
+          {getMainSections().length > 0 && (
+            <nav class="flex min-h-0 flex-col gap-5 pt-2 overflow-y-auto">
+              <For each={getMainSections()}>
+                {section => (
+                  <div class="flex flex-col gap-0.5">
+                    <Show when={section.label}>
+                      {label => <p class="px-2 pb-1 text-xs font-medium text-muted-foreground/90">{label()}</p>}
+                    </Show>
+                    <For each={section.items}>
+                      {menuItem => (
+                        <Show
+                          when={menuItem.children && menuItem.children.length > 0}
+                          fallback={<MenuItemButton {...menuItem} />}
+                        >
+                          <MenuItemGroup {...menuItem} />
+                        </Show>
+                      )}
+                    </For>
+                  </div>
                 )}
               </For>
             </nav>
@@ -96,7 +116,7 @@ export const SideNav: Component<{
           {props.preFooter && <props.preFooter />}
 
           {props.footerMenu && (
-            <nav class="flex flex-col gap-0.5 px-4">
+            <nav class="flex flex-col gap-0.5">
               <For each={props.footerMenu}>{menuItem => <MenuItemButton {...menuItem} />}</For>
             </nav>
           )}
