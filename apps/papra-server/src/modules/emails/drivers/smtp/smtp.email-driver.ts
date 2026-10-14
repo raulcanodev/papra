@@ -20,11 +20,12 @@ export const smtpEmailDriverFactory = defineEmailDriverFactory(({ config, logger
 
   return {
     name: SMTP_EMAIL_DRIVER_NAME,
-    sendEmail: async ({ to, subject, html, from, attachments }) => {
+    sendEmail: async ({ to, subject, html, from, replyTo, attachments }) => {
       try {
         const { messageId } = await transporter.sendMail({
           from: from ?? fromEmail,
           to,
+          replyTo,
           subject,
           html,
           attachments,

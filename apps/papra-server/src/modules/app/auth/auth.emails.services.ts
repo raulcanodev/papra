@@ -29,7 +29,7 @@ export async function sendVerificationEmail({ user, url, emailsServices }: { use
 <p>Verify your email by clicking <a href="${url}">here</a></p>
 <p>Or by pasting the following link into your browser: ${url}</p>
 <p style="color: #888;">Best regards,</p>
-<p style="color: #888;">The Papra team</p>
+<p style="color: #888;">The Paqui team</p>
 `.trim(),
   });
 }
@@ -45,7 +45,7 @@ export async function sendPasswordResetEmail({ user, url, emailsServices }: { us
 <p>Reset your password by clicking <a href="${url}">here</a></p>
 <p>Or by pasting the following link into your browser: ${url}</p>
 <p style="color: #888;">Best regards,</p>
-<p style="color: #888;">The Papra team</p>
+<p style="color: #888;">The Paqui team</p>
 `.trim(),
   });
 }

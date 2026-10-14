@@ -319,10 +319,10 @@ export async function sendOrganizationInvitationEmail({
     to: email,
     subject: 'You are invited to join an organization',
     html: `
-      <p>You are invited to join ${organizationName} on Papra.</p>
+      <p>You are invited to join ${organizationName} on Paqui.</p>
       <p>See <a href="${invitationLink}">${invitationLink}</a> to review and accept or reject your invitations.</p>
       <p>If you are not interested in joining this organization, you can ignore this email.</p>
-      <p>Best regards,<br />The Papra Team</p>
+      <p>Best regards,<br />The Paqui team</p>
     `,
   });
 }

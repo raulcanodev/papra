@@ -11,7 +11,7 @@ export const emailsConfig = {
   fromEmail: {
     doc: 'The email address to send emails from',
     schema: v.string(),
-    default: 'Papra <auth@mail.papra.app>',
+    default: 'Paqui <noreply@heypaqui.com>',
     env: 'EMAILS_FROM_ADDRESS',
   },
   driverName: {

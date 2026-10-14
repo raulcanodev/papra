@@ -8,11 +8,12 @@ export const loggerEmailDriverFactory = defineEmailDriverFactory(({ config, logg
 
   return {
     name: LOGGER_EMAIL_DRIVER_NAME,
-    sendEmail: async ({ to, subject, html, from, attachments }) => {
+    sendEmail: async ({ to, subject, html, from, replyTo, attachments }) => {
       logger[level]({
         to,
         subject,
         from: from ?? fromEmail,
+        replyTo,
         html,
         attachments: attachments?.map(({ filename, contentType, content }) => ({ filename, contentType, size: content.byteLength })),
       }, 'Sending email');
