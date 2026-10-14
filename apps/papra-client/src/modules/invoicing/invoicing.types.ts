@@ -53,6 +53,7 @@ export type FiscalProfile = {
   defaultNotes: string | null;
   defaultTerms: string | null;
   templateId: InvoiceTemplateId;
+  defaultWithholdingRateBps: number;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -88,6 +89,8 @@ export type InvoiceDraftInput = {
   notes?: string | null;
   terms?: string | null;
   templateId: InvoiceTemplateId;
+  /** IRPF withholding on the taxable base, in basis points (1500 = 15%) */
+  withholdingRateBps: number;
   items: InvoiceItemInput[];
 };
 
@@ -108,7 +111,10 @@ export type Invoice = {
   currency: string;
   subtotalMinor: number;
   taxMinor: number;
+  /** Taxes included, the amount declared to VERI*FACTU (the withholding is not subtracted) */
   totalMinor: number;
+  withholdingRateBps: number;
+  withholdingMinor: number;
   notes: string | null;
   terms: string | null;
   templateId: InvoiceTemplateId;

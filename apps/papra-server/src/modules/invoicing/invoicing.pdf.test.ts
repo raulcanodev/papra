@@ -11,6 +11,8 @@ describe('invoice PDF', () => {
       subtotalMinor: 100_000,
       taxMinor: 21_000,
       totalMinor: 121_000,
+      withholdingRateBps: 0,
+      withholdingMinor: 0,
       notes: 'Thank you',
       terms: 'Payment by bank transfer',
       templateId: 'minimal',
@@ -27,7 +29,7 @@ describe('invoice PDF', () => {
     expect(repeatedPdf.equals(pdf)).toBe(true);
   });
 
-  test('keeps a short VERI*FACTU invoice on one page', async () => {
+  test('keeps a short VERI*FACTU invoice with an IRPF withholding on one page', async () => {
     const pdf = await renderInvoicePdf({
       number: 'F-2026-0001',
       issueDate: new Date('2026-10-13T00:00:00.000Z'),
@@ -36,6 +38,9 @@ describe('invoice PDF', () => {
       subtotalMinor: 10_000,
       taxMinor: 2_100,
       totalMinor: 12_100,
+      // A professional invoice: the withholding rows must still fit on the single page
+      withholdingRateBps: 1_500,
+      withholdingMinor: 1_500,
       notes: 'Gracias',
       terms: 'Transferencia',
       templateId: 'minimal',

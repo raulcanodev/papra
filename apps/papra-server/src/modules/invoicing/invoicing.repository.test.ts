@@ -35,6 +35,7 @@ describe('invoicing repository', () => {
         defaultNotes: null,
         defaultTerms: null,
         templateId: 'minimal',
+        defaultWithholdingRateBps: 0,
       },
     });
     const { contact: customer } = await createContactsRepository({ db }).createContact({ organizationId: 'organization-1', contact: createTestContactInput({ name: 'Acme SL', email: 'billing@acme.test', isCustomer: true }) });
@@ -53,6 +54,7 @@ describe('invoicing repository', () => {
         notes: null,
         terms: null,
         templateId: 'minimal',
+        withholdingRateBps: 0,
         items: [{ description: 'Service', quantityMillis: 1_000, unitPriceMinor: 10_000, taxRateBps: 2_100, discountRateBps: 0 }],
       },
     });
@@ -107,6 +109,7 @@ describe('invoicing repository', () => {
       defaultNotes: null,
       defaultTerms: null,
       templateId: 'minimal' as const,
+      defaultWithholdingRateBps: 0,
     };
     await repository.upsertFiscalProfile({ organizationId: 'organization-1', profile });
     const { contact: customer } = await createContactsRepository({ db }).createContact({ organizationId: 'organization-1', contact: createTestContactInput({ name: 'Original Customer SL', email: 'billing@example.com', isCustomer: true }) });
@@ -121,6 +124,7 @@ describe('invoicing repository', () => {
         notes: null,
         terms: null,
         templateId: 'minimal',
+        withholdingRateBps: 0,
         items: [{ description: 'Service', quantityMillis: 1_000, unitPriceMinor: 10_000, taxRateBps: 0, discountRateBps: 0 }],
       },
     });
@@ -143,13 +147,13 @@ describe('invoicing repository', () => {
     const verifactu = createVerifactuRepository({ db });
     await invoicing.upsertFiscalProfile({
       organizationId: 'organization-1',
-      profile: { legalName: 'Jocrimar SL', taxId: 'B12345678', email: null, addressLine1: null, addressLine2: null, postalCode: null, city: null, region: null, country: 'ES', currency: 'EUR', locale: 'es-ES', paymentTermsDays: 30, defaultNotes: null, defaultTerms: null, templateId: 'minimal' },
+      profile: { legalName: 'Jocrimar SL', taxId: 'B12345678', email: null, addressLine1: null, addressLine2: null, postalCode: null, city: null, region: null, country: 'ES', currency: 'EUR', locale: 'es-ES', paymentTermsDays: 30, defaultNotes: null, defaultTerms: null, templateId: 'minimal', defaultWithholdingRateBps: 0 },
     });
     const { contact: customer } = await createContactsRepository({ db }).createContact({ organizationId: 'organization-1', contact: createTestContactInput({ name: 'Cliente SL', taxId: 'B87654321', isCustomer: true }) });
     const { invoice } = await invoicing.createInvoice({
       organizationId: 'organization-1',
       userId: 'user-1',
-      draft: { customerId: customer.id, issueDate: new Date('2026-10-13T00:00:00.000Z'), dueDate: new Date('2026-11-12T00:00:00.000Z'), currency: 'EUR', notes: null, terms: null, templateId: 'minimal', items: [{ description: 'Consultoría', quantityMillis: 1_000, unitPriceMinor: 10_000, taxRateBps: 2_100, discountRateBps: 0 }] },
+      draft: { customerId: customer.id, issueDate: new Date('2026-10-13T00:00:00.000Z'), dueDate: new Date('2026-11-12T00:00:00.000Z'), currency: 'EUR', notes: null, terms: null, templateId: 'minimal', withholdingRateBps: 0, items: [{ description: 'Consultoría', quantityMillis: 1_000, unitPriceMinor: 10_000, taxRateBps: 2_100, discountRateBps: 0 }] },
     });
     await invoicing.reserveInvoiceNumber({ organizationId: 'organization-1', invoiceId: invoice!.id, userId: 'user-1' });
     await verifactu.upsertConfiguration({ organizationId: 'organization-1', configuration: { mode: 'test', legalName: 'Jocrimar SL', taxId: 'B12345678', applicabilityReason: null, certificateConfigured: false, aeatValidationPassed: false, responsibleDeclarationAccepted: false, transmissionsPaused: false, pauseReason: null } });

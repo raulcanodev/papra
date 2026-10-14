@@ -2,6 +2,7 @@ import type { InvoiceTemplateId } from './invoicing.constants';
 import { Buffer } from 'node:buffer';
 import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
+import { getInvoicePayableMinor } from './invoicing.models';
 
 type PartySnapshot = {
   legalName?: string;
@@ -27,6 +28,8 @@ export type PdfInvoice = {
   subtotalMinor: number;
   taxMinor: number;
   totalMinor: number;
+  withholdingRateBps: number;
+  withholdingMinor: number;
   notes: string | null;
   terms: string | null;
   templateId: string;
@@ -84,9 +87,11 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
   let y = 310;
   y = drawItemsHeader(doc, y, accent, line);
 
+  // Room kept at the bottom of a page for the totals and notes, taller when a withholding adds two rows
+  const reservedFooterHeight = invoice.withholdingMinor > 0 ? 230 : 170;
   for (const item of invoice.items) {
     const rowHeight = Math.max(28, doc.heightOfString(item.description, { width: 230 }) + 12);
-    if (y + rowHeight > PAGE.height - 170) {
+    if (y + rowHeight > PAGE.height - reservedFooterHeight) {
       doc.addPage();
       y = drawItemsHeader(doc, PAGE.margin, accent, line);
     }
@@ -98,8 +103,8 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
     doc.addPage();
     y = PAGE.margin;
   }
-  drawTotals({ doc, invoice, y: y + 16, accent, muted, line, locale });
-  drawNotes({ doc, invoice, branding, representative, y: y + 132, muted });
+  const { bottom } = drawTotals({ doc, invoice, y: y + 16, accent, muted, line, locale });
+  drawNotes({ doc, invoice, branding, representative, y: bottom + 41, muted });
 
   const range = doc.bufferedPageRange();
   for (let page = range.start; page < range.start + range.count; page += 1) {
@@ -172,8 +177,24 @@ function drawTotals({ doc, invoice, y, accent, muted, line, locale }: { doc: PDF
   doc.text('Tax', labelX, y + 22, { width: 90 });
   doc.text(formatMoney(invoice.taxMinor, invoice.currency, locale), valueX, y + 22, { width: 94, align: 'right' });
   doc.moveTo(labelX, y + 47).lineTo(539, y + 47).strokeColor(line).stroke();
-  doc.font('Helvetica-Bold').fontSize(12).fillColor(accent).text('Total', labelX, y + 59, { width: 90 });
+
+  if (invoice.withholdingMinor <= 0) {
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(accent).text('Total', labelX, y + 59, { width: 90 });
+    doc.text(formatMoney(invoice.totalMinor, invoice.currency, locale), valueX, y + 59, { width: 94, align: 'right' });
+
+    return { bottom: y + 75 };
+  }
+
+  // With a withholding: invoice total (taxes included), the withholding, then what the customer actually pays
+  doc.font('Helvetica-Bold').fontSize(9).fillColor('#111827').text('Total', labelX, y + 59, { width: 90 });
   doc.text(formatMoney(invoice.totalMinor, invoice.currency, locale), valueX, y + 59, { width: 94, align: 'right' });
+  doc.font('Helvetica').fillColor(muted).text(`IRPF withholding (${invoice.withholdingRateBps / 100}%)`, labelX, y + 81, { width: 100 });
+  doc.text(`-${formatMoney(invoice.withholdingMinor, invoice.currency, locale)}`, valueX, y + 81, { width: 94, align: 'right' });
+  doc.moveTo(labelX, y + 106).lineTo(539, y + 106).strokeColor(line).stroke();
+  doc.font('Helvetica-Bold').fontSize(12).fillColor(accent).text('Amount due', labelX, y + 118, { width: 90 });
+  doc.text(formatMoney(getInvoicePayableMinor(invoice), invoice.currency, locale), valueX, y + 118, { width: 94, align: 'right' });
+
+  return { bottom: y + 134 };
 }
 
 function drawNotes({ doc, invoice, branding, representative, y, muted }: { doc: PDFKit.PDFDocument; invoice: PdfInvoice; branding: BrandingSnapshot; representative: PartySnapshot; y: number; muted: string }) {

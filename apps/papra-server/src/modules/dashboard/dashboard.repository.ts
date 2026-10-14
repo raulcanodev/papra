@@ -53,9 +53,10 @@ async function getOrganizationMetrics({ db, organizationId, now = new Date() }: 
 
     db
       .select({
-        totalMinor: sql<number>`coalesce(sum(${invoicesTable.totalMinor}), 0)::double precision`,
+        // What customers still owe: the total minus the withholding they pay to the tax agency instead
+        totalMinor: sql<number>`coalesce(sum(${invoicesTable.totalMinor} - ${invoicesTable.withholdingMinor}), 0)::double precision`,
         count: sql<number>`count(*)::int`,
-        overdueTotalMinor: sql<number>`coalesce(sum(${invoicesTable.totalMinor}) filter (where ${invoicesTable.dueDate} < ${now}), 0)::double precision`,
+        overdueTotalMinor: sql<number>`coalesce(sum(${invoicesTable.totalMinor} - ${invoicesTable.withholdingMinor}) filter (where ${invoicesTable.dueDate} < ${now}), 0)::double precision`,
         overdueCount: sql<number>`(count(*) filter (where ${invoicesTable.dueDate} < ${now}))::int`,
       })
       .from(invoicesTable)

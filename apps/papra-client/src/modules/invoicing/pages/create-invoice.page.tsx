@@ -18,6 +18,7 @@ import { TextField } from '@/modules/ui/components/textfield';
 import { getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
 import { FormField, SaveButton } from '../components/catalog-page';
 import { getLineNetMinor, InvoicePreview } from '../components/invoice-preview';
+import { WITHHOLDING_RATES_BPS } from '../invoicing.constants';
 import { createInvoice, fetchFiscalProfile, fetchInvoice, fetchInvoiceBranding, fetchInvoiceSeries, fetchProducts, fetchTaxRates, sendInvoice, updateInvoice } from '../invoicing.services';
 
 const CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF', 'MXN', 'CAD', 'AUD'];
@@ -72,6 +73,7 @@ export function CreateInvoicePage() {
   const [dueDate, setDueDate] = createSignal(plusDays(30));
   const [currency, setCurrency] = createSignal('EUR');
   const [templateId, setTemplateId] = createSignal<InvoiceTemplateId>('minimal');
+  const [withholdingRateBps, setWithholdingRateBps] = createSignal<number | null>(null);
   const [notes, setNotes] = createSignal('');
   const [items, setItems] = createSignal<InvoiceItemInput[]>([newLine()]);
   const [customerSearch, setCustomerSearch] = createSignal('');
@@ -93,6 +95,7 @@ export function CreateInvoicePage() {
     setDueDate(invoice.dueDate.toISOString().slice(0, 10));
     setCurrency(invoice.currency);
     setTemplateId(invoice.templateId);
+    setWithholdingRateBps(invoice.withholdingRateBps);
     setNotes(invoice.notes ?? '');
     setItems(invoice.items?.map(item => ({
       productId: item.productId,
@@ -103,6 +106,9 @@ export function CreateInvoicePage() {
       discountRateBps: item.discountRateBps,
     })) ?? [newLine()]);
   });
+
+  // Untouched new invoices use the fiscal profile default withholding, an edited invoice keeps its own
+  const effectiveWithholdingRateBps = () => withholdingRateBps() ?? profileQuery.data?.profile?.defaultWithholdingRateBps ?? 0;
 
   const defaultTaxRateBps = () => taxesQuery.data?.taxRates.find(tax => tax.isDefault)?.rateBps;
   createEffect(() => {
@@ -172,6 +178,7 @@ export function CreateInvoicePage() {
         dueDate: new Date(`${dueDate()}T00:00:00.000Z`),
         currency: currency(),
         templateId: templateId(),
+        withholdingRateBps: effectiveWithholdingRateBps(),
         notes: notes() || null,
         items: items(),
       };
@@ -418,6 +425,17 @@ export function CreateInvoicePage() {
                   ]}
                 />
               </FormField>
+              <FormField label={t('invoicing.editor.withholding')}>
+                <SimpleSelect
+                  triggerClass="h-10"
+                  value={String(effectiveWithholdingRateBps())}
+                  onChange={value => setWithholdingRateBps(Number(value))}
+                  options={[...new Set([...WITHHOLDING_RATES_BPS, effectiveWithholdingRateBps()])].toSorted((a, b) => a - b).map(rateBps => ({
+                    value: String(rateBps),
+                    label: rateBps === 0 ? t('invoicing.editor.withholding.none') : `${rateBps / 100} %`,
+                  }))}
+                />
+              </FormField>
               <FormField label={t('invoicing.editor.notes')} class="sm:col-span-2">
                 <TextArea value={notes()} placeholder={t('invoicing.editor.notes.placeholder')} onInput={event => setNotes(event.currentTarget.value)} />
               </FormField>
@@ -451,6 +469,7 @@ export function CreateInvoicePage() {
             dueDate={dueDate()}
             currency={currency()}
             items={items()}
+            withholdingRateBps={effectiveWithholdingRateBps()}
             notes={notes()}
             customer={selectedCustomer()}
             profile={profileQuery.data?.profile}

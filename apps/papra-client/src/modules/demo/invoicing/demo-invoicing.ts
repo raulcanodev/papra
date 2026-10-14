@@ -55,15 +55,18 @@ function fail(message: string, status: number): never {
   throw Object.assign(new FetchError(message), { status });
 }
 
-export function calculateTotals(items: Array<{ quantityMillis: number; unitPriceMinor: number; discountRateBps: number; taxRateBps: number }>) {
-  return items.reduce((totals, item) => {
+// Same computation as the server invoicing models
+export function calculateTotals({ items, withholdingRateBps = 0 }: { items: Array<{ quantityMillis: number; unitPriceMinor: number; discountRateBps: number; taxRateBps: number }>; withholdingRateBps?: number }) {
+  const totals = items.reduce((sums, item) => {
     const gross = Math.round(item.quantityMillis * item.unitPriceMinor / 1_000);
     const discount = Math.round(gross * item.discountRateBps / 10_000);
     const net = gross - discount;
     const tax = Math.round(net * item.taxRateBps / 10_000);
 
-    return { subtotalMinor: totals.subtotalMinor + net, taxMinor: totals.taxMinor + tax, totalMinor: totals.totalMinor + net + tax };
+    return { subtotalMinor: sums.subtotalMinor + net, taxMinor: sums.taxMinor + tax, totalMinor: sums.totalMinor + net + tax };
   }, { subtotalMinor: 0, taxMinor: 0, totalMinor: 0 });
+
+  return { ...totals, withholdingRateBps, withholdingMinor: Math.round(totals.subtotalMinor * withholdingRateBps / 10_000) };
 }
 
 function formatNumber({ prefix, nextNumber, padding }: { prefix: string; nextNumber: number; padding: number }) {
@@ -203,7 +206,7 @@ export async function seedDemoInvoicing({ organizationId, now = new Date() }: { 
       issueDate: stamp,
       dueDate: dueDate.toISOString(),
       currency: 'EUR',
-      ...calculateTotals(items),
+      ...calculateTotals({ items }),
       notes: fixture.notes ?? demoFiscalProfile.defaultNotes,
       terms: demoFiscalProfile.defaultTerms,
       templateId: 'minimal',
@@ -348,7 +351,7 @@ async function buildInvoiceFromDraft({ organizationId, draft, existing }: { orga
     issueDate: new Date(draft.issueDate).toISOString(),
     dueDate: new Date(draft.dueDate).toISOString(),
     currency: draft.currency,
-    ...calculateTotals(items),
+    ...calculateTotals({ items, withholdingRateBps: draft.withholdingRateBps }),
     notes: draft.notes ?? null,
     terms: draft.terms ?? null,
     templateId: draft.templateId as InvoiceTemplateId,

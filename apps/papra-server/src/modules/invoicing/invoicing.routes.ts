@@ -19,6 +19,7 @@ import { createOrganizationsRepository } from '../organizations/organizations.re
 import { ensureUserIsInOrganization } from '../organizations/organizations.usecases';
 import { legacyValidateJsonBody, legacyValidateParams, legacyValidateQuery } from '../shared/validation/validation.legacy';
 import { createInvoiceEmailRequiredError, createInvoiceNotFoundError, createInvoiceNotIssuableError } from './invoicing.errors';
+import { getInvoicePayableMinor } from './invoicing.models';
 import { renderInvoicePdf } from './invoicing.pdf';
 import { createInvoicingRepository } from './invoicing.repository';
 import { fiscalProfileSchema, invoiceBrandingSchema, invoiceDraftSchema, invoiceListQuerySchema, invoiceSeriesSchema, productBodySchema, taxRateSchema } from './invoicing.schemas';
@@ -208,7 +209,7 @@ function setupInvoiceRoutes(routeContext: RouteDefinitionContext) {
       ...sender,
       to: recipient,
       subject: `Invoice ${number}`,
-      html: buildInvoiceEmail({ customerName: invoice!.customer?.name ?? '', number, totalMinor: invoice!.totalMinor, currency: invoice!.currency }),
+      html: buildInvoiceEmail({ customerName: invoice!.customer?.name ?? '', number, amountDueMinor: getInvoicePayableMinor(invoice!), currency: invoice!.currency }),
       attachments: [{ filename: `${safeFileName(number)}.pdf`, content: pdf, contentType: 'application/pdf' }],
     });
     return context.json(await repository.markInvoiceSent({ organizationId, invoiceId, userId, recipient }));
@@ -304,10 +305,10 @@ async function getInvoiceSender({ db, organizationId, fromEmail }: { db: Databas
   };
 }
 
-function buildInvoiceEmail({ customerName, number, totalMinor, currency }: { customerName: string; number: string; totalMinor: number; currency: string }) {
+function buildInvoiceEmail({ customerName, number, amountDueMinor, currency }: { customerName: string; number: string; amountDueMinor: number; currency: string }) {
   const safeName = escapeHtml(customerName);
   const safeNumber = escapeHtml(number);
-  const total = new Intl.NumberFormat('en', { style: 'currency', currency }).format(totalMinor / 100);
+  const total = new Intl.NumberFormat('en', { style: 'currency', currency }).format(amountDueMinor / 100);
   return `<p>Hello ${safeName},</p><p>Your invoice <strong>${safeNumber}</strong> for <strong>${escapeHtml(total)}</strong> is attached.</p><p>Thank you.</p>`;
 }
 

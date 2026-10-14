@@ -169,7 +169,7 @@ async function createInvoice({ db, organizationId, draft, userId }: { db: Databa
     notes: draft.notes ?? profile?.defaultNotes ?? null,
     terms: draft.terms ?? profile?.defaultTerms ?? null,
   };
-  const totals = calculateInvoiceTotals(effectiveDraft.items);
+  const totals = calculateInvoiceTotals(effectiveDraft);
   const { items: invoiceItems, ...invoiceDraft } = effectiveDraft;
   const invoiceId = await db.transaction(async (tx) => {
     const [invoice] = await tx.insert(invoicesTable).values({ organizationId, ...invoiceDraft, ...totals, seriesId: draft.seriesId ?? null, salesRepresentativeId: draft.salesRepresentativeId ?? null }).returning();
@@ -189,7 +189,7 @@ async function updateInvoice({ db, organizationId, invoiceId, draft, userId }: {
     throw createInvoiceNotEditableError();
   }
   await ensureInvoiceContacts({ db, organizationId, draft });
-  const totals = calculateInvoiceTotals(draft.items);
+  const totals = calculateInvoiceTotals(draft);
   const { items: invoiceItems, ...invoiceDraft } = draft;
   await db.transaction(async (tx) => {
     await tx.update(invoicesTable).set({ ...invoiceDraft, ...totals, seriesId: draft.seriesId ?? null, salesRepresentativeId: draft.salesRepresentativeId ?? null, updatedAt: new Date() }).where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.organizationId, organizationId)));

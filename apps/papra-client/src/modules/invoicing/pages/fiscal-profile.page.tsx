@@ -10,9 +10,10 @@ import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextArea } from '@/modules/ui/components/textarea';
 import { TextField } from '@/modules/ui/components/textfield';
+import { WITHHOLDING_RATES_BPS } from '../invoicing.constants';
 import { fetchFiscalProfile, saveFiscalProfile } from '../invoicing.services';
 
-const emptyProfile = (): FiscalProfileInput => ({ legalName: '', taxId: null, email: null, addressLine1: null, addressLine2: null, postalCode: null, city: null, region: null, country: null, currency: 'EUR', locale: 'es-ES', paymentTermsDays: 30, defaultNotes: null, defaultTerms: null, templateId: 'minimal' });
+const emptyProfile = (): FiscalProfileInput => ({ legalName: '', taxId: null, email: null, addressLine1: null, addressLine2: null, postalCode: null, city: null, region: null, country: null, currency: 'EUR', locale: 'es-ES', paymentTermsDays: 30, defaultNotes: null, defaultTerms: null, templateId: 'minimal', defaultWithholdingRateBps: 0 });
 
 export function FiscalProfilePage() {
   const { t } = useI18n();
@@ -100,6 +101,16 @@ export function FiscalProfilePage() {
                 {t('invoicing.fiscal-profile.payment-terms')}
                 <TextField class="mt-1.5" type="number" min="0" max="365" value={profile().paymentTermsDays} onInput={event => field('paymentTermsDays', Number(event.currentTarget.value))} />
               </label>
+              <div class="text-sm font-medium">
+                {t('invoicing.fiscal-profile.default-withholding')}
+                <SimpleSelect
+                  class="mt-1.5"
+                  value={String(profile().defaultWithholdingRateBps)}
+                  onChange={value => field('defaultWithholdingRateBps', Number(value))}
+                  options={WITHHOLDING_RATES_BPS.map(rateBps => ({ value: String(rateBps), label: rateBps === 0 ? t('invoicing.editor.withholding.none') : `${rateBps / 100} %` }))}
+                />
+                <p class="mt-1 text-xs font-normal text-muted-foreground">{t('invoicing.fiscal-profile.default-withholding.description')}</p>
+              </div>
               <div class="text-sm font-medium">
                 {t('invoicing.common.pdf-style')}
                 <SimpleSelect

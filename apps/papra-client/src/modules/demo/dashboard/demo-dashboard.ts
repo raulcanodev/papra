@@ -1,7 +1,8 @@
 import type { DashboardMetrics, MonthlyComparisonPoint } from '../../dashboard/dashboard.types';
+import { getInvoicePayableMinor } from '../../invoicing/invoicing.models';
 
 type Dated = { createdAt?: string | Date | null };
-type DemoInvoice = { status: string; currency: string; issueDate: string | Date; dueDate: string | Date; totalMinor: number };
+type DemoInvoice = { status: string; currency: string; issueDate: string | Date; dueDate: string | Date; totalMinor: number; withholdingMinor?: number };
 
 const BILLED_STATUSES = ['issued', 'sent', 'paid'];
 const UNPAID_STATUSES = ['issued', 'sent'];
@@ -56,9 +57,9 @@ export function computeDemoDashboardMetrics({ invoices, customers, documents, cu
     },
     invoices: { yearToDateCount: invoicesMonthly.reduce((sum, { current }) => sum + current, 0), monthly: invoicesMonthly },
     outstanding: {
-      totalMinor: unpaid.reduce((sum, invoice) => sum + invoice.totalMinor, 0),
+      totalMinor: unpaid.reduce((sum, invoice) => sum + getInvoicePayableMinor(invoice), 0),
       count: unpaid.length,
-      overdueTotalMinor: overdue.reduce((sum, invoice) => sum + invoice.totalMinor, 0),
+      overdueTotalMinor: overdue.reduce((sum, invoice) => sum + getInvoicePayableMinor(invoice), 0),
       overdueCount: overdue.length,
     },
     customers: growth(customers.filter(customer => !customer.archivedAt)),

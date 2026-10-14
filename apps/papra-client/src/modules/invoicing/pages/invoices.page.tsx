@@ -12,6 +12,7 @@ import { createToast } from '@/modules/ui/components/sonner';
 import { TextField } from '@/modules/ui/components/textfield';
 import { getOrganizationRouteChildHref, getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
 import { CatalogCell, CatalogRow, CatalogTable, FilterMenu } from '../components/catalog-page';
+import { getInvoicePayableMinor } from '../invoicing.models';
 import { downloadInvoicePdf, fetchInvoices, markInvoicePaid, sendInvoice } from '../invoicing.services';
 
 export const invoiceStatusLabelKeys = { draft: 'invoicing.status.draft', issuing: 'invoicing.status.issuing', issued: 'invoicing.status.issued', sent: 'invoicing.status.sent', paid: 'invoicing.status.paid', void: 'invoicing.status.void' } as const satisfies Record<InvoiceStatus, TranslationKeys>;
@@ -28,7 +29,8 @@ export function InvoicesPage() {
     createToast({ type: 'success', message: t('invoicing.invoices.toast.sent') }); await refresh();
   }, onError: () => createToast({ type: 'error', message: t('invoicing.invoices.toast.send-error') }) }));
   const paidMutation = createMutation(() => ({ mutationFn: (invoiceId: string) => markInvoicePaid({ organizationId: params.organizationId, invoiceId }), onSuccess: refresh }));
-  const money = (invoice: Invoice) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency: invoice.currency }).format(invoice.totalMinor / 100);
+  // The amount the customer pays, the IRPF withholding goes to the tax agency
+  const money = (invoice: Invoice) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency: invoice.currency }).format(getInvoicePayableMinor(invoice) / 100);
   return (
     <main class="page">
       <div class="page-header">
