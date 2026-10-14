@@ -21,6 +21,7 @@ import { CalendarPage } from './modules/calendar/pages/calendar.page';
 import { CreateCustomPropertyPage } from './modules/custom-properties/pages/create-custom-property.page';
 import { CustomPropertiesPage } from './modules/custom-properties/pages/custom-properties-list.page';
 import { UpdateCustomPropertyPage } from './modules/custom-properties/pages/update-custom-property.page';
+import { HomePage } from './modules/dashboard/pages/home.page';
 import { DeletedDocumentsPage } from './modules/documents/pages/deleted-documents.page';
 import { DocumentPdfViewerPage } from './modules/documents/pages/document-pdf-viewer.page';
 import { DocumentPage } from './modules/documents/pages/document.page';
@@ -177,7 +178,7 @@ export const routes: RouteDefinition[] = [
                       },
                       {
                         path: getOrganizationNestedRoutePath('home'),
-                        component: () => <OrganizationPlaceholder pageId="home" />,
+                        component: HomePage,
                       },
                       {
                         path: getOrganizationNestedRoutePath('documents'),
