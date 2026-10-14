@@ -6,10 +6,10 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { Button } from '@/modules/ui/components/button';
 import { Card, CardContent } from '@/modules/ui/components/card';
+import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextArea } from '@/modules/ui/components/textarea';
 import { TextField } from '@/modules/ui/components/textfield';
-import { selectClass } from '../components/catalog-page';
 import { fetchFiscalProfile, saveFiscalProfile } from '../invoicing.services';
 
 const emptyProfile = (): FiscalProfileInput => ({ legalName: '', taxId: null, email: null, addressLine1: null, addressLine2: null, postalCode: null, city: null, region: null, country: null, currency: 'EUR', locale: 'es-ES', paymentTermsDays: 30, defaultNotes: null, defaultTerms: null, templateId: 'minimal' });
@@ -100,13 +100,18 @@ export function FiscalProfilePage() {
                 {t('invoicing.fiscal-profile.payment-terms')}
                 <TextField class="mt-1.5" type="number" min="0" max="365" value={profile().paymentTermsDays} onInput={event => field('paymentTermsDays', Number(event.currentTarget.value))} />
               </label>
-              <label class="text-sm font-medium">
+              <div class="text-sm font-medium">
                 {t('invoicing.common.pdf-style')}
-                <select class={`${selectClass} mt-1.5`} value={profile().templateId} onChange={event => field('templateId', event.currentTarget.value as InvoiceTemplateId)}>
-                  <option value="minimal">{t('invoicing.common.pdf-style.minimal')}</option>
-                  <option value="classic">{t('invoicing.common.pdf-style.classic')}</option>
-                </select>
-              </label>
+                <SimpleSelect
+                  class="mt-1.5"
+                  value={profile().templateId}
+                  onChange={value => field('templateId', value as InvoiceTemplateId)}
+                  options={[
+                    { value: 'minimal', label: t('invoicing.common.pdf-style.minimal') },
+                    { value: 'classic', label: t('invoicing.common.pdf-style.classic') },
+                  ]}
+                />
+              </div>
               <label class="text-sm font-medium sm:col-span-3">
                 {t('invoicing.fiscal-profile.default-notes')}
                 <TextArea class="mt-1.5" value={profile().defaultNotes ?? ''} onInput={event => field('defaultNotes', event.currentTarget.value || null)} />

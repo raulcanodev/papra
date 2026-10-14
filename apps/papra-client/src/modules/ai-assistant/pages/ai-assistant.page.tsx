@@ -949,11 +949,11 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
   }
 
   return (
-    <div class="relative flex h-full min-h-0 bg-background">
+    <div class="relative flex h-full min-h-0 bg-white dark:bg-card">
       {/* History sidebar */}
       <Show when={showHistory()}>
         <div class={cn(
-          'border-r bg-background shrink-0 flex flex-col min-h-0 h-full',
+          'border-r bg-white dark:bg-card shrink-0 flex flex-col min-h-0 h-full',
           isPanel() ? 'absolute inset-0 z-20 w-full' : 'w-64',
         )}
         >
@@ -991,7 +991,7 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
       {/* Main chat area */}
       <div class="flex flex-col flex-1 min-w-0 min-h-0">
         {/* Header */}
-        <div class={cn('border-b flex items-center justify-between shrink-0 bg-background', isPanel() ? 'px-3 py-2' : 'px-5 py-2.5')}>
+        <div class={cn('border-b flex items-center justify-between shrink-0 bg-white dark:bg-card', isPanel() ? 'px-3 py-2' : 'px-5 py-2.5')}>
           <div class="flex items-center gap-3">
             <button
               type="button"
@@ -1068,9 +1068,9 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
         </div>
 
         {/* Input area */}
-        <div class={cn('bg-background/90 backdrop-blur-sm shrink-0', isPanel() ? 'px-3 py-3' : 'px-6 py-4')}>
+        <div class={cn('bg-white dark:bg-card shrink-0', isPanel() ? 'px-3 py-3' : 'px-6 py-4')}>
           <div class="max-w-3xl mx-auto">
-            <div class="relative flex items-end gap-2 rounded-2xl border bg-background shadow-sm focus-within:ring-1 focus-within:ring-ring transition-shadow">
+            <div class="relative flex items-end gap-2 rounded-2xl border border-[#e6dfcf] dark:border-border bg-[#f5f0e6] dark:bg-[#26231e] shadow-sm focus-within:ring-1 focus-within:ring-ring transition-shadow">
               <textarea
                 ref={textareaRef}
                 placeholder={t('ai-assistant.input.placeholder')}
@@ -1096,7 +1096,7 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
                 </Show>
                 <Button
                   size="sm"
-                  class="h-8 w-8 p-0 rounded-full"
+                  class="h-8 w-8 p-0 rounded-full border border-black/10 bg-white text-neutral-900 shadow-xs hover:bg-neutral-100"
                   onClick={() => void sendMessage()}
                   disabled={isStreaming() || !hasInput()}
                 >
@@ -1138,29 +1138,8 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
                       </For>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  <span class="inline-flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] text-muted-foreground/50 bg-muted/50">
-                    <div class="i-tabler-world-search size-3" />
-                    {t('ai-assistant.web-search')}
-                  </span>
                 </div>
               </Show>
-              <Show when={models().length <= 1}>
-                <div class="inline-flex items-center gap-3 h-6 px-2 rounded text-[11px] text-muted-foreground/50">
-                  <div class={cn(
-                    'size-1.5 rounded-full shrink-0',
-                    { anthropic: 'bg-orange-500', xai: 'bg-blue-500', google: 'bg-yellow-500', openai: 'bg-green-500' }[models()[0]?.provider ?? modelsData()?.providers?.[0] ?? 'openai'],
-                  )}
-                  />
-                  <span>{models()[0]?.label ?? modelsData()?.models?.[0]?.label ?? currentModel() ?? '—'}</span>
-                  <span class="inline-flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] text-muted-foreground/50">
-                    <div class="i-tabler-world-search size-3" />
-                    {t('ai-assistant.web-search')}
-                  </span>
-                </div>
-              </Show>
-              <p class="text-[11px] text-muted-foreground/50 flex-1 text-right">
-                {t('ai-assistant.disclaimer')}
-              </p>
             </div>
           </div>
         </div>

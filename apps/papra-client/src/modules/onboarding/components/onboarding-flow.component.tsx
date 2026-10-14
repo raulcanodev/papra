@@ -17,6 +17,8 @@ import { isHttpErrorWithCode } from '@/modules/shared/http/http-errors';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
+import { SimpleCheckbox } from '@/modules/ui/components/simple-checkbox';
+import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { TextArea } from '@/modules/ui/components/textarea';
 import { TextField } from '@/modules/ui/components/textfield';
 import { UserSettingsDropdown } from '@/modules/users/components/user-settings.component';
@@ -637,12 +639,10 @@ export const OnboardingFlow: Component<{
                       <Index each={values.taxRates}>
                         {(rate, rateIndex) => (
                           <div class={cn('flex items-center gap-3 rounded-xl border bg-card px-4 py-3 transition-colors', rate().selected && 'border-primary/50 bg-primary/3')}>
-                            <input
-                              type="checkbox"
-                              class="size-4 accent-[var(--primary)]"
+                            <SimpleCheckbox
                               checked={rate().selected}
                               aria-label={rate().name}
-                              onChange={event => setValues('taxRates', rateIndex, 'selected', event.currentTarget.checked)}
+                              onChange={checked => setValues('taxRates', rateIndex, 'selected', checked)}
                             />
                             <div class="min-w-0 flex-1">
                               <span class="block text-sm font-medium">{rate().name}</span>
@@ -765,15 +765,16 @@ export const OnboardingFlow: Component<{
                               autoFocus={inviteIndex === values.invites.length - 1}
                               class="h-11 text-base"
                             />
-                            <select
+                            <SimpleSelect
                               aria-label={t('onboarding.team.role.label')}
-                              class="h-11 rounded-md border border-input bg-field px-3 text-sm shadow-xs"
+                              triggerClass="h-11 w-32"
                               value={invite().role}
-                              onChange={event => setValues('invites', inviteIndex, 'role', event.currentTarget.value as Invite['role'])}
-                            >
-                              <option value="member">{t('organizations.members.roles.member')}</option>
-                              <option value="admin">{t('organizations.members.roles.admin')}</option>
-                            </select>
+                              onChange={role => setValues('invites', inviteIndex, 'role', role as Invite['role'])}
+                              options={[
+                                { value: 'member', label: t('organizations.members.roles.member') },
+                                { value: 'admin', label: t('organizations.members.roles.admin') },
+                              ]}
+                            />
                             <Show when={values.invites.length > 1}>
                               <Button type="button" variant="ghost" size="icon" class="size-11" aria-label={t('onboarding.team.remove')} onClick={() => setValues({ invites: values.invites.filter((_, i) => i !== inviteIndex) })}>
                                 <div class="i-tabler-x size-4" />

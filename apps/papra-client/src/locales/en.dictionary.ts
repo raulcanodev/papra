@@ -1191,7 +1191,6 @@ export const translations = {
   'ai-assistant.welcome.description': 'Analyze documents and transactions, discover patterns and create classification rules with AI.',
   'ai-assistant.input.placeholder': 'Message HeyPaqui AI...',
   'ai-assistant.model.select': 'Select model',
-  'ai-assistant.disclaimer': 'HeyPaqui AI can make mistakes. Verify important information.',
   'ai-assistant.suggestion.documents-overview': 'What are my documents about?',
   'ai-assistant.suggestion.find-invoices': 'Find invoices and tell me the total amounts',
   'ai-assistant.suggestion.financial-summary': 'Show me a financial summary of my transactions',
@@ -1791,7 +1790,6 @@ export const translations = {
   'ai-assistant.history.delete': 'Delete chat',
   'ai-assistant.error.generic': 'Something went wrong',
   'ai-assistant.error.prefix': 'Error: {{ message }}',
-  'ai-assistant.web-search': 'Search',
 
   // Documents (folders)
   'documents.list.description': 'All files, including automatically archived invoices.',

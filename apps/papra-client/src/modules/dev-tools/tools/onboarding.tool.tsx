@@ -8,8 +8,7 @@ import { fetchOnboardingStatus, updateOrganizationOnboarding, updateUserOnboardi
 import { getFlowSteps, isOnboardingFlow, ONBOARDING_FLOWS, ONBOARDING_STEPS } from '@/modules/onboarding/onboarding.steps';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { Button } from '@/modules/ui/components/button';
-
-const selectClass = 'h-8 w-full min-w-0 rounded-md border border-input bg-background px-2 text-sm';
+import { SimpleSelect } from '@/modules/ui/components/simple-select';
 
 export function getOrganizationIdFromPath(pathname: string) {
   return pathname.match(/^\/organizations\/(org_[a-zA-Z0-9]+)/)?.[1] ?? null;
@@ -97,26 +96,28 @@ export const OnboardingTool: Component = () => {
           <div class="grid grid-cols-2 gap-2">
             <label class="grid gap-1 text-xs">
               <span class="text-muted-foreground">Flow</span>
-              <select
-                class={selectClass}
+              <SimpleSelect
+                triggerClass="h-8 px-2"
                 value={flow()}
                 disabled={isPending()}
-                onChange={(event) => {
-                  const value = event.currentTarget.value;
+                onChange={(value) => {
                   if (isOnboardingFlow(value)) {
                     setFlow(value);
                     setStep(ONBOARDING_FLOWS[value][0]);
                   }
                 }}
-              >
-                <For each={Object.keys(ONBOARDING_FLOWS)}>{id => <option value={id}>{id}</option>}</For>
-              </select>
+                options={Object.keys(ONBOARDING_FLOWS).map(id => ({ value: id, label: id }))}
+              />
             </label>
             <label class="grid gap-1 text-xs">
               <span class="text-muted-foreground">Step</span>
-              <select class={selectClass} value={step()} disabled={isPending()} onChange={event => setStep(event.currentTarget.value)}>
-                <For each={getFlowSteps(flow())}>{(item, index) => <option value={item.id}>{`${index() + 1}. ${item.id}`}</option>}</For>
-              </select>
+              <SimpleSelect
+                triggerClass="h-8 px-2"
+                value={step()}
+                disabled={isPending()}
+                onChange={setStep}
+                options={getFlowSteps(flow()).map((item, index) => ({ value: item.id, label: `${index + 1}. ${item.id}` }))}
+              />
             </label>
           </div>
 

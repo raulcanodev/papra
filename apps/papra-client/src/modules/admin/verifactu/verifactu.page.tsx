@@ -4,6 +4,7 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { Button } from '@/modules/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/modules/ui/components/card';
+import { SimpleCheckbox } from '@/modules/ui/components/simple-checkbox';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextArea } from '@/modules/ui/components/textarea';
 import { getVerifactuDashboard, updateVerifactuSystemState } from './verifactu.services';
@@ -56,11 +57,7 @@ export function AdminVerifactuPage() {
           <CardDescription>{t('admin.verifactu.kill-switch.description')}</CardDescription>
         </CardHeader>
         <CardContent class="space-y-4">
-          <label class="flex items-center gap-3 text-sm font-medium">
-            <input type="checkbox" checked={paused()} onChange={event => setPaused(event.currentTarget.checked)} />
-            {' '}
-            {t('admin.verifactu.kill-switch.pause')}
-          </label>
+          <SimpleCheckbox class="gap-3 font-medium" checked={paused()} onChange={setPaused} label={t('admin.verifactu.kill-switch.pause')} />
           <label class="block text-sm font-medium">
             {t('admin.verifactu.kill-switch.reason')}
             <TextArea class="mt-1.5" value={reason()} onInput={event => setReason(event.currentTarget.value)} placeholder={t('admin.verifactu.kill-switch.reason.placeholder')} />

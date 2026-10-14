@@ -5,15 +5,15 @@ import { createEffect, createMemo, createSignal, For, Index, Show } from 'solid-
 import { getDocumentLocale } from '@/modules/i18n/document-locale';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { queryClient } from '@/modules/shared/query/query-client';
-import { cn } from '@/modules/shared/style/cn';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/modules/ui/components/dialog';
+import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextArea } from '@/modules/ui/components/textarea';
 import { TextField } from '@/modules/ui/components/textfield';
 import { getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
-import { FormField, SaveButton, selectClass } from '../components/catalog-page';
+import { FormField, SaveButton } from '../components/catalog-page';
 import { CustomerFormFields, emptyCustomer } from '../components/customer-form';
 import { getLineNetMinor, InvoicePreview } from '../components/invoice-preview';
 import { createCustomer, createInvoice, fetchCustomers, fetchFiscalProfile, fetchInvoice, fetchInvoiceBranding, fetchInvoiceSeries, fetchProducts, fetchSalesRepresentatives, fetchTaxRates, sendInvoice, updateInvoice } from '../invoicing.services';
@@ -209,17 +209,14 @@ export function CreateInvoicePage() {
               <h1 class="truncate text-[28px] font-semibold tracking-tight">{invoiceNumber() ?? t('invoicing.editor.new-title')}</h1>
               <Badge variant="secondary">{t('invoicing.status.draft')}</Badge>
             </div>
-            <label class="relative inline-flex shrink-0 items-center">
-              <span class="sr-only">{t('invoicing.common.currency')}</span>
-              <select
-                class="h-8 appearance-none rounded-full bg-muted pl-3 pr-8 text-sm font-medium outline-none transition-colors hover:bg-accent focus-visible:(ring-3 ring-ring/30)"
-                value={currency()}
-                onChange={event => setCurrency(event.currentTarget.value)}
-              >
-                <For each={CURRENCIES.includes(currency()) ? CURRENCIES : [currency(), ...CURRENCIES]}>{code => <option value={code}>{code}</option>}</For>
-              </select>
-              <div class="i-tabler-chevron-down pointer-events-none absolute right-2.5 size-4 text-muted-foreground" />
-            </label>
+            <SimpleSelect
+              aria-label={t('invoicing.common.currency')}
+              class="shrink-0"
+              triggerClass="h-8 w-auto gap-2 rounded-full border-transparent bg-muted px-3 font-medium shadow-none hover:bg-accent"
+              value={currency()}
+              onChange={setCurrency}
+              options={(CURRENCIES.includes(currency()) ? CURRENCIES : [currency(), ...CURRENCIES]).map(code => ({ value: code, label: code }))}
+            />
           </div>
 
           <Show when={profileQuery.data && !profileQuery.data.profile}>
@@ -354,14 +351,13 @@ export function CreateInvoicePage() {
                           <div class="text-sm font-medium">{t('invoicing.editor.item.tax')}</div>
                           <div class="text-xs text-muted-foreground">{t('invoicing.editor.item.tax.description')}</div>
                         </div>
-                        <select
+                        <SimpleSelect
                           aria-label={t('invoicing.editor.item.tax-rate')}
-                          class={cn(selectClass, 'h-8 w-auto rounded-full bg-muted border-transparent shadow-none pr-2 font-medium')}
-                          value={item().taxRateBps}
-                          onChange={event => updateItem(index, { taxRateBps: Number(event.currentTarget.value) })}
-                        >
-                          <For each={taxRates()}>{tax => <option value={tax.rateBps}>{`${tax.name} · ${tax.rateBps / 100}%`}</option>}</For>
-                        </select>
+                          triggerClass="h-8 w-auto gap-2 rounded-full border-transparent bg-muted px-3 font-medium shadow-none"
+                          value={String(item().taxRateBps)}
+                          onChange={value => updateItem(index, { taxRateBps: Number(value) })}
+                          options={taxRates().map(tax => ({ value: String(tax.rateBps), label: `${tax.name} · ${tax.rateBps / 100}%` }))}
+                        />
                       </div>
                     </div>
                   </div>
@@ -388,22 +384,37 @@ export function CreateInvoicePage() {
               <FormField label={t('invoicing.editor.issue-date')}><TextField class="h-10" type="date" value={issueDate()} onInput={event => setIssueDate(event.currentTarget.value)} /></FormField>
               <FormField label={t('invoicing.editor.due-date')}><TextField class="h-10" type="date" value={dueDate()} onInput={event => setDueDate(event.currentTarget.value)} /></FormField>
               <FormField label={t('invoicing.editor.series')}>
-                <select class={cn(selectClass, 'h-10')} value={seriesId()} onChange={event => setSeriesId(event.currentTarget.value)}>
-                  <option value="">{t('invoicing.editor.series.default')}</option>
-                  <For each={seriesQuery.data?.series}>{series => <option value={series.id}>{`${series.name} · ${series.prefix}`}</option>}</For>
-                </select>
+                <SimpleSelect
+                  triggerClass="h-10"
+                  value={seriesId()}
+                  onChange={setSeriesId}
+                  options={[
+                    { value: '', label: t('invoicing.editor.series.default') },
+                    ...(seriesQuery.data?.series ?? []).map(series => ({ value: series.id, label: `${series.name} · ${series.prefix}` })),
+                  ]}
+                />
               </FormField>
               <FormField label={t('invoicing.editor.sales-representative')}>
-                <select class={cn(selectClass, 'h-10')} value={salesRepresentativeId()} onChange={event => setSalesRepresentativeId(event.currentTarget.value)}>
-                  <option value="">{t('invoicing.editor.sales-representative.none')}</option>
-                  <For each={representativesQuery.data?.salesRepresentatives}>{person => <option value={person.id}>{person.name}</option>}</For>
-                </select>
+                <SimpleSelect
+                  triggerClass="h-10"
+                  value={salesRepresentativeId()}
+                  onChange={setSalesRepresentativeId}
+                  options={[
+                    { value: '', label: t('invoicing.editor.sales-representative.none') },
+                    ...(representativesQuery.data?.salesRepresentatives ?? []).map(person => ({ value: person.id, label: person.name })),
+                  ]}
+                />
               </FormField>
               <FormField label={t('invoicing.common.pdf-style')}>
-                <select class={cn(selectClass, 'h-10')} value={templateId()} onChange={event => setTemplateId(event.currentTarget.value as InvoiceTemplateId)}>
-                  <option value="minimal">{t('invoicing.common.pdf-style.minimal')}</option>
-                  <option value="classic">{t('invoicing.common.pdf-style.classic')}</option>
-                </select>
+                <SimpleSelect
+                  triggerClass="h-10"
+                  value={templateId()}
+                  onChange={value => setTemplateId(value as InvoiceTemplateId)}
+                  options={[
+                    { value: 'minimal', label: t('invoicing.common.pdf-style.minimal') },
+                    { value: 'classic', label: t('invoicing.common.pdf-style.classic') },
+                  ]}
+                />
               </FormField>
               <FormField label={t('invoicing.editor.notes')} class="sm:col-span-2">
                 <TextArea value={notes()} placeholder={t('invoicing.editor.notes.placeholder')} onInput={event => setNotes(event.currentTarget.value)} />

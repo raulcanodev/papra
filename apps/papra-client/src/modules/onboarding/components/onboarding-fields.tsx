@@ -26,7 +26,7 @@ export function ChoiceCards<T extends string>(props: {
   disabled?: boolean;
 }) {
   return (
-    <div class={cn('grid gap-3', props.columns === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
+    <div class={cn('grid auto-rows-fr gap-3', props.columns === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
       <For each={props.options}>
         {(option) => {
           const selected = () => props.value === option.id;
@@ -38,23 +38,23 @@ export function ChoiceCards<T extends string>(props: {
               disabled={props.disabled}
               onClick={() => props.onChange(option.id)}
               class={cn(
-                'rounded-xl border bg-card p-4 text-left transition-all hover:(border-primary/60 bg-primary/3) focus-visible:(outline-none ring-3 ring-ring/30)',
+                'flex h-full flex-col rounded-xl border bg-card p-4 text-left transition-all hover:(border-primary/60 bg-primary/3) focus-visible:(outline-none ring-3 ring-ring/30)',
                 selected() && 'border-primary bg-primary/5 ring-1 ring-primary',
               )}
             >
               <Show when={option.preview}>
                 <div class="mb-3">{option.preview}</div>
               </Show>
-              <div class="flex items-start gap-3">
+              <div class={cn('flex gap-3', props.columns === 3 ? 'flex-col items-start gap-4' : 'items-start')}>
                 <Show when={option.icon}>
                   <div class={cn('size-9 shrink-0 rounded-lg border bg-background flex items-center justify-center', selected() && 'border-primary/40 text-primary')}>
                     <div class={cn(option.icon, 'size-4.5')} />
                   </div>
                 </Show>
                 <div class="min-w-0">
-                  <span class="block text-sm font-medium">{option.title}</span>
+                  <span class="block text-sm font-semibold">{option.title}</span>
                   <Show when={option.description}>
-                    <span class="mt-1 block text-xs leading-relaxed text-muted-foreground">{option.description}</span>
+                    <span class="mt-1.5 block text-xs leading-relaxed text-muted-foreground text-pretty">{option.description}</span>
                   </Show>
                 </div>
               </div>

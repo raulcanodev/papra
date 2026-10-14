@@ -1193,7 +1193,6 @@ export const translations: Partial<TranslationsDictionary> = {
   'ai-assistant.welcome.description': 'Analiza documentos y transacciones, descubre patrones y crea reglas de clasificación con IA.',
   'ai-assistant.input.placeholder': 'Escribe un mensaje a HeyPaqui AI...',
   'ai-assistant.model.select': 'Seleccionar modelo',
-  'ai-assistant.disclaimer': 'HeyPaqui AI puede cometer errores. Verifica la información importante.',
   'ai-assistant.suggestion.documents-overview': '¿De qué tratan mis documentos?',
   'ai-assistant.suggestion.find-invoices': 'Busca facturas y dime los importes totales',
   'ai-assistant.suggestion.financial-summary': 'Muéstrame un resumen financiero de mis transacciones',
@@ -1793,7 +1792,6 @@ export const translations: Partial<TranslationsDictionary> = {
   'ai-assistant.history.delete': 'Eliminar chat',
   'ai-assistant.error.generic': 'Algo ha ido mal',
   'ai-assistant.error.prefix': 'Error: {{ message }}',
-  'ai-assistant.web-search': 'Búsqueda web',
 
   // Documents (folders)
   'documents.list.description': 'Todos los archivos, incluidas las facturas archivadas automáticamente.',

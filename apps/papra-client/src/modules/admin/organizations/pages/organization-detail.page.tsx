@@ -10,6 +10,8 @@ import { queryClient } from '@/modules/shared/query/query-client';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/modules/ui/components/card';
+import { SimpleCheckbox } from '@/modules/ui/components/simple-checkbox';
+import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { createToast } from '@/modules/ui/components/sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
 import { TextArea } from '@/modules/ui/components/textarea';
@@ -24,8 +26,6 @@ import {
   getOrganizationWebhooks,
   saveOrganizationVerifactu,
 } from '../organizations.services';
-
-const selectClass = 'flex h-9 w-full rounded-md border border-input bg-field px-3 py-1 text-sm shadow-xs';
 
 const OrganizationVerifactu: Component<{ organizationId: string }> = (props) => {
   const { t } = useI18n();
@@ -61,15 +61,20 @@ const OrganizationVerifactu: Component<{ organizationId: string }> = (props) => 
             mutation.mutate();
           }}
         >
-          <label class="text-sm font-medium">
+          <div class="text-sm font-medium">
             {t('verifactu.page.mode')}
-            <select class={`${selectClass} mt-1.5`} value={form().mode} onChange={event => field('mode', event.currentTarget.value as VerifactuConfigurationInput['mode'])}>
-              <option value="disabled">{t('verifactu.mode.disabled')}</option>
-              <option value="test">{t('verifactu.mode.test')}</option>
-              <option value="production">{t('verifactu.mode.production')}</option>
-              <option value="not_applicable">{t('verifactu.mode.not_applicable')}</option>
-            </select>
-          </label>
+            <SimpleSelect
+              class="mt-1.5"
+              value={form().mode}
+              onChange={value => field('mode', value as VerifactuConfigurationInput['mode'])}
+              options={[
+                { value: 'disabled', label: t('verifactu.mode.disabled') },
+                { value: 'test', label: t('verifactu.mode.test') },
+                { value: 'production', label: t('verifactu.mode.production') },
+                { value: 'not_applicable', label: t('verifactu.mode.not_applicable') },
+              ]}
+            />
+          </div>
           <label class="text-sm font-medium">
             {t('admin.verifactu.org.tax-id')}
             <TextField class="mt-1.5" value={form().taxId ?? ''} onInput={event => field('taxId', event.currentTarget.value || null)} />
@@ -78,26 +83,10 @@ const OrganizationVerifactu: Component<{ organizationId: string }> = (props) => 
             {t('admin.verifactu.org.legal-name')}
             <TextField class="mt-1.5" value={form().legalName ?? ''} onInput={event => field('legalName', event.currentTarget.value || null)} />
           </label>
-          <label class="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form().certificateConfigured} onChange={event => field('certificateConfigured', event.currentTarget.checked)} />
-            {' '}
-            {t('admin.verifactu.org.certificate')}
-          </label>
-          <label class="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form().responsibleDeclarationAccepted} onChange={event => field('responsibleDeclarationAccepted', event.currentTarget.checked)} />
-            {' '}
-            {t('admin.verifactu.org.declaration')}
-          </label>
-          <label class="flex items-center gap-2 text-sm sm:col-span-2">
-            <input type="checkbox" checked={form().aeatValidationPassed} onChange={event => field('aeatValidationPassed', event.currentTarget.checked)} />
-            {' '}
-            {t('admin.verifactu.org.aeat-validation')}
-          </label>
-          <label class="flex items-center gap-2 text-sm sm:col-span-2">
-            <input type="checkbox" checked={form().transmissionsPaused} onChange={event => field('transmissionsPaused', event.currentTarget.checked)} />
-            {' '}
-            {t('admin.verifactu.org.pause')}
-          </label>
+          <SimpleCheckbox checked={form().certificateConfigured} onChange={checked => field('certificateConfigured', checked)} label={t('admin.verifactu.org.certificate')} />
+          <SimpleCheckbox checked={form().responsibleDeclarationAccepted} onChange={checked => field('responsibleDeclarationAccepted', checked)} label={t('admin.verifactu.org.declaration')} />
+          <SimpleCheckbox class="sm:col-span-2" checked={form().aeatValidationPassed} onChange={checked => field('aeatValidationPassed', checked)} label={t('admin.verifactu.org.aeat-validation')} />
+          <SimpleCheckbox class="sm:col-span-2" checked={form().transmissionsPaused} onChange={checked => field('transmissionsPaused', checked)} label={t('admin.verifactu.org.pause')} />
           <label class="text-sm font-medium sm:col-span-2">
             {t('admin.verifactu.org.reason')}
             <TextArea class="mt-1.5" value={form().pauseReason ?? form().applicabilityReason ?? ''} onInput={event => field(form().mode === 'not_applicable' ? 'applicabilityReason' : 'pauseReason', event.currentTarget.value || null)} />

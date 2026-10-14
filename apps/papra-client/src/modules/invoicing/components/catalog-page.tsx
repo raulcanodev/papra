@@ -7,7 +7,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Popover, PopoverContent, PopoverTrigger } from '@/modules/ui/components/popover';
 import { TextField } from '@/modules/ui/components/textfield';
 
-export const selectClass = 'flex h-9 w-full rounded-md border border-input bg-field px-3 py-1 text-sm shadow-xs focus:(outline-none border-ring ring-3 ring-ring/30)';
 
 export function FormField(props: ParentProps<{ label: string; class?: string }>) {
   return (
