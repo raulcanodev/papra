@@ -1,4 +1,5 @@
 import type { DashboardFormatters } from '../dashboard.widgets';
+import type { ActiveFilter, FilterField } from '@/modules/ui/components/table-filters';
 import { useParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { createEffect, createMemo, createSignal, For, Match, on, Show, Switch } from 'solid-js';
@@ -6,6 +7,8 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { Button } from '@/modules/ui/components/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/modules/ui/components/popover';
 import { SimpleCheckbox } from '@/modules/ui/components/simple-checkbox';
+import { getActiveFilter, isDateRangeValue, resolveDatePreset } from '@/modules/ui/components/table-filters';
+import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { fetchDashboardMetrics } from '../dashboard.services';
 import { readHiddenWidgetIds, writeHiddenWidgetIds } from '../dashboard.storage';
 import { DASHBOARD_WIDGETS } from '../dashboard.widgets';
@@ -13,10 +16,23 @@ import { DASHBOARD_WIDGETS } from '../dashboard.widgets';
 export function HomePage() {
   const params = useParams();
   const { t, getLocale } = useI18n();
+  const [filters, setFilters] = createSignal<ActiveFilter[]>([{ fieldId: 'period', value: resolveDatePreset('this_year') }]);
+  const filterFields = createMemo((): FilterField[] => [{
+    id: 'period',
+    type: 'date-range',
+    label: t('dashboard.filters.period'),
+    icon: 'i-tabler-calendar',
+    required: true,
+    presets: ['this_year', 'last_year'],
+  }]);
+  const selectedYear = () => {
+    const value = getActiveFilter(filters(), 'period')?.value;
+    return isDateRangeValue(value) ? Number(value.from.slice(0, 4)) : new Date().getFullYear();
+  };
 
   const query = useQuery(() => ({
-    queryKey: ['organizations', params.organizationId, 'dashboard', 'metrics'],
-    queryFn: () => fetchDashboardMetrics({ organizationId: params.organizationId }),
+    queryKey: ['organizations', params.organizationId, 'dashboard', 'metrics', selectedYear()],
+    queryFn: () => fetchDashboardMetrics({ organizationId: params.organizationId, year: selectedYear() }),
   }));
 
   const [hiddenWidgetIds, setHiddenWidgetIds] = createSignal<string[]>([]);
@@ -90,6 +106,8 @@ export function HomePage() {
           </PopoverContent>
         </Popover>
       </div>
+
+      <TableToolbar fields={filterFields()} filters={filters()} onFiltersChange={setFilters} class="mb-4" />
 
       <Switch>
         <Match when={query.isError}>

@@ -13,6 +13,8 @@ import { AppLogo } from '@/modules/ui/components/app-logo';
 import { Button } from '@/modules/ui/components/button';
 import { ShaderGradient } from '@/modules/ui/components/shader-gradient';
 
+const SHOW_LANDING_FEATURES = false;
+
 const DemoFrame: Component<{ url: string }> = (props) => {
   const { t, getLocale } = useI18n();
   let frame: HTMLIFrameElement | undefined;
@@ -97,7 +99,7 @@ export const LandingPage: Component = () => {
           </nav>
         </header>
 
-        <div class="relative z-10 mx-auto max-w-3xl px-5 pt-10 text-center sm:px-8 sm:pt-14">
+        <div class="relative z-10 mx-auto max-w-4xl px-5 pt-10 text-center sm:px-8 sm:pt-14">
           <h1 class="text-balance text-4xl font-semibold leading-[1.04] tracking-[-0.04em] sm:text-6xl">
             {t('landing.hero.title')}
             {' '}
@@ -120,19 +122,21 @@ export const LandingPage: Component = () => {
         </div>
       </section>
 
-      <section class="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
-        <div class="grid gap-10 sm:grid-cols-3 sm:gap-8">
-          <For each={features}>
-            {feature => (
-              <article>
-                <div class={`${feature.icon} mb-4 size-5 text-foreground/70`} />
-                <h2 class="text-base font-semibold tracking-tight">{feature.title}</h2>
-                <p class="mt-1.5 text-sm leading-6 text-muted-foreground">{feature.description}</p>
-              </article>
-            )}
-          </For>
-        </div>
-      </section>
+      <Show when={SHOW_LANDING_FEATURES}>
+        <section class="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
+          <div class="grid gap-10 sm:grid-cols-3 sm:gap-8">
+            <For each={features}>
+              {feature => (
+                <article>
+                  <div class={`${feature.icon} mb-4 size-5 text-foreground/70`} />
+                  <h2 class="text-base font-semibold tracking-tight">{feature.title}</h2>
+                  <p class="mt-1.5 text-sm leading-6 text-muted-foreground">{feature.description}</p>
+                </article>
+              )}
+            </For>
+          </div>
+        </section>
+      </Show>
 
       <footer class="border-t">
         <div class="mx-auto grid max-w-6xl gap-10 px-5 py-12 sm:grid-cols-[1.4fr_1fr_1fr] sm:px-8">

@@ -20,7 +20,9 @@ export const organizationRoutes = {
   invoices: { path: 'invoicing/invoices', surface: 'workspace' },
   // Received invoices live under the invoices entry of the menu, as a tab
   purchases: { path: 'invoicing/invoices/received', surface: 'workspace' },
-  contacts: { path: 'contacts', surface: 'workspace' },
+  customers: { path: 'contacts/customers', surface: 'workspace' },
+  suppliers: { path: 'contacts/suppliers', surface: 'workspace' },
+  salesRepresentatives: { path: 'contacts/sales-representatives', surface: 'workspace' },
   products: { path: 'invoicing/products', surface: 'workspace' },
   taxes: { path: 'taxes', surface: 'workspace' },
   financeOverview: { path: 'finances/overview', surface: 'workspace' },
@@ -54,7 +56,9 @@ export const organizationRouteLabelKeys = {
   calendar: 'navigation.item.calendar',
   invoices: 'navigation.item.invoices',
   purchases: 'navigation.item.received-invoices',
-  contacts: 'navigation.item.contacts',
+  customers: 'contacts.roles.customers',
+  suppliers: 'contacts.roles.suppliers',
+  salesRepresentatives: 'contacts.roles.sales_representatives',
   products: 'navigation.item.products',
   taxes: 'navigation.item.quarterly-taxes',
   financeOverview: 'navigation.item.overview',
@@ -109,9 +113,19 @@ const workspaceNavigation: readonly NavigationSectionDefinition[] = [
     requires: 'invoicing',
     items: [
       { routeId: 'invoices', icon: 'i-tabler-receipt', matchSubRoutes: true },
-      { routeId: 'contacts', icon: 'i-tabler-address-book' },
       { routeId: 'products', icon: 'i-tabler-package' },
       { routeId: 'taxes', icon: 'i-tabler-receipt-tax' },
+    ],
+  },
+  {
+    // One page per role of the address book, a contact with several roles shows up in each of them
+    id: 'contacts',
+    labelKey: 'navigation.section.contacts',
+    requires: 'invoicing',
+    items: [
+      { routeId: 'customers', icon: 'i-tabler-users' },
+      { routeId: 'suppliers', icon: 'i-tabler-truck' },
+      { routeId: 'salesRepresentatives', icon: 'i-tabler-briefcase' },
     ],
   },
   {
@@ -174,6 +188,22 @@ const settingsNavigation: readonly NavigationSectionDefinition[] = [
     ],
   },
 ];
+
+// Pages that open one record or a creation form: they are not in the menu but are real destinations,
+// and the assistant is told about them. Declared once, the router and the assistant both read this.
+export const organizationEntityRoutes = {
+  document: { path: 'documents/:documentId', label: 'Document viewer' },
+  newInvoice: { path: 'invoicing/invoices/new', label: 'New issued invoice' },
+  editInvoice: { path: 'invoicing/invoices/:invoiceId/edit', label: 'Issued invoice editor' },
+  newPurchaseInvoice: { path: 'invoicing/invoices/received/new', label: 'New received invoice' },
+  editPurchaseInvoice: { path: 'invoicing/invoices/received/:purchaseInvoiceId/edit', label: 'Received invoice editor' },
+} as const satisfies Record<string, { path: string; label: string }>;
+
+export type OrganizationEntityRouteId = keyof typeof organizationEntityRoutes;
+
+export function getOrganizationEntityRoutePath(routeId: OrganizationEntityRouteId) {
+  return `/${organizationEntityRoutes[routeId].path}`;
+}
 
 export function getOrganizationRouteHref({ organizationId, routeId }: { organizationId: string; routeId: OrganizationRouteId }) {
   return `/organizations/${organizationId}/${organizationRoutes[routeId].path}`;

@@ -1,7 +1,8 @@
 import type { Component, JSX } from 'solid-js';
 import type { ChatMessage, ChatSession, ToolConfirmation } from '../ai-assistant.services';
 import type { TranslationKeys } from '@/modules/i18n/locales.types';
-import { useParams } from '@solidjs/router';
+import type { OrganizationNavigationCapability } from '@/modules/ui/navigation/organization-navigation';
+import { useLocation, useNavigate, useParams } from '@solidjs/router';
 import remarkGfm from 'remark-gfm';
 import { createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { SolidMarkdown } from 'solid-markdown';
@@ -11,15 +12,23 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/modules/ui/components/dropdown-menu';
+import { buildOrganizationSettingsNavigation, buildOrganizationWorkspaceNavigation } from '@/modules/ui/navigation/organization-navigation';
+import { useNavigationCapabilities } from '@/modules/ui/navigation/use-navigation-capabilities';
+import { useAiAssistantPanel } from '../ai-assistant-panel.provider';
 import { deleteChatSession, executeToolAction, fetchAiModels, fetchChatSession, fetchChatSessions, renameChatSession, streamChatMessage, updateMessageMetadata } from '../ai-assistant.services';
+import { buildPageContext } from '../page-context/build-page-context';
+import { capturePageSnapshot } from '../page-context/capture-page-snapshot';
 
-const PLACEHOLDER_SUGGESTION_CONFIG = [
-  { icon: 'i-tabler-files', key: 'ai-assistant.suggestion.documents-overview' as const },
-  { icon: 'i-tabler-file-search', key: 'ai-assistant.suggestion.find-invoices' as const },
-  { icon: 'i-tabler-chart-bar', key: 'ai-assistant.suggestion.financial-summary' as const },
-  { icon: 'i-tabler-transfer', key: 'ai-assistant.suggestion.transfer-rules' as const },
-  { icon: 'i-tabler-tag', key: 'ai-assistant.suggestion.classify-rules' as const },
-  { icon: 'i-tabler-help', key: 'ai-assistant.suggestion.unclassified' as const },
+// Suggestions about bank transactions only for users with the personal finances module, like its tools on the server
+const PLACEHOLDER_SUGGESTION_CONFIG: Array<{ icon: string; key: TranslationKeys; requires?: OrganizationNavigationCapability }> = [
+  { icon: 'i-tabler-files', key: 'ai-assistant.suggestion.documents-overview' },
+  { icon: 'i-tabler-file-search', key: 'ai-assistant.suggestion.find-invoices' },
+  { icon: 'i-tabler-receipt-tax', key: 'ai-assistant.suggestion.quarterly-taxes' },
+  { icon: 'i-tabler-clock-dollar', key: 'ai-assistant.suggestion.unpaid-invoices' },
+  { icon: 'i-tabler-chart-bar', key: 'ai-assistant.suggestion.financial-summary', requires: 'personal-finances' },
+  { icon: 'i-tabler-transfer', key: 'ai-assistant.suggestion.transfer-rules', requires: 'personal-finances' },
+  { icon: 'i-tabler-tag', key: 'ai-assistant.suggestion.classify-rules', requires: 'personal-finances' },
+  { icon: 'i-tabler-help', key: 'ai-assistant.suggestion.unclassified', requires: 'personal-finances' },
 ];
 
 // The public demo only has invoices to talk about.
@@ -675,6 +684,10 @@ type AiAssistantProps = {
 export const AiAssistant: Component<AiAssistantProps> = (props) => {
   const { t } = useI18n();
   const params = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const assistantPanel = useAiAssistantPanel();
+  const getNavigationCapabilities = useNavigationCapabilities();
   const [messages, setMessages] = createSignal<ChatMessage[]>([]);
   const [hasInput, setHasInput] = createSignal(false);
   const [isStreaming, setIsStreaming] = createSignal(false);
@@ -682,11 +695,36 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
   const [activeChatId, setActiveChatId] = createSignal<string | undefined>(sessionStorage.getItem('papra-ai-chat') ?? undefined);
   const [showHistory, setShowHistory] = createSignal(false);
   let abortController: AbortController | undefined;
-  let messagesEndRef: HTMLDivElement | undefined;
+  let pendingNavigation: string | undefined;
+  let messagesScrollRef: HTMLDivElement | undefined;
   let textareaRef: HTMLTextAreaElement | undefined;
 
   const orgId = () => params.organizationId;
   const isPanel = () => props.mode === 'panel';
+
+  // Everything the assistant needs to know about the screen, captured when the message is sent
+  function collectPageContext() {
+    const navigationArgs = { organizationId: orgId(), capabilities: getNavigationCapabilities(), translate: t };
+
+    return buildPageContext({
+      organizationId: orgId(),
+      pathname: location.pathname,
+      search: location.search,
+      title: document.title,
+      snapshot: capturePageSnapshot({ root: document.querySelector('main') }),
+      menuSections: [...buildOrganizationWorkspaceNavigation(navigationArgs), ...buildOrganizationSettingsNavigation(navigationArgs)],
+    });
+  }
+
+  // The assistant moves the user once its answer is complete, so the text is never cut by the page change.
+  // From the full-screen assistant the conversation continues in the side panel next to the destination.
+  function goToPage(path: string) {
+    if (!isPanel()) {
+      assistantPanel.open();
+    }
+
+    navigate(path);
+  }
 
   function handleToolStatusChange(toolCallId: string, status: 'approved' | 'rejected', result?: unknown) {
     setMessages((prev) => {
@@ -720,7 +758,8 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
   const models = () => modelsData()?.models ?? [];
   const currentModel = () => selectedModel() || modelsData()?.defaultModel || '';
   const sessions = () => sessionsData()?.sessions ?? [];
-  const suggestions = () => (isDemoMode ? DEMO_SUGGESTION_CONFIG : PLACEHOLDER_SUGGESTION_CONFIG).map(s => ({ icon: s.icon, text: t(s.key) }));
+  const suggestions = () => (isDemoMode ? DEMO_SUGGESTION_CONFIG : PLACEHOLDER_SUGGESTION_CONFIG.filter(suggestion => suggestion.requires === undefined || getNavigationCapabilities()[suggestion.requires]))
+    .map(suggestion => ({ icon: suggestion.icon, text: t(suggestion.key) }));
 
   function selectModel(id: string) {
     setSelectedModel(id);
@@ -759,7 +798,11 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
 
   function scrollToBottom() {
     requestAnimationFrame(() => {
-      messagesEndRef?.scrollIntoView({ behavior: 'smooth' });
+      if (!messagesScrollRef) {
+        return;
+      }
+
+      messagesScrollRef.scrollTo({ top: messagesScrollRef.scrollHeight, behavior: 'smooth' });
     });
   }
 
@@ -804,7 +847,11 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
         messages: updatedMessages,
         model: selectedModel(),
         sessionId: activeChatId(),
+        pageContext: collectPageContext(),
         signal: abortController.signal,
+        onNavigate: (navigation) => {
+          pendingNavigation = navigation.path;
+        },
         onSessionId: (id) => {
           setActiveChat(id);
         },
@@ -908,8 +955,14 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
     } finally {
       setIsStreaming(false);
       abortController = undefined;
+
+      if (pendingNavigation !== undefined) {
+        goToPage(pendingNavigation);
+        pendingNavigation = undefined;
+      }
+
       void refetchSessions();
-      requestAnimationFrame(() => textareaRef?.focus());
+      requestAnimationFrame(() => textareaRef?.focus({ preventScroll: true }));
     }
   }
 
@@ -956,8 +1009,9 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
     void refetchSessions();
   }
 
+  // Full width of its container: otherwise it shrinks to its content while the answer is still empty
   return (
-    <div class="relative flex h-full min-h-0 bg-white dark:bg-card">
+    <div class="relative flex h-full w-full min-w-0 min-h-0 bg-white dark:bg-card" data-agent-ignore>
       {/* History sidebar */}
       <Show when={showHistory()}>
         <div class={cn(
@@ -1029,7 +1083,7 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
         </div>
 
         {/* Messages area */}
-        <div class="flex-1 overflow-y-auto">
+        <div ref={messagesScrollRef} class="flex-1 overflow-y-auto overscroll-contain">
           <div class={cn('mx-auto w-full', isPanel() ? 'max-w-xl px-4' : 'max-w-3xl px-6')}>
             <Show
               when={messages().length > 0}
@@ -1071,14 +1125,14 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
                 </For>
               </div>
             </Show>
-            <div ref={messagesEndRef} class="h-4" />
+            <div class="h-4" />
           </div>
         </div>
 
         {/* Input area */}
         <div class={cn('bg-white dark:bg-card shrink-0', isPanel() ? 'px-3 py-3' : 'px-6 py-4')}>
           <div class="max-w-3xl mx-auto">
-            <div class="relative flex items-end gap-2 rounded-2xl border border-[#e6dfcf] dark:border-border bg-[#f5f0e6] dark:bg-[#26231e] shadow-sm focus-within:ring-1 focus-within:ring-ring transition-shadow">
+            <div class="relative flex items-end gap-2 rounded-2xl border border-border bg-background shadow-sm transition-shadow focus-within:ring-1 focus-within:ring-ring">
               <textarea
                 ref={textareaRef}
                 placeholder={t('ai-assistant.input.placeholder')}

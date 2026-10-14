@@ -54,13 +54,13 @@ function setupVerifactuRoutes({ app, db }: RouteDefinitionContext) {
 }
 
 function setupFiscalProfileRoutes({ app, db }: RouteDefinitionContext) {
-  app.get('/api/organizations/:organizationId/invoicing/profile', requireAuthentication(), legacyValidateParams(z.object({ organizationId: organizationIdSchema })), async (context) => {
+  app.get('/api/organizations/:organizationId/invoicing/profile', requireAuthentication({ apiKeyPermissions: ['invoices:read'] }), legacyValidateParams(z.object({ organizationId: organizationIdSchema })), async (context) => {
     const { organizationId } = context.req.valid('param');
     await authorizeMember({ context, db, organizationId });
     return context.json(await createInvoicingRepository({ db }).getFiscalProfile({ organizationId }));
   });
 
-  app.put('/api/organizations/:organizationId/invoicing/profile', requireAuthentication(), legacyValidateParams(z.object({ organizationId: organizationIdSchema })), legacyValidateJsonBody(fiscalProfileSchema), async (context) => {
+  app.put('/api/organizations/:organizationId/invoicing/profile', requireAuthentication({ apiKeyPermissions: ['invoices:update'] }), legacyValidateParams(z.object({ organizationId: organizationIdSchema })), legacyValidateJsonBody(fiscalProfileSchema), async (context) => {
     const { organizationId } = context.req.valid('param');
     await authorizeMember({ context, db, organizationId });
     return context.json(await createInvoicingRepository({ db }).upsertFiscalProfile({ organizationId, profile: context.req.valid('json') }));
@@ -68,7 +68,7 @@ function setupFiscalProfileRoutes({ app, db }: RouteDefinitionContext) {
 }
 
 function setupSeriesRoutes({ app, db }: RouteDefinitionContext) {
-  app.get('/api/organizations/:organizationId/invoicing/series', requireAuthentication(), legacyValidateParams(z.object({ organizationId: organizationIdSchema })), async (context) => {
+  app.get('/api/organizations/:organizationId/invoicing/series', requireAuthentication({ apiKeyPermissions: ['invoices:read'] }), legacyValidateParams(z.object({ organizationId: organizationIdSchema })), async (context) => {
     const { organizationId } = context.req.valid('param');
     await authorizeMember({ context, db, organizationId });
     const repository = createInvoicingRepository({ db });
@@ -87,28 +87,42 @@ function setupSeriesRoutes({ app, db }: RouteDefinitionContext) {
 
 function setupCatalogRoutes({ app, db }: RouteDefinitionContext) {
   const organizationParams = z.object({ organizationId: organizationIdSchema });
-  app.get('/api/organizations/:organizationId/invoicing/products', requireAuthentication(), legacyValidateParams(organizationParams), async (context) => {
+  app.get('/api/organizations/:organizationId/invoicing/products', requireAuthentication({ apiKeyPermissions: ['products:read'] }), legacyValidateParams(organizationParams), async (context) => {
     const { organizationId } = context.req.valid('param'); await authorizeMember({ context, db, organizationId }); return context.json(await createInvoicingRepository({ db }).listProducts({ organizationId }));
   });
-  app.post('/api/organizations/:organizationId/invoicing/products', requireAuthentication(), legacyValidateParams(organizationParams), legacyValidateJsonBody(productBodySchema), async (context) => {
+  app.post('/api/organizations/:organizationId/invoicing/products', requireAuthentication({ apiKeyPermissions: ['products:create'] }), legacyValidateParams(organizationParams), legacyValidateJsonBody(productBodySchema), async (context) => {
     const { organizationId } = context.req.valid('param'); const { customProperties, ...product } = context.req.valid('json'); await authorizeMember({ context, db, organizationId });
     const created = await saveEntityWithCustomProperties({ db, organizationId, entityTypes: [CUSTOM_PROPERTY_ENTITY_TYPES.PRODUCT], customProperties, persistEntity: async ({ db: tx }) => (await createInvoicingRepository({ db: tx }).createProduct({ organizationId, product })).product });
     return context.json({ product: created }, 201);
   });
-  app.put('/api/organizations/:organizationId/invoicing/products/:resourceId', requireAuthentication(), legacyValidateParams(resourceParams), legacyValidateJsonBody(productBodySchema), async (context) => {
+  app.put('/api/organizations/:organizationId/invoicing/products/:resourceId', requireAuthentication({ apiKeyPermissions: ['products:update'] }), legacyValidateParams(resourceParams), legacyValidateJsonBody(productBodySchema), async (context) => {
     const { organizationId, resourceId: productId } = context.req.valid('param'); const { customProperties, ...product } = context.req.valid('json'); await authorizeMember({ context, db, organizationId });
     const updated = await saveEntityWithCustomProperties({ db, organizationId, entityTypes: [CUSTOM_PROPERTY_ENTITY_TYPES.PRODUCT], customProperties, persistEntity: async ({ db: tx }) => (await createInvoicingRepository({ db: tx }).updateProduct({ organizationId, productId, product })).product });
     return context.json({ product: updated });
   });
 
-  app.get('/api/organizations/:organizationId/invoicing/tax-rates', requireAuthentication(), legacyValidateParams(organizationParams), async (context) => {
+  app.delete('/api/organizations/:organizationId/invoicing/products/:resourceId', requireAuthentication({ apiKeyPermissions: ['products:delete'] }), legacyValidateParams(resourceParams), async (context) => {
+    const { organizationId, resourceId: productId } = context.req.valid('param');
+    await authorizeMember({ context, db, organizationId });
+    await createInvoicingRepository({ db }).archiveProduct({ organizationId, productId });
+    return context.body(null, 204);
+  });
+
+  app.get('/api/organizations/:organizationId/invoicing/tax-rates', requireAuthentication({ apiKeyPermissions: ['products:read'] }), legacyValidateParams(organizationParams), async (context) => {
     const { organizationId } = context.req.valid('param'); await authorizeMember({ context, db, organizationId }); return context.json(await createInvoicingRepository({ db }).listTaxRates({ organizationId }));
   });
-  app.post('/api/organizations/:organizationId/invoicing/tax-rates', requireAuthentication(), legacyValidateParams(organizationParams), legacyValidateJsonBody(taxRateSchema), async (context) => {
+  app.post('/api/organizations/:organizationId/invoicing/tax-rates', requireAuthentication({ apiKeyPermissions: ['products:create'] }), legacyValidateParams(organizationParams), legacyValidateJsonBody(taxRateSchema), async (context) => {
     const { organizationId } = context.req.valid('param'); await authorizeMember({ context, db, organizationId }); return context.json(await createInvoicingRepository({ db }).createTaxRate({ organizationId, taxRate: context.req.valid('json') }), 201);
   });
-  app.put('/api/organizations/:organizationId/invoicing/tax-rates/:resourceId', requireAuthentication(), legacyValidateParams(resourceParams), legacyValidateJsonBody(taxRateSchema), async (context) => {
+  app.put('/api/organizations/:organizationId/invoicing/tax-rates/:resourceId', requireAuthentication({ apiKeyPermissions: ['products:update'] }), legacyValidateParams(resourceParams), legacyValidateJsonBody(taxRateSchema), async (context) => {
     const { organizationId, resourceId: taxRateId } = context.req.valid('param'); await authorizeMember({ context, db, organizationId }); return context.json(await createInvoicingRepository({ db }).updateTaxRate({ organizationId, taxRateId, taxRate: context.req.valid('json') }));
+  });
+
+  app.delete('/api/organizations/:organizationId/invoicing/tax-rates/:resourceId', requireAuthentication({ apiKeyPermissions: ['products:delete'] }), legacyValidateParams(resourceParams), async (context) => {
+    const { organizationId, resourceId: taxRateId } = context.req.valid('param');
+    await authorizeMember({ context, db, organizationId });
+    await createInvoicingRepository({ db }).archiveTaxRate({ organizationId, taxRateId });
+    return context.body(null, 204);
   });
 
   app.get('/api/organizations/:organizationId/invoicing/branding', requireAuthentication(), legacyValidateParams(organizationParams), async (context) => {
@@ -121,21 +135,21 @@ function setupCatalogRoutes({ app, db }: RouteDefinitionContext) {
 
 function setupInvoiceRoutes(routeContext: RouteDefinitionContext) {
   const { app, db } = routeContext;
-  app.get('/api/organizations/:organizationId/invoicing/invoices', requireAuthentication(), legacyValidateParams(z.object({ organizationId: organizationIdSchema })), legacyValidateQuery(invoiceListQuerySchema), async (context) => {
+  app.get('/api/organizations/:organizationId/invoicing/invoices', requireAuthentication({ apiKeyPermissions: ['invoices:read'] }), legacyValidateParams(z.object({ organizationId: organizationIdSchema })), legacyValidateQuery(invoiceListQuerySchema), async (context) => {
     const { organizationId } = context.req.valid('param');
     const { status } = context.req.valid('query');
     await authorizeMember({ context, db, organizationId });
     return context.json(await createInvoicingRepository({ db }).listInvoices({ organizationId, status: Array.isArray(status) ? status[0] : status }));
   });
 
-  app.post('/api/organizations/:organizationId/invoicing/invoices', requireAuthentication(), legacyValidateParams(z.object({ organizationId: organizationIdSchema })), legacyValidateJsonBody(invoiceDraftSchema), async (context) => {
+  app.post('/api/organizations/:organizationId/invoicing/invoices', requireAuthentication({ apiKeyPermissions: ['invoices:create'] }), legacyValidateParams(z.object({ organizationId: organizationIdSchema })), legacyValidateJsonBody(invoiceDraftSchema), async (context) => {
     const { organizationId } = context.req.valid('param');
     const { userId } = getUser({ context });
     await authorizeMember({ context, db, organizationId });
     return context.json(await createInvoicingRepository({ db }).createInvoice({ organizationId, draft: context.req.valid('json'), userId }), 201);
   });
 
-  app.get('/api/organizations/:organizationId/invoicing/invoices/:resourceId', requireAuthentication(), legacyValidateParams(resourceParams), async (context) => {
+  app.get('/api/organizations/:organizationId/invoicing/invoices/:resourceId', requireAuthentication({ apiKeyPermissions: ['invoices:read'] }), legacyValidateParams(resourceParams), async (context) => {
     const { organizationId, resourceId: invoiceId } = context.req.valid('param');
     await authorizeMember({ context, db, organizationId });
     const result = await createInvoicingRepository({ db }).getInvoice({ organizationId, invoiceId });
@@ -145,28 +159,28 @@ function setupInvoiceRoutes(routeContext: RouteDefinitionContext) {
     return context.json(result);
   });
 
-  app.put('/api/organizations/:organizationId/invoicing/invoices/:resourceId', requireAuthentication(), legacyValidateParams(resourceParams), legacyValidateJsonBody(invoiceDraftSchema), async (context) => {
+  app.put('/api/organizations/:organizationId/invoicing/invoices/:resourceId', requireAuthentication({ apiKeyPermissions: ['invoices:update'] }), legacyValidateParams(resourceParams), legacyValidateJsonBody(invoiceDraftSchema), async (context) => {
     const { organizationId, resourceId: invoiceId } = context.req.valid('param');
     const { userId } = getUser({ context });
     await authorizeMember({ context, db, organizationId });
     return context.json(await createInvoicingRepository({ db }).updateInvoice({ organizationId, invoiceId, draft: context.req.valid('json'), userId }));
   });
 
-  app.delete('/api/organizations/:organizationId/invoicing/invoices/:resourceId', requireAuthentication(), legacyValidateParams(resourceParams), async (context) => {
+  app.delete('/api/organizations/:organizationId/invoicing/invoices/:resourceId', requireAuthentication({ apiKeyPermissions: ['invoices:delete'] }), legacyValidateParams(resourceParams), async (context) => {
     const { organizationId, resourceId: invoiceId } = context.req.valid('param');
     await authorizeMember({ context, db, organizationId });
     await createInvoicingRepository({ db }).deleteDraft({ organizationId, invoiceId });
     return context.body(null, 204);
   });
 
-  app.post('/api/organizations/:organizationId/invoicing/invoices/:resourceId/issue', requireAuthentication(), legacyValidateParams(resourceParams), async (context) => {
+  app.post('/api/organizations/:organizationId/invoicing/invoices/:resourceId/issue', requireAuthentication({ apiKeyPermissions: ['invoices:update'] }), legacyValidateParams(resourceParams), async (context) => {
     const { organizationId, resourceId: invoiceId } = context.req.valid('param');
     const { userId } = getUser({ context });
     await authorizeMember({ context, db, organizationId });
     return context.json(await issueAndArchiveInvoice({ routeContext, organizationId, invoiceId, userId }));
   });
 
-  app.get('/api/organizations/:organizationId/invoicing/invoices/:resourceId/pdf', requireAuthentication(), legacyValidateParams(resourceParams), async (context) => {
+  app.get('/api/organizations/:organizationId/invoicing/invoices/:resourceId/pdf', requireAuthentication({ apiKeyPermissions: ['invoices:read'] }), legacyValidateParams(resourceParams), async (context) => {
     const { organizationId, resourceId: invoiceId } = context.req.valid('param');
     await authorizeMember({ context, db, organizationId });
     const { invoice } = await createInvoicingRepository({ db }).getInvoice({ organizationId, invoiceId });
@@ -185,7 +199,7 @@ function setupInvoiceRoutes(routeContext: RouteDefinitionContext) {
     });
   });
 
-  app.post('/api/organizations/:organizationId/invoicing/invoices/:resourceId/send', requireAuthentication(), legacyValidateParams(resourceParams), async (context) => {
+  app.post('/api/organizations/:organizationId/invoicing/invoices/:resourceId/send', requireAuthentication({ apiKeyPermissions: ['invoices:update'] }), legacyValidateParams(resourceParams), async (context) => {
     const { organizationId, resourceId: invoiceId } = context.req.valid('param');
     const { userId } = getUser({ context });
     await authorizeMember({ context, db, organizationId });
@@ -215,7 +229,7 @@ function setupInvoiceRoutes(routeContext: RouteDefinitionContext) {
     return context.json(await repository.markInvoiceSent({ organizationId, invoiceId, userId, recipient }));
   });
 
-  app.post('/api/organizations/:organizationId/invoicing/invoices/:resourceId/paid', requireAuthentication(), legacyValidateParams(resourceParams), async (context) => {
+  app.post('/api/organizations/:organizationId/invoicing/invoices/:resourceId/paid', requireAuthentication({ apiKeyPermissions: ['invoices:update'] }), legacyValidateParams(resourceParams), async (context) => {
     const { organizationId, resourceId: invoiceId } = context.req.valid('param');
     const { userId } = getUser({ context });
     await authorizeMember({ context, db, organizationId });

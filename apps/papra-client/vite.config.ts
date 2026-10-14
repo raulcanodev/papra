@@ -71,7 +71,8 @@ function cleanDemoAssetsPlugin(): Plugin {
 // The public demo must never talk to a backend: the CSP below makes the browser enforce it, whatever the code does.
 // `frame-ancestors` can't be set from a meta tag, so it goes in the Cloudflare `_headers` file next to the build.
 function demoSecurityPlugin(): Plugin {
-  const frameAncestors = env.VITE_DEMO_FRAME_ANCESTORS ?? 'https://heypaqui.com https://www.heypaqui.com';
+  const frameAncestors = env.VITE_DEMO_FRAME_ANCESTORS
+    ?? 'https://heypaqui.com https://www.heypaqui.com http://localhost:* http://127.0.0.1:*';
   const csp = [
     'default-src \'self\'',
     'script-src \'self\' \'unsafe-inline\'',

@@ -1,18 +1,20 @@
 import type { Component } from 'solid-js';
 import type { CustomPropertyEntityType, CustomPropertyType } from '../custom-properties.types';
-import { A, useParams, useSearchParams } from '@solidjs/router';
+import type { ActiveFilter, FilterField } from '@/modules/ui/components/table-filters';
+import { A, useParams } from '@solidjs/router';
 import { useMutation, useQuery } from '@tanstack/solid-query';
 import { createSolidTable, flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/solid-table';
-import { createMemo, For, Show, Suspense } from 'solid-js';
+import { createMemo, createSignal, For, Show, Suspense } from 'solid-js';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { useConfirmModal } from '@/modules/shared/confirm';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { Button } from '@/modules/ui/components/button';
 import { EmptyState } from '@/modules/ui/components/empty';
-import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { createToast } from '@/modules/ui/components/sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
+import { getActiveFilter } from '@/modules/ui/components/table-filters';
+import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
 import { CUSTOM_PROPERTY_ENTITY_TYPES, ENTITY_TYPE_LABEL_I18N_KEYS, PROPERTY_TYPE_LABEL_I18N_KEYS } from '../custom-properties.constants';
 import {
@@ -79,8 +81,9 @@ export const DeleteCustomPropertyButton: Component<{ organizationId: string; pro
 
 export const CustomPropertiesPage: Component = () => {
   const params = useParams();
-  const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useI18n();
+  const [search, setSearch] = createSignal('');
+  const [filters, setFilters] = createSignal<ActiveFilter[]>([]);
 
   const query = useQuery(() => ({
     queryKey: ['organizations', params.organizationId, 'custom-properties'],
@@ -88,8 +91,24 @@ export const CustomPropertiesPage: Component = () => {
   }));
 
   // An organization has at most a hundred definitions: filtered client side, from the single cached listing
-  const entityTypeFilter = () => CUSTOM_PROPERTY_ENTITY_TYPES.find(entityType => entityType === searchParams.entityType) as CustomPropertyEntityType | undefined;
-  const propertyDefinitions = createMemo(() => (query.data?.propertyDefinitions ?? []).filter(definition => !entityTypeFilter() || definition.entityType === entityTypeFilter()));
+  const selectedValues = (fieldId: string) => {
+    const value = getActiveFilter(filters(), fieldId)?.value;
+    return Array.isArray(value) ? value : [];
+  };
+  const entityTypeFilter = () => selectedValues('entity')[0] as CustomPropertyEntityType | undefined;
+  const filterFields = createMemo((): FilterField[] => [
+    { id: 'entity', type: 'multi-select', label: t('custom-properties.list.table.entity'), icon: 'i-tabler-box', options: CUSTOM_PROPERTY_ENTITY_TYPES.map(entityType => ({ value: entityType, label: t(ENTITY_TYPE_LABEL_I18N_KEYS[entityType]) })) },
+    { id: 'type', type: 'multi-select', label: t('custom-properties.list.table.type'), icon: 'i-tabler-forms', options: Object.entries(PROPERTY_TYPE_LABEL_I18N_KEYS).map(([value, key]) => ({ value, label: t(key) })) },
+  ]);
+  const propertyDefinitions = createMemo(() => {
+    const term = search().trim().toLocaleLowerCase();
+    const entities = selectedValues('entity');
+    const types = selectedValues('type');
+    return (query.data?.propertyDefinitions ?? [])
+      .filter(definition => entities.length === 0 || entities.includes(definition.entityType))
+      .filter(definition => types.length === 0 || types.includes(definition.type))
+      .filter(definition => `${definition.name} ${definition.description ?? ''}`.toLocaleLowerCase().includes(term));
+  });
   const createHref = () => `${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'settingsCustomProperties', childPath: 'create' })}${entityTypeFilter() ? `?entityType=${entityTypeFilter()}` : ''}`;
 
   const table = createSolidTable({
@@ -184,19 +203,13 @@ export const CustomPropertiesPage: Component = () => {
           <p class="page-description">{t('custom-properties.list.description')}</p>
         </div>
         <div class="flex items-center gap-2">
-          <SimpleSelect
-            aria-label={t('custom-properties.list.table.entity')}
-            triggerClass="w-48"
-            value={entityTypeFilter() ?? ''}
-            onChange={value => setSearchParams({ entityType: value || undefined })}
-            options={[{ value: '', label: t('custom-properties.entities.all') }, ...CUSTOM_PROPERTY_ENTITY_TYPES.map(entityType => ({ value: entityType, label: t(ENTITY_TYPE_LABEL_I18N_KEYS[entityType]) }))]}
-          />
           <Button as={A} href={createHref()}>
             <div class="i-tabler-plus size-4 mr-2" />
             {t('custom-properties.list.create-button')}
           </Button>
         </div>
       </div>
+      <TableToolbar search={search()} onSearchChange={setSearch} fields={filterFields()} filters={filters()} onFiltersChange={setFilters} />
       <div>
         <Suspense>
           <Show when={query.data && propertyDefinitions()}>

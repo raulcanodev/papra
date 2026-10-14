@@ -1,7 +1,8 @@
 import type { RouteDefinition } from '@solidjs/router';
+import type { ContactRole } from './modules/contacts/contacts.types';
 import type { OrganizationRouteId } from './modules/ui/navigation/organization-navigation';
 import type { OrganizationPlaceholderPageId } from './modules/ui/pages/organization-placeholder.page';
-import { Navigate, useParams } from '@solidjs/router';
+import { Navigate, useParams, useSearchParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { Match, Show, Suspense, Switch } from 'solid-js';
 import { adminRoutes } from './modules/admin/admin.routes';
@@ -18,6 +19,7 @@ import { RegisterPage } from './modules/auth/pages/register.page';
 import { RequestPasswordResetPage } from './modules/auth/pages/request-password-reset.page';
 import { ResetPasswordPage } from './modules/auth/pages/reset-password.page';
 import { CalendarPage } from './modules/calendar/pages/calendar.page';
+import { CONTACT_ROLES } from './modules/contacts/contacts.constants';
 import { ContactsPage } from './modules/contacts/pages/contacts.page';
 import { CreateCustomPropertyPage } from './modules/custom-properties/pages/create-custom-property.page';
 import { CustomPropertiesPage } from './modules/custom-properties/pages/custom-properties-list.page';
@@ -67,7 +69,7 @@ import { QuarterlyTaxesPage } from './modules/taxes/pages/quarterly-taxes.page';
 import { OrganizationSettingsLayout } from './modules/ui/layouts/organization-settings.layout';
 import { OrganizationLayout } from './modules/ui/layouts/organization.layout';
 import { SettingsLayout } from './modules/ui/layouts/settings.layout';
-import { getOrganizationNestedRoutePath, getOrganizationRouteChildHref, getOrganizationRouteHref } from './modules/ui/navigation/organization-navigation';
+import { getOrganizationEntityRoutePath, getOrganizationNestedRoutePath, getOrganizationRouteChildHref, getOrganizationRouteHref } from './modules/ui/navigation/organization-navigation';
 import { OrganizationPlaceholderPage } from './modules/ui/pages/organization-placeholder.page';
 import { UserSettingsPage } from './modules/users/pages/user-settings.page';
 import { CreateWebhookPage } from './modules/webhooks/pages/create-webhook.page';
@@ -81,6 +83,20 @@ function OrganizationRouteRedirect(props: { routeId: OrganizationRouteId; childP
     : getOrganizationRouteHref({ organizationId: params.organizationId, routeId: props.routeId })}${props.search ?? ''}`;
 
   return <Navigate href={href()} />;
+}
+
+// Keeps the old /contacts?role= links working, each role has its own page now
+const CONTACT_ROLE_ROUTE_IDS = {
+  customer: 'customers',
+  supplier: 'suppliers',
+  sales_representative: 'salesRepresentatives',
+} as const satisfies Record<ContactRole, OrganizationRouteId>;
+
+function ContactsRedirect() {
+  const [searchParams] = useSearchParams();
+  const role = () => CONTACT_ROLES.find(contactRole => contactRole === searchParams.role) ?? 'customer';
+
+  return <OrganizationRouteRedirect routeId={CONTACT_ROLE_ROUTE_IDS[role()]} />;
 }
 
 function OrganizationPlaceholder(props: { pageId: OrganizationPlaceholderPageId }) {
@@ -187,7 +203,7 @@ export const routes: RouteDefinition[] = [
                         component: DocumentsPage,
                       },
                       {
-                        path: '/documents/:documentId',
+                        path: getOrganizationEntityRoutePath('document'),
                         component: DocumentPage,
                       },
                       {
@@ -203,7 +219,7 @@ export const routes: RouteDefinition[] = [
                         component: CalendarPage,
                       },
                       {
-                        path: ['/invoicing/invoices/new', '/invoicing/invoices/:invoiceId/edit'],
+                        path: [getOrganizationEntityRoutePath('newInvoice'), getOrganizationEntityRoutePath('editInvoice')],
                         component: CreateInvoicePage,
                       },
                       {
@@ -215,21 +231,33 @@ export const routes: RouteDefinition[] = [
                         component: PurchasesPage,
                       },
                       {
-                        path: ['/invoicing/invoices/received/new', '/invoicing/invoices/received/:purchaseInvoiceId/edit'],
+                        path: [getOrganizationEntityRoutePath('newPurchaseInvoice'), getOrganizationEntityRoutePath('editPurchaseInvoice')],
                         component: PurchaseEditorPage,
                       },
                       {
-                        path: getOrganizationNestedRoutePath('contacts'),
-                        component: ContactsPage,
+                        path: getOrganizationNestedRoutePath('customers'),
+                        component: () => <ContactsPage role="customer" />,
                       },
                       {
-                        // Former customers and sales representatives pages, merged into the contacts
+                        path: getOrganizationNestedRoutePath('suppliers'),
+                        component: () => <ContactsPage role="supplier" />,
+                      },
+                      {
+                        path: getOrganizationNestedRoutePath('salesRepresentatives'),
+                        component: () => <ContactsPage role="sales_representative" />,
+                      },
+                      {
+                        // Former single contacts page with a role filter, and former customers and sales representatives pages
+                        path: '/contacts',
+                        component: ContactsRedirect,
+                      },
+                      {
                         path: '/invoicing/customers',
-                        component: () => <OrganizationRouteRedirect routeId="contacts" search="?role=customer" />,
+                        component: () => <OrganizationRouteRedirect routeId="customers" />,
                       },
                       {
                         path: '/invoicing/sales-representatives',
-                        component: () => <OrganizationRouteRedirect routeId="contacts" search="?role=sales_representative" />,
+                        component: () => <OrganizationRouteRedirect routeId="salesRepresentatives" />,
                       },
                       {
                         path: getOrganizationNestedRoutePath('products'),

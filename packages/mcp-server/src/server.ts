@@ -17,9 +17,10 @@ export function createPapraMcpServer(
   }, {
     instructions: [
       'Use list_organizations before organization-scoped tools when the target is ambiguous.',
-      'Use identifiers returned by Papra instead of guessing them.',
+      'Use search_workspace to turn names the user mentions (a customer, a supplier, an invoice number) into IDs; never guess identifiers.',
       'Read current data before changing it.',
-      'Ask for confirmation before uploads, edits, removals, or other write operations.',
+      'Ask for confirmation before uploads, edits, removals, issuing or emailing invoices, or other write operations.',
+      'For Spanish tax or invoicing questions call get_spanish_tax_reference first, then verify rates, thresholds and deadlines on official sources (AEAT, BOE, Seguridad Social) and get_calendar for current deadlines.',
     ].join(' '),
   });
 

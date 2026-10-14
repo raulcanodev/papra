@@ -3,17 +3,12 @@ import type { Context } from '../app/server.types';
 import { createMiddleware } from 'hono/factory';
 import { getUser } from '../app/auth/auth.models';
 import { createError } from '../shared/errors/errors';
-import { createUsersRepository } from '../users/users.repository';
-import { createFeatureFlagsRepository } from './feature-flags.repository';
+import { userHasFeatureFlag } from './feature-flags.usecases';
 
 export function requireFeatureFlag({ flagId, db }: { flagId: string; db: Database }) {
   return createMiddleware(async (context: Context, next) => {
     const { userId } = getUser({ context });
-    const usersRepository = createUsersRepository({ db });
-    const featureFlagsRepository = createFeatureFlagsRepository({ db });
-
-    const { user } = await usersRepository.getUserByIdOrThrow({ userId });
-    const hasAccess = await featureFlagsRepository.hasFeatureFlag({ flagId, userEmail: user.email });
+    const hasAccess = await userHasFeatureFlag({ userId, flagId, db });
 
     if (!hasAccess) {
       throw createError({

@@ -135,4 +135,22 @@ describe('contacts e2e', () => {
     const forbiddenResponse = await request({ path: `/api/organizations/${OTHER_ORG_ID}/contacts` });
     expect(forbiddenResponse.status).to.eql(403);
   });
+
+  test('an archived contact leaves the address book but its invoices stay readable', async () => {
+    const { request, createContact, createInvoice } = await setupApp();
+
+    const customer = await createContact({ name: 'Acme SL', isCustomer: true });
+    const invoiceResponse = await createInvoice({ customerId: customer.id });
+    const { invoice } = await invoiceResponse.json() as { invoice: { id: string } };
+
+    const archive = await request({ path: `/api/organizations/${ORG_ID}/contacts/${customer.id}`, method: 'DELETE' });
+    expect(archive.status).to.eql(204);
+
+    const list = await request({ path: `/api/organizations/${ORG_ID}/contacts` });
+    expect((await list.json() as { contacts: Contact[] }).contacts).to.eql([]);
+    expect((await request({ path: `/api/organizations/${ORG_ID}/invoicing/invoices/${invoice.id}` })).status).to.eql(200);
+
+    // Archiving twice, or a contact of another organization, is a plain not found
+    expect((await request({ path: `/api/organizations/${ORG_ID}/contacts/${customer.id}`, method: 'DELETE' })).status).to.eql(404);
+  });
 });

@@ -12,6 +12,10 @@ Build the package, then configure your MCP client to run `papra-mcp` with:
 
 The local transport includes `upload_document`, because it is allowed to read a local path. The remote HTTP transport intentionally omits local-file tools.
 
+## Tools
+
+The tools come from the shared catalog (`@papra/tool-catalog`, see its README for the complete list with risk level and API key permission): organizations, workspace search, documents, tags, contacts (customers, suppliers, sales representatives), products and tax rates, issued invoices, received invoices, fiscal profile, quarterly taxes, fiscal calendar and a Spanish tax reference. Each tool needs the matching API key permission, so a key can be limited to read-only.
+
 ## Adding tools
 
-Create a domain module in `src/tools`, export a `ToolRegistrar`, then add it to the `toolModules` list in `src/tools/index.ts`. Keep transport, credentials, and HTTP lifecycle concerns outside tool modules.
+Add the definition to the catalog (`packages/tool-catalog/src/domains`) and register it in `src/catalog.ts`: this server and the in-app assistant both pick it up. Only tools that cannot go through the REST API (like `upload_document`, which reads a local path) live here, in `src/tools`. Keep transport, credentials, and HTTP lifecycle concerns outside tool modules.

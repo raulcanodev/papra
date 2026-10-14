@@ -2,7 +2,7 @@ import type { Component } from 'solid-js';
 import type { SsoProviderConfig } from '../auth.types';
 import { buildUrl } from '@corentinth/chisels';
 import { A, useNavigate } from '@solidjs/router';
-import { createSignal, For, Show } from 'solid-js';
+import { For, Show } from 'solid-js';
 import * as v from 'valibot';
 import { useConfig } from '@/modules/config/config.provider';
 import { useI18n } from '@/modules/i18n/i18n.provider';
@@ -17,6 +17,7 @@ import { authWithProvider, signUp } from '../auth.services';
 import { AuthBackgroundLayout, AuthCard } from '../components/auth-card-layout.component';
 import { AuthLegalLinks } from '../components/legal-links.component';
 import { NoAuthProviderWarning } from '../components/no-auth-provider';
+import { PasswordField } from '../components/password-field.component';
 import { SsoProviderButton } from '../components/sso-provider-button.component';
 
 export const EmailRegisterForm: Component = () => {
@@ -94,7 +95,15 @@ export const EmailRegisterForm: Component = () => {
           <TextFieldRoot class="flex flex-col gap-1 mb-4">
             <TextFieldLabel for="password">{t('auth.register.form.password.label')}</TextFieldLabel>
 
-            <TextField type="password" id="password" placeholder={t('auth.register.form.password.placeholder')} {...inputProps} value={field.value} aria-invalid={Boolean(field.error)} />
+            <PasswordField
+              id="password"
+              placeholder={t('auth.register.form.password.placeholder')}
+              {...inputProps}
+              value={field.value}
+              aria-invalid={Boolean(field.error)}
+              showPasswordLabel={t('auth.password.show')}
+              hidePasswordLabel={t('auth.password.hide')}
+            />
             {field.error && <div class="text-red-500 text-sm">{field.error}</div>}
           </TextFieldRoot>
         )}
@@ -116,7 +125,6 @@ export const RegisterPage: Component = () => {
     return (
       <AuthBackgroundLayout>
         <AuthCard>
-          <p class="text-xs uppercase tracking-[0.16em] font-semibold text-primary mb-3">{t('auth.login.eyebrow')}</p>
           <h1 class="text-3xl font-semibold tracking-[-0.035em]">{t('auth.register.registration-disabled.title')}</h1>
           <p class="text-muted-foreground mt-2 mb-7 leading-6">{t('auth.register.registration-disabled.description')}</p>
 
@@ -132,8 +140,6 @@ export const RegisterPage: Component = () => {
     );
   }
 
-  const [getShowEmailRegister, setShowEmailRegister] = createSignal(false);
-
   const registerWithProvider = async (provider: SsoProviderConfig) => {
     await authWithProvider({ provider, config });
   };
@@ -146,19 +152,11 @@ export const RegisterPage: Component = () => {
     <AuthBackgroundLayout>
       <Show when={!hasNoAuthProviders} fallback={<NoAuthProviderWarning />}>
         <AuthCard>
-          <p class="text-xs uppercase tracking-[0.16em] font-semibold text-primary mb-3">{t('auth.login.eyebrow')}</p>
           <h1 class="text-3xl font-semibold tracking-[-0.035em]">{t('auth.register.title')}</h1>
           <p class="text-muted-foreground mt-2 mb-7 leading-6">{t('auth.register.description')}</p>
 
           <Show when={config.auth.providers.email.isEnabled}>
-            {getShowEmailRegister() || !getHasSsoProviders()
-              ? <EmailRegisterForm />
-              : (
-                  <Button onClick={() => setShowEmailRegister(true)} class="w-full">
-                    <div class="i-tabler-mail mr-2 size-4.5" />
-                    {t('auth.register.register-with-email')}
-                  </Button>
-                )}
+            <EmailRegisterForm />
           </Show>
 
           <Show when={config.auth.providers.email.isEnabled && getHasSsoProviders()}>
@@ -173,7 +171,9 @@ export const RegisterPage: Component = () => {
                     name={provider.name}
                     icon={provider.icon}
                     onClick={() => registerWithProvider(provider)}
-                    label={t('auth.register.register-with-provider', { provider: provider.name })}
+                    label={provider.key === 'google'
+                      ? t('auth.login.login-with-provider', { provider: provider.name })
+                      : t('auth.register.register-with-provider', { provider: provider.name })}
                   />
                 )}
               </For>

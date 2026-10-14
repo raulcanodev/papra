@@ -493,7 +493,7 @@ export function CreateInvoicePage() {
               }
             }}
           >
-            <ContactFormFields value={newCustomer()} onChange={setNewCustomer} autofocus lockedRoles={['customer']} />
+            <ContactFormFields value={newCustomer()} onChange={setNewCustomer} autofocus />
             <SaveButton loading={createCustomerMutation.isPending} editing={false} onCancel={() => setIsCustomerDialogOpen(false)} />
           </form>
         </DialogContent>

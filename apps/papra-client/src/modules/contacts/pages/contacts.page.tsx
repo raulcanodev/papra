@@ -1,6 +1,7 @@
 import type { Contact, ContactInput, ContactRole } from '../contacts.types';
 import type { EntityCustomPropertiesInput } from '@/modules/custom-properties/custom-properties.types';
-import { useParams, useSearchParams } from '@solidjs/router';
+import type { ActiveFilter, FilterField } from '@/modules/ui/components/table-filters';
+import { useParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { EntityCustomPropertiesFields, invalidateEntityCustomProperties } from '@/modules/custom-properties/components/entity-custom-properties-fields.component';
@@ -10,34 +11,41 @@ import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
 import { createToast } from '@/modules/ui/components/sonner';
+import { matchesSelectedFilter, toDistinctFilterOptions } from '@/modules/ui/components/table-filters';
 import { ContactFormFields, emptyContact, toContactInput } from '../components/contact-form';
-import { CONTACT_ROLE_BADGE_CLASSES, CONTACT_ROLE_CUSTOM_PROPERTY_ENTITY_TYPES, CONTACT_ROLE_LABEL_I18N_KEYS, CONTACT_ROLE_PLURAL_LABEL_I18N_KEYS, CONTACT_ROLES, getContactRoles, hasContactRole } from '../contacts.constants';
+import { CONTACT_KIND_LABEL_I18N_KEYS, CONTACT_KINDS, CONTACT_ROLE_BADGE_CLASSES, CONTACT_ROLE_CUSTOM_PROPERTY_ENTITY_TYPES, CONTACT_ROLE_DEFAULT_KINDS, CONTACT_ROLE_FLAGS, CONTACT_ROLE_LABEL_I18N_KEYS, CONTACT_ROLE_PAGE_I18N_KEYS, CONTACT_ROLE_PLURAL_LABEL_I18N_KEYS, getContactRoles, hasContactRole, normalizeTaxId } from '../contacts.constants';
 import { createContact, fetchContacts, getContactsQueryKey, updateContact } from '../contacts.services';
 
-export function ContactsPage() {
+/** The contacts of one role (customers, suppliers or sales representatives), the role and kind of new contacts come from the page */
+export function ContactsPage(props: { role: ContactRole }) {
   const { t } = useI18n();
   const params = useParams();
-  const [searchParams, setSearchParams] = useSearchParams();
 
   const [value, setValue] = createSignal<ContactInput>(emptyContact());
   const [customProperties, setCustomProperties] = createSignal<EntityCustomPropertiesInput>({});
   const [editingId, setEditingId] = createSignal<string | null>(null);
   const [formOpen, setFormOpen] = createSignal(false);
   const [search, setSearch] = createSignal('');
+  const [filters, setFilters] = createSignal<ActiveFilter[]>([]);
 
-  // One listing for every tab, the role filter is applied client side so switching tabs is instant
+  // One cached listing shared by the three pages, switching between them is instant
   const query = useQuery(() => ({ queryKey: getContactsQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchContacts({ organizationId: params.organizationId }) }));
 
-  const roleFilter = () => CONTACT_ROLES.find(role => role === searchParams.role);
   const contacts = () => query.data?.contacts ?? [];
-  const countFor = (role?: ContactRole) => (role ? contacts().filter(contact => hasContactRole({ contact, role })).length : contacts().length);
+  const pageI18nKeys = () => CONTACT_ROLE_PAGE_I18N_KEYS[props.role];
+
+  const roleContacts = createMemo(() => contacts().filter(contact => hasContactRole({ contact, role: props.role })));
+
+  const filterFields = createMemo((): FilterField[] => [
+    { id: 'kind', type: 'multi-select', label: t('contacts.filter.kind'), icon: 'i-tabler-building', options: CONTACT_KINDS.map(kind => ({ value: kind, label: t(CONTACT_KIND_LABEL_I18N_KEYS[kind]) })) },
+    { id: 'country', type: 'multi-select', label: t('invoicing.common.country'), icon: 'i-tabler-world', options: toDistinctFilterOptions(roleContacts(), contact => (contact.country ? { value: contact.country, label: contact.country } : null)) },
+  ]);
 
   const rows = createMemo(() => {
     const term = search().trim().toLowerCase();
-    const role = roleFilter();
 
-    return contacts()
-      .filter(contact => !role || hasContactRole({ contact, role }))
+    return roleContacts()
+      .filter(contact => matchesSelectedFilter(filters(), 'kind', contact.kind) && matchesSelectedFilter(filters(), 'country', contact.country))
       .filter(contact => `${contact.name} ${contact.email ?? ''} ${contact.taxId ?? ''} ${contact.phone ?? ''}`.toLowerCase().includes(term));
   });
 
@@ -49,8 +57,7 @@ export function ContactsPage() {
   };
 
   const openNew = () => {
-    const role = roleFilter();
-    setValue(emptyContact({ isCustomer: role === undefined || role === 'customer', isSupplier: role === 'supplier', isSalesRepresentative: role === 'sales_representative', kind: role === 'sales_representative' ? 'person' : 'company' }));
+    setValue(emptyContact({ kind: CONTACT_ROLE_DEFAULT_KINDS[props.role], [CONTACT_ROLE_FLAGS[props.role]]: true }));
     setCustomProperties({});
     setEditingId(null);
     setFormOpen(true);
@@ -63,57 +70,64 @@ export function ContactsPage() {
     setFormOpen(true);
   };
 
+  // A new contact with the tax id of an existing one (a customer that is also a supplier) gets the role added instead of a duplicate
+  const findExistingByTaxId = (taxId: string | null) => {
+    const normalized = normalizeTaxId({ taxId });
+
+    return normalized === null ? undefined : contacts().find(contact => normalizeTaxId({ taxId: contact.taxId }) === normalized);
+  };
+
   const mutation = createMutation(() => ({
     mutationFn: async () => {
-      const contact = { ...value(), customProperties: customProperties() };
       const contactId = editingId();
 
-      return contactId === null
-        ? createContact({ organizationId: params.organizationId, contact })
-        : updateContact({ organizationId: params.organizationId, contactId, contact });
+      if (contactId !== null) {
+        await updateContact({ organizationId: params.organizationId, contactId, contact: { ...value(), customProperties: customProperties() } });
+        return { addedRoleTo: null };
+      }
+
+      const existing = findExistingByTaxId(value().taxId);
+
+      if (existing !== undefined) {
+        await updateContact({ organizationId: params.organizationId, contactId: existing.id, contact: { ...toContactInput(existing), [CONTACT_ROLE_FLAGS[props.role]]: true, customProperties: customProperties() } });
+        return { addedRoleTo: existing.name };
+      }
+
+      await createContact({ organizationId: params.organizationId, contact: { ...value(), customProperties: customProperties() } });
+      return { addedRoleTo: null };
     },
-    onSuccess: async () => {
+    onSuccess: async ({ addedRoleTo }) => {
       reset();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: getContactsQueryKey({ organizationId: params.organizationId }) }),
-        ...CONTACT_ROLES.map(async role => invalidateEntityCustomProperties({ organizationId: params.organizationId, entityType: CONTACT_ROLE_CUSTOM_PROPERTY_ENTITY_TYPES[role] })),
+        invalidateEntityCustomProperties({ organizationId: params.organizationId, entityType: CONTACT_ROLE_CUSTOM_PROPERTY_ENTITY_TYPES[props.role] }),
       ]);
-      createToast({ type: 'success', message: t('contacts.toast.saved') });
+      createToast({
+        type: 'success',
+        message: addedRoleTo === null
+          ? t('contacts.toast.saved')
+          : t('contacts.toast.role-added', { name: addedRoleTo, role: t(CONTACT_ROLE_LABEL_I18N_KEYS[props.role]).toLowerCase() }),
+      });
     },
     onError: () => createToast({ type: 'error', message: t('contacts.toast.error') }),
   }));
 
   return (
     <CatalogPage
-      title={t('contacts.title')}
-      description={t('contacts.description')}
-      actionLabel={t('contacts.new')}
+      title={t(CONTACT_ROLE_PLURAL_LABEL_I18N_KEYS[props.role])}
+      description={t(pageI18nKeys().description)}
+      actionLabel={t(pageI18nKeys().new)}
       formOpen={formOpen()}
       onFormOpenChange={open => (open ? openNew() : reset())}
       editing={editingId() !== null}
-      editLabel={t('contacts.edit')}
+      editLabel={t(pageI18nKeys().edit)}
       search={search()}
       onSearchChange={setSearch}
+      filterFields={filterFields()}
+      filters={filters()}
+      onFiltersChange={setFilters}
       loading={query.isLoading}
       empty={rows().length === 0}
-      filter={(
-        <div class="flex max-w-full shrink-0 gap-1 overflow-x-auto rounded-lg border p-0.5" role="tablist" aria-label={t('contacts.filter.label')}>
-          <For each={[undefined, ...CONTACT_ROLES] as const}>
-            {role => (
-              <button
-                type="button"
-                role="tab"
-                aria-selected={roleFilter() === role}
-                class={cn('flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1 text-sm transition-colors', roleFilter() === role ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
-                onClick={() => setSearchParams({ role })}
-              >
-                {role ? t(CONTACT_ROLE_PLURAL_LABEL_I18N_KEYS[role]) : t('contacts.filter.all')}
-                <span class="text-xs tabular-nums opacity-70">{countFor(role)}</span>
-              </button>
-            )}
-          </For>
-        </div>
-      )}
       form={(
         <form
           class="grid gap-4 sm:grid-cols-2"
@@ -125,24 +139,18 @@ export function ContactsPage() {
           }}
         >
           <ContactFormFields value={value()} onChange={setValue} autofocus />
-          {/* One section per role, each role has its own custom fields */}
-          <For each={getContactRoles({ contact: value() })}>
-            {role => (
-              <EntityCustomPropertiesFields
-                organizationId={params.organizationId}
-                entityType={CONTACT_ROLE_CUSTOM_PROPERTY_ENTITY_TYPES[role]}
-                entityId={editingId()}
-                value={customProperties()}
-                onChange={setCustomProperties}
-                title={t('contacts.form.role-fields', { role: t(CONTACT_ROLE_LABEL_I18N_KEYS[role]) })}
-              />
-            )}
-          </For>
+          <EntityCustomPropertiesFields
+            organizationId={params.organizationId}
+            entityType={CONTACT_ROLE_CUSTOM_PROPERTY_ENTITY_TYPES[props.role]}
+            entityId={editingId()}
+            value={customProperties()}
+            onChange={setCustomProperties}
+          />
           <SaveButton loading={mutation.isPending} editing={editingId() !== null} onCancel={reset} />
         </form>
       )}
     >
-      <CatalogTable headers={[{ label: t('contacts.table.contact') }, { label: t('contacts.table.roles') }, { label: t('invoicing.common.tax-id') }, { label: t('contacts.table.location') }, { label: '', class: 'w-16' }]}>
+      <CatalogTable headers={[{ label: t('contacts.table.contact') }, { label: t('invoicing.common.tax-id') }, { label: t('contacts.table.location') }, { label: '', class: 'w-16' }]}>
         <For each={rows()}>
           {contact => (
             <CatalogRow onClick={() => edit(contact)}>
@@ -152,16 +160,15 @@ export function ContactsPage() {
                     <div class={cn(contact.kind === 'company' ? 'i-tabler-building' : 'i-tabler-user', 'size-4')} />
                   </span>
                   <div class="min-w-0">
-                    <div class="truncate font-medium">{contact.name}</div>
+                    <div class="flex items-center gap-1.5">
+                      <span class="truncate font-medium">{contact.name}</span>
+                      {/* The other roles of the contact, so a customer that is also a supplier is recognizable */}
+                      <For each={getContactRoles({ contact }).filter(role => role !== props.role)}>
+                        {role => <span class={cn('shrink-0 whitespace-nowrap rounded-full px-1.5 py-px text-[11px] font-medium', CONTACT_ROLE_BADGE_CLASSES[role])}>{t(CONTACT_ROLE_LABEL_I18N_KEYS[role])}</span>}
+                      </For>
+                    </div>
                     <div class="truncate text-xs text-muted-foreground">{contact.email || contact.phone || t('contacts.no-contact-details')}</div>
                   </div>
-                </div>
-              </CatalogCell>
-              <CatalogCell>
-                <div class="flex flex-wrap gap-1">
-                  <For each={getContactRoles({ contact })} fallback={<span class="text-xs text-muted-foreground">—</span>}>
-                    {role => <span class={cn('whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium', CONTACT_ROLE_BADGE_CLASSES[role])}>{t(CONTACT_ROLE_LABEL_I18N_KEYS[role])}</span>}
-                  </For>
                 </div>
               </CatalogCell>
               <CatalogCell class="text-muted-foreground">{contact.taxId || '—'}</CatalogCell>
@@ -172,7 +179,7 @@ export function ContactsPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label={t('contacts.edit')}
+                  aria-label={t(pageI18nKeys().edit)}
                   onClick={(event) => {
                     event.stopPropagation();
                     edit(contact);

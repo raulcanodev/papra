@@ -15,7 +15,7 @@ const calendarQuerySchema = z.object({
 });
 
 export function registerCalendarRoutes({ app, db }: RouteDefinitionContext) {
-  app.get('/api/organizations/:organizationId/calendar', requireAuthentication(), legacyValidateParams(z.object({ organizationId: organizationIdSchema })), legacyValidateQuery(calendarQuerySchema), async (context) => {
+  app.get('/api/organizations/:organizationId/calendar', requireAuthentication({ apiKeyPermissions: ['calendar:read'] }), legacyValidateParams(z.object({ organizationId: organizationIdSchema })), legacyValidateQuery(calendarQuerySchema), async (context) => {
     const { organizationId } = context.req.valid('param');
     const { year, locale } = context.req.valid('query');
     const { userId } = getUser({ context });

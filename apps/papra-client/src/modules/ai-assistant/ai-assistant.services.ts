@@ -1,3 +1,4 @@
+import type { PageContext } from './page-context/build-page-context';
 import { buildTimeConfig, isDemoMode } from '../config/config';
 import { apiClient } from '../shared/http/api-client';
 
@@ -8,6 +9,12 @@ export type ToolConfirmation = {
   args: Record<string, unknown>;
   status: 'pending' | 'approved' | 'rejected';
   result?: unknown;
+};
+
+export type NavigationRequest = {
+  path: string;
+  label: string | null;
+  reason: string | null;
 };
 
 export type WebSource = {
@@ -127,17 +134,20 @@ function serializeMessages(messages: ChatMessage[]): Array<{ role: string; conte
   });
 }
 
-export async function streamChatMessage({ organizationId, messages, model, sessionId, onChunk, onThinking, onToolConfirmation, onToolActivity, onToolDone, onWebSources, onSessionId, signal }: {
+export async function streamChatMessage({ organizationId, messages, model, sessionId, onChunk, onThinking, onToolConfirmation, onToolActivity, onToolDone, onWebSources, onNavigate, onSessionId, pageContext, signal }: {
   organizationId: string;
   messages: ChatMessage[];
   model?: string;
   sessionId?: string;
+  /** Where the user is and what is on screen, so the assistant answers about it */
+  pageContext?: PageContext;
   onChunk: (text: string) => void;
   onThinking?: (text: string) => void;
   onToolConfirmation?: (confirmation: ToolConfirmation) => void;
   onToolActivity?: (toolName: string) => void;
   onToolDone?: (toolName: string) => void;
   onWebSources?: (sources: WebSource[]) => void;
+  onNavigate?: (navigation: NavigationRequest) => void;
   onSessionId?: (id: string) => void;
   signal?: AbortSignal;
 }) {
@@ -151,7 +161,7 @@ export async function streamChatMessage({ organizationId, messages, model, sessi
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ messages: serializeMessages(messages), model, sessionId }),
+    body: JSON.stringify({ messages: serializeMessages(messages), model, sessionId, pageContext }),
     signal,
   });
 
@@ -227,6 +237,11 @@ export async function streamChatMessage({ organizationId, messages, model, sessi
             }
             break;
           }
+          case 'n': // The assistant takes the user to another page
+            if (onNavigate) {
+              onNavigate(data as NavigationRequest);
+            }
+            break;
           case 'a': { // Tool confirmation
             const conf = data as { toolCallId: string; toolName: string; description: string; args: Record<string, unknown> };
             if (conf.toolName && onToolConfirmation) {

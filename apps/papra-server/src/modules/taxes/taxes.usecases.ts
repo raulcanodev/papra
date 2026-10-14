@@ -65,7 +65,8 @@ export async function buildQuarterlyTaxReport({ organizationId, year, quarter, s
       quarter,
       currency,
       period: { start: period.start, end: period.end },
-      profile: { ...profile, isConfigured: storedProfile !== null && storedProfile.legalForm !== null },
+      // The accountant email prefills the send dialog
+      profile: { ...profile, isConfigured: storedProfile !== null && storedProfile.legalForm !== null, accountantEmail: storedProfile?.accountantEmail ?? null },
       ...taxes,
       corporateTax202: getCorporateTaxInstalments({ year, rules, lastCorporateTaxQuotaMinor: profile.lastCorporateTaxQuotaMinor }),
       deadlines: (['303', '130', '111', '115'] as const).map(model => ({ model, dueDate: getQuarterlyDeadline({ model, year, quarter, rules }) })),

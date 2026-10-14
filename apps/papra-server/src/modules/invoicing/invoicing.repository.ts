@@ -19,6 +19,8 @@ export function createInvoicingRepository({ db }: { db: Database }) {
     listProducts: async (args: { organizationId: string }) => listProducts({ db, ...args }),
     createProduct: async (args: { organizationId: string; product: ProductInput }) => createProduct({ db, ...args }),
     updateProduct: async (args: { organizationId: string; productId: string; product: ProductInput }) => updateProduct({ db, ...args }),
+    archiveProduct: async (args: { organizationId: string; productId: string }) => archiveCatalogItem({ db, table: invoicingProductsTable, organizationId: args.organizationId, id: args.productId }),
+    archiveTaxRate: async (args: { organizationId: string; taxRateId: string }) => archiveCatalogItem({ db, table: invoicingTaxRatesTable, organizationId: args.organizationId, id: args.taxRateId }),
     listTaxRates: async (args: { organizationId: string }) => listTaxRates({ db, ...args }),
     createTaxRate: async (args: { organizationId: string; taxRate: TaxRateInput }) => createTaxRate({ db, ...args }),
     updateTaxRate: async (args: { organizationId: string; taxRateId: string; taxRate: TaxRateInput }) => updateTaxRate({ db, ...args }),
@@ -315,5 +317,18 @@ async function deleteDraft({ db, organizationId, invoiceId }: { db: Database; or
     .returning();
   if (!deleted) {
     throw createInvoiceNotEditableError();
+  }
+}
+
+// Catalog entries (products, tax rates) are archived: the invoices already written keep their own copy of the values
+async function archiveCatalogItem({ db, table, organizationId, id }: { db: Database; table: typeof invoicingProductsTable | typeof invoicingTaxRatesTable; organizationId: string; id: string }) {
+  const [archived] = await db
+    .update(table)
+    .set({ archivedAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(table.id, id), eq(table.organizationId, organizationId), isNull(table.archivedAt)))
+    .returning({ id: table.id });
+
+  if (!archived) {
+    throw createInvoiceNotFoundError();
   }
 }

@@ -86,4 +86,12 @@ describe('dashboard repository', () => {
     expect(metrics.outstanding).to.eql({ totalMinor: 0, count: 0, overdueTotalMinor: 0, overdueCount: 0 });
     expect(metrics.customers.total).to.eql(0);
   });
+
+  test('can calculate the dashboard for a selected year', async () => {
+    const { db } = await createInMemoryDatabase({ organizations: [{ id: ORG_ID, name: 'Acme' }] });
+
+    const { metrics } = await createDashboardRepository({ db }).getOrganizationMetrics({ organizationId: ORG_ID, now: NOW, year: 2025 });
+
+    expect(metrics.year).to.eql(2025);
+  });
 });

@@ -1,17 +1,22 @@
 import type { ComponentProps } from 'solid-js';
+import type { TableToolbarProps } from './table-toolbar';
 import { splitProps } from 'solid-js';
 import { cn } from '@/modules/shared/style/cn';
+import { TableToolbar } from './table-toolbar';
 
-export function Table(props: ComponentProps<'table'>) {
-  const [local, rest] = splitProps(props, ['class']);
+export function Table(props: ComponentProps<'table'> & { toolbar?: TableToolbarProps }) {
+  const [local, rest] = splitProps(props, ['class', 'toolbar']);
 
   return (
-    <div class="w-full overflow-auto">
-      <table
-        class={cn('w-full caption-bottom text-sm text-nowrap', local.class)}
-        {...rest}
-      />
-    </div>
+    <>
+      {local.toolbar && <TableToolbar {...local.toolbar} />}
+      <div class="w-full overflow-auto">
+        <table
+          class={cn('w-full caption-bottom text-sm text-nowrap', local.class)}
+          {...rest}
+        />
+      </div>
+    </>
   );
 }
 

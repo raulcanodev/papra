@@ -1,4 +1,5 @@
 import type { PurchaseInvoice, PurchaseInvoiceStatus } from '../purchases.types';
+import type { ActiveFilter, FilterField } from '@/modules/ui/components/table-filters';
 import { A, useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For, Show } from 'solid-js';
@@ -11,7 +12,8 @@ import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
 import { createToast } from '@/modules/ui/components/sonner';
-import { TextField } from '@/modules/ui/components/textfield';
+import { dateIsInRange, getActiveFilter, isDateRangeValue } from '@/modules/ui/components/table-filters';
+import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
 import { EXPENSE_CATEGORY_LABEL_I18N_KEYS, EXTRACTABLE_FILE_ACCEPT, PURCHASE_STATUS_BADGE_CLASSES, PURCHASE_STATUS_LABEL_I18N_KEYS } from '../purchases.constants';
 import { fetchPurchaseInvoices, getPurchaseInvoicesQueryKey, setPurchaseInvoiceStatus } from '../purchases.services';
@@ -22,20 +24,43 @@ export function PurchasesPage() {
   const { t, getLocale, formatDate } = useI18n();
   const params = useParams();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [search, setSearch] = createSignal('');
+  const initialStatus = STATUS_FILTERS.find(status => status !== undefined && status === searchParams.status);
+  const [filters, setFilters] = createSignal<ActiveFilter[]>(initialStatus ? [{ fieldId: 'status', value: [initialStatus] }] : []);
   const [isUploading, setIsUploading] = createSignal(false);
   let fileInput: HTMLInputElement | undefined;
 
   const query = useQuery(() => ({ queryKey: getPurchaseInvoicesQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchPurchaseInvoices({ organizationId: params.organizationId }) }));
 
-  const statusFilter = () => STATUS_FILTERS.find(status => status !== undefined && status === searchParams.status);
+  const filterFields = createMemo((): FilterField[] => [
+    {
+      id: 'status',
+      type: 'multi-select',
+      label: t('purchases.filter.label'),
+      icon: 'i-tabler-progress-check',
+      options: STATUS_FILTERS.filter((status): status is PurchaseInvoiceStatus => status !== undefined).map(status => ({ value: status, label: t(PURCHASE_STATUS_LABEL_I18N_KEYS[status]) })),
+    },
+    {
+      id: 'category',
+      type: 'multi-select',
+      label: t('purchases.table.category'),
+      icon: 'i-tabler-category',
+      options: Object.entries(EXPENSE_CATEGORY_LABEL_I18N_KEYS).map(([value, key]) => ({ value, label: t(key) })),
+    },
+    { id: 'date', type: 'date-range', label: t('purchases.table.date'), icon: 'i-tabler-calendar' },
+  ]);
   const purchaseInvoices = () => query.data?.purchaseInvoices ?? [];
   const rows = createMemo(() => {
     const term = search().trim().toLowerCase();
+    const statuses = getActiveFilter(filters(), 'status')?.value;
+    const categories = getActiveFilter(filters(), 'category')?.value;
+    const dateRange = getActiveFilter(filters(), 'date')?.value;
 
     return purchaseInvoices()
-      .filter(purchaseInvoice => !statusFilter() || purchaseInvoice.status === statusFilter())
+      .filter(purchaseInvoice => !Array.isArray(statuses) || statuses.length === 0 || statuses.includes(purchaseInvoice.status))
+      .filter(purchaseInvoice => !Array.isArray(categories) || categories.length === 0 || categories.includes(purchaseInvoice.category))
+      .filter(purchaseInvoice => !isDateRangeValue(dateRange) || dateIsInRange(purchaseInvoice.issueDate, dateRange))
       .filter(purchaseInvoice => `${purchaseInvoice.supplierName ?? ''} ${purchaseInvoice.number} ${purchaseInvoice.supplierTaxId ?? ''}`.toLowerCase().includes(term));
   });
 
@@ -109,27 +134,7 @@ export function PurchasesPage() {
 
       <InvoicesTabs />
 
-      <div class="mb-3 flex flex-wrap items-center gap-2">
-        <div class="relative w-full max-w-sm">
-          <div class="i-tabler-search absolute left-3 top-2.5 size-4 text-muted-foreground" />
-          <TextField value={search()} onInput={event => setSearch(event.currentTarget.value)} placeholder={t('invoicing.common.search')} class="pl-9" />
-        </div>
-        <div class="flex gap-1 rounded-lg border p-0.5" role="tablist" aria-label={t('purchases.filter.label')}>
-          <For each={STATUS_FILTERS}>
-            {status => (
-              <button
-                type="button"
-                role="tab"
-                aria-selected={statusFilter() === status}
-                class={cn('whitespace-nowrap rounded-md px-2.5 py-1 text-sm transition-colors', statusFilter() === status ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
-                onClick={() => setSearchParams({ status })}
-              >
-                {status ? t(PURCHASE_STATUS_LABEL_I18N_KEYS[status]) : t('purchases.filter.all')}
-              </button>
-            )}
-          </For>
-        </div>
-      </div>
+      <TableToolbar search={search()} onSearchChange={setSearch} searchPlaceholder={t('invoicing.common.search')} fields={filterFields()} filters={filters()} onFiltersChange={setFilters} />
 
       <Show
         when={query.isLoading || rows().length > 0}

@@ -27,7 +27,7 @@ export function registerPurchasesRoutes(context: RouteDefinitionContext) {
 function setupListPurchaseInvoicesRoute({ app, db }: RouteDefinitionContext) {
   app.get(
     '/api/organizations/:organizationId/purchases',
-    requireAuthentication(),
+    requireAuthentication({ apiKeyPermissions: ['purchases:read'] }),
     legacyValidateParams(organizationParamsSchema),
     legacyValidateQuery(purchaseInvoiceListQuerySchema),
     async (context) => {
@@ -47,7 +47,7 @@ function setupListPurchaseInvoicesRoute({ app, db }: RouteDefinitionContext) {
 function setupGetPurchaseInvoiceRoute({ app, db }: RouteDefinitionContext) {
   app.get(
     '/api/organizations/:organizationId/purchases/:purchaseInvoiceId',
-    requireAuthentication(),
+    requireAuthentication({ apiKeyPermissions: ['purchases:read'] }),
     legacyValidateParams(purchaseInvoiceParamsSchema),
     async (context) => {
       const { userId } = getUser({ context });
@@ -69,7 +69,7 @@ function setupGetPurchaseInvoiceRoute({ app, db }: RouteDefinitionContext) {
 function setupCreatePurchaseInvoiceRoute({ app, db }: RouteDefinitionContext) {
   app.post(
     '/api/organizations/:organizationId/purchases',
-    requireAuthentication(),
+    requireAuthentication({ apiKeyPermissions: ['purchases:create'] }),
     legacyValidateParams(organizationParamsSchema),
     legacyValidateJsonBody(purchaseInvoiceDraftSchema),
     async (context) => {
@@ -89,7 +89,7 @@ function setupCreatePurchaseInvoiceRoute({ app, db }: RouteDefinitionContext) {
 function setupUpdatePurchaseInvoiceRoute({ app, db }: RouteDefinitionContext) {
   app.put(
     '/api/organizations/:organizationId/purchases/:purchaseInvoiceId',
-    requireAuthentication(),
+    requireAuthentication({ apiKeyPermissions: ['purchases:update'] }),
     legacyValidateParams(purchaseInvoiceParamsSchema),
     legacyValidateJsonBody(purchaseInvoiceDraftSchema),
     async (context) => {
@@ -109,7 +109,7 @@ function setupUpdatePurchaseInvoiceRoute({ app, db }: RouteDefinitionContext) {
 function setupSetPurchaseInvoiceStatusRoute({ app, db }: RouteDefinitionContext) {
   app.patch(
     '/api/organizations/:organizationId/purchases/:purchaseInvoiceId/status',
-    requireAuthentication(),
+    requireAuthentication({ apiKeyPermissions: ['purchases:update'] }),
     legacyValidateParams(purchaseInvoiceParamsSchema),
     legacyValidateJsonBody(purchaseInvoiceStatusBodySchema),
     async (context) => {
@@ -129,7 +129,7 @@ function setupSetPurchaseInvoiceStatusRoute({ app, db }: RouteDefinitionContext)
 function setupDeletePurchaseInvoiceRoute({ app, db }: RouteDefinitionContext) {
   app.delete(
     '/api/organizations/:organizationId/purchases/:purchaseInvoiceId',
-    requireAuthentication(),
+    requireAuthentication({ apiKeyPermissions: ['purchases:delete'] }),
     legacyValidateParams(purchaseInvoiceParamsSchema),
     async (context) => {
       const { userId } = getUser({ context });
@@ -147,7 +147,7 @@ function setupDeletePurchaseInvoiceRoute({ app, db }: RouteDefinitionContext) {
 function setupExtractPurchaseInvoiceRoute({ app, db, config, documentsStorageService }: RouteDefinitionContext) {
   app.post(
     '/api/organizations/:organizationId/purchases/extract',
-    requireAuthentication(),
+    requireAuthentication({ apiKeyPermissions: ['purchases:create'] }),
     legacyValidateParams(organizationParamsSchema),
     legacyValidateJsonBody(purchaseInvoiceExtractionBodySchema),
     async (context) => {

@@ -1,9 +1,10 @@
 import type { Component } from 'solid-js';
 import type { OrganizationInvitation, OrganizationInvitationStatus, OrganizationMemberRole } from '../organizations.types';
+import type { ActiveFilter, FilterField } from '@/modules/ui/components/table-filters';
 import { A, useNavigate, useParams } from '@solidjs/router';
 import { useMutation, useQuery } from '@tanstack/solid-query';
 import { createSolidTable, flexRender, getCoreRowModel, getPaginationRowModel } from '@tanstack/solid-table';
-import { For, Match, onMount, Show, Switch } from 'solid-js';
+import { createMemo, createSignal, For, Match, onMount, Show, Switch } from 'solid-js';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cancelInvitation, resendInvitation } from '@/modules/invitations/invitations.services';
@@ -13,9 +14,11 @@ import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { EmptyState } from '@/modules/ui/components/empty';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
+import { matchesSelectedFilter } from '@/modules/ui/components/table-filters';
+import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
 import { useCurrentUserRole } from '../organizations.composables';
-import { ORGANIZATION_INVITATION_STATUS } from '../organizations.constants';
+import { ORGANIZATION_INVITATION_STATUS, ORGANIZATION_INVITATION_STATUS_LIST, ORGANIZATION_ROLES_LIST } from '../organizations.constants';
 import { fetchOrganizationInvitations } from '../organizations.services';
 
 const InvitationStatusBadge: Component<{ status: OrganizationInvitationStatus }> = (props) => {
@@ -134,9 +137,26 @@ const InvitationsList: Component = () => {
     queryFn: () => fetchOrganizationInvitations({ organizationId: params.organizationId }),
   }));
 
+  const [search, setSearch] = createSignal('');
+  const [filters, setFilters] = createSignal<ActiveFilter[]>([]);
+  // Accepted invitations are members already, they are listed in the members page
+  const listedStatuses = ORGANIZATION_INVITATION_STATUS_LIST.filter(status => status !== ORGANIZATION_INVITATION_STATUS.ACCEPTED);
+  const filterFields = createMemo((): FilterField[] => [
+    { id: 'status', type: 'multi-select', label: t('invitations.list.headers.status'), icon: 'i-tabler-progress-check', options: listedStatuses.map(status => ({ value: status, label: t(`organizations.invitations.status.${status}`) })) },
+    { id: 'role', type: 'multi-select', label: t('organizations.members.table.headers.role'), icon: 'i-tabler-shield', options: ORGANIZATION_ROLES_LIST.map(role => ({ value: role, label: t(`organizations.members.roles.${role}`) })) },
+  ]);
+  const invitations = createMemo(() => {
+    const term = search().trim().toLocaleLowerCase();
+
+    return (query.data?.invitations ?? [])
+      .filter(invitation => (listedStatuses as OrganizationInvitationStatus[]).includes(invitation.status))
+      .filter(invitation => matchesSelectedFilter(filters(), 'status', invitation.status) && matchesSelectedFilter(filters(), 'role', invitation.role))
+      .filter(invitation => invitation.email.toLocaleLowerCase().includes(term));
+  });
+
   const table = createSolidTable({
     get data() {
-      return query.data?.invitations.filter(invitation => !([ORGANIZATION_INVITATION_STATUS.ACCEPTED] as OrganizationInvitationStatus[]).includes(invitation.status)) ?? [];
+      return invitations();
     },
     columns: [
       { header: t('organizations.members.table.headers.email'), accessorKey: 'email' },
@@ -183,6 +203,7 @@ const InvitationsList: Component = () => {
       </Show>
 
       <Show when={query.data?.invitations.length}>
+        <TableToolbar search={search()} onSearchChange={setSearch} fields={filterFields()} filters={filters()} onFiltersChange={setFilters} />
         <Table>
           <TableHeader>
             <For each={table.getHeaderGroups()}>
