@@ -28,6 +28,7 @@ import {
 import { findMany, getValues } from './demo.storage.models';
 import { contactsHandlers, getDemoContact, getDemoEntityCustomPropertyValues, getDemoInvoicingRecords, invoicingHandlers } from './invoicing/demo-invoicing';
 import { miscHandlers } from './misc/demo-misc';
+import { buildDemoExtraction, purchasesHandlers } from './purchases/demo-purchases';
 import { generatePropertyKey, searchDemoDocuments } from './search/demo.search.services';
 import { demoUser } from './seed/users.fixtures';
 
@@ -160,6 +161,20 @@ let demoOnboardingStep: string | null = null;
 const inMemoryApiMock: Record<string, { handler: any }> = {
   ...invoicingHandlers,
   ...contactsHandlers,
+  ...purchasesHandlers,
+
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/purchases/extract',
+    method: 'POST',
+    handler: async ({ params: { organizationId }, body }) => {
+      const documentId = get(body, ['documentId']) as string;
+      const document = await documentStorage.getItem(`${organizationId}:${documentId}`);
+
+      assert(document, { status: 404 });
+
+      return buildDemoExtraction({ documentId });
+    },
+  }),
   ...aiHandlers,
   ...miscHandlers,
 

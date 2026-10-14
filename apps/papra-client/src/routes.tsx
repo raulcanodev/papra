@@ -53,6 +53,8 @@ import { MembersPage } from './modules/organizations/pages/members.page';
 import { OrganizationUsagePage } from './modules/organizations/pages/organization-usage.page';
 import { OrganizationsSettingsPage } from './modules/organizations/pages/organizations-settings.page';
 import { OrganizationsPage } from './modules/organizations/pages/organizations.page';
+import { PurchaseEditorPage } from './modules/purchases/pages/purchase-editor.page';
+import { PurchasesPage } from './modules/purchases/pages/purchases.page';
 import { AboutPage } from './modules/shared/pages/about.page';
 import { NotFoundPage } from './modules/shared/pages/not-found.page';
 import { CheckoutCancelPage } from './modules/subscriptions/pages/checkout-cancel.page';
@@ -202,6 +204,14 @@ export const routes: RouteDefinition[] = [
                       {
                         path: ['/invoicing/invoices/new', '/invoicing/invoices/:invoiceId/edit'],
                         component: CreateInvoicePage,
+                      },
+                      {
+                        path: getOrganizationNestedRoutePath('purchases'),
+                        component: PurchasesPage,
+                      },
+                      {
+                        path: ['/invoicing/invoices/received/new', '/invoicing/invoices/received/:purchaseInvoiceId/edit'],
+                        component: PurchaseEditorPage,
                       },
                       {
                         path: getOrganizationNestedRoutePath('contacts'),

@@ -10,6 +10,7 @@ import { DocumentCustomPropertiesPanel } from '@/modules/custom-properties/compo
 import { fetchCustomPropertyDefinitions } from '@/modules/custom-properties/custom-properties.services';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
+import { EXTRACTABLE_FILE_ACCEPT } from '@/modules/purchases/purchases.constants';
 import { downloadFile } from '@/modules/shared/files/download';
 import { DocumentTagsList } from '@/modules/tags/components/tag-list.component';
 import { TagLink } from '@/modules/tags/components/tag.component';
@@ -18,6 +19,7 @@ import { Button } from '@/modules/ui/components/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/modules/ui/components/dropdown-menu';
 import { Separator } from '@/modules/ui/components/separator';
 import { Tabs, TabsContent, TabsIndicator, TabsList, TabsTrigger } from '@/modules/ui/components/tabs';
+import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
 import { DocumentContentEditionPanel } from '../components/document-content-edition-panel.component';
 import { DocumentDatePicker } from '../components/document-date-picker.component';
 import { DocumentPreview } from '../components/document-preview.component';
@@ -241,6 +243,19 @@ export const DocumentPage: Component = () => {
                     </Button>
 
                     <DocumentOpenWithDropdown document={getDocument()} organizationId={params.organizationId} />
+
+                    {/* A received invoice (forwarded by email, uploaded...) becomes an expense reviewed in the purchase editor */}
+                    <Show when={!getDocument().isDeleted && (EXTRACTABLE_FILE_ACCEPT.split(',') as string[]).includes(getDocument().mimeType)}>
+                      <Button
+                        as={A}
+                        variant="outline"
+                        size="sm"
+                        href={`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath: 'new' })}?documentId=${getDocument().id}`}
+                      >
+                        <div class="i-tabler-file-invoice size-4 mr-2" />
+                        {t('purchases.actions.register-expense')}
+                      </Button>
+                    </Show>
 
                     {getDocument().isDeleted
                       ? (

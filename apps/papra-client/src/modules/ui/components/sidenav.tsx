@@ -19,6 +19,8 @@ export type SideNavMenuItem = {
   onClick?: () => void;
   badge?: JSX.Element;
   children?: SideNavSubMenuItem[];
+  /** Highlighted only on its exact route (default), or on its sub routes too when false */
+  end?: boolean;
 };
 
 export type SideNavMenuSection = {
@@ -27,7 +29,7 @@ export type SideNavMenuSection = {
   items: SideNavMenuItem[];
 };
 
-const MenuItemButton: Component<SideNavMenuItem & { end?: boolean; indent?: boolean }> = (props) => {
+const MenuItemButton: Component<SideNavMenuItem & { indent?: boolean }> = (props) => {
   return (
     <Button
       class={cn('group/item h-8 justify-start items-center gap-2 rounded-md px-2 text-sm font-normal text-sidebar-foreground/75 truncate hover:(bg-sidebar-accent text-sidebar-foreground)', props.indent && 'pl-8')}

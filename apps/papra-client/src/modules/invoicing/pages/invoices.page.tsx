@@ -12,6 +12,7 @@ import { createToast } from '@/modules/ui/components/sonner';
 import { TextField } from '@/modules/ui/components/textfield';
 import { getOrganizationRouteChildHref, getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
 import { CatalogCell, CatalogRow, CatalogTable, FilterMenu } from '../components/catalog-page';
+import { InvoicesTabs } from '../components/invoices-tabs';
 import { getInvoicePayableMinor } from '../invoicing.models';
 import { downloadInvoicePdf, fetchInvoices, markInvoicePaid, sendInvoice } from '../invoicing.services';
 
@@ -43,6 +44,8 @@ export function InvoicesPage() {
           {t('invoicing.invoices.new')}
         </Button>
       </div>
+
+      <InvoicesTabs />
       <div class="flex items-center gap-2 mb-3">
         <div class="relative w-full max-w-sm">
           <div class="i-tabler-search absolute left-3 top-2.5 size-4 text-muted-foreground" />

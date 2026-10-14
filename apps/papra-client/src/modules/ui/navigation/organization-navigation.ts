@@ -18,6 +18,8 @@ export const organizationRoutes = {
   assistant: { path: 'ai-assistant', surface: 'workspace' },
   calendar: { path: 'calendar', surface: 'workspace' },
   invoices: { path: 'invoicing/invoices', surface: 'workspace' },
+  // Received invoices live under the invoices entry of the menu, as a tab
+  purchases: { path: 'invoicing/invoices/received', surface: 'workspace' },
   contacts: { path: 'contacts', surface: 'workspace' },
   products: { path: 'invoicing/products', surface: 'workspace' },
   financeOverview: { path: 'finances/overview', surface: 'workspace' },
@@ -50,6 +52,7 @@ export const organizationRouteLabelKeys = {
   assistant: 'navigation.item.assistant',
   calendar: 'navigation.item.calendar',
   invoices: 'navigation.item.invoices',
+  purchases: 'navigation.item.received-invoices',
   contacts: 'navigation.item.contacts',
   products: 'navigation.item.products',
   financeOverview: 'navigation.item.overview',
@@ -77,6 +80,8 @@ type NavigationItemDefinition = {
   routeId: OrganizationRouteId;
   icon: string;
   requires?: OrganizationNavigationCapability;
+  /** Also highlighted on the sub routes (invoices for the received invoices and the editors) */
+  matchSubRoutes?: boolean;
 };
 
 type NavigationSectionDefinition = {
@@ -101,7 +106,7 @@ const workspaceNavigation: readonly NavigationSectionDefinition[] = [
     labelKey: 'navigation.section.invoicing',
     requires: 'invoicing',
     items: [
-      { routeId: 'invoices', icon: 'i-tabler-receipt' },
+      { routeId: 'invoices', icon: 'i-tabler-receipt', matchSubRoutes: true },
       { routeId: 'contacts', icon: 'i-tabler-address-book' },
       { routeId: 'products', icon: 'i-tabler-package' },
     ],
@@ -226,6 +231,7 @@ function buildNavigationSections({
           label: translate(organizationRouteLabelKeys[item.routeId]),
           icon: item.icon,
           href: getOrganizationRouteHref({ organizationId, routeId: item.routeId }),
+          end: !item.matchSubRoutes,
         })),
     }))
     .filter(section => section.items.length > 0);

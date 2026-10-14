@@ -37,3 +37,14 @@ export function getContactCustomPropertyEntityTypes({ contact }: { contact: Cont
 export function contactHasDocumentsFolder({ contact }: { contact: ContactRoleFlags }) {
   return contact.isCustomer || contact.isSupplier;
 }
+
+// "ES B-1234 5678", "b12345678" and "B12345678" are the same tax id: used to match contacts and detect duplicates
+export function normalizeTaxId({ taxId }: { taxId: string | null | undefined }) {
+  if (taxId === null || taxId === undefined) {
+    return null;
+  }
+
+  const normalized = taxId.toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^ES(?=[A-Z0-9]{9}$)/, '');
+
+  return normalized === '' ? null : normalized;
+}
