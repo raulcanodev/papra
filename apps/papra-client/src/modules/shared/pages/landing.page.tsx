@@ -48,7 +48,7 @@ const DemoFrame: Component<{ url: string }> = (props) => {
             <span class="i-tabler-arrow-up-right size-3.5" />
           </a>
         </div>
-        <iframe ref={frame} src={initialUrl} onLoad={sendPreferences} title={t('landing.cta.demo')} loading="lazy" class="block h-[80vh] min-h-[640px] w-full bg-background sm:h-[88vh] sm:min-h-[760px]" />
+        <iframe ref={frame} src={initialUrl} onLoad={sendPreferences} title={t('landing.cta.demo')} loading="lazy" class="block h-[560px] w-full bg-background sm:aspect-video sm:h-auto" />
       </div>
     </div>
   );
