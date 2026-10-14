@@ -75,8 +75,8 @@ export const TransactionDetailDialog: Component<{
   }));
 
   const propertyDefsQuery = useQuery(() => ({
-    queryKey: ['organizations', props.organizationId, 'custom-properties', 'definitions'],
-    queryFn: () => fetchCustomPropertyDefinitions({ organizationId: props.organizationId }),
+    queryKey: ['organizations', props.organizationId, 'custom-properties', { entityType: 'transaction' }],
+    queryFn: () => fetchCustomPropertyDefinitions({ organizationId: props.organizationId, entityType: 'transaction' }),
     enabled: props.isOpen,
   }));
 

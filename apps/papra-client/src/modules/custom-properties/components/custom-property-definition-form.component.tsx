@@ -1,5 +1,5 @@
 import type { Component, JSX } from 'solid-js';
-import type { CustomPropertyDefinition, CustomPropertyType } from '../custom-properties.types';
+import type { CustomPropertyDefinition, CustomPropertyEntityType, CustomPropertyType } from '../custom-properties.types';
 import { getValue, insert, remove, setValue } from '@modular-forms/solid';
 import { A } from '@solidjs/router';
 import { For, Show } from 'solid-js';
@@ -12,18 +12,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { TextArea } from '@/modules/ui/components/textarea';
 import { TextField, TextFieldLabel, TextFieldRoot } from '@/modules/ui/components/textfield';
 import { getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
-import { PROPERTY_TYPE_LABEL_I18N_KEYS } from '../custom-properties.constants';
+import { CUSTOM_PROPERTY_ENTITY_TYPES, ENTITY_TYPE_LABEL_I18N_KEYS, PROPERTY_TYPE_LABEL_I18N_KEYS, PROPERTY_TYPES_BY_ENTITY_TYPE } from '../custom-properties.constants';
 
 const PROPERTY_TYPES: CustomPropertyType[] = ['text', 'number', 'date', 'boolean', 'select', 'multi_select', 'user_relation', 'document_relation'];
 const SELECT_LIKE_TYPES: CustomPropertyType[] = ['select', 'multi_select'];
 
 type OptionDraft = { id?: string; name: string };
-export type PropertyDefinitionDraft = { name: string; description?: string; type: CustomPropertyType; options?: OptionDraft[] };
+export type PropertyDefinitionDraft = { name: string; description?: string; type: CustomPropertyType; entityType: CustomPropertyEntityType; options?: OptionDraft[] };
 
 export const CustomPropertyDefinitionForm: Component<{
   onSubmit: (args: { propertyDefinition: PropertyDefinitionDraft }) => Promise<void> | void;
   organizationId: string;
   propertyDefinition?: CustomPropertyDefinition;
+  defaultEntityType?: CustomPropertyEntityType;
   submitButton: JSX.Element;
 }> = (props) => {
   const hasExistingType = () => Boolean(props.propertyDefinition?.type);
@@ -31,7 +32,7 @@ export const CustomPropertyDefinitionForm: Component<{
   const { t } = useI18n();
 
   const { form, Form, Field, FieldArray, createFormError } = createForm({
-    onSubmit: async ({ name, description, type, options }) => {
+    onSubmit: async ({ name, description, type, entityType, options }) => {
       // TODO: make a discriminated union of the form values based on the type to avoid having to do this kind of validation
       if ((!options || options.length === 0) && SELECT_LIKE_TYPES.includes(type)) {
         throw createFormError({ message: t('custom-properties.form.options.validation.required') });
@@ -43,6 +44,7 @@ export const CustomPropertyDefinitionForm: Component<{
             name,
             description,
             type,
+            entityType,
             options,
           },
         });
@@ -64,6 +66,7 @@ export const CustomPropertyDefinitionForm: Component<{
         v.maxLength(1000, t('custom-properties.form.description.max-length')),
       ),
       type: v.picklist(PROPERTY_TYPES),
+      entityType: v.picklist(CUSTOM_PROPERTY_ENTITY_TYPES),
       options: v.optional(
         v.array(v.object({
           id: v.optional(v.string()),
@@ -81,11 +84,22 @@ export const CustomPropertyDefinitionForm: Component<{
       name: props.propertyDefinition?.name ?? '',
       description: props.propertyDefinition?.description ?? '',
       type: props.propertyDefinition?.type ?? 'text',
+      entityType: props.propertyDefinition?.entityType ?? props.defaultEntityType ?? 'document',
       options: props.propertyDefinition?.options?.map(o => ({ id: o.id, name: o.name })) ?? [{ name: '' }],
     },
   });
 
   const currentType = () => getValue(form, 'type');
+  const availableTypes = () => PROPERTY_TYPES_BY_ENTITY_TYPE[getValue(form, 'entityType') ?? 'document'];
+
+  const changeEntityType = (entityType: CustomPropertyEntityType) => {
+    setValue(form, 'entityType', entityType);
+
+    // Relation types only exist for documents, fall back to text when switching to another entity
+    if (!PROPERTY_TYPES_BY_ENTITY_TYPE[entityType].includes(currentType() as CustomPropertyType)) {
+      setValue(form, 'type', 'text');
+    }
+  };
   const isSelectLike = () => SELECT_LIKE_TYPES.includes(currentType() as CustomPropertyType);
 
   return (
@@ -125,15 +139,42 @@ export const CustomPropertyDefinitionForm: Component<{
         )}
       </Field>
 
+      <Field name="entityType">
+        {field => (
+          <div class="flex flex-col gap-1 mt-6">
+            <label class="text-sm font-medium" for="entityType">{t('custom-properties.form.entity.label')}</label>
+            <p class="text-xs text-muted-foreground">{t('custom-properties.form.entity.description')}</p>
+            <Select
+              id="entityType"
+              value={field.value ?? 'document'}
+              onChange={value => value && changeEntityType(value as CustomPropertyEntityType)}
+              options={CUSTOM_PROPERTY_ENTITY_TYPES}
+              itemComponent={itemProps => (
+                <SelectItem item={itemProps.item}>{t(ENTITY_TYPE_LABEL_I18N_KEYS[itemProps.item.rawValue as CustomPropertyEntityType])}</SelectItem>
+              )}
+              disabled={hasExistingType()}
+            >
+              <SelectTrigger class="w-full">
+                <SelectValue<CustomPropertyEntityType>>{state => t(ENTITY_TYPE_LABEL_I18N_KEYS[state.selectedOption()])}</SelectValue>
+              </SelectTrigger>
+              <SelectContent />
+            </Select>
+            <Show when={hasExistingType()}>
+              <p class="text-xs text-muted-foreground">{t('custom-properties.form.entity.immutable')}</p>
+            </Show>
+          </div>
+        )}
+      </Field>
+
       <Field name="type">
         {field => (
           <div class="flex flex-col gap-1 mt-6">
             <label class="text-sm font-medium" for="type">{t('custom-properties.form.type.label')}</label>
             <Select
               id="type"
-              defaultValue={field.value ?? 'text'}
+              value={field.value ?? 'text'}
               onChange={value => value && setValue(form, 'type', value as CustomPropertyType)}
-              options={PROPERTY_TYPES}
+              options={availableTypes()}
               itemComponent={itemProps => (
                 <SelectItem item={itemProps.item}>{t(PROPERTY_TYPE_LABEL_I18N_KEYS[itemProps.item.rawValue as CustomPropertyType])}</SelectItem>
               )}

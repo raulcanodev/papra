@@ -25,7 +25,7 @@ import {
   webhooksStorage,
 } from './demo.storage';
 import { findMany, getValues } from './demo.storage.models';
-import { invoicingHandlers } from './invoicing/demo-invoicing';
+import { getDemoEntityCustomPropertyValues, invoicingHandlers } from './invoicing/demo-invoicing';
 import { miscHandlers } from './misc/demo-misc';
 import { generatePropertyKey, searchDemoDocuments } from './search/demo.search.services';
 import { demoUser } from './seed/users.fixtures';
@@ -239,7 +239,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
         findMany(documentStorage, document => document?.organizationId === organizationId && !document?.deletedAt),
         getValues(tagStorage),
         getValues(tagDocumentStorage),
-        findMany(customPropertyDefinitionStorage, def => def.organizationId === organizationId),
+        findMany(customPropertyDefinitionStorage, def => def.organizationId === organizationId && (def.entityType ?? 'document') === 'document'),
         getValues(documentCustomPropertyValueStorage),
       ]);
 
@@ -303,7 +303,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
 
       const [tagDocuments, allDefinitions, allPropertyValues] = await Promise.all([
         findMany(tagDocumentStorage, tagDocument => tagDocument.documentId === documentId),
-        findMany(customPropertyDefinitionStorage, def => def.organizationId === organizationId),
+        findMany(customPropertyDefinitionStorage, def => def.organizationId === organizationId && (def.entityType ?? 'document') === 'document'),
         findMany(documentCustomPropertyValueStorage, v => v.documentId === documentId),
       ]);
 
@@ -984,14 +984,50 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
   ...defineHandler({
     path: '/api/organizations/:organizationId/custom-properties',
     method: 'GET',
-    handler: async ({ params: { organizationId } }) => {
+    handler: async ({ params: { organizationId }, query }) => {
       const organization = await organizationStorage.getItem(organizationId);
 
       assert(organization, { status: 403 });
 
-      const propertyDefinitions = await findMany(customPropertyDefinitionStorage, def => def.organizationId === organizationId);
+      const entityType = get(query, ['entityType']) as string | undefined;
+      const propertyDefinitions = await findMany(customPropertyDefinitionStorage, def => def.organizationId === organizationId && (!entityType || (def.entityType ?? 'document') === entityType));
 
       return { propertyDefinitions };
+    },
+  }),
+
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/custom-properties/entities/:entityType/:entityId',
+    method: 'GET',
+    handler: async ({ params: { organizationId, entityType, entityId } }) => {
+      const organization = await organizationStorage.getItem(organizationId);
+
+      assert(organization, { status: 403 });
+
+      const [definitions, rawValues] = await Promise.all([
+        findMany(customPropertyDefinitionStorage, def => def.organizationId === organizationId && def.entityType === entityType),
+        getDemoEntityCustomPropertyValues({ organizationId, entityType, entityId }),
+      ]);
+
+      const customProperties = definitions
+        .filter(definition => rawValues[definition.id] !== undefined && rawValues[definition.id] !== null)
+        .map((definition) => {
+          const raw = rawValues[definition.id];
+          const toOption = (optionId: unknown) => {
+            const option = definition.options.find(({ id }) => id === optionId);
+            return option ? { optionId: option.id, name: option.name } : null;
+          };
+
+          const value = definition.type === 'select'
+            ? toOption(raw)
+            : definition.type === 'multi_select'
+              ? (raw as unknown[]).map(toOption).filter(Boolean)
+              : raw;
+
+          return { propertyDefinitionId: definition.id, key: definition.key, name: definition.name, type: definition.type, value };
+        });
+
+      return { customProperties };
     },
   }),
 
@@ -1012,6 +1048,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
         key: generatePropertyKey({ name: get(body, ['name']) as string }),
         description: (get(body, ['description']) ?? null) as string | null,
         type: get(body, ['type']) as string,
+        entityType: (get(body, ['entityType']) ?? 'document') as string,
         displayOrder: existingDefinitions.length,
         options: (get(body, ['options']) as { name: string }[] ?? []).map((option, index) => ({
           id: createId({ prefix: 'opt' }),
@@ -1092,7 +1129,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
       assert(document, { status: 404 });
 
       const [allDefinitions, allValues] = await Promise.all([
-        findMany(customPropertyDefinitionStorage, def => def.organizationId === organizationId),
+        findMany(customPropertyDefinitionStorage, def => def.organizationId === organizationId && (def.entityType ?? 'document') === 'document'),
         findMany(documentCustomPropertyValueStorage, v => v.documentId === documentId),
       ]);
 

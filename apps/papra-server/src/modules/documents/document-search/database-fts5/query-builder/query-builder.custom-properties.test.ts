@@ -28,6 +28,7 @@ describe('query-builder - custom properties', async () => {
       key: 'warranty',
       description: null,
       type: 'boolean',
+      entityType: 'document',
       config: null,
       displayOrder: 0,
       createdAt: new Date(),

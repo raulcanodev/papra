@@ -1,19 +1,20 @@
 import type { Component } from 'solid-js';
-import type { CustomPropertyType } from '../custom-properties.types';
-import { A, useParams } from '@solidjs/router';
+import type { CustomPropertyEntityType, CustomPropertyType } from '../custom-properties.types';
+import { A, useParams, useSearchParams } from '@solidjs/router';
 import { useMutation, useQuery } from '@tanstack/solid-query';
 import { createSolidTable, flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/solid-table';
-import { For, Show, Suspense } from 'solid-js';
+import { createMemo, For, Show, Suspense } from 'solid-js';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { useConfirmModal } from '@/modules/shared/confirm';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { Button } from '@/modules/ui/components/button';
 import { EmptyState } from '@/modules/ui/components/empty';
+import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { createToast } from '@/modules/ui/components/sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
 import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
-import { PROPERTY_TYPE_LABEL_I18N_KEYS } from '../custom-properties.constants';
+import { CUSTOM_PROPERTY_ENTITY_TYPES, ENTITY_TYPE_LABEL_I18N_KEYS, PROPERTY_TYPE_LABEL_I18N_KEYS } from '../custom-properties.constants';
 import {
   deleteCustomPropertyDefinition,
   fetchCustomPropertyDefinitions,
@@ -78,6 +79,7 @@ export const DeleteCustomPropertyButton: Component<{ organizationId: string; pro
 
 export const CustomPropertiesPage: Component = () => {
   const params = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useI18n();
 
   const query = useQuery(() => ({
@@ -85,9 +87,14 @@ export const CustomPropertiesPage: Component = () => {
     queryFn: () => fetchCustomPropertyDefinitions({ organizationId: params.organizationId }),
   }));
 
+  // An organization has at most a hundred definitions: filtered client side, from the single cached listing
+  const entityTypeFilter = () => CUSTOM_PROPERTY_ENTITY_TYPES.find(entityType => entityType === searchParams.entityType) as CustomPropertyEntityType | undefined;
+  const propertyDefinitions = createMemo(() => (query.data?.propertyDefinitions ?? []).filter(definition => !entityTypeFilter() || definition.entityType === entityTypeFilter()));
+  const createHref = () => `${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'settingsCustomProperties', childPath: 'create' })}${entityTypeFilter() ? `?entityType=${entityTypeFilter()}` : ''}`;
+
   const table = createSolidTable({
     get data() {
-      return query.data?.propertyDefinitions ?? [];
+      return propertyDefinitions();
     },
     columns: [
       {
@@ -96,6 +103,14 @@ export const CustomPropertiesPage: Component = () => {
         sortingFn: 'alphanumeric',
         cell: data => (
           <A href={getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'settingsCustomProperties', childPath: data.row.original.id })} class="font-medium hover:underline">{data.getValue<string>()}</A>
+        ),
+      },
+      {
+        header: () => t('custom-properties.list.table.entity'),
+        accessorKey: 'entityType',
+        sortingFn: 'alphanumeric',
+        cell: data => (
+          <span class="text-muted-foreground">{t(ENTITY_TYPE_LABEL_I18N_KEYS[data.getValue<CustomPropertyEntityType>()])}</span>
         ),
       },
       {
@@ -169,7 +184,14 @@ export const CustomPropertiesPage: Component = () => {
           <p class="page-description">{t('custom-properties.list.description')}</p>
         </div>
         <div class="flex items-center gap-2">
-          <Button as={A} href={getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'settingsCustomProperties', childPath: 'create' })}>
+          <SimpleSelect
+            aria-label={t('custom-properties.list.table.entity')}
+            triggerClass="w-48"
+            value={entityTypeFilter() ?? ''}
+            onChange={value => setSearchParams({ entityType: value || undefined })}
+            options={[{ value: '', label: t('custom-properties.entities.all') }, ...CUSTOM_PROPERTY_ENTITY_TYPES.map(entityType => ({ value: entityType, label: t(ENTITY_TYPE_LABEL_I18N_KEYS[entityType]) }))]}
+          />
+          <Button as={A} href={createHref()}>
             <div class="i-tabler-plus size-4 mr-2" />
             {t('custom-properties.list.create-button')}
           </Button>
@@ -177,7 +199,7 @@ export const CustomPropertiesPage: Component = () => {
       </div>
       <div>
         <Suspense>
-          <Show when={query.data?.propertyDefinitions}>
+          <Show when={query.data && propertyDefinitions()}>
             {getPropertyDefinitions => (
               <Show
                 when={getPropertyDefinitions().length > 0}
@@ -187,7 +209,7 @@ export const CustomPropertiesPage: Component = () => {
                     icon="i-tabler-forms"
                     description={t('custom-properties.list.empty.description')}
                     cta={(
-                      <Button as={A} href={getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'settingsCustomProperties', childPath: 'create' })}>
+                      <Button as={A} href={createHref()}>
                         <div class="i-tabler-plus size-4 mr-2" />
                         {t('custom-properties.list.create-button')}
                       </Button>

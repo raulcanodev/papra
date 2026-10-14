@@ -17,5 +17,7 @@ export const customPropertySelectOptionsTable = pgTable(
   table => [
     uniqueIndex('custom_property_select_options_definition_id_key_unique').on(table.propertyDefinitionId, table.key),
     uniqueIndex('custom_property_select_options_definition_id_name_unique').on(table.propertyDefinitionId, table.name),
+    // Target of the composite foreign key of entity values, guarantees a selected option belongs to the value definition
+    uniqueIndex('custom_property_select_options_id_definition_id_unique').on(table.id, table.propertyDefinitionId),
   ],
 );

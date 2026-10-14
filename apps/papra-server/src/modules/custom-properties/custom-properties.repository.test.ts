@@ -18,7 +18,7 @@ describe('custom-properties repository', () => {
       const repository = createCustomPropertiesRepository({ db });
 
       const { propertyDefinition: created } = await repository.createPropertyDefinition({
-        definition: { organizationId: orgId, name: 'Invoice Number', type: CUSTOM_PROPERTY_TYPES.TEXT },
+        definition: { organizationId: orgId, name: 'Invoice Number', type: CUSTOM_PROPERTY_TYPES.TEXT, entityType: 'document' },
       });
 
       expect(created).to.include({ name: 'Invoice Number', type: 'text', organizationId: orgId });
@@ -41,7 +41,7 @@ describe('custom-properties repository', () => {
       const repository = createCustomPropertiesRepository({ db });
 
       const { propertyDefinition: created } = await repository.createPropertyDefinition({
-        definition: { organizationId: orgId, name: 'Amount', type: CUSTOM_PROPERTY_TYPES.NUMBER },
+        definition: { organizationId: orgId, name: 'Amount', type: CUSTOM_PROPERTY_TYPES.NUMBER, entityType: 'document' },
       });
 
       const { definition } = await repository.getPropertyDefinitionById({ propertyDefinitionId: created.id, organizationId: orgId });
@@ -74,8 +74,8 @@ describe('custom-properties repository', () => {
 
       const repository = createCustomPropertiesRepository({ db });
 
-      await repository.createPropertyDefinition({ definition: { organizationId: orgId, name: 'A', type: CUSTOM_PROPERTY_TYPES.TEXT } });
-      await repository.createPropertyDefinition({ definition: { organizationId: orgId, name: 'B', type: CUSTOM_PROPERTY_TYPES.NUMBER } });
+      await repository.createPropertyDefinition({ definition: { organizationId: orgId, name: 'A', type: CUSTOM_PROPERTY_TYPES.TEXT, entityType: 'document' } });
+      await repository.createPropertyDefinition({ definition: { organizationId: orgId, name: 'B', type: CUSTOM_PROPERTY_TYPES.NUMBER, entityType: 'document' } });
 
       const { count } = await repository.getOrganizationPropertyDefinitionsCount({ organizationId: orgId });
       expect(count).to.eql(2);
@@ -93,7 +93,7 @@ describe('custom-properties repository', () => {
       const repository = createCustomPropertiesRepository({ db });
 
       const { propertyDefinition: created } = await repository.createPropertyDefinition({
-        definition: { organizationId: orgId, name: 'Old Name', type: CUSTOM_PROPERTY_TYPES.TEXT },
+        definition: { organizationId: orgId, name: 'Old Name', type: CUSTOM_PROPERTY_TYPES.TEXT, entityType: 'document' },
       });
 
       const { propertyDefinition: updated } = await repository.updatePropertyDefinition({
@@ -117,7 +117,7 @@ describe('custom-properties repository', () => {
       const repository = createCustomPropertiesRepository({ db });
 
       const { propertyDefinition: created } = await repository.createPropertyDefinition({
-        definition: { organizationId: orgId, name: 'To Delete', type: CUSTOM_PROPERTY_TYPES.TEXT },
+        definition: { organizationId: orgId, name: 'To Delete', type: CUSTOM_PROPERTY_TYPES.TEXT, entityType: 'document' },
       });
 
       await repository.deletePropertyDefinition({ propertyDefinitionId: created.id, organizationId: orgId });
@@ -137,10 +137,10 @@ describe('custom-properties repository', () => {
 
       const repository = createCustomPropertiesRepository({ db });
 
-      await repository.createPropertyDefinition({ definition: { organizationId: orgId, name: 'Unique', type: CUSTOM_PROPERTY_TYPES.TEXT } });
+      await repository.createPropertyDefinition({ definition: { organizationId: orgId, name: 'Unique', type: CUSTOM_PROPERTY_TYPES.TEXT, entityType: 'document' } });
 
       await expect(
-        repository.createPropertyDefinition({ definition: { organizationId: orgId, name: 'Unique', type: CUSTOM_PROPERTY_TYPES.NUMBER } }),
+        repository.createPropertyDefinition({ definition: { organizationId: orgId, name: 'Unique', type: CUSTOM_PROPERTY_TYPES.NUMBER, entityType: 'document' } }),
       ).rejects.toThrow(createCustomPropertyDefinitionAlreadyExistsError());
     });
   });

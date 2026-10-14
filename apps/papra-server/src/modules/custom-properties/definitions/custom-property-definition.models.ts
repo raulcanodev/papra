@@ -1,12 +1,14 @@
 import type { Expand } from '@corentinth/chisels';
 import type { DocumentsRepository } from '../../documents/documents.repository';
 import type { OrganizationsRepository } from '../../organizations/organizations.repository';
+import type { CustomPropertyEntityType } from '../custom-properties.constants';
 import type { CustomPropertiesRepository } from '../custom-properties.repository';
 import type { CustomPropertyDefinition, DbInsertableDocumentCustomPropertyValue } from '../custom-properties.types';
 import type { CustomPropertiesOptionsRepository } from '../options/custom-properties-options.repository';
 import z from 'zod';
 import { isNil } from '../../shared/utils';
-import { customPropertyDefinitionDescriptionSchema, customPropertyDefinitionDisplayOrderSchema, customPropertyDefinitionNameSchema } from './custom-property-definition.schema';
+import { CUSTOM_PROPERTY_ENTITY_TYPES } from '../custom-properties.constants';
+import { customPropertyDefinitionDescriptionSchema, customPropertyDefinitionDisplayOrderSchema, customPropertyDefinitionNameSchema, customPropertyEntityTypeSchema } from './custom-property-definition.schema';
 
 // Type from ../custom-properties.repository.ts getDocumentCustomPropertyValues query
 export type DocumentCustomPropertyValueWithRelatedInfo = {
@@ -46,6 +48,7 @@ type InsertableCustomPropertyValue = Expand<Omit<DbInsertableDocumentCustomPrope
 
 type BaseCreateFields<TypeName extends string> = {
   type: TypeName;
+  entityType: CustomPropertyEntityType;
   name: string;
   description?: string;
   displayOrder?: number;
@@ -147,6 +150,8 @@ export type CustomPropertyTypeDefinition = {
 // Conditional types that properly resolve the schema shape based on whether extra schemas are provided.
 // This concentrates type assertions in defineCustomPropertyType so all consumer code is cast-free.
 const baseCreatePropertySchema = z.object({
+  // Defaults to documents for backward compatibility with API clients created before entity scoping
+  entityType: customPropertyEntityTypeSchema.default(CUSTOM_PROPERTY_ENTITY_TYPES.DOCUMENT),
   name: customPropertyDefinitionNameSchema,
   description: customPropertyDefinitionDescriptionSchema.optional(),
   displayOrder: customPropertyDefinitionDisplayOrderSchema.optional(),

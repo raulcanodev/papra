@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { entityCustomPropertiesInputSchema } from '../custom-properties/entity-custom-properties.usecases';
 import { INVOICE_STATUSES, INVOICE_TEMPLATE_IDS, VERIFACTU_MODES } from './invoicing.constants';
 
 const optionalText = z.string().trim().max(500).optional().nullable();
@@ -59,6 +60,12 @@ export const salesRepresentativeSchema = z.object({
   taxId: optionalText,
   notes: z.string().trim().max(2_000).optional().nullable(),
 });
+
+// Request bodies: the entity fields plus the values of the organization custom properties for this entity type
+const withCustomProperties = { customProperties: entityCustomPropertiesInputSchema.optional() };
+export const customerBodySchema = customerSchema.extend(withCustomProperties);
+export const productBodySchema = productSchema.extend(withCustomProperties);
+export const salesRepresentativeBodySchema = salesRepresentativeSchema.extend(withCustomProperties);
 
 export const invoiceSeriesSchema = z.object({
   name: z.string().trim().min(1).max(100),

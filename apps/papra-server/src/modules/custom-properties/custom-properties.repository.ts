@@ -1,5 +1,5 @@
 import type { Database } from '../app/database/database.types';
-import type { CustomPropertyType } from './custom-properties.constants';
+import type { CustomPropertyEntityType, CustomPropertyType, GenericCustomPropertyEntityType } from './custom-properties.constants';
 import { injectArguments, safely } from '@corentinth/chisels';
 import { and, asc, count, eq, inArray } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
@@ -11,7 +11,7 @@ import { isDefined, isNil } from '../shared/utils';
 import { usersTable } from '../users/users.table';
 import { createCustomPropertyDefinitionAlreadyExistsError } from './custom-properties.errors';
 import { generatePropertyKey } from './custom-properties.repository.models';
-import { customPropertyDefinitionsTable, documentCustomPropertyValuesTable, transactionCustomPropertyValuesTable } from './custom-properties.table';
+import { customPropertyDefinitionsTable, documentCustomPropertyValuesTable, entityCustomPropertyValuesTable, transactionCustomPropertyValuesTable } from './custom-properties.table';
 import { customPropertySelectOptionsTable } from './options/custom-properties-options.table';
 
 export type CustomPropertiesRepository = ReturnType<typeof createCustomPropertiesRepository>;
@@ -35,16 +35,24 @@ export function createCustomPropertiesRepository({ db }: { db: Database }) {
       getCustomPropertyValuesByTransactionIds,
       setTransactionCustomPropertyValue,
       deleteTransactionCustomPropertyValue,
+
+      getEntityCustomPropertyValues,
+      replaceEntityCustomPropertyValues,
     },
     { db },
   );
 }
 
-async function getOrganizationPropertyDefinitions({ organizationId, db }: { organizationId: string; db: Database }) {
+async function getOrganizationPropertyDefinitions({ organizationId, entityType, db }: { organizationId: string; entityType?: CustomPropertyEntityType; db: Database }) {
   const definitions = await db
     .select()
     .from(customPropertyDefinitionsTable)
-    .where(eq(customPropertyDefinitionsTable.organizationId, organizationId))
+    .where(
+      and(
+        eq(customPropertyDefinitionsTable.organizationId, organizationId),
+        isDefined(entityType) ? eq(customPropertyDefinitionsTable.entityType, entityType) : undefined,
+      ),
+    )
     .orderBy(asc(customPropertyDefinitionsTable.displayOrder), asc(customPropertyDefinitionsTable.createdAt));
 
   const definitionIds = definitions.map(d => d.id);
@@ -117,6 +125,7 @@ async function createPropertyDefinition({ definition, db }: {
     name: string;
     description?: string | null;
     type: CustomPropertyType;
+    entityType: CustomPropertyEntityType;
     displayOrder?: number;
   };
   db: Database;
@@ -130,6 +139,7 @@ async function createPropertyDefinition({ definition, db }: {
         key: generatePropertyKey({ name: definition.name }),
         description: definition.description,
         type: definition.type,
+        entityType: definition.entityType,
         displayOrder: definition.displayOrder,
       })
       .returning(),
@@ -485,4 +495,110 @@ async function deleteTransactionCustomPropertyValue({ transactionId, propertyDef
         eq(transactionCustomPropertyValuesTable.propertyDefinitionId, propertyDefinitionId),
       ),
     );
+}
+
+export type EntityCustomPropertyValueRow = {
+  entityId: string;
+  value: {
+    id: string;
+    propertyDefinitionId: string;
+    textValue: string | null;
+    numberValue: number | null;
+    dateValue: Date | null;
+    booleanValue: boolean | null;
+    selectOptionId: string | null;
+  };
+  definition: { id: string; name: string; key: string; type: string };
+  option: { id: string; name: string } | null;
+};
+
+// Single query for any number of entities, scoped to the organization: no N+1 when enriching lists
+async function getEntityCustomPropertyValues({ organizationId, entityType, entityIds, db }: { organizationId: string; entityType: GenericCustomPropertyEntityType; entityIds: string[]; db: Database }) {
+  if (entityIds.length === 0) {
+    return { rows: [] as EntityCustomPropertyValueRow[] };
+  }
+
+  const rows: EntityCustomPropertyValueRow[] = await db
+    .select({
+      entityId: entityCustomPropertyValuesTable.entityId,
+      value: {
+        id: entityCustomPropertyValuesTable.id,
+        propertyDefinitionId: entityCustomPropertyValuesTable.propertyDefinitionId,
+        textValue: entityCustomPropertyValuesTable.textValue,
+        numberValue: entityCustomPropertyValuesTable.numberValue,
+        dateValue: entityCustomPropertyValuesTable.dateValue,
+        booleanValue: entityCustomPropertyValuesTable.booleanValue,
+        selectOptionId: entityCustomPropertyValuesTable.selectOptionId,
+      },
+      definition: {
+        id: customPropertyDefinitionsTable.id,
+        name: customPropertyDefinitionsTable.name,
+        key: customPropertyDefinitionsTable.key,
+        type: customPropertyDefinitionsTable.type,
+      },
+      option: {
+        id: customPropertySelectOptionsTable.id,
+        name: customPropertySelectOptionsTable.name,
+      },
+    })
+    .from(entityCustomPropertyValuesTable)
+    .innerJoin(customPropertyDefinitionsTable, eq(entityCustomPropertyValuesTable.propertyDefinitionId, customPropertyDefinitionsTable.id))
+    .leftJoin(customPropertySelectOptionsTable, eq(entityCustomPropertyValuesTable.selectOptionId, customPropertySelectOptionsTable.id))
+    .where(
+      and(
+        eq(entityCustomPropertyValuesTable.organizationId, organizationId),
+        eq(entityCustomPropertyValuesTable.entityType, entityType),
+        inArray(entityCustomPropertyValuesTable.entityId, entityIds),
+      ),
+    )
+    // Same order as the definitions listing, so values are rendered in the order the organization configured
+    .orderBy(asc(customPropertyDefinitionsTable.displayOrder), asc(customPropertyDefinitionsTable.createdAt), asc(customPropertyDefinitionsTable.id), asc(customPropertySelectOptionsTable.displayOrder));
+
+  return { rows };
+}
+
+// Replaces the values of the given properties of an entity, an entry without values clears the property.
+// Expected to be called within a transaction alongside the entity write.
+async function replaceEntityCustomPropertyValues({ organizationId, entityType, entityId, entries, db }: {
+  organizationId: string;
+  entityType: GenericCustomPropertyEntityType;
+  entityId: string;
+  entries: {
+    propertyDefinitionId: string;
+    values: {
+      textValue?: string | null;
+      numberValue?: number | null;
+      dateValue?: Date | null;
+      booleanValue?: boolean | null;
+      selectOptionId?: string | null;
+    }[];
+  }[];
+  db: Database;
+}) {
+  if (entries.length === 0) {
+    return;
+  }
+
+  await db
+    .delete(entityCustomPropertyValuesTable)
+    .where(
+      and(
+        eq(entityCustomPropertyValuesTable.organizationId, organizationId),
+        eq(entityCustomPropertyValuesTable.entityType, entityType),
+        eq(entityCustomPropertyValuesTable.entityId, entityId),
+        inArray(entityCustomPropertyValuesTable.propertyDefinitionId, entries.map(({ propertyDefinitionId }) => propertyDefinitionId)),
+      ),
+    );
+
+  const rows = entries.flatMap(({ propertyDefinitionId, values }) => values.map(value => ({
+    organizationId,
+    entityType,
+    entityId,
+    propertyDefinitionId,
+    ...value,
+  })));
+
+  if (rows.length > 0) {
+    await db.insert(entityCustomPropertyValuesTable).values(rows);
+  }
 }

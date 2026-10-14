@@ -9,12 +9,14 @@ import { documentIdSchema } from '../documents/documents.schemas.legacy';
 import { organizationIdSchema } from '../organizations/organization.schemas.legacy';
 import { createOrganizationsRepository } from '../organizations/organizations.repository';
 import { ensureUserIsInOrganization } from '../organizations/organizations.usecases';
-import { legacyValidateJsonBody, legacyValidateParams } from '../shared/validation/validation.legacy';
+import { legacyValidateJsonBody, legacyValidateParams, legacyValidateQuery } from '../shared/validation/validation.legacy';
 import { aggregateDocumentCustomPropertyValues } from './custom-properties.models';
 import { createCustomPropertiesRepository } from './custom-properties.repository';
 import { customPropertyDefinitionIdSchema } from './custom-properties.schemas.legacy';
 import { createPropertyDefinition, deleteDocumentCustomPropertyValue, deletePropertyDefinition, ensurePropertyDefinitionExists, setDocumentCustomPropertyValue, updatePropertyDefinition } from './custom-properties.usecases';
 import { createPropertyDefinitionBodySchema } from './definitions/custom-property-definition.registry';
+import { customPropertyEntityTypeSchema, genericCustomPropertyEntityTypeSchema } from './definitions/custom-property-definition.schema';
+import { getEntitiesCustomProperties } from './entity-custom-properties.usecases';
 import { createCustomPropertiesOptionsRepository } from './options/custom-properties-options.repository';
 
 export function registerCustomPropertiesRoutes(context: RouteDefinitionContext) {
@@ -27,6 +29,8 @@ export function registerCustomPropertiesRoutes(context: RouteDefinitionContext) 
   setupSetDocumentCustomPropertyValueRoute(context);
   setupDeleteDocumentCustomPropertyValueRoute(context);
   setupGetDocumentCustomPropertyValuesRoute(context);
+
+  setupGetEntityCustomPropertyValuesRoute(context);
 }
 
 function setupCreatePropertyDefinitionRoute({ app, db, config }: RouteDefinitionContext) {
@@ -68,16 +72,20 @@ function setupGetOrganizationPropertyDefinitionsRoute({ app, db }: RouteDefiniti
     legacyValidateParams(z.object({
       organizationId: organizationIdSchema,
     })),
+    legacyValidateQuery(z.object({
+      entityType: customPropertyEntityTypeSchema.optional(),
+    })),
     async (context) => {
       const { userId } = getUser({ context });
       const { organizationId } = context.req.valid('param');
+      const { entityType } = context.req.valid('query');
 
       const customPropertiesRepository = createCustomPropertiesRepository({ db });
       const organizationsRepository = createOrganizationsRepository({ db });
 
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
-      const { propertyDefinitions } = await customPropertiesRepository.getOrganizationPropertyDefinitions({ organizationId });
+      const { propertyDefinitions } = await customPropertiesRepository.getOrganizationPropertyDefinitions({ organizationId, entityType });
 
       return context.json({ propertyDefinitions });
     },
@@ -284,6 +292,37 @@ function setupGetDocumentCustomPropertyValuesRoute({ app, db }: RouteDefinitionC
       const customProperties = aggregateDocumentCustomPropertyValues({ rawValues: values });
 
       return context.json({ customProperties });
+    },
+  );
+}
+
+function setupGetEntityCustomPropertyValuesRoute({ app, db }: RouteDefinitionContext) {
+  app.get(
+    '/api/organizations/:organizationId/custom-properties/entities/:entityType/:entityId',
+    requireAuthentication(),
+    legacyValidateParams(z.object({
+      organizationId: organizationIdSchema,
+      entityType: genericCustomPropertyEntityTypeSchema,
+      entityId: z.string().trim().min(1).max(64),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, entityType, entityId } = context.req.valid('param');
+
+      const customPropertiesRepository = createCustomPropertiesRepository({ db });
+      const organizationsRepository = createOrganizationsRepository({ db });
+
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+
+      // Values are always filtered by organization, an entity id of another organization simply yields no values
+      const { customPropertiesByEntityId } = await getEntitiesCustomProperties({
+        organizationId,
+        entityType,
+        entityIds: [entityId],
+        customPropertiesRepository,
+      });
+
+      return context.json({ customProperties: customPropertiesByEntityId[entityId] ?? [] });
     },
   );
 }

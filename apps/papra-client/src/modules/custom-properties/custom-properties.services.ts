@@ -1,12 +1,13 @@
 import type { AsDto } from '../shared/http/http-client.types';
-import type { CustomPropertyDefinition, CustomPropertyType } from './custom-properties.types';
+import type { CustomPropertyDefinition, CustomPropertyEntityType, CustomPropertyType, EntityCustomProperty, GenericCustomPropertyEntityType } from './custom-properties.types';
 import { apiClient } from '../shared/http/api-client';
 import { coerceDates } from '../shared/http/http-client.models';
 
-export async function fetchCustomPropertyDefinitions({ organizationId }: { organizationId: string }) {
+export async function fetchCustomPropertyDefinitions({ organizationId, entityType }: { organizationId: string; entityType?: CustomPropertyEntityType }) {
   const { propertyDefinitions } = await apiClient<{ propertyDefinitions: AsDto<CustomPropertyDefinition>[] }>({
     path: `/api/organizations/${organizationId}/custom-properties`,
     method: 'GET',
+    query: entityType ? { entityType } : undefined,
   });
 
   return {
@@ -34,6 +35,7 @@ export async function createCustomPropertyDefinition({
     name: string;
     description?: string;
     type: CustomPropertyType;
+    entityType: CustomPropertyEntityType;
     options?: { name: string }[];
   };
 }) {
@@ -116,4 +118,13 @@ export async function deleteDocumentCustomPropertyValue({
     path: `/api/organizations/${organizationId}/documents/${documentId}/custom-properties/${propertyDefinitionId}`,
     method: 'DELETE',
   });
+}
+
+export async function fetchEntityCustomProperties({ organizationId, entityType, entityId }: { organizationId: string; entityType: GenericCustomPropertyEntityType; entityId: string }) {
+  const { customProperties } = await apiClient<{ customProperties: EntityCustomProperty[] }>({
+    path: `/api/organizations/${organizationId}/custom-properties/entities/${entityType}/${entityId}`,
+    method: 'GET',
+  });
+
+  return { customProperties };
 }

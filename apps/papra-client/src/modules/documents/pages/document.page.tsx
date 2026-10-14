@@ -157,8 +157,8 @@ export const DocumentPage: Component = () => {
   }));
 
   const customPropertyDefinitionsQuery = useQuery(() => ({
-    queryKey: ['organizations', params.organizationId, 'custom-properties'],
-    queryFn: () => fetchCustomPropertyDefinitions({ organizationId: params.organizationId }),
+    queryKey: ['organizations', params.organizationId, 'custom-properties', { entityType: 'document' }],
+    queryFn: () => fetchCustomPropertyDefinitions({ organizationId: params.organizationId, entityType: 'document' }),
   }));
 
   const activityPageSize = 20;

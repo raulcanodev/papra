@@ -47,3 +47,9 @@ export const createCustomPropertyRelatedDocumentNotFoundError = createErrorFacto
   code: 'custom_property_value.related_document_not_found',
   statusCode: 400,
 });
+
+export const createCustomPropertyTypeNotAllowedForEntityError = createErrorFactory({
+  message: 'This property type is not available for this entity type.',
+  code: 'custom_property_definition.type_not_allowed_for_entity',
+  statusCode: 400,
+});

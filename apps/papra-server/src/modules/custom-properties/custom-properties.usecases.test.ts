@@ -24,7 +24,7 @@ describe('custom-properties usecases', () => {
 
       const { propertyDefinition: definition } = await createPropertyDefinition({
         organizationId: orgId,
-        definition: { name: 'Invoice Number', type: CUSTOM_PROPERTY_TYPES.TEXT },
+        definition: { name: 'Invoice Number', type: CUSTOM_PROPERTY_TYPES.TEXT, entityType: 'document' },
         config: overrideConfig(),
         customPropertiesRepository,
         customPropertiesOptionsRepository,
@@ -53,14 +53,14 @@ describe('custom-properties usecases', () => {
 
       await createPropertyDefinition({
         organizationId: orgId,
-        definition: { name: 'A', type: CUSTOM_PROPERTY_TYPES.TEXT },
+        definition: { name: 'A', type: CUSTOM_PROPERTY_TYPES.TEXT, entityType: 'document' },
         config,
         customPropertiesRepository,
         customPropertiesOptionsRepository,
       });
       await createPropertyDefinition({
         organizationId: orgId,
-        definition: { name: 'B', type: CUSTOM_PROPERTY_TYPES.TEXT },
+        definition: { name: 'B', type: CUSTOM_PROPERTY_TYPES.TEXT, entityType: 'document' },
         config,
         customPropertiesRepository,
         customPropertiesOptionsRepository,
@@ -69,7 +69,7 @@ describe('custom-properties usecases', () => {
       await expect(
         createPropertyDefinition({
           organizationId: orgId,
-          definition: { name: 'C', type: CUSTOM_PROPERTY_TYPES.TEXT },
+          definition: { name: 'C', type: CUSTOM_PROPERTY_TYPES.TEXT, entityType: 'document' },
           config,
           customPropertiesRepository,
           customPropertiesOptionsRepository,
@@ -93,7 +93,7 @@ describe('custom-properties usecases', () => {
 
       const { propertyDefinition: created } = await createPropertyDefinition({
         organizationId: orgId,
-        definition: { name: 'Old', type: CUSTOM_PROPERTY_TYPES.TEXT },
+        definition: { name: 'Old', type: CUSTOM_PROPERTY_TYPES.TEXT, entityType: 'document' },
         config: overrideConfig(),
         customPropertiesRepository,
         customPropertiesOptionsRepository,
@@ -149,7 +149,7 @@ describe('custom-properties usecases', () => {
 
       const { propertyDefinition: created } = await createPropertyDefinition({
         organizationId: orgId,
-        definition: { name: 'To Delete', type: CUSTOM_PROPERTY_TYPES.TEXT },
+        definition: { name: 'To Delete', type: CUSTOM_PROPERTY_TYPES.TEXT, entityType: 'document' },
         config: overrideConfig(),
         customPropertiesRepository,
         customPropertiesOptionsRepository,
@@ -188,7 +188,7 @@ describe('custom-properties usecases', () => {
 
       const { propertyDefinition: definition } = await createPropertyDefinition({
         organizationId: orgId,
-        definition: { name: 'Note', type: CUSTOM_PROPERTY_TYPES.TEXT },
+        definition: { name: 'Note', type: CUSTOM_PROPERTY_TYPES.TEXT, entityType: 'document' },
         config: overrideConfig(),
         customPropertiesRepository,
         customPropertiesOptionsRepository,
@@ -226,7 +226,7 @@ describe('custom-properties usecases', () => {
 
       const { propertyDefinition: definition } = await createPropertyDefinition({
         organizationId: orgId,
-        definition: { name: 'Category', type: CUSTOM_PROPERTY_TYPES.SELECT, options: [] },
+        definition: { name: 'Category', type: CUSTOM_PROPERTY_TYPES.SELECT, entityType: 'document', options: [] },
         config: overrideConfig(),
         customPropertiesRepository,
         customPropertiesOptionsRepository,
@@ -262,7 +262,7 @@ describe('custom-properties usecases', () => {
 
       const { propertyDefinition: definition } = await createPropertyDefinition({
         organizationId: orgId,
-        definition: { name: 'Amount', type: CUSTOM_PROPERTY_TYPES.NUMBER },
+        definition: { name: 'Amount', type: CUSTOM_PROPERTY_TYPES.NUMBER, entityType: 'document' },
         config: overrideConfig(),
         customPropertiesRepository,
         customPropertiesOptionsRepository,
@@ -300,7 +300,7 @@ describe('custom-properties usecases', () => {
 
       const { propertyDefinition: definition } = await createPropertyDefinition({
         organizationId: orgId,
-        definition: { name: 'Note', type: CUSTOM_PROPERTY_TYPES.TEXT },
+        definition: { name: 'Note', type: CUSTOM_PROPERTY_TYPES.TEXT, entityType: 'document' },
         config: overrideConfig(),
         customPropertiesRepository,
         customPropertiesOptionsRepository,

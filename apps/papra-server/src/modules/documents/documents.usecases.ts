@@ -21,6 +21,7 @@ import { PassThrough } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { safely } from '@corentinth/chisels';
 import pLimit from 'p-limit';
+import { CUSTOM_PROPERTY_ENTITY_TYPES } from '../custom-properties/custom-properties.constants';
 import { buildCustomPropertiesArray } from '../custom-properties/custom-properties.models';
 import { createOrganizationDocumentStorageLimitReachedError } from '../organizations/organizations.errors';
 import { getOrganizationStorageLimits } from '../organizations/organizations.usecases';
@@ -632,7 +633,7 @@ export async function enrichAndFormatDocumentsForApi({
   const [{ tagsByDocumentId }, { valuesByDocumentId }, { propertyDefinitions }] = await Promise.all([
     tagsRepository.getTagsByDocumentIds({ documentIds }),
     customPropertiesRepository.getCustomPropertyValuesByDocumentIds({ documentIds }),
-    customPropertiesRepository.getOrganizationPropertyDefinitions({ organizationId }),
+    customPropertiesRepository.getOrganizationPropertyDefinitions({ organizationId, entityType: CUSTOM_PROPERTY_ENTITY_TYPES.DOCUMENT }),
   ]);
 
   return {

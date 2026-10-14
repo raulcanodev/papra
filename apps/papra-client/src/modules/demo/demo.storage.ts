@@ -112,6 +112,7 @@ export async function seedDemoStorage() {
     key: fixture.key,
     description: fixture.description ?? null,
     type: fixture.type,
+    entityType: 'document' as const,
     displayOrder: index,
     options: fixture.options ?? [],
     createdAt: lastMonth,
