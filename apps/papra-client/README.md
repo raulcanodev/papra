@@ -32,7 +32,7 @@ pnpm build:demo   # outputs to dist-demo/
 
 Build-time variables:
 
-- `VITE_DEMO_FRAME_ANCESTORS`: origins allowed to embed the demo in an iframe (defaults to `https://heypaqui.com https://www.heypaqui.com`).
+- `VITE_DEMO_FRAME_ANCESTORS`: origins allowed to embed the demo in an iframe (defaults to `https://heypaqui.com https://www.heypaqui.com http://localhost:* http://127.0.0.1:*`).
 - `VITE_DEMO_SIGNUP_URL`: where the "Create free account" button in the demo points to (the real app's sign-up page).
 
 The demo build ships a Content-Security-Policy (meta tag and `_headers`) that blocks every outgoing connection, so even a bug can't send data out.

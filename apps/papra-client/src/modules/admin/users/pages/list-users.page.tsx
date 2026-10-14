@@ -8,7 +8,7 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
-import { TextField, TextFieldRoot } from '@/modules/ui/components/textfield';
+import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { UserListDetail } from '../components/user-list-detail.component';
 import { listUsers } from '../users.services';
 
@@ -86,9 +86,8 @@ export const AdminListUsersPage: Component = () => {
     manualPagination: true,
   });
 
-  const handleSearch = (e: Event) => {
-    const target = e.target as HTMLInputElement;
-    setSearch(target.value);
+  const handleSearch = (value: string) => {
+    setSearch(value);
     setPagination({ pageIndex: 0, pageSize: pagination().pageSize });
   };
 
@@ -103,16 +102,7 @@ export const AdminListUsersPage: Component = () => {
         </p>
       </div>
 
-      <div class="mb-4">
-        <TextFieldRoot class="max-w-sm">
-          <TextField
-            type="text"
-            placeholder={t('admin.users.search-placeholder')}
-            value={search()}
-            onInput={handleSearch}
-          />
-        </TextFieldRoot>
-      </div>
+      <TableToolbar search={search()} onSearchChange={handleSearch} searchPlaceholder={t('admin.users.search-placeholder')} searchLoading={query.isFetching} />
 
       <Show
         when={!query.isLoading}

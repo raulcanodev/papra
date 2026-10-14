@@ -1,9 +1,10 @@
 import type { Component } from 'solid-js';
 import type { OrganizationMemberRole } from '../organizations.types';
+import type { ActiveFilter, FilterField } from '@/modules/ui/components/table-filters';
 import { A, useParams } from '@solidjs/router';
 import { useMutation, useQuery } from '@tanstack/solid-query';
 import { createSolidTable, flexRender, getCoreRowModel, getPaginationRowModel } from '@tanstack/solid-table';
-import { For, Show } from 'solid-js';
+import { createMemo, createSignal, For, Show } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { useConfirmModal } from '@/modules/shared/confirm';
 import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-errors';
@@ -12,10 +13,12 @@ import { Button } from '@/modules/ui/components/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuGroupLabel, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/modules/ui/components/dropdown-menu';
 import { createToast } from '@/modules/ui/components/sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
+import { matchesSelectedFilter } from '@/modules/ui/components/table-filters';
+import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/modules/ui/components/tooltip';
 import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
 import { useCurrentUserRole } from '../organizations.composables';
-import { ORGANIZATION_ROLES } from '../organizations.constants';
+import { ORGANIZATION_ROLES, ORGANIZATION_ROLES_LIST } from '../organizations.constants';
 import { getIsMemberRoleDisabled } from '../organizations.models';
 import { fetchOrganizationMembers, removeOrganizationMember, updateOrganizationMemberRole } from '../organizations.services';
 
@@ -83,9 +86,22 @@ const MemberList: Component = () => {
     await updateMemberRoleMutation.mutateAsync({ memberId, role });
   };
 
+  const [search, setSearch] = createSignal('');
+  const [filters, setFilters] = createSignal<ActiveFilter[]>([]);
+  const filterFields = createMemo((): FilterField[] => [
+    { id: 'role', type: 'multi-select', label: t('organizations.members.table.headers.role'), icon: 'i-tabler-shield', options: ORGANIZATION_ROLES_LIST.map(role => ({ value: role, label: t(`organizations.members.roles.${role}`) })) },
+  ]);
+  const members = createMemo(() => {
+    const term = search().trim().toLocaleLowerCase();
+
+    return (query.data?.members ?? [])
+      .filter(member => matchesSelectedFilter(filters(), 'role', member.role))
+      .filter(member => `${member.user.name} ${member.user.email}`.toLocaleLowerCase().includes(term));
+  });
+
   const table = createSolidTable({
     get data() {
-      return query.data?.members ?? [];
+      return members();
     },
     columns: [
       { header: t('organizations.members.table.headers.name'), accessorKey: 'user.name' },
@@ -142,6 +158,7 @@ const MemberList: Component = () => {
 
   return (
     <div>
+      <TableToolbar search={search()} onSearchChange={setSearch} fields={filterFields()} filters={filters()} onFiltersChange={setFilters} />
       <Table>
         <TableHeader>
           <For each={table.getHeaderGroups()}>

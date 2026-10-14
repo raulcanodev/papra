@@ -33,6 +33,6 @@ export async function downloadAccountantPack({ organizationId, year, quarter }: 
   return { blob, fileName: `${year}-${quarter}T-documentacion-gestor.zip` };
 }
 
-export async function sendAccountantPack({ organizationId, year, quarter, to }: { organizationId: string; year: number; quarter: Quarter; to?: string }) {
-  return apiClient<{ recipient: string; skippedDocumentsCount: number }>({ path: `${basePath({ organizationId, year, quarter })}/send`, method: 'POST', body: to ? { to } : {} });
+export async function sendAccountantPack({ organizationId, year, quarter, to, saveAsAccountantEmail }: { organizationId: string; year: number; quarter: Quarter; to: string; saveAsAccountantEmail: boolean }) {
+  return apiClient<{ recipient: string; skippedDocumentsCount: number }>({ path: `${basePath({ organizationId, year, quarter })}/send`, method: 'POST', body: { to, saveAsAccountantEmail } });
 }

@@ -13,13 +13,15 @@ export type DashboardRepository = ReturnType<typeof createDashboardRepository>;
 
 export function createDashboardRepository({ db }: { db: Database }) {
   return {
-    getOrganizationMetrics: async (args: { organizationId: string; now?: Date }) => getOrganizationMetrics({ db, ...args }),
+    getOrganizationMetrics: async (args: { organizationId: string; now?: Date; year?: number }) => getOrganizationMetrics({ db, ...args }),
   };
 }
 
 // Every metric is a single aggregate query scoped to the organization, run in parallel
-async function getOrganizationMetrics({ db, organizationId, now = new Date() }: { db: Database; organizationId: string; now?: Date }) {
-  const periods = getDashboardPeriods({ now });
+async function getOrganizationMetrics({ db, organizationId, now = new Date(), year }: { db: Database; organizationId: string; now?: Date; year?: number }) {
+  const currentYear = now.getUTCFullYear();
+  const metricsNow = year === undefined || year === currentYear ? now : new Date(Date.UTC(year, 11, 31, 23, 59, 59));
+  const periods = getDashboardPeriods({ now: metricsNow });
 
   const [profile] = await db.select({ currency: invoicingProfilesTable.currency }).from(invoicingProfilesTable).where(eq(invoicingProfilesTable.organizationId, organizationId)).limit(1);
   // Amounts in different currencies cannot be added up, the metrics use the organization invoicing currency

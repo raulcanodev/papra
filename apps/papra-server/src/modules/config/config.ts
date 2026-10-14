@@ -6,7 +6,7 @@ import { defineConfig } from 'figue';
 import * as v from 'valibot';
 import { aiAssistantConfig } from '../ai-assistant/ai-assistant.config';
 import { authConfig } from '../app/auth/auth.config';
-import { ensureAuthSecretIsNotDefaultInProduction } from '../app/auth/auth.config.models';
+import { ensureAuthSecretIsNotDefaultInProduction, ensureGoogleAuthCredentialsAreSet } from '../app/auth/auth.config.models';
 import { databaseConfig } from '../app/database/database.config';
 import { customPropertiesConfig } from '../custom-properties/custom-properties.config';
 import { documentSearchConfig } from '../documents/document-search/document-search.config';
@@ -197,6 +197,7 @@ export async function parseConfig({ env = process.env }: { env?: Record<string, 
     logger,
     validators: [
       ensureAuthSecretIsNotDefaultInProduction,
+      ensureGoogleAuthCredentialsAreSet,
     ],
   });
 

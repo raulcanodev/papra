@@ -17,9 +17,11 @@ import { TextField, TextFieldLabel, TextFieldRoot } from '@/modules/ui/component
 import { authPagesPaths } from '../auth.constants';
 import { getEnabledSsoProviderConfigs, isEmailVerificationRequiredError } from '../auth.models';
 import { authWithProvider, signIn, twoFactor } from '../auth.services';
+import { readRememberedLogin, writeRememberedLogin } from '../auth.storage';
 import { AuthBackgroundLayout, AuthCard } from '../components/auth-card-layout.component';
 import { AuthLegalLinks } from '../components/legal-links.component';
 import { NoAuthProviderWarning } from '../components/no-auth-provider';
+import { PasswordField } from '../components/password-field.component';
 import { SsoProviderButton } from '../components/sso-provider-button.component';
 import { TotpField } from '../components/verify-otp.component';
 
@@ -188,6 +190,7 @@ export const EmailLoginForm: Component<{ onTwoFactorRequired: () => void }> = (p
   const { config } = useConfig();
   const { t } = useI18n();
   const { createI18nApiError } = useI18nApiErrors({ t });
+  const rememberedLogin = readRememberedLogin();
 
   const { form, Form, Field } = createForm({
     onSubmit: async ({ email, password, rememberMe }) => {
@@ -198,6 +201,10 @@ export const EmailLoginForm: Component<{ onTwoFactorRequired: () => void }> = (p
         // This URL is where the user will be redirected after email verification
         callbackURL: buildUrl({ baseUrl: config.baseUrl, path: authPagesPaths.emailVerification }),
       });
+
+      if (!error) {
+        writeRememberedLogin({ email, rememberMe });
+      }
 
       if (loginResult && 'twoFactorRedirect' in loginResult && loginResult.twoFactorRedirect) {
         props.onTwoFactorRequired();
@@ -228,7 +235,8 @@ export const EmailLoginForm: Component<{ onTwoFactorRequired: () => void }> = (p
       rememberMe: v.boolean(),
     }),
     initialValues: {
-      rememberMe: true,
+      email: rememberedLogin.email,
+      rememberMe: rememberedLogin.rememberMe,
     },
   });
 
@@ -249,7 +257,15 @@ export const EmailLoginForm: Component<{ onTwoFactorRequired: () => void }> = (p
           <TextFieldRoot class="flex flex-col gap-1 mb-4">
             <TextFieldLabel for="password">{t('auth.login.form.password.label')}</TextFieldLabel>
 
-            <TextField type="password" id="password" placeholder={t('auth.login.form.password.placeholder')} {...inputProps} value={field.value} aria-invalid={Boolean(field.error)} />
+            <PasswordField
+              id="password"
+              placeholder={t('auth.login.form.password.placeholder')}
+              {...inputProps}
+              value={field.value}
+              aria-invalid={Boolean(field.error)}
+              showPasswordLabel={t('auth.password.show')}
+              hidePasswordLabel={t('auth.password.hide')}
+            />
             {field.error && <div class="text-red-500 text-sm">{field.error}</div>}
           </TextFieldRoot>
         )}
@@ -286,7 +302,6 @@ export const LoginPage: Component = () => {
   const { config } = useConfig();
   const { t } = useI18n();
 
-  const [getShowEmailLoginForm, setShowEmailLoginForm] = createSignal(false);
   const [showTwoFactorForm, setShowTwoFactorForm] = createSignal(false);
 
   const loginWithProvider = async (provider: SsoProviderConfig) => {
@@ -313,19 +328,11 @@ export const LoginPage: Component = () => {
               </>
             )}
           >
-            <p class="text-xs uppercase tracking-[0.16em] font-semibold text-primary mb-3">{t('auth.login.eyebrow')}</p>
             <h1 class="text-3xl font-semibold tracking-[-0.035em]">{t('auth.login.welcome')}</h1>
             <p class="text-muted-foreground mt-2 mb-7 leading-6">{t('auth.login.welcome-description')}</p>
 
             <Show when={config.auth.providers.email.isEnabled}>
-              {getShowEmailLoginForm() || !getHasSsoProviders()
-                ? <EmailLoginForm onTwoFactorRequired={() => setShowTwoFactorForm(true)} />
-                : (
-                    <Button onClick={() => setShowEmailLoginForm(true)} class="w-full">
-                      <div class="i-tabler-mail mr-2 size-4.5" />
-                      {t('auth.login.login-with-provider', { provider: 'Email' })}
-                    </Button>
-                  )}
+              <EmailLoginForm onTwoFactorRequired={() => setShowTwoFactorForm(true)} />
             </Show>
 
             <Show when={config.auth.providers.email.isEnabled && getHasSsoProviders()}>

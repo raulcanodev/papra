@@ -7,7 +7,16 @@ import { DEMO_DEFAULT_PARENT_ORIGINS, DEMO_PREFERENCES_MESSAGE_SOURCE } from './
 const allowedParentOrigins = (import.meta.env.VITE_DEMO_FRAME_ANCESTORS ?? DEMO_DEFAULT_PARENT_ORIGINS).split(/\s+/).filter(Boolean);
 
 function isAllowedOrigin(origin: string) {
-  return allowedParentOrigins.includes(origin) || (import.meta.env.DEV && /^http:\/\/localhost(?::\d+)?$/.test(origin));
+  return allowedParentOrigins.some((allowedOrigin: string) => {
+    if (allowedOrigin === 'http://localhost:*') {
+      return /^http:\/\/localhost:\d+$/.test(origin);
+    }
+    if (allowedOrigin === 'http://127.0.0.1:*') {
+      return /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
+    }
+
+    return allowedOrigin === origin;
+  });
 }
 
 /** When the demo is embedded in the landing page, follow the theme and language chosen there. */

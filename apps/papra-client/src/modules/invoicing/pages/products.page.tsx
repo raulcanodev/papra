@@ -1,6 +1,7 @@
 /* eslint-disable style/max-statements-per-line */
 import type { ProductInput } from '../invoicing.types';
 import type { EntityCustomPropertiesInput } from '@/modules/custom-properties/custom-properties.types';
+import type { ActiveFilter, FilterField } from '@/modules/ui/components/table-filters';
 import { useParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For } from 'solid-js';
@@ -9,6 +10,7 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { Button } from '@/modules/ui/components/button';
 import { createToast } from '@/modules/ui/components/sonner';
+import { matchesSelectedFilter, toDistinctFilterOptions } from '@/modules/ui/components/table-filters';
 import { TextField } from '@/modules/ui/components/textfield';
 import { CatalogCell, CatalogPage, CatalogRow, CatalogTable, FormField, SaveButton } from '../components/catalog-page';
 import { createProduct, fetchProducts, updateProduct } from '../invoicing.services';
@@ -22,7 +24,16 @@ export function ProductsPage() {
   const [formOpen, setFormOpen] = createSignal(false);
   const [search, setSearch] = createSignal('');
   const query = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'products'], queryFn: () => fetchProducts({ organizationId: params.organizationId }) }));
-  const products = createMemo(() => (query.data?.products ?? []).filter(product => `${product.name} ${product.description ?? ''} ${product.unit}`.toLowerCase().includes(search().trim().toLowerCase())));
+  const [filters, setFilters] = createSignal<ActiveFilter[]>([]);
+  const allProducts = () => query.data?.products ?? [];
+  // Options taken from the catalog itself: only the rates and units in use
+  const filterFields = createMemo((): FilterField[] => [
+    { id: 'tax', type: 'multi-select', label: t('invoicing.products.table.tax'), icon: 'i-tabler-percentage', options: toDistinctFilterOptions(allProducts(), product => ({ value: String(product.taxRateBps), label: `${product.taxRateBps / 100}%` })) },
+    { id: 'unit', type: 'multi-select', label: t('invoicing.products.form.unit'), icon: 'i-tabler-ruler-measure', options: toDistinctFilterOptions(allProducts(), product => ({ value: product.unit, label: product.unit })) },
+  ]);
+  const products = createMemo(() => allProducts()
+    .filter(product => matchesSelectedFilter(filters(), 'tax', String(product.taxRateBps)) && matchesSelectedFilter(filters(), 'unit', product.unit))
+    .filter(product => `${product.name} ${product.description ?? ''} ${product.unit}`.toLowerCase().includes(search().trim().toLowerCase())));
   const reset = () => {
     setValue(empty()); setEditingId(null); setCustomProperties({}); setFormOpen(false);
   };
@@ -43,6 +54,9 @@ export function ProductsPage() {
       editLabel={t('invoicing.products.edit')}
       search={search()}
       onSearchChange={setSearch}
+      filterFields={filterFields()}
+      filters={filters()}
+      onFiltersChange={setFilters}
       loading={query.isLoading}
       empty={products().length === 0}
       form={(

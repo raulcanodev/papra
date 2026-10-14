@@ -5,7 +5,7 @@ import type { Quarter, QuarterlyTaxReport, SimulatedPurchase } from '../../taxes
 type Line = { quantityMillis: number; unitPriceMinor: number; discountRateBps: number; taxRateBps: number; deductibleRateBps?: number };
 type DemoIssued = { status: string; currency: string; issueDate: string; withholdingMinor?: number; items: Line[] };
 type DemoPurchase = { currency: string; issueDate: string; category: string; supplierId: string; withholdingMinor?: number; items: Line[] };
-type DemoProfile = { currency?: string; legalForm?: 'self_employed' | 'company' | null; vatRegime?: 'general' | 'equivalence_surcharge' | 'exempt'; incomeTaxMethod?: 'direct_simplified' | 'direct_normal' | 'modules'; lastCorporateTaxQuotaMinor?: number | null } | null;
+type DemoProfile = { currency?: string; legalForm?: 'self_employed' | 'company' | null; vatRegime?: 'general' | 'equivalence_surcharge' | 'exempt'; incomeTaxMethod?: 'direct_simplified' | 'direct_normal' | 'modules'; lastCorporateTaxQuotaMinor?: number | null; accountantEmail?: string | null } | null;
 
 const BILLED_STATUSES = ['issued', 'sent', 'paid'];
 const DAY = 24 * 60 * 60 * 1000;
@@ -109,7 +109,7 @@ export function computeDemoQuarterlyTaxReport({ issuedInvoices, purchaseInvoices
     quarter,
     currency,
     period: { start, end },
-    profile: { legalForm, vatRegime: profile?.vatRegime ?? 'general', incomeTaxMethod: profile?.incomeTaxMethod ?? 'direct_simplified', lastCorporateTaxQuotaMinor: quota, isConfigured: legalForm !== null },
+    profile: { legalForm, vatRegime: profile?.vatRegime ?? 'general', incomeTaxMethod: profile?.incomeTaxMethod ?? 'direct_simplified', lastCorporateTaxQuotaMinor: quota, isConfigured: legalForm !== null, accountantEmail: profile?.accountantEmail ?? null },
     applicable,
     ...taxes,
     corporateTax202: [4, 10, 12].map((month, index) => ({ period: index + 1, dueDate: businessDay(new Date(Date.UTC(year, month - 1, 20))), amountMinor: quota === null ? null : Math.round(quota * 1_800 / 10_000) })),

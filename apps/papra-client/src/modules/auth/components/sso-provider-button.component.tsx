@@ -22,7 +22,7 @@ export const SsoProviderButton: Component<{ name: string; icon?: string; onClick
 
   return (
     <>
-      <Button variant="secondary" class="block w-full flex items-center justify-center gap-2" onClick={onClick} disabled={getIsLoading()}>
+      <Button class="w-full" onClick={onClick} disabled={getIsLoading()}>
 
         <Switch>
           <Match when={getIsLoading()}>

@@ -2,7 +2,7 @@ export const ssoProviders = [
   {
     key: 'google',
     name: 'Google',
-    icon: 'i-tabler-brand-google-filled',
+    icon: '/google.svg',
   },
   {
     key: 'github',

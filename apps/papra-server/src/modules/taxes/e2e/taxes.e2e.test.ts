@@ -119,6 +119,20 @@ describe('taxes e2e', () => {
     expect(sentEmails[0]!.attachments?.[0]?.filename).to.eql('2026-3T-documentacion-gestor.zip');
   });
 
+  test('the pack can be sent to another address, which is saved as the accountant email when asked', async () => {
+    const { request, getReport, sentEmails } = await setupApp();
+
+    const sendOnce = await request({ path: `/api/organizations/${ORG_ID}/taxes/2026/3/send`, method: 'POST', body: { to: 'otra@example.com' } });
+    expect(await sendOnce.json()).to.include({ recipient: 'otra@example.com' });
+    const { report: unchanged } = await getReport();
+    expect(unchanged.profile).to.include({ accountantEmail: 'gestor@example.com' });
+
+    await request({ path: `/api/organizations/${ORG_ID}/taxes/2026/3/send`, method: 'POST', body: { to: 'nueva@example.com', saveAsAccountantEmail: true } });
+    const { report: saved } = await getReport();
+    expect(saved.profile).to.include({ accountantEmail: 'nueva@example.com' });
+    expect(sentEmails.map(email => email.to)).to.eql(['otra@example.com', 'nueva@example.com']);
+  });
+
   test('the taxes of an organization are not readable from another one', async () => {
     const { request } = await setupApp();
 

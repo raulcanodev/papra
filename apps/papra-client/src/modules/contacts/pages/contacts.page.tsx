@@ -1,5 +1,6 @@
 import type { Contact, ContactInput, ContactRole } from '../contacts.types';
 import type { EntityCustomPropertiesInput } from '@/modules/custom-properties/custom-properties.types';
+import type { ActiveFilter, FilterField } from '@/modules/ui/components/table-filters';
 import { useParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For, Show } from 'solid-js';
@@ -10,8 +11,9 @@ import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
 import { createToast } from '@/modules/ui/components/sonner';
+import { matchesSelectedFilter, toDistinctFilterOptions } from '@/modules/ui/components/table-filters';
 import { ContactFormFields, emptyContact, toContactInput } from '../components/contact-form';
-import { CONTACT_ROLE_BADGE_CLASSES, CONTACT_ROLE_CUSTOM_PROPERTY_ENTITY_TYPES, CONTACT_ROLE_DEFAULT_KINDS, CONTACT_ROLE_FLAGS, CONTACT_ROLE_LABEL_I18N_KEYS, CONTACT_ROLE_PAGE_I18N_KEYS, CONTACT_ROLE_PLURAL_LABEL_I18N_KEYS, getContactRoles, hasContactRole, normalizeTaxId } from '../contacts.constants';
+import { CONTACT_KIND_LABEL_I18N_KEYS, CONTACT_KINDS, CONTACT_ROLE_BADGE_CLASSES, CONTACT_ROLE_CUSTOM_PROPERTY_ENTITY_TYPES, CONTACT_ROLE_DEFAULT_KINDS, CONTACT_ROLE_FLAGS, CONTACT_ROLE_LABEL_I18N_KEYS, CONTACT_ROLE_PAGE_I18N_KEYS, CONTACT_ROLE_PLURAL_LABEL_I18N_KEYS, getContactRoles, hasContactRole, normalizeTaxId } from '../contacts.constants';
 import { createContact, fetchContacts, getContactsQueryKey, updateContact } from '../contacts.services';
 
 /** The contacts of one role (customers, suppliers or sales representatives), the role and kind of new contacts come from the page */
@@ -24,6 +26,7 @@ export function ContactsPage(props: { role: ContactRole }) {
   const [editingId, setEditingId] = createSignal<string | null>(null);
   const [formOpen, setFormOpen] = createSignal(false);
   const [search, setSearch] = createSignal('');
+  const [filters, setFilters] = createSignal<ActiveFilter[]>([]);
 
   // One cached listing shared by the three pages, switching between them is instant
   const query = useQuery(() => ({ queryKey: getContactsQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchContacts({ organizationId: params.organizationId }) }));
@@ -31,11 +34,18 @@ export function ContactsPage(props: { role: ContactRole }) {
   const contacts = () => query.data?.contacts ?? [];
   const pageI18nKeys = () => CONTACT_ROLE_PAGE_I18N_KEYS[props.role];
 
+  const roleContacts = createMemo(() => contacts().filter(contact => hasContactRole({ contact, role: props.role })));
+
+  const filterFields = createMemo((): FilterField[] => [
+    { id: 'kind', type: 'multi-select', label: t('contacts.filter.kind'), icon: 'i-tabler-building', options: CONTACT_KINDS.map(kind => ({ value: kind, label: t(CONTACT_KIND_LABEL_I18N_KEYS[kind]) })) },
+    { id: 'country', type: 'multi-select', label: t('invoicing.common.country'), icon: 'i-tabler-world', options: toDistinctFilterOptions(roleContacts(), contact => (contact.country ? { value: contact.country, label: contact.country } : null)) },
+  ]);
+
   const rows = createMemo(() => {
     const term = search().trim().toLowerCase();
 
-    return contacts()
-      .filter(contact => hasContactRole({ contact, role: props.role }))
+    return roleContacts()
+      .filter(contact => matchesSelectedFilter(filters(), 'kind', contact.kind) && matchesSelectedFilter(filters(), 'country', contact.country))
       .filter(contact => `${contact.name} ${contact.email ?? ''} ${contact.taxId ?? ''} ${contact.phone ?? ''}`.toLowerCase().includes(term));
   });
 
@@ -113,6 +123,9 @@ export function ContactsPage(props: { role: ContactRole }) {
       editLabel={t(pageI18nKeys().edit)}
       search={search()}
       onSearchChange={setSearch}
+      filterFields={filterFields()}
+      filters={filters()}
+      onFiltersChange={setFilters}
       loading={query.isLoading}
       empty={rows().length === 0}
       form={(

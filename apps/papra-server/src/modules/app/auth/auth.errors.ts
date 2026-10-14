@@ -24,3 +24,10 @@ export const createAuthSecretIsDefaultError = createErrorFactory({
   statusCode: 500,
   isInternal: true,
 });
+
+export const createGoogleAuthCredentialsMissingError = createErrorFactory({
+  code: 'auth.config.google_credentials_missing',
+  message: 'Google authentication is enabled, but its credentials are missing. Please set AUTH_PROVIDERS_GOOGLE_CLIENT_ID and AUTH_PROVIDERS_GOOGLE_CLIENT_SECRET.',
+  statusCode: 500,
+  isInternal: true,
+});

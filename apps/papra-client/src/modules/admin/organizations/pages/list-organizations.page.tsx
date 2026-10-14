@@ -7,7 +7,7 @@ import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { Button } from '@/modules/ui/components/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
-import { TextField, TextFieldRoot } from '@/modules/ui/components/textfield';
+import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { listOrganizations } from '../organizations.services';
 
 export const AdminListOrganizationsPage: Component = () => {
@@ -84,9 +84,8 @@ export const AdminListOrganizationsPage: Component = () => {
     manualPagination: true,
   });
 
-  const handleSearch = (e: Event) => {
-    const target = e.target as HTMLInputElement;
-    setSearch(target.value);
+  const handleSearch = (value: string) => {
+    setSearch(value);
     setPagination({ pageIndex: 0, pageSize: pagination().pageSize });
   };
 
@@ -101,16 +100,7 @@ export const AdminListOrganizationsPage: Component = () => {
         </p>
       </div>
 
-      <div class="mb-4">
-        <TextFieldRoot class="max-w-sm">
-          <TextField
-            type="text"
-            placeholder={t('admin.organizations.search-placeholder')}
-            value={search()}
-            onInput={handleSearch}
-          />
-        </TextFieldRoot>
-      </div>
+      <TableToolbar search={search()} onSearchChange={handleSearch} searchPlaceholder={t('admin.organizations.search-placeholder')} searchLoading={query.isFetching} />
 
       <Show
         when={!query.isLoading}

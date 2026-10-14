@@ -1,7 +1,7 @@
 import type { Component } from 'solid-js';
 import type { Transaction } from '../finances.types';
 import type { TranslationKeys } from '@/modules/i18n/locales.types';
-import Calendar from '@corvu/calendar';
+import type { ActiveFilter, DateRangePreset, DateRangeValue, FilterField } from '@/modules/ui/components/table-filters';
 import { useParams } from '@solidjs/router';
 import { createMutation, keepPreviousData, useQuery, useQueryClient } from '@tanstack/solid-query';
 import { createEffect, createMemo, createSignal, For, Match, Show, Switch } from 'solid-js';
@@ -13,13 +13,12 @@ import { createParamSynchronizedPagination } from '@/modules/shared/pagination/q
 import { cn } from '@/modules/shared/style/cn';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
-import { CalendarGrid } from '@/modules/ui/components/calendar';
-import { CalendarMonthYearHeader } from '@/modules/ui/components/calendar-month-year-header';
-import { Popover, PopoverContent, PopoverTrigger } from '@/modules/ui/components/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/modules/ui/components/select';
 import { createToast } from '@/modules/ui/components/sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
-import { TextField, TextFieldRoot } from '@/modules/ui/components/textfield';
+import { fromIsoDate, getActiveFilter, getSelectedFilterValues, isDateRangeValue, resolveDatePreset } from '@/modules/ui/components/table-filters';
+import { TableToolbar } from '@/modules/ui/components/table-toolbar';
+import { TextField } from '@/modules/ui/components/textfield';
 import { AddBankConnectionDialog } from '../components/add-bank-connection-dialog.component';
 import { EditBankConnectionDialog } from '../components/edit-bank-connection-dialog.component';
 import { TransactionDetailDialog } from '../components/transaction-detail-dialog.component';
@@ -40,85 +39,53 @@ const providerIcons: Record<string, string> = {
 };
 
 const amountFilterLabelKeys = [
-  { value: undefined as string | undefined, labelKey: 'finances.amount-filter.any' },
-  { value: 'positive' as string | undefined, labelKey: 'finances.amount-filter.positive' },
-  { value: 'negative' as string | undefined, labelKey: 'finances.amount-filter.negative' },
-  { value: 'gt' as string | undefined, labelKey: 'finances.amount-filter.gt' },
-  { value: 'lt' as string | undefined, labelKey: 'finances.amount-filter.lt' },
-  { value: 'gte' as string | undefined, labelKey: 'finances.amount-filter.gte' },
-  { value: 'lte' as string | undefined, labelKey: 'finances.amount-filter.lte' },
-  { value: 'eq' as string | undefined, labelKey: 'finances.amount-filter.eq' },
-] as const satisfies ReadonlyArray<{ value: string | undefined; labelKey: TranslationKeys }>;
+  { value: 'positive', labelKey: 'finances.amount-filter.positive' },
+  { value: 'negative', labelKey: 'finances.amount-filter.negative' },
+  { value: 'gt', labelKey: 'finances.amount-filter.gt' },
+  { value: 'lt', labelKey: 'finances.amount-filter.lt' },
+  { value: 'gte', labelKey: 'finances.amount-filter.gte' },
+  { value: 'lte', labelKey: 'finances.amount-filter.lte' },
+  { value: 'eq', labelKey: 'finances.amount-filter.eq' },
+] as const satisfies ReadonlyArray<{ value: string; labelKey: TranslationKeys }>;
 
-type DatePreset = 'last-7' | 'last-week' | 'last-weekend' | 'last-30' | 'this-month' | 'last-month' | 'this-year' | 'all' | 'custom';
-const datePresets: DatePreset[] = ['all', 'last-7', 'last-week', 'last-weekend', 'last-30', 'this-month', 'last-month', 'this-year', 'custom'];
-const datePresetLabelKeys = {
-  'all': 'finances.date-preset.all',
-  'last-7': 'finances.date-preset.last-7',
-  'last-week': 'finances.date-preset.last-week',
-  'last-weekend': 'finances.date-preset.last-weekend',
-  'last-30': 'finances.date-preset.last-30',
-  'this-month': 'finances.date-preset.this-month',
-  'last-month': 'finances.date-preset.last-month',
-  'this-year': 'finances.date-preset.this-year',
-  'custom': 'finances.date-preset.custom',
-} as const satisfies Record<DatePreset, TranslationKeys>;
+// Amount comparisons that need a number next to them
+const AMOUNT_COMPARISONS = ['gt', 'lt', 'gte', 'lte', 'eq'];
 
-type FilterStorage = {
-  filterConnection?: string;
-  filterClassification?: string;
-  amountFilter?: string;
-  amountValue?: number;
-  datePreset: DatePreset;
-  customFrom?: string | null;
-  customTo?: string | null;
-};
+const DATE_PRESETS: DateRangePreset[] = ['today', 'this_week', 'this_month', 'last_month', 'last_30', 'this_year', 'last_year'];
 
-function readFiltersFromStorage(orgId: string): FilterStorage | null {
+const getDefaultFilters = (): ActiveFilter[] => [{ fieldId: 'date', value: resolveDatePreset('last_30') }];
+
+type StoredFilters = { filters: ActiveFilter[]; amountValue?: number };
+
+const getFiltersStorageKey = (organizationId: string) => `papra:finances:filters:v2:${organizationId}`;
+
+function readFiltersFromStorage(organizationId: string): StoredFilters | null {
   try {
-    const raw = localStorage.getItem(`papra:finances:filters:${orgId}`);
-    return raw ? (JSON.parse(raw) as FilterStorage) : null;
+    const raw = localStorage.getItem(getFiltersStorageKey(organizationId));
+    if (!raw) {
+      return null;
+    }
+    const stored = JSON.parse(raw) as StoredFilters;
+    // A relative period ("last 30 days") is resolved again, it is not frozen at the day it was saved
+    return { ...stored, filters: stored.filters.map(filter => (isDateRangeValue(filter.value) && filter.value.preset ? { ...filter, value: resolveDatePreset(filter.value.preset) } : filter)) };
   } catch {
     return null;
   }
 }
 
-function writeFiltersToStorage(orgId: string, f: FilterStorage): void {
+function writeFiltersToStorage(organizationId: string, stored: StoredFilters): void {
   try {
-    localStorage.setItem(`papra:finances:filters:${orgId}`, JSON.stringify(f));
+    localStorage.setItem(getFiltersStorageKey(organizationId), JSON.stringify(stored));
   } catch {}
 }
 
-function getDateRange(preset: DatePreset): { from?: number; to?: number } {
-  const now = new Date();
-  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
-
-  switch (preset) {
-    case 'last-7': return { from: startOfDay(new Date(now.getTime() - 7 * 86400000)), to: endOfDay(now) };
-    case 'last-week': {
-      const day = now.getDay(); // 0=Sun
-      const lastMon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day - 6);
-      const lastSun = new Date(lastMon.getFullYear(), lastMon.getMonth(), lastMon.getDate() + 6);
-      return { from: startOfDay(lastMon), to: endOfDay(lastSun) };
-    }
-    case 'last-weekend': {
-      const d = now.getDay();
-      const lastSat = new Date(now.getFullYear(), now.getMonth(), now.getDate() - d - 1);
-      const lastSun = new Date(lastSat.getFullYear(), lastSat.getMonth(), lastSat.getDate() + 1);
-      return { from: startOfDay(lastSat), to: endOfDay(lastSun) };
-    }
-    case 'last-30': return { from: startOfDay(new Date(now.getTime() - 30 * 86400000)), to: endOfDay(now) };
-    case 'this-month': return { from: startOfDay(new Date(now.getFullYear(), now.getMonth(), 1)), to: endOfDay(now) };
-    case 'last-month': {
-      const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const last = new Date(now.getFullYear(), now.getMonth(), 0);
-      return { from: startOfDay(first), to: endOfDay(last) };
-    }
-    case 'this-year': return { from: startOfDay(new Date(now.getFullYear(), 0, 1)), to: endOfDay(now) };
-    case 'all': return {};
-    case 'custom': return {};
+// The API takes timestamps: from the start of the first day to the end of the last one
+function toTimestampRange(range: DateRangeValue | undefined): { from?: number; to?: number } {
+  if (!range) {
+    return {};
   }
+  const to = fromIsoDate(range.to);
+  return { from: fromIsoDate(range.from).getTime(), to: new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59, 999).getTime() };
 }
 
 function formatCurrencyRaw(amount: number, currency: string) {
@@ -141,69 +108,51 @@ export const FinancesPage: Component = () => {
   const { t } = useI18n();
   const classificationOptions = () => transactionClassifications.map(value => ({ value, label: t(classificationLabelKeys[value]) }));
   const amountFilterOptions = () => amountFilterLabelKeys.map(option => ({ value: option.value, label: t(option.labelKey) }));
-  const datePresetOptions = () => datePresets.map(value => ({ value, label: t(datePresetLabelKeys[value]) }));
   const params = useParams();
   const queryClient = useQueryClient();
   const { confirm } = useConfirmModal();
   const { isPrivacyMode, togglePrivacyMode } = usePrivacyMode();
   const formatCurrency = (amount: number, currency: string) => privacyCurrency(formatCurrencyRaw(amount, currency), isPrivacyMode());
   const [getPagination, setPagination] = createParamSynchronizedPagination();
+  const resetPagination = () => setPagination({ pageIndex: 0, pageSize: getPagination().pageSize });
 
   const stored = readFiltersFromStorage(params.organizationId);
-  const [getFilterConnection, setFilterConnection] = createSignal<string | undefined>(stored?.filterConnection);
-  const [getFilterClassification, setFilterClassification] = createSignal<string | undefined>(stored?.filterClassification);
+  const [getFilters, setFiltersValue] = createSignal<ActiveFilter[]>(stored?.filters ?? getDefaultFilters());
+  const [getAmountValue, setAmountValue] = createSignal<number | undefined>(stored?.amountValue);
   const [getSearchQuery, setSearchQuery] = createSignal('');
   const [getDebouncedSearch, setDebouncedSearch] = createSignal<string | undefined>();
-  const [getAmountFilter, setAmountFilter] = createSignal<string | undefined>(stored?.amountFilter);
-  const [getAmountValue, setAmountValue] = createSignal<number | undefined>(stored?.amountValue);
-  const [getDatePreset, setDatePreset] = createSignal<DatePreset>(stored?.datePreset ?? 'last-30');
-  const [getCustomFrom, setCustomFrom] = createSignal<Date | null>(stored?.customFrom ? new Date(stored.customFrom) : null);
-  const [getCustomTo, setCustomTo] = createSignal<Date | null>(stored?.customTo ? new Date(stored.customTo) : null);
-  const [isDatePopoverOpen, setIsDatePopoverOpen] = createSignal(false);
+
+  const getSelected = (fieldId: string) => getSelectedFilterValues(getFilters(), fieldId)[0];
+  const getFilterConnection = () => getSelected('account');
+  const getFilterClassification = () => getSelected('type');
+  const getAmountFilter = () => getSelected('amount');
+  const needsAmountValue = () => AMOUNT_COMPARISONS.includes(getAmountFilter() ?? '');
+
+  const setFilters = (filters: ActiveFilter[]) => {
+    setFiltersValue(filters);
+    if (!needsAmountValue()) {
+      setAmountValue(undefined);
+    }
+    resetPagination();
+  };
 
   createEffect(() => {
-    writeFiltersToStorage(params.organizationId, {
-      filterConnection: getFilterConnection(),
-      filterClassification: getFilterClassification(),
-      amountFilter: getAmountFilter(),
-      amountValue: getAmountValue(),
-      datePreset: getDatePreset(),
-      customFrom: getCustomFrom()?.toISOString() ?? null,
-      customTo: getCustomTo()?.toISOString() ?? null,
-    });
+    writeFiltersToStorage(params.organizationId, { filters: getFilters(), amountValue: getAmountValue() });
   });
 
-  const hasActiveFilters = () =>
-    getFilterConnection() != null
-    || getFilterClassification() != null
-    || getAmountFilter() != null
-    || getDatePreset() !== 'all'
-    || !!getDebouncedSearch();
+  const hasActiveFilters = () => getFilters().length > 0 || !!getDebouncedSearch();
 
   const clearFilters = () => {
-    setFilterConnection(undefined);
-    setFilterClassification(undefined);
-    setAmountFilter(undefined);
+    setFiltersValue(getDefaultFilters());
     setAmountValue(undefined);
-    setDatePreset('last-30');
-    setCustomFrom(null);
-    setCustomTo(null);
     setSearchQuery('');
     setDebouncedSearch(undefined);
-    setPagination({ pageIndex: 0, pageSize: getPagination().pageSize });
+    resetPagination();
   };
 
   const dateRange = createMemo(() => {
-    const preset = getDatePreset();
-    if (preset === 'custom') {
-      const from = getCustomFrom();
-      const to = getCustomTo();
-      return {
-        from: from ? new Date(from.getFullYear(), from.getMonth(), from.getDate()).getTime() : undefined,
-        to: to ? new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59, 999).getTime() : undefined,
-      };
-    }
-    return getDateRange(preset);
+    const value = getActiveFilter(getFilters(), 'date')?.value;
+    return toTimestampRange(isDateRangeValue(value) ? value : undefined);
   });
   const [getEditingConnection, setEditingConnection] = createSignal<string | undefined>();
   const [getDetailTransaction, setDetailTransaction] = createSignal<Transaction | null>(null);
@@ -239,6 +188,13 @@ export const FinancesPage: Component = () => {
     queryKey: ['organizations', params.organizationId, 'finances', 'bank-connections'],
     queryFn: () => fetchBankConnections({ organizationId: params.organizationId }),
   }));
+
+  const filterFields = createMemo((): FilterField[] => [
+    { id: 'account', type: 'select', label: t('finances.filters.account'), icon: 'i-tabler-building-bank', options: (connectionsQuery.data?.bankConnections ?? []).map(connection => ({ value: connection.id, label: connection.name })) },
+    { id: 'type', type: 'select', label: t('finances.filters.type'), icon: 'i-tabler-category', options: classificationOptions() },
+    { id: 'amount', type: 'select', label: t('finances.filters.amount'), icon: 'i-tabler-coin', options: amountFilterOptions() },
+    { id: 'date', type: 'date-range', label: t('finances.filters.date'), icon: 'i-tabler-calendar', presets: DATE_PRESETS },
+  ]);
 
   const transactionsQuery = useQuery(() => ({
     queryKey: ['organizations', params.organizationId, 'finances', 'transactions', getPagination(), getFilterConnection(), getFilterClassification(), getDebouncedSearch(), getAmountFilter(), getAmountValue(), dateRange()],
@@ -296,9 +252,6 @@ export const FinancesPage: Component = () => {
       queryClient.invalidateQueries({ queryKey: ['organizations', params.organizationId, 'finances', 'transactions'] });
     },
   }));
-
-  const allAccountsOption = () => ({ value: undefined as string | undefined, label: t('finances.filters.all-accounts') });
-  const allTypesOption = () => ({ value: undefined as string | undefined, label: t('finances.filters.all-types') });
 
   return (
     <div class="page">
@@ -402,220 +355,32 @@ export const FinancesPage: Component = () => {
           }}
         </Show>
 
-        {/* Filters */}
         <Show when={(connectionsQuery.data?.bankConnections?.length ?? 0) > 0}>
-          <div class="flex gap-3 mb-4 flex-wrap items-end">
-            {/* Search */}
-            <TextFieldRoot class="w-56">
-              <TextField
-                placeholder={t('finances.filters.search')}
-                value={getSearchQuery()}
-                onInput={e => handleSearchInput(e.currentTarget.value)}
-              />
-            </TextFieldRoot>
-
-            <Select
-              options={[allAccountsOption(), ...(connectionsQuery.data?.bankConnections ?? []).map(c => ({ value: c.id as string | undefined, label: c.name }))]}
-              optionValue="value"
-              optionTextValue="label"
-              value={getFilterConnection()
-                ? { value: getFilterConnection(), label: connectionsQuery.data?.bankConnections?.find(c => c.id === getFilterConnection())?.name ?? '' }
-                : allAccountsOption()}
-              onChange={v => setFilterConnection(v?.value)}
-              itemComponent={prps => <SelectItem item={prps.item}>{prps.item.rawValue.label}</SelectItem>}
-            >
-              <SelectTrigger class="w-44">
-                <SelectValue<{ value: string | undefined; label: string }>>{state => state.selectedOption()?.label ?? t('finances.filters.all-accounts')}</SelectValue>
-              </SelectTrigger>
-              <SelectContent />
-            </Select>
-
-            <Select
-              options={[allTypesOption(), ...classificationOptions().map(c => ({ value: c.value as string | undefined, label: c.label }))]}
-              optionValue="value"
-              optionTextValue="label"
-              value={getFilterClassification()
-                ? { value: getFilterClassification(), label: classificationOptions().find(c => c.value === getFilterClassification())?.label ?? '' }
-                : allTypesOption()}
-              onChange={v => setFilterClassification(v?.value)}
-              itemComponent={prps => <SelectItem item={prps.item}>{prps.item.rawValue.label}</SelectItem>}
-            >
-              <SelectTrigger class="w-40">
-                <SelectValue<{ value: string | undefined; label: string }>>{state => state.selectedOption()?.label ?? t('finances.filters.all-types')}</SelectValue>
-              </SelectTrigger>
-              <SelectContent />
-            </Select>
-
-            {/* Amount filter */}
-            <Select
-              options={amountFilterOptions()}
-              optionValue="value"
-              optionTextValue="label"
-              value={amountFilterOptions().find(o => o.value === getAmountFilter()) ?? amountFilterOptions()[0]}
-              onChange={(v) => {
-                const val = v?.value;
-                setAmountFilter(val);
-                if (val === 'positive' || val === 'negative' || !val) {
-                  setAmountValue(undefined);
-                }
-                setPagination({ pageIndex: 0, pageSize: getPagination().pageSize });
-              }}
-              itemComponent={prps => <SelectItem item={prps.item}>{prps.item.rawValue.label}</SelectItem>}
-            >
-              <SelectTrigger class="w-44">
-                <SelectValue<{ value: string | undefined; label: string }>>{state => state.selectedOption()?.label ?? t('finances.amount-filter.any')}</SelectValue>
-              </SelectTrigger>
-              <SelectContent />
-            </Select>
-
-            <Show when={getAmountFilter() && getAmountFilter() !== 'positive' && getAmountFilter() !== 'negative'}>
-              <TextFieldRoot class="w-32">
+          <TableToolbar
+            search={getSearchQuery()}
+            onSearchChange={handleSearchInput}
+            searchPlaceholder={t('finances.filters.search')}
+            searchLoading={transactionsQuery.isFetching && getSearchQuery().length > 0}
+            fields={filterFields()}
+            filters={getFilters()}
+            onFiltersChange={setFilters}
+            actions={(
+              <Show when={needsAmountValue()}>
                 <TextField
                   type="number"
+                  class="h-8 w-32"
                   placeholder={t('finances.filters.amount')}
+                  aria-label={t('finances.filters.amount')}
                   value={getAmountValue()?.toString() ?? ''}
-                  onInput={(e) => {
-                    const v = e.currentTarget.value;
-                    setAmountValue(v ? Number(v) : undefined);
-                    setPagination({ pageIndex: 0, pageSize: getPagination().pageSize });
+                  onInput={(event) => {
+                    const value = event.currentTarget.value;
+                    setAmountValue(value ? Number(value) : undefined);
+                    resetPagination();
                   }}
                 />
-              </TextFieldRoot>
-            </Show>
-
-            {/* Date filter */}
-            <Popover open={isDatePopoverOpen()} onOpenChange={setIsDatePopoverOpen}>
-              <PopoverTrigger
-                as={Button}
-                variant="outline"
-                class="h-9 text-xs gap-1.5 font-normal px-3"
-              >
-                <div class="i-tabler-calendar size-3.5 shrink-0 text-muted-foreground" />
-                <Show
-                  when={getDatePreset() === 'custom' && (getCustomFrom() || getCustomTo())}
-                  fallback={<span>{t(datePresetLabelKeys[getDatePreset()])}</span>}
-                >
-                  <span>
-                    {getCustomFrom() ? formatDate(getCustomFrom()!) : '...'}
-                    {' → '}
-                    {getCustomTo() ? formatDate(getCustomTo()!) : '...'}
-                  </span>
-                </Show>
-                <div class="i-tabler-chevron-down size-3 opacity-50" />
-              </PopoverTrigger>
-              <PopoverContent class="w-auto p-0">
-                <div class="flex">
-                  {/* Preset list */}
-                  <div class="flex flex-col border-r min-w-[140px] py-1">
-                    <For each={datePresetOptions().filter(o => o.value !== 'custom')}>
-                      {option => (
-                        <button
-                          type="button"
-                          class={cn(
-                            'text-left px-3 py-1.5 text-xs hover:bg-accent transition-colors',
-                            getDatePreset() === option.value ? 'bg-accent font-medium' : 'text-muted-foreground',
-                          )}
-                          onClick={() => {
-                            setDatePreset(option.value);
-                            setCustomFrom(null);
-                            setCustomTo(null);
-                            setPagination({ pageIndex: 0, pageSize: getPagination().pageSize });
-                            setIsDatePopoverOpen(false);
-                          }}
-                        >
-                          {option.label}
-                        </button>
-                      )}
-                    </For>
-                    <div class="border-t my-1" />
-                    <button
-                      type="button"
-                      class={cn(
-                        'text-left px-3 py-1.5 text-xs hover:bg-accent transition-colors',
-                        getDatePreset() === 'custom' ? 'bg-accent font-medium' : 'text-muted-foreground',
-                      )}
-                      onClick={() => setDatePreset('custom')}
-                    >
-                      {t('finances.date-preset.custom')}
-                    </button>
-                  </div>
-
-                  {/* Calendar pickers — shown when custom */}
-                  <Show when={getDatePreset() === 'custom'}>
-                    <div class="p-3">
-                      <div class="flex gap-4">
-                        <div class="flex flex-col gap-1">
-                          <p class="text-xs font-medium text-muted-foreground mb-1">{t('finances.filters.from')}</p>
-                          <Calendar
-                            mode="single"
-                            value={getCustomFrom()}
-                            onValueChange={(date) => {
-                              setCustomFrom(date);
-                              if (date && getCustomTo() && date.getTime() > getCustomTo()!.getTime()) {
-                                setCustomTo(null);
-                              }
-                              setPagination({ pageIndex: 0, pageSize: getPagination().pageSize });
-                            }}
-                            fixedWeeks
-                          >
-                            {() => (
-                              <div class="flex flex-col gap-2">
-                                <CalendarMonthYearHeader />
-                                <CalendarGrid />
-                              </div>
-                            )}
-                          </Calendar>
-                        </div>
-                        <div class="flex flex-col gap-1">
-                          <p class="text-xs font-medium text-muted-foreground mb-1">{t('finances.filters.to')}</p>
-                          <Calendar
-                            mode="single"
-                            value={getCustomTo()}
-                            onValueChange={(date) => {
-                              setCustomTo(date);
-                              if (date && getCustomFrom() && date.getTime() < getCustomFrom()!.getTime()) {
-                                setCustomFrom(null);
-                              }
-                              setPagination({ pageIndex: 0, pageSize: getPagination().pageSize });
-                            }}
-                            fixedWeeks
-                          >
-                            {() => (
-                              <div class="flex flex-col gap-2">
-                                <CalendarMonthYearHeader />
-                                <CalendarGrid />
-                              </div>
-                            )}
-                          </Calendar>
-                        </div>
-                      </div>
-                      <div class="flex justify-end gap-2 mt-3 pt-3 border-t">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          class="text-xs"
-                          onClick={() => {
-                            setCustomFrom(null);
-                            setCustomTo(null);
-                            setPagination({ pageIndex: 0, pageSize: getPagination().pageSize });
-                          }}
-                        >
-                          {t('finances.filters.clear')}
-                        </Button>
-                        <Button
-                          size="sm"
-                          class="text-xs"
-                          onClick={() => setIsDatePopoverOpen(false)}
-                        >
-                          {t('finances.filters.done')}
-                        </Button>
-                      </div>
-                    </div>
-                  </Show>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
+              </Show>
+            )}
+          />
         </Show>
 
         {/* Total amount summary */}

@@ -6,7 +6,7 @@ import { getValues, setValue } from '@modular-forms/solid';
 import { A, useParams } from '@solidjs/router';
 import { useMutation, useQuery } from '@tanstack/solid-query';
 import { createSolidTable, flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/solid-table';
-import { createSignal, For, Show, Suspense } from 'solid-js';
+import { createMemo, createSignal, For, Show, Suspense } from 'solid-js';
 import * as v from 'valibot';
 import { makeDocumentSearchPermalink } from '@/modules/documents/document.models';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { EmptyState } from '@/modules/ui/components/empty';
 import { createToast } from '@/modules/ui/components/sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
+import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { TextArea } from '@/modules/ui/components/textarea';
 import { TextField, TextFieldLabel, TextFieldRoot } from '@/modules/ui/components/textfield';
 import { Tag as TagComponent, TagLink } from '../components/tag.component';
@@ -322,9 +323,16 @@ export const TagsPage: Component = () => {
     });
   };
 
+  const [search, setSearch] = createSignal('');
+  const filteredTags = createMemo(() => {
+    const term = search().trim().toLocaleLowerCase();
+
+    return (query.data?.tags ?? []).filter(tag => `${tag.name} ${tag.description ?? ''}`.toLocaleLowerCase().includes(term));
+  });
+
   const table = createSolidTable({
     get data() {
-      return query.data?.tags ?? [];
+      return filteredTags();
     },
     columns: [
       {
@@ -431,6 +439,7 @@ export const TagsPage: Component = () => {
                   />
                 )}
               >
+                <TableToolbar search={search()} onSearchChange={setSearch} />
                 <Table>
                   <TableHeader>
                     <For each={table.getHeaderGroups()}>

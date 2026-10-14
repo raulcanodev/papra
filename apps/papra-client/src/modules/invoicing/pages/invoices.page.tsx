@@ -1,6 +1,7 @@
 /* eslint-disable style/max-statements-per-line */
 import type { Invoice, InvoiceStatus } from '../invoicing.types';
 import type { TranslationKeys } from '@/modules/i18n/locales.types';
+import type { ActiveFilter, FilterField } from '@/modules/ui/components/table-filters';
 import { A, useParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For, Show } from 'solid-js';
@@ -9,9 +10,10 @@ import { queryClient } from '@/modules/shared/query/query-client';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { createToast } from '@/modules/ui/components/sonner';
-import { TextField } from '@/modules/ui/components/textfield';
+import { dateIsInRange, getActiveFilter, isDateRangeValue } from '@/modules/ui/components/table-filters';
+import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { getOrganizationRouteChildHref, getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
-import { CatalogCell, CatalogRow, CatalogTable, FilterMenu } from '../components/catalog-page';
+import { CatalogCell, CatalogRow, CatalogTable } from '../components/catalog-page';
 import { InvoicesTabs } from '../components/invoices-tabs';
 import { getInvoicePayableMinor } from '../invoicing.models';
 import { downloadInvoicePdf, fetchInvoices, markInvoicePaid, sendInvoice } from '../invoicing.services';
@@ -20,10 +22,19 @@ export const invoiceStatusLabelKeys = { draft: 'invoicing.status.draft', issuing
 export function InvoicesPage() {
   const { t, getLocale } = useI18n();
   const statusOptions = () => Object.entries(invoiceStatusLabelKeys).map(([value, key]) => ({ value, label: t(key) }));
-  const params = useParams(); const [search, setSearch] = createSignal(''); const [statuses, setStatuses] = createSignal<string[]>([]);
+  const params = useParams(); const [search, setSearch] = createSignal(''); const [filters, setFilters] = createSignal<ActiveFilter[]>([]);
+  const filterFields = createMemo((): FilterField[] => [
+    { id: 'status', type: 'multi-select', label: t('invoicing.invoices.filter.status'), icon: 'i-tabler-progress-check', options: statusOptions() },
+    { id: 'date', type: 'date-range', label: t('invoicing.invoices.table.issue-date'), icon: 'i-tabler-calendar' },
+  ]);
   const query = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'invoices'], queryFn: () => fetchInvoices({ organizationId: params.organizationId }) }));
   const invoices = createMemo(() => (query.data?.invoices ?? []).filter((invoice) => {
-    const matchesText = `${invoice.number ?? ''} ${invoice.customerName ?? ''}`.toLowerCase().includes(search().toLowerCase()); return matchesText && (statuses().length === 0 || statuses().includes(invoice.status));
+    const statuses = getActiveFilter(filters(), 'status')?.value;
+    const dateRange = getActiveFilter(filters(), 'date')?.value;
+    const matchesText = `${invoice.number ?? ''} ${invoice.customerName ?? ''}`.toLowerCase().includes(search().toLowerCase());
+    const matchesStatus = !Array.isArray(statuses) || statuses.length === 0 || statuses.includes(invoice.status);
+    const matchesDate = !isDateRangeValue(dateRange) || dateIsInRange(invoice.issueDate, dateRange);
+    return matchesText && matchesStatus && matchesDate;
   }));
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['invoicing', params.organizationId, 'invoices'] });
   const sendMutation = createMutation(() => ({ mutationFn: (invoiceId: string) => sendInvoice({ organizationId: params.organizationId, invoiceId }), onSuccess: async () => {
@@ -46,13 +57,7 @@ export function InvoicesPage() {
       </div>
 
       <InvoicesTabs />
-      <div class="flex items-center gap-2 mb-3">
-        <div class="relative w-full max-w-sm">
-          <div class="i-tabler-search absolute left-3 top-2.5 size-4 text-muted-foreground" />
-          <TextField value={search()} onInput={event => setSearch(event.currentTarget.value)} placeholder={t('invoicing.invoices.search')} class="pl-9" />
-        </div>
-        <FilterMenu label={t('invoicing.invoices.filter.status')} options={statusOptions()} values={statuses()} onChange={setStatuses} />
-      </div>
+      <TableToolbar search={search()} onSearchChange={setSearch} searchPlaceholder={t('invoicing.invoices.search')} fields={filterFields()} filters={filters()} onFiltersChange={setFilters} />
       <Show when={!query.isLoading && invoices().length === 0}>
         <div class="rounded-xl border border-dashed py-16 text-center">
           <div class="i-tabler-receipt size-9 mx-auto text-muted-foreground/50 mb-3" />

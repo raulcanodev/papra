@@ -8,7 +8,10 @@ import { FormField } from '@/modules/invoicing/components/catalog-page';
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABEL_I18N_KEYS } from '@/modules/purchases/purchases.constants';
 import { downloadFile } from '@/modules/shared/files/download';
 import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-errors';
+import { queryClient } from '@/modules/shared/query/query-client';
 import { Button } from '@/modules/ui/components/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/modules/ui/components/dialog';
+import { SimpleCheckbox } from '@/modules/ui/components/simple-checkbox';
 import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextField } from '@/modules/ui/components/textfield';
@@ -68,9 +71,26 @@ export function QuarterlyTaxesPage() {
     onError: (error: unknown) => createToast({ type: 'error', message: getErrorMessage({ error, defaultMessage: t('taxes.accountant.download-error') }) }),
   }));
 
+  // Sending asks for the address every time: prefilled with the saved accountant email, or typed and saved for next time
+  const [isSendDialogOpen, setIsSendDialogOpen] = createSignal(false);
+  const [recipient, setRecipient] = createSignal('');
+  const [saveAsAccountantEmail, setSaveAsAccountantEmail] = createSignal(true);
+  const savedAccountantEmail = () => report()?.profile.accountantEmail ?? null;
+  const isNewRecipient = () => recipient().trim().toLowerCase() !== (savedAccountantEmail() ?? '').toLowerCase();
+
+  const openSendDialog = () => {
+    setRecipient(savedAccountantEmail() ?? '');
+    setSaveAsAccountantEmail(true);
+    setIsSendDialogOpen(true);
+  };
+
   const sendMutation = createMutation(() => ({
-    mutationFn: async () => sendAccountantPack({ organizationId: params.organizationId, year: year(), quarter: quarter() }),
-    onSuccess: ({ recipient }) => createToast({ type: 'success', message: t('taxes.accountant.sent', { email: recipient }) }),
+    mutationFn: async () => sendAccountantPack({ organizationId: params.organizationId, year: year(), quarter: quarter(), to: recipient().trim(), saveAsAccountantEmail: isNewRecipient() && saveAsAccountantEmail() }),
+    onSuccess: async ({ recipient: sentTo }) => {
+      setIsSendDialogOpen(false);
+      createToast({ type: 'success', message: t('taxes.accountant.sent', { email: sentTo }) });
+      await queryClient.invalidateQueries({ queryKey: ['organizations', params.organizationId, 'taxes'] });
+    },
     onError: (error: unknown) => createToast({ type: 'error', message: getErrorMessage({ error, defaultMessage: t('taxes.accountant.send-error') }) }),
   }));
 
@@ -268,14 +288,44 @@ export function QuarterlyTaxesPage() {
                     <div class="i-tabler-download size-4" />
                     {t('taxes.accountant.download')}
                   </Button>
-                  <Button class="gap-1.5" isLoading={sendMutation.isPending} onClick={() => sendMutation.mutate()}>
+                  <Button class="gap-1.5" onClick={openSendDialog}>
                     <div class="i-tabler-send size-4" />
                     {t('taxes.accountant.send')}
                   </Button>
                 </div>
-                <p class="mt-2 text-xs text-muted-foreground">
-                  <A href={fiscalProfileHref()} class="underline">{t('taxes.accountant.email-setting')}</A>
-                </p>
+                <Show when={savedAccountantEmail()}>
+                  {email => <p class="mt-2 text-xs text-muted-foreground">{t('taxes.accountant.saved-email', { email: email() })}</p>}
+                </Show>
+
+                <Dialog open={isSendDialogOpen()} onOpenChange={setIsSendDialogOpen}>
+                  <DialogContent class="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>{t('taxes.accountant.dialog.title', { quarter: quarter(), year: year() })}</DialogTitle>
+                      <DialogDescription>{t('taxes.accountant.dialog.description')}</DialogDescription>
+                    </DialogHeader>
+                    <form
+                      class="flex flex-col gap-4"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        sendMutation.mutate();
+                      }}
+                    >
+                      <FormField label={t('taxes.accountant.dialog.email')}>
+                        <TextField type="email" required autofocus value={recipient()} onInput={event => setRecipient(event.currentTarget.value)} placeholder="gestoria@ejemplo.com" />
+                      </FormField>
+                      <Show when={isNewRecipient() && recipient().trim() !== ''}>
+                        <SimpleCheckbox checked={saveAsAccountantEmail()} onChange={setSaveAsAccountantEmail} label={t('taxes.accountant.dialog.save')} />
+                      </Show>
+                      <div class="flex justify-end gap-2">
+                        <Button type="button" variant="ghost" onClick={() => setIsSendDialogOpen(false)}>{t('taxes.accountant.dialog.cancel')}</Button>
+                        <Button type="submit" class="gap-1.5" isLoading={sendMutation.isPending}>
+                          <div class="i-tabler-send size-4" />
+                          {t('taxes.accountant.dialog.send')}
+                        </Button>
+                      </div>
+                    </form>
+                  </DialogContent>
+                </Dialog>
               </section>
             </div>
 

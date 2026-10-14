@@ -4,6 +4,13 @@ import type { Contact, ContactKind, ContactRole } from './contacts.types';
 
 export const CONTACT_ROLES: ContactRole[] = ['customer', 'supplier', 'sales_representative'];
 
+export const CONTACT_KINDS: ContactKind[] = ['company', 'person'];
+
+export const CONTACT_KIND_LABEL_I18N_KEYS = {
+  company: 'contacts.kind.company',
+  person: 'contacts.kind.person',
+} as const satisfies Record<ContactKind, TranslationKeys>;
+
 export const CONTACT_ROLE_FLAGS = {
   customer: 'isCustomer',
   supplier: 'isSupplier',

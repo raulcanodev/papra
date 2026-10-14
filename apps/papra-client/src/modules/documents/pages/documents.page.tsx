@@ -14,8 +14,9 @@ import { useDebounce } from '@/modules/shared/utils/timing';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { createToast } from '@/modules/ui/components/sonner';
+import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { Tabs, TabsIndicator, TabsList, TabsTrigger } from '@/modules/ui/components/tabs';
-import { TextField, TextFieldRoot } from '@/modules/ui/components/textfield';
+import { TextField } from '@/modules/ui/components/textfield';
 import { useDocumentUpload } from '../components/document-import-status.component';
 import { DocumentUploadArea } from '../components/document-upload-area.component';
 import { createdAtColumn, DocumentsPaginatedList, standardActionsColumn, tagsColumn } from '../components/documents-list.component';
@@ -225,13 +226,7 @@ export const DocumentsPage: Component = () => {
                     </div>
                   )}
             >
-              <div class="mb-4 flex items-center">
-                <TextFieldRoot class="relative max-w-md flex-1">
-                  <div class="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 i-tabler-search text-muted-foreground" />
-                  <TextField type="search" placeholder={t('documents.list.search.placeholder')} value={getSearchQuery()} onInput={event => setSearchQuery(event.currentTarget.value)} class="h-9 pl-9 pr-9" />
-                </TextFieldRoot>
-                <Show when={getSearchQuery().length > 0}><Button variant="ghost" size="icon" class="size-6 ml--8" onClick={() => setSearchQuery('')}><div class={cn('text-muted-foreground', activeQuery().isFetching ? 'i-tabler-loader-2 animate-spin' : 'i-tabler-x')} /></Button></Show>
-              </div>
+              <TableToolbar search={getSearchQuery()} onSearchChange={setSearchQuery} searchPlaceholder={t('documents.list.search.placeholder')} searchLoading={activeQuery().isFetching && getSearchQuery().length > 0} />
               <DocumentsPaginatedList documents={activeQuery().data?.documents ?? []} documentsCount={activeQuery().data?.documentsCount ?? 0} getPagination={getPagination} setPagination={setPagination} extraColumns={[tagsColumn, ...(getView() === 'all' ? [folderColumn] : []), createdAtColumn, standardActionsColumn]} />
             </Show>
           </Suspense>

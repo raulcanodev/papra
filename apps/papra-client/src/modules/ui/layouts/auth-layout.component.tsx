@@ -13,7 +13,7 @@ export const AuthLayout: ParentComponent<{ background?: JSX.Element }> = (props)
         ? <div class="pointer-events-none absolute inset-0" aria-hidden="true">{props.background}</div>
         : <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,hsl(var(--primary)/0.12),transparent_35%)]" aria-hidden="true" />}
       <header class="relative z-10 w-full max-w-7xl mx-auto px-5 py-5 sm:px-8 flex justify-between items-center gap-2">
-        <AppLogo as={A} href="/" class="text-base" />
+        <AppLogo as={A} href="/" class="text-lg tracking-[-0.02em]" iconClass="size-6" />
 
         <div class="flex gap-2">
           <LanguageToggleButton />

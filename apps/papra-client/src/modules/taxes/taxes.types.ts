@@ -13,7 +13,7 @@ export type QuarterlyTaxReport = {
   quarter: Quarter;
   currency: string;
   period: { start: Date; end: Date };
-  profile: { legalForm: LegalForm | null; vatRegime: VatRegime; incomeTaxMethod: IncomeTaxMethod; lastCorporateTaxQuotaMinor: number | null; isConfigured: boolean };
+  profile: { legalForm: LegalForm | null; vatRegime: VatRegime; incomeTaxMethod: IncomeTaxMethod; lastCorporateTaxQuotaMinor: number | null; isConfigured: boolean; accountantEmail: string | null };
   applicable: Record<TaxModel, boolean>;
   vat303: {
     output: { rateBps: number; baseMinor: number; taxMinor: number }[];

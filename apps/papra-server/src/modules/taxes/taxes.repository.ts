@@ -13,6 +13,7 @@ export function createTaxesRepository({ db }: { db: Database }) {
   return {
     getTaxProfile: async (args: { organizationId: string }) => getTaxProfile({ db, ...args }),
     getTaxableDocuments: async (args: { organizationId: string; from: Date; to: Date; currency: string }) => getTaxableDocuments({ db, ...args }),
+    saveAccountantEmail: async (args: { organizationId: string; accountantEmail: string }) => saveAccountantEmail({ db, ...args }),
   };
 }
 
@@ -20,6 +21,10 @@ async function getTaxProfile({ db, organizationId }: { db: Database; organizatio
   const [profile] = await db.select().from(invoicingProfilesTable).where(eq(invoicingProfilesTable.organizationId, organizationId)).limit(1);
 
   return { profile: profile ?? null };
+}
+
+async function saveAccountantEmail({ db, organizationId, accountantEmail }: { db: Database; organizationId: string; accountantEmail: string }) {
+  await db.update(invoicingProfilesTable).set({ accountantEmail, updatedAt: new Date() }).where(eq(invoicingProfilesTable.organizationId, organizationId));
 }
 
 // Issued and received invoices of a date range with their lines, in the organization currency (amounts in different
