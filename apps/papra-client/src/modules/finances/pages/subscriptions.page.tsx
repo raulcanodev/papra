@@ -503,7 +503,7 @@ const SubscriptionFormDialog: Component<{
   );
 };
 
-const SubscriptionTransactions: Component<{ organizationId: string; searchQuery: string }> = (props) => {
+function SubscriptionTransactions(props: { organizationId: string; searchQuery: string }) {
   const { t } = useI18n();
   const txQuery = useQuery(() => ({
     queryKey: ['organizations', props.organizationId, 'finances', 'transactions', 'subscription-search', props.searchQuery],
@@ -568,7 +568,7 @@ const SubscriptionTransactions: Component<{ organizationId: string; searchQuery:
       </div>
     </div>
   );
-};
+}
 
 function getPaymentDatesInMonth(sub: Subscription, year: number, month: number): Date[] {
   if (!sub.nextPaymentAt) {
@@ -616,6 +616,7 @@ export const SubscriptionsPage: Component = () => {
   const { confirm } = useConfirmModal();
   const [dialogOpen, setDialogOpen] = createSignal(false);
   const [editingSub, setEditingSub] = createSignal<Subscription | undefined>();
+  const [selectedDay, setSelectedDay] = createSignal<Date | null>(null);
 
   const subsQuery = useQuery(() => ({
     queryKey: ['organizations', params.organizationId, 'finances', 'subscriptions'],
@@ -671,12 +672,6 @@ export const SubscriptionsPage: Component = () => {
     onError: () => createToast({ message: t('finances.subscriptions.toast.update-error'), type: 'error' }),
   }));
 
-  const toggleMut = createMutation(() => ({
-    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
-      updateSubscription({ organizationId: params.organizationId, subscriptionId: id, updates: { isActive } }),
-    onSuccess: () => invalidate(),
-  }));
-
   const deleteMut = createMutation(() => ({
     mutationFn: (id: string) => deleteSubscription({ organizationId: params.organizationId, subscriptionId: id }),
     onSuccess: () => {
@@ -726,12 +721,12 @@ export const SubscriptionsPage: Component = () => {
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const [viewYear, setViewYear] = createSignal(today.getFullYear());
   const [viewMonth, setViewMonth] = createSignal(today.getMonth());
-  const [selectedDay, setSelectedDay] = createSignal<Date | null>(null);
   const monthLabel = () => new Intl.DateTimeFormat(getLocale(), { month: 'long', year: 'numeric' }).format(new Date(viewYear(), viewMonth(), 1));
 
   function prevMonth() {
     if (viewMonth() === 0) {
-      setViewYear(y => y - 1); setViewMonth(11);
+      setViewYear(y => y - 1);
+      setViewMonth(11);
     } else {
       setViewMonth(m => m - 1);
     }
@@ -739,7 +734,8 @@ export const SubscriptionsPage: Component = () => {
 
   function nextMonth() {
     if (viewMonth() === 11) {
-      setViewYear(y => y + 1); setViewMonth(0);
+      setViewYear(y => y + 1);
+      setViewMonth(0);
     } else {
       setViewMonth(m => m + 1);
     }
@@ -844,7 +840,8 @@ export const SubscriptionsPage: Component = () => {
                   <button
                     class="text-xs text-muted-foreground hover:text-foreground transition-colors px-1.5 py-0.5 rounded border border-transparent hover:border-border"
                     onClick={() => {
-                      setViewYear(today.getFullYear()); setViewMonth(today.getMonth());
+                      setViewYear(today.getFullYear());
+                      setViewMonth(today.getMonth());
                     }}
                   >
                     {t('finances.common.today')}
@@ -974,7 +971,8 @@ export const SubscriptionsPage: Component = () => {
                           <button
                             class="p-2.5 rounded-lg border hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive transition-colors shrink-0"
                             onClick={() => {
-                              setSelectedDay(null); triggerDelete(sub);
+                              setSelectedDay(null);
+                              triggerDelete(sub);
                             }}
                             title={t('finances.common.delete')}
                           >

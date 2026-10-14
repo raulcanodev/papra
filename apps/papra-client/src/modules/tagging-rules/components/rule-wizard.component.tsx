@@ -186,7 +186,8 @@ export const RuleWizard: Component = () => {
                   ruleType() === 'document' ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/50',
                 )}
                 onClick={() => {
-                  setRuleType('document'); setConditions([]);
+                  setRuleType('document');
+                  setConditions([]);
                 }}
               >
                 <div class="i-tabler-file-text size-6 mb-2 text-muted-foreground" />
@@ -201,7 +202,8 @@ export const RuleWizard: Component = () => {
                     ruleType() === 'transaction' ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/50',
                   )}
                   onClick={() => {
-                    setRuleType('transaction'); setConditions([]);
+                    setRuleType('transaction');
+                    setConditions([]);
                   }}
                 >
                   <div class="i-tabler-arrows-exchange size-6 mb-2 text-muted-foreground" />

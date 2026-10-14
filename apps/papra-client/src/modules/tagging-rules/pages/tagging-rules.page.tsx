@@ -308,6 +308,10 @@ export const TaggingRulesPage: Component = () => {
     return map;
   };
 
+  const docRules = () => taggingRulesQuery.data?.taggingRules ?? [];
+  const txnRules = () => classificationRulesQuery.data?.rules ?? [];
+  const totalRules = () => docRules().length + txnRules().length;
+
   const autoClassifyMut = createMutation(() => ({
     mutationFn: () => autoClassifyTransactions({ organizationId: params.organizationId }),
     onSuccess: (data) => {
@@ -356,10 +360,6 @@ export const TaggingRulesPage: Component = () => {
       createToast({ message: error.message || t('tagging-rules.page.toast.update-error'), type: 'error' });
     },
   }));
-
-  const docRules = () => taggingRulesQuery.data?.taggingRules ?? [];
-  const txnRules = () => classificationRulesQuery.data?.rules ?? [];
-  const totalRules = () => docRules().length + txnRules().length;
 
   const classifications = () => [
     { value: '', label: t('tagging-rules.wizard.summary.none') },
