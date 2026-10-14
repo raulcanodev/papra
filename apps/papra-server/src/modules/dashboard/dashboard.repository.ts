@@ -54,8 +54,8 @@ async function getOrganizationMetrics({ db, organizationId, now = new Date() }: 
       .select({
         totalMinor: sql<number>`coalesce(sum(${invoicesTable.totalMinor}), 0)::double precision`,
         count: sql<number>`count(*)::int`,
-        overdueTotalMinor: sql<number>`coalesce(sum(${invoicesTable.totalMinor}) filter (where ${invoicesTable.dueDate} < ${now}), 0)::double precision`,
-        overdueCount: sql<number>`(count(*) filter (where ${invoicesTable.dueDate} < ${now}))::int`,
+        overdueTotalMinor: sql<number>`coalesce(sum(${invoicesTable.totalMinor}) filter (where ${lt(invoicesTable.dueDate, now)}), 0)::double precision`,
+        overdueCount: sql<number>`(count(*) filter (where ${lt(invoicesTable.dueDate, now)}))::int`,
       })
       .from(invoicesTable)
       .where(and(eq(invoicesTable.organizationId, organizationId), inArray(invoicesTable.status, UNPAID_INVOICE_STATUSES), eq(invoicesTable.currency, currency))),
@@ -63,8 +63,8 @@ async function getOrganizationMetrics({ db, organizationId, now = new Date() }: 
     db
       .select({
         total: sql<number>`count(*)::int`,
-        newThisMonth: sql<number>`(count(*) filter (where ${invoicingCustomersTable.createdAt} >= ${periods.startOfMonth}))::int`,
-        newPreviousMonth: sql<number>`(count(*) filter (where ${invoicingCustomersTable.createdAt} >= ${periods.startOfPreviousMonth} and ${invoicingCustomersTable.createdAt} < ${periods.startOfMonth}))::int`,
+        newThisMonth: sql<number>`(count(*) filter (where ${gte(invoicingCustomersTable.createdAt, periods.startOfMonth)}))::int`,
+        newPreviousMonth: sql<number>`(count(*) filter (where ${and(gte(invoicingCustomersTable.createdAt, periods.startOfPreviousMonth), lt(invoicingCustomersTable.createdAt, periods.startOfMonth))}))::int`,
       })
       .from(invoicingCustomersTable)
       .where(and(eq(invoicingCustomersTable.organizationId, organizationId), isNull(invoicingCustomersTable.archivedAt))),
@@ -72,8 +72,8 @@ async function getOrganizationMetrics({ db, organizationId, now = new Date() }: 
     db
       .select({
         total: sql<number>`count(*)::int`,
-        newThisMonth: sql<number>`(count(*) filter (where ${documentsTable.createdAt} >= ${periods.startOfMonth}))::int`,
-        newPreviousMonth: sql<number>`(count(*) filter (where ${documentsTable.createdAt} >= ${periods.startOfPreviousMonth} and ${documentsTable.createdAt} < ${periods.startOfMonth}))::int`,
+        newThisMonth: sql<number>`(count(*) filter (where ${gte(documentsTable.createdAt, periods.startOfMonth)}))::int`,
+        newPreviousMonth: sql<number>`(count(*) filter (where ${and(gte(documentsTable.createdAt, periods.startOfPreviousMonth), lt(documentsTable.createdAt, periods.startOfMonth))}))::int`,
       })
       .from(documentsTable)
       .where(and(eq(documentsTable.organizationId, organizationId), eq(documentsTable.isDeleted, false))),
