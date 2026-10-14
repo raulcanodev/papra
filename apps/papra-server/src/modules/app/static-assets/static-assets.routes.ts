@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { safely } from '@corentinth/chisels';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { createLogger } from '../../shared/logger/logger';
-import { isApiRoute } from './static-assets.models';
+import { isApiRoute, isAssetRoute } from './static-assets.models';
 
 const logger = createLogger({ namespace: 'static-assets.routes' });
 
@@ -22,6 +22,12 @@ export function registerStaticAssetsRoutes({ app, config }: { app: ServerInstanc
           root: './public',
           // Disable index.html fallback to let the next middleware handle it
           index: `unexisting-file-${Math.random().toString(36).substring(2)}`,
+          // Fingerprinted files never change, so browsers can keep them for good (only set on files that exist, never on a 404)
+          onFound: (_path, c) => {
+            if (isAssetRoute({ path: c.req.path })) {
+              c.header('Cache-Control', 'public, max-age=31536000, immutable');
+            }
+          },
         });
 
         return staticMiddleware(context as Context<any, string>, next);
@@ -30,7 +36,7 @@ export function registerStaticAssetsRoutes({ app, config }: { app: ServerInstanc
     .use(
       '*',
       async (context, next) => {
-        if (isApiRoute({ path: context.req.path })) {
+        if (isApiRoute({ path: context.req.path }) || isAssetRoute({ path: context.req.path })) {
           return next();
         }
 
@@ -40,6 +46,9 @@ export function registerStaticAssetsRoutes({ app, config }: { app: ServerInstanc
           logger.error({ error }, 'Error reading index.html file');
           return next(); // let the 404 handler take care of it
         }
+
+        // The shell points to the current build's fingerprinted files, so it must be revalidated on every visit
+        context.header('Cache-Control', 'no-cache');
 
         return context.html(indexHtmlContent);
       },

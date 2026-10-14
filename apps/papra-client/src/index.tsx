@@ -24,6 +24,20 @@ import './app.css';
 
 applyBrandMetadata();
 
+// After a deploy, a tab still running the previous build asks for chunks that no longer exist.
+// Reload once to pick up the new build instead of leaving a broken page (guarded to never loop).
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault();
+
+  const RELOAD_KEY = 'app:last-preload-reload';
+  const lastReload = Number(sessionStorage.getItem(RELOAD_KEY) ?? 0);
+
+  if (Date.now() - lastReload > 10_000) {
+    sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+    window.location.reload();
+  }
+});
+
 const DemoIndicator = isDemoMode
   ? lazy(() => import('./modules/demo/demo.provider').then(mod => ({ default: mod.DemoIndicator })))
   : null;
