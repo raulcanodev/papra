@@ -36,6 +36,8 @@ describe('invoicing repository', () => {
         defaultTerms: null,
         templateId: 'minimal',
         defaultWithholdingRateBps: 0,
+        vatRegime: 'general' as const,
+        incomeTaxMethod: 'direct_simplified' as const,
       },
     });
     const { contact: customer } = await createContactsRepository({ db }).createContact({ organizationId: 'organization-1', contact: createTestContactInput({ name: 'Acme SL', email: 'billing@acme.test', isCustomer: true }) });
@@ -110,6 +112,8 @@ describe('invoicing repository', () => {
       defaultTerms: null,
       templateId: 'minimal' as const,
       defaultWithholdingRateBps: 0,
+      vatRegime: 'general' as const,
+      incomeTaxMethod: 'direct_simplified' as const,
     };
     await repository.upsertFiscalProfile({ organizationId: 'organization-1', profile });
     const { contact: customer } = await createContactsRepository({ db }).createContact({ organizationId: 'organization-1', contact: createTestContactInput({ name: 'Original Customer SL', email: 'billing@example.com', isCustomer: true }) });
@@ -147,7 +151,7 @@ describe('invoicing repository', () => {
     const verifactu = createVerifactuRepository({ db });
     await invoicing.upsertFiscalProfile({
       organizationId: 'organization-1',
-      profile: { legalName: 'Jocrimar SL', taxId: 'B12345678', email: null, addressLine1: null, addressLine2: null, postalCode: null, city: null, region: null, country: 'ES', currency: 'EUR', locale: 'es-ES', paymentTermsDays: 30, defaultNotes: null, defaultTerms: null, templateId: 'minimal', defaultWithholdingRateBps: 0 },
+      profile: { legalName: 'Jocrimar SL', taxId: 'B12345678', email: null, addressLine1: null, addressLine2: null, postalCode: null, city: null, region: null, country: 'ES', currency: 'EUR', locale: 'es-ES', paymentTermsDays: 30, defaultNotes: null, defaultTerms: null, templateId: 'minimal', defaultWithholdingRateBps: 0, vatRegime: 'general', incomeTaxMethod: 'direct_simplified' },
     });
     const { contact: customer } = await createContactsRepository({ db }).createContact({ organizationId: 'organization-1', contact: createTestContactInput({ name: 'Cliente SL', taxId: 'B87654321', isCustomer: true }) });
     const { invoice } = await invoicing.createInvoice({

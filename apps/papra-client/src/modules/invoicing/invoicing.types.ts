@@ -1,4 +1,5 @@
 import type { Contact } from '../contacts/contacts.types';
+import type { IncomeTaxMethod, LegalForm, VatRegime } from '../taxes/taxes.types';
 
 export type InvoiceStatus = 'draft' | 'issuing' | 'issued' | 'sent' | 'paid' | 'void';
 export type InvoiceTemplateId = 'minimal' | 'classic';
@@ -54,6 +55,11 @@ export type FiscalProfile = {
   defaultTerms: string | null;
   templateId: InvoiceTemplateId;
   defaultWithholdingRateBps: number;
+  legalForm: LegalForm | null;
+  vatRegime: VatRegime;
+  incomeTaxMethod: IncomeTaxMethod;
+  lastCorporateTaxQuotaMinor: number | null;
+  accountantEmail: string | null;
   createdAt: Date;
   updatedAt: Date;
 };

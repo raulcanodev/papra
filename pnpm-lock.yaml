@@ -488,7 +488,7 @@ importers:
         version: 12.27.0
       '@better-auth/expo':
         specifier: 'catalog:'
-        version: 1.4.6(@better-auth/core@1.4.6(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.18)(better-call@1.1.5(zod@3.25.76))(jose@6.2.12)(kysely@0.28.8)(nanostores@1.0.1))(better-auth@1.4.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(solid-js@1.9.10)(vue@3.5.13(typescript@5.9.3)))(expo-constants@18.0.10)(expo-linking@8.0.8)(expo-network@8.0.8(expo@54.0.23)(react@19.1.0))(expo-web-browser@15.0.9(expo@54.0.23)(react-native@0.81.5(@babel/core@7.28.4)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)))
+        version: 1.4.6(@better-auth/core@1.4.6(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.18)(better-call@1.1.5(zod@4.1.12))(jose@6.1.0)(kysely@0.28.8)(nanostores@1.0.1))(better-auth@1.4.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(solid-js@1.9.10)(vue@3.5.13(typescript@5.9.3)))(expo-constants@18.0.10)(expo-linking@8.0.8)(expo-network@8.0.8(expo@54.0.23)(react@19.1.0))(expo-web-browser@15.0.9(expo@54.0.23)(react-native@0.81.5(@babel/core@7.28.4)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)))
       '@cadence-mq/core':
         specifier: ^0.2.1
         version: 0.2.1
@@ -579,6 +579,9 @@ importers:
       hono:
         specifier: ^4.10.7
         version: 4.10.7
+      jszip:
+        specifier: ^3.10.1
+        version: 3.10.1
       mime-types:
         specifier: ^3.0.1
         version: 3.0.1
@@ -14438,7 +14441,7 @@ snapshots:
       '@better-auth/utils': 0.3.0
       '@better-fetch/fetch': 1.1.18
       '@standard-schema/spec': 1.0.0
-      better-call: 1.1.5(zod@4.1.12)
+      better-call: 1.1.5(zod@3.25.76)
       jose: 6.1.0
       kysely: 0.28.8
       nanostores: 1.0.1
@@ -14447,6 +14450,19 @@ snapshots:
   '@better-auth/expo@1.4.6(@better-auth/core@1.4.6(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.18)(better-call@1.1.5(zod@3.25.76))(jose@6.2.12)(kysely@0.28.8)(nanostores@1.0.1))(better-auth@1.4.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(solid-js@1.9.10)(vue@3.5.13(typescript@5.9.3)))(expo-constants@18.0.10)(expo-linking@8.0.8)(expo-network@8.0.8(expo@54.0.23)(react@19.1.0))(expo-web-browser@15.0.9(expo@54.0.23)(react-native@0.81.5(@babel/core@7.28.4)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)))':
     dependencies:
       '@better-auth/core': 1.4.6(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.18)(better-call@1.1.5(zod@3.25.76))(jose@6.2.12)(kysely@0.28.8)(nanostores@1.0.1)
+      '@better-fetch/fetch': 1.1.18
+      better-auth: 1.4.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(solid-js@1.9.10)(vue@3.5.13(typescript@5.9.3))
+      better-call: 1.1.5(zod@4.1.12)
+      zod: 4.1.12
+    optionalDependencies:
+      expo-constants: 18.0.10(expo@54.0.23)(react-native@0.81.5(@babel/core@7.28.4)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0))
+      expo-linking: 8.0.8(expo@54.0.23)(react-native@0.81.5(@babel/core@7.28.4)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+      expo-network: 8.0.8(expo@54.0.23)(react@19.1.0)
+      expo-web-browser: 15.0.9(expo@54.0.23)(react-native@0.81.5(@babel/core@7.28.4)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0))
+
+  '@better-auth/expo@1.4.6(@better-auth/core@1.4.6(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.18)(better-call@1.1.5(zod@4.1.12))(jose@6.1.0)(kysely@0.28.8)(nanostores@1.0.1))(better-auth@1.4.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(solid-js@1.9.10)(vue@3.5.13(typescript@5.9.3)))(expo-constants@18.0.10)(expo-linking@8.0.8)(expo-network@8.0.8(expo@54.0.23)(react@19.1.0))(expo-web-browser@15.0.9(expo@54.0.23)(react-native@0.81.5(@babel/core@7.28.4)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)))':
+    dependencies:
+      '@better-auth/core': 1.4.6(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.18)(better-call@1.1.5(zod@4.1.12))(jose@6.1.0)(kysely@0.28.8)(nanostores@1.0.1)
       '@better-fetch/fetch': 1.1.18
       better-auth: 1.4.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(solid-js@1.9.10)(vue@3.5.13(typescript@5.9.3))
       better-call: 1.1.5(zod@4.1.12)
@@ -19325,7 +19341,7 @@ snapshots:
       '@better-fetch/fetch': 1.1.18
       '@noble/ciphers': 2.0.1
       '@noble/hashes': 2.0.1
-      better-call: 1.1.5(zod@4.1.12)
+      better-call: 1.1.5(zod@3.25.76)
       defu: 6.1.4
       jose: 6.1.0
       kysely: 0.28.8

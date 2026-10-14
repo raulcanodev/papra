@@ -22,6 +22,7 @@ export const organizationRoutes = {
   purchases: { path: 'invoicing/invoices/received', surface: 'workspace' },
   contacts: { path: 'contacts', surface: 'workspace' },
   products: { path: 'invoicing/products', surface: 'workspace' },
+  taxes: { path: 'taxes', surface: 'workspace' },
   financeOverview: { path: 'finances/overview', surface: 'workspace' },
   financeTransactions: { path: 'finances/transactions', surface: 'workspace' },
   financeSubscriptions: { path: 'finances/subscriptions', surface: 'workspace' },
@@ -55,6 +56,7 @@ export const organizationRouteLabelKeys = {
   purchases: 'navigation.item.received-invoices',
   contacts: 'navigation.item.contacts',
   products: 'navigation.item.products',
+  taxes: 'navigation.item.quarterly-taxes',
   financeOverview: 'navigation.item.overview',
   financeTransactions: 'navigation.item.transactions',
   financeSubscriptions: 'navigation.item.subscriptions',
@@ -109,6 +111,7 @@ const workspaceNavigation: readonly NavigationSectionDefinition[] = [
       { routeId: 'invoices', icon: 'i-tabler-receipt', matchSubRoutes: true },
       { routeId: 'contacts', icon: 'i-tabler-address-book' },
       { routeId: 'products', icon: 'i-tabler-package' },
+      { routeId: 'taxes', icon: 'i-tabler-receipt-tax' },
     ],
   },
   {

@@ -63,6 +63,7 @@ import { CreateTaggingRulePage } from './modules/tagging-rules/pages/create-tagg
 import { TaggingRulesPage } from './modules/tagging-rules/pages/tagging-rules.page';
 import { UpdateTaggingRulePage } from './modules/tagging-rules/pages/update-tagging-rule.page';
 import { TagsPage } from './modules/tags/pages/tags.page';
+import { QuarterlyTaxesPage } from './modules/taxes/pages/quarterly-taxes.page';
 import { OrganizationSettingsLayout } from './modules/ui/layouts/organization-settings.layout';
 import { OrganizationLayout } from './modules/ui/layouts/organization.layout';
 import { SettingsLayout } from './modules/ui/layouts/settings.layout';
@@ -204,6 +205,10 @@ export const routes: RouteDefinition[] = [
                       {
                         path: ['/invoicing/invoices/new', '/invoicing/invoices/:invoiceId/edit'],
                         component: CreateInvoicePage,
+                      },
+                      {
+                        path: getOrganizationNestedRoutePath('taxes'),
+                        component: QuarterlyTaxesPage,
                       },
                       {
                         path: getOrganizationNestedRoutePath('purchases'),
