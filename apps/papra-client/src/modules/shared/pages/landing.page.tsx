@@ -8,27 +8,25 @@ import { DEMO_PREFERENCES_MESSAGE_SOURCE } from '@/modules/demo/demo.constants';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { LanguageToggleButton } from '@/modules/i18n/language-toggle-button.component';
 import { createVitrineUrl } from '@/modules/shared/utils/urls';
-import { ThemeToggleButton } from '@/modules/theme/theme-toggle-button.component';
-import { useTheme } from '@/modules/theme/theme.provider';
+import { useForcedLightTheme } from '@/modules/theme/force-light-theme';
 import { AppLogo } from '@/modules/ui/components/app-logo';
 import { Button } from '@/modules/ui/components/button';
 import { ShaderGradient } from '@/modules/ui/components/shader-gradient';
 
 const DemoFrame: Component<{ url: string }> = (props) => {
   const { t, getLocale } = useI18n();
-  const { getTheme } = useTheme();
   let frame: HTMLIFrameElement | undefined;
 
   // The first load carries the preferences in the URL; later changes are pushed without reloading the frame
   const initialUrl = untrack(() => {
     const url = new URL(props.url);
-    url.searchParams.set('theme', getTheme());
+    url.searchParams.set('theme', 'light');
     url.searchParams.set('lang', getLocale());
     return url.toString();
   });
 
   const sendPreferences = () => {
-    frame?.contentWindow?.postMessage({ source: DEMO_PREFERENCES_MESSAGE_SOURCE, theme: getTheme(), locale: getLocale() }, new URL(props.url).origin);
+    frame?.contentWindow?.postMessage({ source: DEMO_PREFERENCES_MESSAGE_SOURCE, theme: 'light', locale: getLocale() }, new URL(props.url).origin);
   };
 
   createEffect(sendPreferences);
@@ -55,6 +53,8 @@ const DemoFrame: Component<{ url: string }> = (props) => {
 };
 
 export const LandingPage: Component = () => {
+  useForcedLightTheme();
+
   const { t } = useI18n();
   const { config } = useConfig();
 
@@ -90,7 +90,6 @@ export const LandingPage: Component = () => {
           <AppLogo as={A} href="/" class="text-base" />
           <nav class="flex items-center gap-2">
             <LanguageToggleButton />
-            <ThemeToggleButton />
             <Button as={A} href="/login" variant="ghost" class="rounded-full">{t('landing.nav.login')}</Button>
             <Show when={config.auth.isRegistrationEnabled}>
               <Button as={A} href="/register" variant="outline" class="rounded-full bg-background/70 px-4">{t('landing.nav.start')}</Button>

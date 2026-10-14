@@ -1,10 +1,12 @@
 import type { JSX, ParentComponent } from 'solid-js';
 import { A } from '@solidjs/router';
 import { LanguageToggleButton } from '@/modules/i18n/language-toggle-button.component';
-import { ThemeToggleButton } from '@/modules/theme/theme-toggle-button.component';
+import { useForcedLightTheme } from '@/modules/theme/force-light-theme';
 import { AppLogo } from '../components/app-logo';
 
 export const AuthLayout: ParentComponent<{ background?: JSX.Element }> = (props) => {
+  useForcedLightTheme();
+
   return (
     <div class="min-h-screen w-full flex flex-col bg-muted/15 relative overflow-hidden">
       {props.background
@@ -15,7 +17,6 @@ export const AuthLayout: ParentComponent<{ background?: JSX.Element }> = (props)
 
         <div class="flex gap-2">
           <LanguageToggleButton />
-          <ThemeToggleButton />
         </div>
       </header>
 
