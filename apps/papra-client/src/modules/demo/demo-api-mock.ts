@@ -9,6 +9,7 @@ import type {
 import { FetchError } from 'ofetch';
 import { createRouter } from 'radix3';
 import { get } from '../shared/utils/get';
+import { aiHandlers } from './ai/demo-ai';
 import { defineHandler } from './demo-api-mock.models';
 import { createId, randomString } from './demo.models';
 import {
@@ -24,6 +25,8 @@ import {
   webhooksStorage,
 } from './demo.storage';
 import { findMany, getValues } from './demo.storage.models';
+import { invoicingHandlers } from './invoicing/demo-invoicing';
+import { miscHandlers } from './misc/demo-misc';
 import { generatePropertyKey, searchDemoDocuments } from './search/demo.search.services';
 import { demoUser } from './seed/users.fixtures';
 
@@ -128,6 +131,10 @@ function buildCustomPropertiesResponse({
 let demoOnboardingStep: string | null = null;
 
 const inMemoryApiMock: Record<string, { handler: any }> = {
+  ...invoicingHandlers,
+  ...aiHandlers,
+  ...miscHandlers,
+
   ...defineHandler({
     path: '/api/config',
     method: 'GET',

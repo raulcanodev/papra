@@ -11,6 +11,9 @@ export const translations = {
   'landing.cta.start': 'Create your workspace',
   'landing.cta.login': 'Open your workspace',
   'landing.cta.explore': 'See how it works',
+  'landing.cta.demo': 'Try the live demo',
+  'landing.demo.open': 'Open in a new tab',
+  'landing.demo.title': 'A live demo with fictional data. Create invoices, ask the assistant, nothing is saved outside your browser.',
   'landing.preview.overview': 'Overview',
   'landing.preview.documents': 'Documents',
   'landing.preview.invoices': 'Invoices',
@@ -973,9 +976,8 @@ export const translations = {
 
   // Demo
 
-  'demo.popup.description': 'This is a demo environment, all data is saved to your browser local storage.',
-  'demo.popup.discord': 'Join the {{ discordLink }} to get support, propose features or just chat.',
-  'demo.popup.discord-link-label': 'Discord server',
+  'demo.popup.description': 'This is a demo with fictional data (Acme SL). Everything you do stays in your browser and is never sent anywhere.',
+  'demo.popup.cta': 'Create free account',
   'demo.popup.reset': 'Reset demo data',
   'demo.popup.hide': 'Hide',
 
@@ -1197,6 +1199,9 @@ export const translations = {
   'ai-assistant.suggestion.transfer-rules': 'Find all transfers between owners and create a rule',
   'ai-assistant.suggestion.classify-rules': 'Analyze my transactions and suggest classification rules',
   'ai-assistant.suggestion.unclassified': 'What are my unclassified transactions?',
+  'ai-assistant.suggestion.demo-unpaid': 'Which invoices are unpaid?',
+  'ai-assistant.suggestion.demo-total': 'How much have I invoiced in total?',
+  'ai-assistant.suggestion.demo-customers': 'Who are my top customers?',
 
   // Invoicing
   'invoicing.status.draft': 'Draft',

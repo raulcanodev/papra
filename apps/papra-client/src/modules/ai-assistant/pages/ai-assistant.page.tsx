@@ -5,6 +5,7 @@ import { useParams } from '@solidjs/router';
 import remarkGfm from 'remark-gfm';
 import { createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { SolidMarkdown } from 'solid-markdown';
+import { isDemoMode } from '@/modules/config/config';
 import { getClassificationLabelKey } from '@/modules/finances/finances-labels';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cn } from '@/modules/shared/style/cn';
@@ -19,6 +20,13 @@ const PLACEHOLDER_SUGGESTION_CONFIG = [
   { icon: 'i-tabler-transfer', key: 'ai-assistant.suggestion.transfer-rules' as const },
   { icon: 'i-tabler-tag', key: 'ai-assistant.suggestion.classify-rules' as const },
   { icon: 'i-tabler-help', key: 'ai-assistant.suggestion.unclassified' as const },
+];
+
+// The public demo only has invoices to talk about.
+const DEMO_SUGGESTION_CONFIG = [
+  { icon: 'i-tabler-clock-dollar', key: 'ai-assistant.suggestion.demo-unpaid' as const },
+  { icon: 'i-tabler-chart-bar', key: 'ai-assistant.suggestion.demo-total' as const },
+  { icon: 'i-tabler-users', key: 'ai-assistant.suggestion.demo-customers' as const },
 ];
 
 const TOOL_LABEL_KEYS: Record<string, TranslationKeys> = {
@@ -712,7 +720,7 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
   const models = () => modelsData()?.models ?? [];
   const currentModel = () => selectedModel() || modelsData()?.defaultModel || '';
   const sessions = () => sessionsData()?.sessions ?? [];
-  const suggestions = () => PLACEHOLDER_SUGGESTION_CONFIG.map(s => ({ icon: s.icon, text: t(s.key) }));
+  const suggestions = () => (isDemoMode ? DEMO_SUGGESTION_CONFIG : PLACEHOLDER_SUGGESTION_CONFIG).map(s => ({ icon: s.icon, text: t(s.key) }));
 
   function selectModel(id: string) {
     setSelectedModel(id);

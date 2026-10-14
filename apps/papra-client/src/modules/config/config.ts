@@ -44,6 +44,12 @@ export const buildTimeConfig = {
   intakeEmails: {
     isEnabled: asBoolean(import.meta.env.VITE_INTAKE_EMAILS_IS_ENABLED, false),
   },
+  demo: {
+    // Where the demo's call to action sends visitors: the real app's sign-up page
+    signupUrl: asString(import.meta.env.VITE_DEMO_SIGNUP_URL, '/register'),
+    // Public URL of the standalone demo build, embedded and linked from the landing page when set
+    url: asString(import.meta.env.VITE_DEMO_URL),
+  },
   isSubscriptionsEnabled: asBoolean(import.meta.env.VITE_IS_SUBSCRIPTIONS_ENABLED, false),
 } as const;
 

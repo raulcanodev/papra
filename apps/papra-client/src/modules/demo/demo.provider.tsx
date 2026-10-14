@@ -1,14 +1,14 @@
 import type { Component } from 'solid-js';
-import { A } from '@solidjs/router';
 import { createSignal, Match, Switch } from 'solid-js';
 import { Portal } from 'solid-js/web';
+import { buildTimeConfig } from '../config/config';
 import { useI18n } from '../i18n/i18n.provider';
 import { Button } from '../ui/components/button';
 import { clearDemoStorage } from './demo.storage';
 
 export const DemoIndicator: Component = () => {
-  const [getPopupState, setPopupState] = createSignal<'minified' | 'expanded' | 'hidden'>('expanded');
-  const { t, te } = useI18n();
+  const [getPopupState, setPopupState] = createSignal<'minified' | 'expanded' | 'hidden'>('minified');
+  const { t } = useI18n();
 
   const clearDemo = async () => {
     await clearDemoStorage();
@@ -29,7 +29,7 @@ export const DemoIndicator: Component = () => {
     <Portal>
       <Switch>
         <Match when={getPopupState() === 'minified'}>
-          <div class="fixed bottom-4 right-4 z-50 rounded-xl max-w-280px">
+          <div class="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-xl max-w-280px">
             <Button onClick={switchToStateUnlessCtrl('expanded')} size="icon">
               <div class="i-tabler-info-circle size-5.5" />
             </Button>
@@ -41,16 +41,17 @@ export const DemoIndicator: Component = () => {
             <p class="text-sm">
               {t('demo.popup.description')}
             </p>
-            <p class="text-sm mt-2">
-              {te('demo.popup.discord', { discordLink: <A href="https://papra.app/discord" target="_blank" rel="noopener noreferrer" class="underline font-bold">{t('demo.popup.discord-link-label')}</A> })}
-            </p>
-            <div class="flex justify-end mt-4 gap-2">
+            <div class="flex flex-wrap justify-end mt-4 gap-2">
               <Button variant="ghost" onClick={clearDemo} size="sm">
                 {t('demo.popup.reset')}
               </Button>
 
-              <Button onClick={switchToStateUnlessCtrl('minified')} size="sm">
+              <Button onClick={switchToStateUnlessCtrl('minified')} variant="outline" size="sm">
                 {t('demo.popup.hide')}
+              </Button>
+
+              <Button as="a" href={buildTimeConfig.demo.signupUrl} target="_top" size="sm">
+                {t('demo.popup.cta')}
               </Button>
             </div>
           </div>

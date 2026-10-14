@@ -7,7 +7,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Popover, PopoverContent, PopoverTrigger } from '@/modules/ui/components/popover';
 import { TextField } from '@/modules/ui/components/textfield';
 
-
 export function FormField(props: ParentProps<{ label: string; class?: string }>) {
   return (
     <label class={cn('block text-sm font-medium', props.class)}>

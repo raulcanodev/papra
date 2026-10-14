@@ -2,6 +2,7 @@ import type { Component } from 'solid-js';
 import { A } from '@solidjs/router';
 import { For, Show } from 'solid-js';
 import { appBrand } from '@/modules/config/branding';
+import { buildTimeConfig } from '@/modules/config/config';
 import { useConfig } from '@/modules/config/config.provider';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { AppLogo } from '@/modules/ui/components/app-logo';
@@ -16,6 +17,30 @@ const Feature: Component<{ icon: string; title: string; description: string }> =
     <p class="mt-2 text-sm leading-6 text-muted-foreground">{props.description}</p>
   </article>
 );
+
+const DemoFrame: Component<{ url: string }> = (props) => {
+  const { t } = useI18n();
+
+  return (
+    <div class="mx-auto w-full max-w-6xl px-4 sm:px-8">
+      <div class="overflow-hidden rounded-2xl border bg-card shadow-2xl shadow-black/10">
+        <div class="flex items-center gap-3 border-b bg-muted/40 px-4 py-2.5">
+          <div class="flex gap-1.5" aria-hidden="true">
+            <span class="size-2.5 rounded-full bg-muted-foreground/25" />
+            <span class="size-2.5 rounded-full bg-muted-foreground/25" />
+            <span class="size-2.5 rounded-full bg-muted-foreground/25" />
+          </div>
+          <p class="min-w-0 flex-1 truncate text-center text-xs text-muted-foreground">{t('landing.demo.title')}</p>
+          <a href={props.url} target="_blank" rel="noopener noreferrer" class="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground">
+            <span class="hidden sm:inline">{t('landing.demo.open')}</span>
+            <span class="i-tabler-arrow-up-right size-3.5" />
+          </a>
+        </div>
+        <iframe src={props.url} title={t('landing.cta.demo')} loading="lazy" class="block h-[560px] w-full bg-background sm:h-[680px]" />
+      </div>
+    </div>
+  );
+};
 
 const ProductPreview: Component = () => {
   const { t } = useI18n();
@@ -171,14 +196,16 @@ export const LandingPage: Component = () => {
             <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
               <PrimaryCta />
               <Button as="a" href="#product" variant="outline" size="lg" class="rounded-full px-6 bg-background/70">
-                {t('landing.cta.explore')}
+                {buildTimeConfig.demo.url ? t('landing.cta.demo') : t('landing.cta.explore')}
                 <span class="i-tabler-arrow-down size-4" />
               </Button>
             </div>
           </div>
 
           <div id="product" class="mt-20 sm:mt-24 pb-20 scroll-mt-24">
-            <ProductPreview />
+            <Show when={buildTimeConfig.demo.url} fallback={<ProductPreview />}>
+              {url => <DemoFrame url={url()} />}
+            </Show>
           </div>
         </section>
 

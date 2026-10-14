@@ -13,6 +13,9 @@ export const translations: Partial<TranslationsDictionary> = {
   'landing.cta.start': 'Crea tu espacio',
   'landing.cta.login': 'Abre tu espacio',
   'landing.cta.explore': 'Descubre cómo funciona',
+  'landing.cta.demo': 'Probar la demo',
+  'landing.demo.open': 'Abrir en una pestaña nueva',
+  'landing.demo.title': 'Una demo real con datos ficticios. Crea facturas, pregunta al asistente; nada se guarda fuera de tu navegador.',
   'landing.preview.overview': 'Resumen',
   'landing.preview.documents': 'Documentos',
   'landing.preview.invoices': 'Facturas',
@@ -975,9 +978,8 @@ export const translations: Partial<TranslationsDictionary> = {
 
   // Demo
 
-  'demo.popup.description': 'Este es un entorno de demostración, todos los datos se guardan en el almacenamiento local de tu navegador.',
-  'demo.popup.discord': 'Únete a {{ discordLink }} para obtener soporte, proponer funciones o simplemente chatear.',
-  'demo.popup.discord-link-label': 'Servidor de Discord',
+  'demo.popup.description': 'Esto es una demo con datos ficticios (Acme SL). Todo lo que hagas se queda en tu navegador y no se envía a ningún sitio.',
+  'demo.popup.cta': 'Crear cuenta gratis',
   'demo.popup.reset': 'Restablecer datos de la demo',
   'demo.popup.hide': 'Ocultar',
 
@@ -1199,6 +1201,9 @@ export const translations: Partial<TranslationsDictionary> = {
   'ai-assistant.suggestion.transfer-rules': 'Encuentra todas las transferencias entre propietarios y crea una regla',
   'ai-assistant.suggestion.classify-rules': 'Analiza mis transacciones y sugiere reglas de clasificación',
   'ai-assistant.suggestion.unclassified': '¿Cuáles son mis transacciones sin clasificar?',
+  'ai-assistant.suggestion.demo-unpaid': '¿Qué facturas tengo pendientes de cobro?',
+  'ai-assistant.suggestion.demo-total': '¿Cuánto he facturado en total?',
+  'ai-assistant.suggestion.demo-customers': '¿Cuáles son mis mejores clientes?',
 
   // Invoicing
   'invoicing.status.draft': 'Borrador',

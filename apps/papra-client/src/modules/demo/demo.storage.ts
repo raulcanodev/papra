@@ -10,13 +10,16 @@ import localStorageDriver from 'unstorage/drivers/localstorage';
 import { trackingServices } from '../tracking/tracking.services';
 import { DEMO_IS_SEEDED_KEY } from './demo.constants';
 import { createId } from './demo.models';
+import { bindInvoicingStorage, seedDemoInvoicing } from './invoicing/demo-invoicing';
 import { customPropertyDefinitionsFixtures } from './seed/custom-property-definitions.fixtures';
 import { documentFixtures } from './seed/documents.fixtures';
 import { tagsFixtures } from './seed/tags.fixtures';
 
-const storage = createStorage<any>({
+export const storage = createStorage<any>({
   driver: localStorageDriver({ base: 'demo:' }),
 });
+
+bindInvoicingStorage(storage);
 
 export type DocumentFileStoredFile = { name: string; size: number; type: string; base64Content: string };
 export type DocumentFileRemoteFile = { name: string; path: string };
@@ -84,7 +87,7 @@ export async function seedDemoStorage() {
   // Create default organization
   await organizationStorage.setItem(...idTuple({
     id: organizationId,
-    name: 'My organization',
+    name: 'Acme SL',
     createdAt: lastMonth,
     updatedAt: lastMonth,
   }));
@@ -175,6 +178,8 @@ export async function seedDemoStorage() {
 
     return [documentPromise, documentFilePromise, tagDocumentPromise, ...customPropertyValuePromises];
   });
+
+  await seedDemoInvoicing({ organizationId });
 
   await Promise.all([
     tagsPromises,

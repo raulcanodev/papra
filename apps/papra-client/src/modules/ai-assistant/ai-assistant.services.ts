@@ -1,4 +1,4 @@
-import { buildTimeConfig } from '../config/config';
+import { buildTimeConfig, isDemoMode } from '../config/config';
 import { apiClient } from '../shared/http/api-client';
 
 export type ToolConfirmation = {
@@ -141,6 +141,12 @@ export async function streamChatMessage({ organizationId, messages, model, sessi
   onSessionId?: (id: string) => void;
   signal?: AbortSignal;
 }) {
+  if (isDemoMode) {
+    // The public demo never reaches a server: a scripted assistant answers from the browser's local data.
+    const { demoStreamChatMessage } = await import('../demo/ai/demo-ai');
+    return demoStreamChatMessage({ organizationId, messages, sessionId, onChunk, onSessionId, signal });
+  }
+
   const response = await fetch(`${buildTimeConfig.baseApiUrl}/api/organizations/${organizationId}/ai/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
