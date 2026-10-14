@@ -17,6 +17,7 @@ import { createCustomPropertiesOptionsRepository } from '../custom-properties/op
 import { createDocumentFoldersRepository } from '../documents/document-folders.repository';
 import { createDocumentsRepository } from '../documents/documents.repository';
 import { createDocumentCreationUsecase } from '../documents/documents.usecases';
+import { formatSenderAddress } from '../emails/emails.models';
 import { organizationIdSchema } from '../organizations/organization.schemas.legacy';
 import { createOrganizationsRepository } from '../organizations/organizations.repository';
 import { ensureUserIsInOrganization } from '../organizations/organizations.usecases';
@@ -245,7 +246,9 @@ function setupInvoiceRoutes(routeContext: RouteDefinitionContext) {
     const { record } = await createVerifactuRepository({ db }).getRecordForInvoice({ organizationId, invoiceId });
     const pdf = await renderInvoicePdf({ ...invoice, verifactuQrUrl: record?.qrUrl ?? null } as PdfInvoice);
     const number = invoice!.number ?? invoice!.id;
+    const { sender } = await getInvoiceSender({ db, organizationId, fromEmail: routeContext.config.emails.fromEmail });
     await routeContext.emailsServices.sendEmail({
+      ...sender,
       to: recipient,
       subject: `Invoice ${number}`,
       html: buildInvoiceEmail({ customerName: invoice!.customer?.name ?? '', number, totalMinor: invoice!.totalMinor, currency: invoice!.currency }),
@@ -339,6 +342,24 @@ async function authorizeMember({ context, db, organizationId }: { context: Conte
 
 function safeFileName(value: string) {
   return value.replace(/[^\w.-]+/g, '-');
+}
+
+// The customer receives the invoice from the issuing company, not from the platform: its name is the sender display name
+// and replies go to its own address. The sending address stays the platform one, the only verified domain.
+async function getInvoiceSender({ db, organizationId, fromEmail }: { db: Database; organizationId: string; fromEmail: string }) {
+  const [{ profile }, { organization }] = await Promise.all([
+    createInvoicingRepository({ db }).getFiscalProfile({ organizationId }),
+    createOrganizationsRepository({ db }).getOrganizationById({ organizationId }),
+  ]);
+
+  const replyTo = profile?.email?.trim();
+
+  return {
+    sender: {
+      from: formatSenderAddress({ fromEmail, displayName: [profile?.legalName, organization?.name].find(name => (name ?? '').trim() !== '') }),
+      replyTo: replyTo === undefined || replyTo === '' ? undefined : replyTo,
+    },
+  };
 }
 
 function buildInvoiceEmail({ customerName, number, totalMinor, currency }: { customerName: string; number: string; totalMinor: number; currency: string }) {

@@ -9,6 +9,7 @@ export type EmailServices = {
     subject: string;
     html: string;
     from?: string;
+    replyTo?: string;
     attachments?: Array<{
       filename: string;
       content: Buffer;

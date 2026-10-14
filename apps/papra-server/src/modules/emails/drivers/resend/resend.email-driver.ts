@@ -12,10 +12,11 @@ export const resendEmailDriverFactory = defineEmailDriverFactory(({ config, logg
 
   return {
     name: RESEND_EMAIL_DRIVER_NAME,
-    sendEmail: async ({ to, subject, html, from, attachments }) => {
+    sendEmail: async ({ to, subject, html, from, replyTo, attachments }) => {
       const { error } = await resendClient.emails.send({
         from: from ?? fromEmail,
         to,
+        replyTo,
         subject,
         html,
         attachments: attachments?.map(attachment => ({
