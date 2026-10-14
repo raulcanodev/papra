@@ -35,9 +35,10 @@ export function HomePage() {
   const formatters = createMemo((): DashboardFormatters => {
     const locale = getLocale();
     const currency = query.data?.metrics.currency ?? 'EUR';
-    const moneyFormat = new Intl.NumberFormat(locale, { style: 'currency', currency, maximumFractionDigits: 0 });
+    // Spanish only groups thousands from five digits by default ("9865 €"), grouping always reads better on a dashboard
+    const moneyFormat = new Intl.NumberFormat(locale, { style: 'currency', currency, maximumFractionDigits: 0, useGrouping: 'always' });
     const compactFormat = new Intl.NumberFormat(locale, { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 });
-    const integerFormat = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 });
+    const integerFormat = new Intl.NumberFormat(locale, { maximumFractionDigits: 0, useGrouping: 'always' });
     const now = new Date();
     const metricsYear = query.data?.metrics.year ?? now.getUTCFullYear();
     const monthFormats = {

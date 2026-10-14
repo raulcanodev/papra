@@ -9,6 +9,16 @@ import { DeltaPill } from './delta-pill.component';
 
 export type StatTone = 'blue' | 'orange' | 'purple' | 'pink' | 'emerald' | 'sky';
 
+// Soft wash of the card tone over its surface, strongest at the top where the icon sits
+const SURFACE_TONES: Record<StatTone, string> = {
+  blue: 'from-blue-500/12 via-blue-500/4',
+  orange: 'from-orange-500/12 via-orange-500/4',
+  purple: 'from-purple-500/12 via-purple-500/4',
+  pink: 'from-pink-500/12 via-pink-500/4',
+  emerald: 'from-emerald-500/12 via-emerald-500/4',
+  sky: 'from-sky-500/12 via-sky-500/4',
+};
+
 const TILE_TONES: Record<StatTone, string> = {
   blue: 'from-blue-500 to-blue-600',
   orange: 'from-orange-400 to-orange-500',
@@ -40,7 +50,7 @@ export function StatCard(props: {
   const display = useCountUp(() => props.value);
 
   return (
-    <section class="flex min-w-0 flex-col rounded-2xl border border-border/80 bg-muted/40 p-2 dark:bg-muted/20">
+    <section class={cn('flex min-w-0 flex-col rounded-2xl border border-border/80 bg-card bg-gradient-to-b to-transparent p-2', SURFACE_TONES[props.tone])}>
       <div class="flex w-full items-start justify-between gap-2.5 p-2">
         <span class={cn('flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-b shadow-sm', TILE_TONES[props.tone])}>
           <div class={cn(props.icon, 'size-5 text-white')} aria-hidden="true" />

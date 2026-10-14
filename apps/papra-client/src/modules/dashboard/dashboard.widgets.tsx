@@ -112,6 +112,7 @@ export const DASHBOARD_WIDGETS: DashboardWidget[] = [
     render: props => (
       <ComparisonChartCard
         kind="area"
+        color="blue"
         title={props.formatters.t('dashboard.widgets.revenue-chart.title')}
         points={props.metrics.revenue.monthly}
         format={props.formatters.money}
@@ -130,6 +131,7 @@ export const DASHBOARD_WIDGETS: DashboardWidget[] = [
     render: props => (
       <ComparisonChartCard
         kind="bar"
+        color="violet"
         title={props.formatters.t('dashboard.widgets.invoices-chart.title')}
         points={props.metrics.invoices.monthly}
         format={props.formatters.integer}

@@ -7,6 +7,17 @@ import { cn } from '@/modules/shared/style/cn';
 import { useCountUp } from './count-up';
 import { DeltaPill } from './delta-pill.component';
 
+// Each chart has its own hue: the current year in full color, the previous year as a lighter tint of it
+export const CHART_COLORS = {
+  blue: { main: '#3b82f6', tint: 'rgb(59 130 246 / 0.32)', wash: 'rgb(59 130 246 / 0.09)' },
+  violet: { main: '#8b5cf6', tint: 'rgb(139 92 246 / 0.32)', wash: 'rgb(139 92 246 / 0.09)' },
+  orange: { main: '#f97316', tint: 'rgb(249 115 22 / 0.32)', wash: 'rgb(249 115 22 / 0.09)' },
+  emerald: { main: '#10b981', tint: 'rgb(16 185 129 / 0.32)', wash: 'rgb(16 185 129 / 0.09)' },
+  pink: { main: '#ec4899', tint: 'rgb(236 72 153 / 0.32)', wash: 'rgb(236 72 153 / 0.09)' },
+} as const;
+
+export type ChartColor = keyof typeof CHART_COLORS;
+
 const WIDTH = 600;
 const HEIGHT = 200;
 const GRID_LINES = 3;
@@ -52,8 +63,10 @@ export function ComparisonChartCard(props: {
   comparisonCaption: { total: string; month: string };
   /** Months of the year elapsed so far: the headline total compares them with the same months of the previous year */
   elapsedMonths?: number;
+  color?: ChartColor;
   class?: string;
 }) {
+  const palette = () => CHART_COLORS[props.color ?? 'blue'];
   const [activeIndex, setActiveIndex] = createSignal<number | null>(null);
   const gradientId = `chart-gradient-${createUniqueId()}`;
 
@@ -95,7 +108,10 @@ export function ComparisonChartCard(props: {
   };
 
   return (
-    <section class={cn('flex min-w-0 flex-col gap-6 rounded-2xl border border-border/80 bg-muted/40 px-4 pt-4 pb-3 dark:bg-muted/20', props.class)}>
+    <section
+      class={cn('flex min-w-0 flex-col gap-6 rounded-2xl border border-border/80 bg-card px-4 pt-4 pb-3', props.class)}
+      style={{ 'background-image': `linear-gradient(to bottom, ${palette().wash}, transparent 55%)` }}
+    >
       <div class="flex w-full flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div class="flex min-w-0 flex-col gap-0.5" aria-live="polite">
           <p class="text-sm font-medium text-muted-foreground">{activePoint() ? props.monthLabel(activePoint()!.month, 'long') : props.title}</p>
@@ -111,11 +127,11 @@ export function ComparisonChartCard(props: {
         </div>
         <dl class="flex shrink-0 items-center gap-4 text-xs font-medium text-muted-foreground">
           <div class="flex items-center gap-1.5">
-            <span class="size-2 rounded-full bg-primary" aria-hidden="true" />
+            <span class="size-2 rounded-full" style={{ background: palette().main }} aria-hidden="true" />
             <dt>{props.legend.current}</dt>
           </div>
           <div class="flex items-center gap-1.5">
-            <span class="size-2 rounded-full bg-muted-foreground/40" aria-hidden="true" />
+            <span class="size-2 rounded-full" style={{ background: palette().tint }} aria-hidden="true" />
             <dt>{props.legend.previous}</dt>
           </div>
         </dl>
@@ -151,8 +167,8 @@ export function ComparisonChartCard(props: {
             <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" class="absolute inset-0 size-full overflow-visible">
               <defs>
                 <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="hsl(var(--primary))" stop-opacity="0.28" />
-                  <stop offset="100%" stop-color="hsl(var(--primary))" stop-opacity="0" />
+                  <stop offset="0%" stop-color={palette().main} stop-opacity="0.35" />
+                  <stop offset="100%" stop-color={palette().main} stop-opacity="0" />
                 </linearGradient>
               </defs>
 
@@ -169,21 +185,22 @@ export function ComparisonChartCard(props: {
                 fallback={(
                   <For each={props.points}>
                     {(point, index) => {
-                      const barWidth = () => step() * 0.3;
+                      // Two thick bars per month, this year and last year side by side
+                      const barWidth = () => step() * 0.4;
                       const isDimmed = () => activeIndex() !== null && activeIndex() !== index();
                       return (
                         <g class="transition-opacity duration-150" opacity={isDimmed() ? 0.45 : 1}>
-                          <rect x={step() * index() + step() / 2 - barWidth() - 1} y={toY(point.previous)} width={barWidth()} height={HEIGHT - toY(point.previous)} rx="3" fill="hsl(var(--muted-foreground) / 0.3)" />
-                          <rect x={step() * index() + step() / 2 + 1} y={toY(point.current)} width={barWidth()} height={HEIGHT - toY(point.current)} rx="3" fill="hsl(var(--primary))" />
+                          <rect x={step() * index() + step() / 2 - barWidth() - 1} y={toY(point.previous)} width={barWidth()} height={HEIGHT - toY(point.previous)} rx="4" fill={palette().tint} />
+                          <rect x={step() * index() + step() / 2 + 1} y={toY(point.current)} width={barWidth()} height={HEIGHT - toY(point.current)} rx="4" fill={palette().main} />
                         </g>
                       );
                     }}
                   </For>
                 )}
               >
-                <path d={previousLine()} fill="none" stroke="hsl(var(--muted-foreground) / 0.45)" stroke-width="2" stroke-dasharray="5 5" vector-effect="non-scaling-stroke" />
+                <path d={previousLine()} fill="none" stroke={palette().tint} stroke-width="2" stroke-dasharray="5 5" vector-effect="non-scaling-stroke" />
                 <path d={currentArea()} fill={`url(#${gradientId})`} />
-                <path d={currentLine()} fill="none" stroke="hsl(var(--primary))" stroke-width="2.5" vector-effect="non-scaling-stroke" />
+                <path d={currentLine()} fill="none" stroke={palette().main} stroke-width="2.5" vector-effect="non-scaling-stroke" />
               </Show>
 
               {/* Invisible hover bands, one per month */}
@@ -196,8 +213,8 @@ export function ComparisonChartCard(props: {
             <Show when={props.kind === 'area' && activePoint()?.month !== undefined && activePoint()!.month <= (props.elapsedMonths ?? 12) && activePoint()}>
               {getPoint => (
                 <span
-                  class="pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-primary ring-4 ring-primary/25"
-                  style={{ left: `${(lineX(activeIndex()!) / WIDTH) * 100}%`, top: `${(toY(getPoint().current) / HEIGHT) * 100}%` }}
+                  class="pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card"
+                  style={{ 'background': palette().main, 'box-shadow': `0 0 0 4px ${palette().tint}`, 'left': `${(lineX(activeIndex()!) / WIDTH) * 100}%`, 'top': `${(toY(getPoint().current) / HEIGHT) * 100}%` }}
                 />
               )}
             </Show>
