@@ -7,11 +7,18 @@ Papra's MCP integration follows the same layered shape as Dopost's MCP server:
 3. `apps/mcp` exposes the same core through stateless Streamable HTTP and authenticates every request with a Papra API key.
 4. The remote transport disables local-file tools and contains HTTP-only concerns such as CORS, allowed hosts, request IDs, health checks, and structured logs.
 
-## Tool modules
+## Tool catalog
 
-Tools are grouped by Papra domain under `packages/mcp-server/src/tools`. Each module exports a `ToolRegistrar`, and `tools/index.ts` composes the registrars. Adding a domain therefore requires one module and one registry entry rather than expanding a central switch or transport implementation.
+Tools are defined once in `packages/tool-catalog` (see its README for the full list) and consumed by two transports:
 
-Tool handlers call Papra's public REST API. They do not import server repositories or database code, so local and hosted MCP deployments enforce the same API-key permissions and organization membership rules as every other integration.
+- the MCP server registers every definition and runs it over HTTP with the API key (`packages/mcp-server/src/tools/catalog.ts`);
+- the in-app assistant runs the same definitions in-process with the user's session; reads run right away, writes and destructive actions become approval cards (`apps/papra-server/src/modules/ai-assistant/tools/catalog-tools.ts`).
+
+A definition holds the name, the description written for the model, the zod input, a risk level (`read`, `write`, `destructive`), the API key permission it needs and a `run` function that only talks to Papra's public REST API. Adding a tool is one definition in `src/domains` plus an entry in `src/catalog.ts`; both transports pick it up. Tools take and return human units (euros, percentages) and convert to the API's cents and basis points at the edge.
+
+Handlers never import server repositories or database code, so MCP, assistant and web app enforce the same API-key permissions and organization membership rules. The only tool outside the catalog is `upload_document`, which reads a local path and exists for the stdio transport only.
+
+The permissions an API key can carry are declared in the catalog too (`API_KEY_PERMISSIONS`), and the API routes that tools use open themselves to API keys with `requireAuthentication({ apiKeyPermissions })`.
 
 ## Authentication
 
