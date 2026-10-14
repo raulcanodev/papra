@@ -24,7 +24,7 @@ export const AuthCard: ParentComponent = (props) => {
 
   return (
     <div class="flex items-center justify-center min-h-[calc(100vh-84px)] px-4 py-8 sm:px-8 sm:py-12">
-      <div class="w-full max-w-5xl overflow-hidden rounded-2xl border bg-background shadow-xl shadow-foreground/5 grid lg:grid-cols-[minmax(0,1fr)_minmax(0,0.92fr)]">
+      <div class="w-full max-w-5xl overflow-hidden rounded-2xl bg-background shadow-xl shadow-foreground/5 grid lg:grid-cols-[minmax(0,1fr)_minmax(0,0.92fr)]">
         <div class="px-6 py-9 sm:px-10 sm:py-12 lg:px-14 lg:py-16">
           {props.children}
         </div>

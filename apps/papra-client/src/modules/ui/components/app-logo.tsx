@@ -14,7 +14,7 @@ export function AppLogo<T extends ValidComponent = 'div'>(props: PolymorphicProp
       class={cn(`text-lg flex items-center gap-2 font-semibold group`, local.class)}
       {...rest}
     >
-      <div class="i-tabler-file-text text-primary rotate-12 size-6 group-hover:rotate-25 transition" />
+      <img src="/logo.svg" alt="" width="28" height="28" class="size-7 [image-rendering:pixelated] group-hover:-translate-y-0.5 transition-transform" />
       {appBrand.name}
     </Polymorphic>
   );
