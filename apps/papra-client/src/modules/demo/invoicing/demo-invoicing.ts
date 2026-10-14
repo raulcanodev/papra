@@ -611,3 +611,7 @@ export async function getDemoInvoicingRecords({ organizationId }: { organization
     currency: (profile?.currency as string | undefined) ?? 'EUR',
   };
 }
+
+export async function listDemoContacts({ organizationId }: { organizationId: string }) {
+  return (await getValues(db().contacts)).filter(contact => contact.organizationId === organizationId);
+}

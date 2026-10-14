@@ -1,9 +1,11 @@
 import type { LanguageModel } from 'ai';
+import type { Config } from '../config/config.types';
 import type { AiProvider } from './ai-assistant.models';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createXai } from '@ai-sdk/xai';
+import { createAiNotConfiguredError } from './ai-assistant.errors';
 import { DEFAULT_MODELS, PROVIDER_PRIORITY } from './ai-assistant.models';
 
 export type AiApiKeys = {
@@ -65,4 +67,18 @@ export function createLlmModel({ provider, apiKey, model }: {
 
   const openai = createOpenAI({ apiKey });
   return openai(modelId);
+}
+
+// The model of the first configured provider, for server side features (document reading, suggestions...)
+export function getConfiguredLlmModel({ config }: { config: Config }): LanguageModel {
+  const { openaiApiKey, anthropicApiKey, grokApiKey, googleApiKey, model } = config.aiAssistant;
+  const apiKeys = { openaiApiKey, anthropicApiKey, grokApiKey, googleApiKey };
+  const [provider] = getConfiguredProviders(apiKeys);
+  const apiKey = provider === undefined ? undefined : getApiKeyForProvider({ provider, apiKeys });
+
+  if (provider === undefined || apiKey === undefined || apiKey === '') {
+    throw createAiNotConfiguredError();
+  }
+
+  return createLlmModel({ provider, apiKey, model });
 }

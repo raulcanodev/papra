@@ -11,6 +11,7 @@ import { trackingServices } from '../tracking/tracking.services';
 import { DEMO_DATA_VERSION, DEMO_IS_SEEDED_KEY } from './demo.constants';
 import { createId } from './demo.models';
 import { bindInvoicingStorage, seedDemoInvoicing } from './invoicing/demo-invoicing';
+import { bindPurchasesStorage, seedDemoPurchases } from './purchases/demo-purchases';
 import { customPropertyDefinitionsFixtures } from './seed/custom-property-definitions.fixtures';
 import { documentFixtures } from './seed/documents.fixtures';
 import { tagsFixtures } from './seed/tags.fixtures';
@@ -20,6 +21,7 @@ export const storage = createStorage<any>({
 });
 
 bindInvoicingStorage(storage);
+bindPurchasesStorage(storage);
 
 export type DocumentFileStoredFile = { name: string; size: number; type: string; base64Content: string };
 export type DocumentFileRemoteFile = { name: string; path: string };
@@ -181,6 +183,7 @@ export async function seedDemoStorage() {
   });
 
   await seedDemoInvoicing({ organizationId });
+  await seedDemoPurchases({ organizationId });
 
   await Promise.all([
     tagsPromises,
