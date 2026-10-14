@@ -1004,8 +1004,9 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
     void refetchSessions();
   }
 
+  // Full width of its container: otherwise it shrinks to its content while the answer is still empty
   return (
-    <div class="relative flex h-full min-h-0 bg-white dark:bg-card" data-agent-ignore>
+    <div class="relative flex h-full w-full min-w-0 min-h-0 bg-white dark:bg-card" data-agent-ignore>
       {/* History sidebar */}
       <Show when={showHistory()}>
         <div class={cn(
