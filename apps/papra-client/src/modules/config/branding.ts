@@ -5,7 +5,7 @@ const getBrandValue = (value: string | undefined, fallback: string) => value?.tr
  * touching page components. Every value can be overridden at build time.
  */
 export const appBrand = {
-  name: getBrandValue(import.meta.env.VITE_APP_NAME, 'Papra'),
+  name: getBrandValue(import.meta.env.VITE_APP_NAME, 'HeyPaqui'),
   tagline: getBrandValue(import.meta.env.VITE_APP_TAGLINE, 'Your business, finally in order.'),
   description: getBrandValue(
     import.meta.env.VITE_APP_DESCRIPTION,

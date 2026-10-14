@@ -49,7 +49,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'auth.request-password-reset.requested': 'Si existe una cuenta para este correo electrónico, te enviaremos un correo para restablecer tu contraseña.',
   'auth.request-password-reset.back-to-login': 'Volver al inicio de sesión',
   'auth.request-password-reset.form.email.label': 'Correo electrónico',
-  'auth.request-password-reset.form.email.placeholder': 'Ejemplo: ada@papra.app',
+  'auth.request-password-reset.form.email.placeholder': 'Ejemplo: ada@heypaqui.com',
   'auth.request-password-reset.form.email.required': 'Por favor, ingresa tu correo electrónico',
   'auth.request-password-reset.form.email.invalid': 'Esta dirección de correo electrónico no es válida',
   'auth.request-password-reset.form.submit': 'Solicitar restablecimiento de contraseña',
@@ -67,8 +67,8 @@ export const translations: Partial<TranslationsDictionary> = {
 
   'auth.email-provider.open': 'Abrir {{ provider }}',
 
-  'auth.login.title': 'Inicia sesión en Papra',
-  'auth.login.description': 'Ingresa tu correo electrónico o usa un inicio de sesión social para acceder a tu cuenta de Papra.',
+  'auth.login.title': 'Inicia sesión en HeyPaqui',
+  'auth.login.description': 'Ingresa tu correo electrónico o usa un inicio de sesión social para acceder a tu cuenta de HeyPaqui.',
   'auth.login.eyebrow': 'Tu espacio de trabajo',
   'auth.login.welcome': 'Qué bueno verte de nuevo',
   'auth.login.welcome-description': 'Inicia sesión para continuar justo donde lo dejaste.',
@@ -80,7 +80,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'auth.login.no-account': '¿No tienes una cuenta?',
   'auth.login.register': 'Registrarse',
   'auth.login.form.email.label': 'Correo electrónico',
-  'auth.login.form.email.placeholder': 'Ejemplo: ada@papra.app',
+  'auth.login.form.email.placeholder': 'Ejemplo: ada@heypaqui.com',
   'auth.login.form.email.required': 'Por favor, ingresa tu correo electrónico',
   'auth.login.form.email.invalid': 'Esta dirección de correo electrónico no es válida',
   'auth.login.form.password.label': 'Contraseña',
@@ -104,8 +104,8 @@ export const translations: Partial<TranslationsDictionary> = {
   'auth.login.two-factor.use-backup-code': 'Usar código de respaldo',
   'auth.login.two-factor.use-totp': 'Usar aplicación autenticadora',
 
-  'auth.register.title': 'Regístrate en Papra',
-  'auth.register.description': 'Crea una cuenta para comenzar a usar Papra.',
+  'auth.register.title': 'Regístrate en HeyPaqui',
+  'auth.register.description': 'Crea una cuenta para comenzar a usar HeyPaqui.',
   'auth.register.register-with-email': 'Registrarse con correo electrónico',
   'auth.register.register-with-provider': 'Registrarse con {{ provider }}',
   'auth.register.providers.google': 'Google',
@@ -113,9 +113,9 @@ export const translations: Partial<TranslationsDictionary> = {
   'auth.register.have-account': '¿Ya tienes una cuenta?',
   'auth.register.login': 'Iniciar sesión',
   'auth.register.registration-disabled.title': 'El registro está deshabilitado',
-  'auth.register.registration-disabled.description': 'La creación de nuevas cuentas está deshabilitada actualmente en esta instancia de Papra. Solo los usuarios con cuentas existentes pueden iniciar sesión. Si crees que esto es un error, contacta al administrador de esta instancia.',
+  'auth.register.registration-disabled.description': 'La creación de nuevas cuentas está deshabilitada actualmente en esta instancia de HeyPaqui. Solo los usuarios con cuentas existentes pueden iniciar sesión. Si crees que esto es un error, contacta al administrador de esta instancia.',
   'auth.register.form.email.label': 'Correo electrónico',
-  'auth.register.form.email.placeholder': 'Ejemplo: ada@papra.app',
+  'auth.register.form.email.placeholder': 'Ejemplo: ada@heypaqui.com',
   'auth.register.form.email.required': 'Por favor, ingresa tu correo electrónico',
   'auth.register.form.email.invalid': 'Esta dirección de correo electrónico no es válida',
   'auth.register.form.password.label': 'Contraseña',
@@ -144,7 +144,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'auth.legal-links.privacy': 'Política de privacidad',
 
   'auth.no-auth-provider.title': 'No hay proveedor de autenticación',
-  'auth.no-auth-provider.description': 'No hay proveedores de autenticación habilitados en esta instancia de Papra. Por favor, contacta al administrador de esta instancia para habilitarlos.',
+  'auth.no-auth-provider.description': 'No hay proveedores de autenticación habilitados en esta instancia de HeyPaqui. Por favor, contacta al administrador de esta instancia para habilitarlos.',
 
   // User settings
 
@@ -307,7 +307,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'organizations.invite-member.title': 'Invitar miembro',
   'organizations.invite-member.description': 'Invita a un miembro a tu organización',
   'organizations.invite-member.form.email.label': 'Correo electrónico',
-  'organizations.invite-member.form.email.placeholder': 'Ejemplo: ada@papra.app',
+  'organizations.invite-member.form.email.placeholder': 'Ejemplo: ada@heypaqui.com',
   'organizations.invite-member.form.email.required': 'Por favor, ingresa un correo electrónico válido',
   'organizations.invite-member.form.role.label': 'Rol',
   'organizations.invite-member.form.submit': 'Invitar a la organización',
@@ -681,7 +681,7 @@ export const translations: Partial<TranslationsDictionary> = {
   // Intake emails
 
   'intake-emails.title': 'Correos de ingreso',
-  'intake-emails.description': 'Las direcciones de correo de ingreso se usan para ingresar automáticamente correos en Papra. Solo reenvía correos a la dirección de ingreso y sus archivos adjuntos se agregarán a los documentos de tu organización.',
+  'intake-emails.description': 'Las direcciones de correo de ingreso se usan para ingresar automáticamente correos en HeyPaqui. Solo reenvía correos a la dirección de ingreso y sus archivos adjuntos se agregarán a los documentos de tu organización.',
   'intake-emails.disabled.title': 'Correos de ingreso deshabilitados',
   'intake-emails.disabled.description': 'Los correos de ingreso están deshabilitados en esta instancia. Contacta a tu administrador para habilitarlos. Consulta la {{ documentation }} para más información.',
   'intake-emails.disabled.documentation': 'documentación',
@@ -709,7 +709,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'intake-emails.allowed-origins.title': 'Orígenes permitidos',
   'intake-emails.allowed-origins.description': 'Solo los correos enviados a {{ email }} desde estos orígenes serán procesados. Si no se especifican orígenes, todos los correos serán descartados.',
   'intake-emails.allowed-origins.add.label': 'Añadir dirección de correo permitida',
-  'intake-emails.allowed-origins.add.placeholder': 'Ej. ada@papra.app',
+  'intake-emails.allowed-origins.add.placeholder': 'Ej. ada@heypaqui.com',
   'intake-emails.allowed-origins.add.button': 'Añadir',
   'intake-emails.allowed-origins.add.error.exists': 'Este correo ya está en los orígenes permitidos para este correo de ingreso',
 
@@ -733,7 +733,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'api-keys.permissions.tags.tags:update': 'Actualizar etiquetas',
   'api-keys.permissions.tags.tags:delete': 'Eliminar etiquetas',
   'api-keys.create.title': 'Crear clave API',
-  'api-keys.create.description': 'Crea una nueva clave API para acceder a la API de Papra.',
+  'api-keys.create.description': 'Crea una nueva clave API para acceder a la API de HeyPaqui.',
   'api-keys.create.success': 'La clave API ha sido creada exitosamente.',
   'api-keys.create.back': 'Volver a claves API',
   'api-keys.create.form.name.label': 'Nombre',
@@ -748,7 +748,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'api-keys.list.description': 'Administra tus claves API aquí.',
   'api-keys.list.create': 'Crear clave API',
   'api-keys.list.empty.title': 'Sin claves API',
-  'api-keys.list.empty.description': 'Crea una clave API para acceder a la API de Papra.',
+  'api-keys.list.empty.description': 'Crea una clave API para acceder a la API de HeyPaqui.',
   'api-keys.list.card.last-used': 'Último uso',
   'api-keys.list.card.never': 'Nunca',
   'api-keys.list.card.created': 'Creado',
@@ -902,7 +902,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'user-menu.invitations': 'Invitaciones',
   'user-menu.language': 'Idioma',
   'user-menu.theme': 'Tema',
-  'user-menu.about': 'Acerca de Papra',
+  'user-menu.about': 'Acerca de HeyPaqui',
   'user-menu.logout': 'Cerrar sesión',
 
   // Command palette
@@ -929,7 +929,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'api-errors.tags.already_exists': 'Ya existe una etiqueta con este nombre en esta organización',
   'api-errors.tags.organization_limit_reached': 'Se ha alcanzado el número máximo de etiquetas para esta organización.',
   'api-errors.internal.error': 'Ocurrió un error al procesar tu solicitud. Por favor, inténtalo de nuevo.',
-  'api-errors.auth.invalid_origin': 'Origen de la aplicación inválido. Si estás alojando Papra, asegúrate de que la variable de entorno APP_BASE_URL coincida con tu URL actual. Para más detalles, consulta https://docs.papra.app/resources/troubleshooting/#invalid-application-origin',
+  'api-errors.auth.invalid_origin': 'Origen de la aplicación inválido. Si estás alojando HeyPaqui, asegúrate de que la variable de entorno APP_BASE_URL coincida con tu URL actual. Para más detalles, consulta https://docs.papra.app/resources/troubleshooting/#invalid-application-origin',
   'api-errors.organization.max_members_count_reached': 'Se ha alcanzado el número máximo de miembros e invitaciones pendientes para esta organización. Por favor, actualiza tu plan para añadir más miembros.',
   'api-errors.organization.has_active_subscription': 'No se puede eliminar la organización con una suscripción activa. Por favor, cancela tu suscripción primero usando el botón Gestionar Suscripción arriba.',
   'api-errors.webhooks.ssrf_unsafe_url': 'La URL proporcionada no está permitida. Las URLs de webhook no deben apuntar a direcciones IP privadas o reservadas.',
@@ -994,7 +994,7 @@ export const translations: Partial<TranslationsDictionary> = {
 
   'subscriptions.checkout-success.title': '¡Pago exitoso!',
   'subscriptions.checkout-success.description': 'Tu suscripción ha sido activada exitosamente.',
-  'subscriptions.checkout-success.thank-you': 'Gracias por actualizar a Papra Plus. Ahora tienes acceso a todas las funciones premium.',
+  'subscriptions.checkout-success.thank-you': 'Gracias por actualizar a HeyPaqui Plus. Ahora tienes acceso a todas las funciones premium.',
   'subscriptions.checkout-success.go-to-organizations': 'Ir a Organizaciones',
   'subscriptions.checkout-success.redirecting': 'Redirigiendo en {{ count }} segundo{{ plural }}...',
 
@@ -1041,14 +1041,14 @@ export const translations: Partial<TranslationsDictionary> = {
 
   // Admin
 
-  'admin.layout.header': 'Administración de Papra',
+  'admin.layout.header': 'Administración de HeyPaqui',
   'admin.layout.back-to-app': 'Volver a la aplicación',
   'admin.layout.menu.analytics': 'Estadísticas',
   'admin.layout.menu.users': 'Usuarios',
   'admin.layout.menu.organizations': 'Organizaciones',
 
   'admin.analytics.title': 'Panel de control',
-  'admin.analytics.description': 'Información y estadísticas sobre el uso de Papra.',
+  'admin.analytics.description': 'Información y estadísticas sobre el uso de HeyPaqui.',
   'admin.analytics.user-count': 'Cantidad de usuarios',
   'admin.analytics.organization-count': 'Cantidad de organizaciones',
   'admin.analytics.document-count': 'Cantidad de documentos',
@@ -1162,11 +1162,11 @@ export const translations: Partial<TranslationsDictionary> = {
 
   // About page
 
-  'about.title': 'Acerca de Papra',
+  'about.title': 'Acerca de HeyPaqui',
   'about.version': 'Versión',
   'about.git-commit': 'Commit de Git',
   'about.commit-date': 'Fecha del Commit',
-  'about.description': 'Papra es un sistema de gestión documental de código abierto que te ayuda a archivar, organizar, etiquetar y gestionar tus documentos con facilidad.',
+  'about.description': 'HeyPaqui es un sistema de gestión documental de código abierto que te ayuda a archivar, organizar, etiquetar y gestionar tus documentos con facilidad.',
   'about.links.title': 'Enlaces',
   'about.links.documentation': 'Documentación',
   'about.links.documentation-description': 'Guías de usuario y referencia de la API',
@@ -1175,7 +1175,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'about.links.discord': 'Comunidad de Discord',
   'about.links.discord-description': 'Únete a nuestra comunidad',
   'about.links.sponsor': 'Patrocinar',
-  'about.links.sponsor-description': 'Apoya el desarrollo de Papra',
+  'about.links.sponsor-description': 'Apoya el desarrollo de HeyPaqui',
 
   'socials.bluesky': 'Bluesky',
   'socials.mastodon': 'Mastodon',
@@ -1191,9 +1191,9 @@ export const translations: Partial<TranslationsDictionary> = {
   'ai-assistant.open-full-page': 'Abrir a pantalla completa',
   'ai-assistant.close-panel': 'Cerrar asistente',
   'ai-assistant.welcome.description': 'Analiza documentos y transacciones, descubre patrones y crea reglas de clasificación con IA.',
-  'ai-assistant.input.placeholder': 'Escribe un mensaje a Papra AI...',
+  'ai-assistant.input.placeholder': 'Escribe un mensaje a HeyPaqui AI...',
   'ai-assistant.model.select': 'Seleccionar modelo',
-  'ai-assistant.disclaimer': 'Papra AI puede cometer errores. Verifica la información importante.',
+  'ai-assistant.disclaimer': 'HeyPaqui AI puede cometer errores. Verifica la información importante.',
   'ai-assistant.suggestion.documents-overview': '¿De qué tratan mis documentos?',
   'ai-assistant.suggestion.find-invoices': 'Busca facturas y dime los importes totales',
   'ai-assistant.suggestion.financial-summary': 'Muéstrame un resumen financiero de mis transacciones',

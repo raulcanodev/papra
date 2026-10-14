@@ -10,6 +10,20 @@ jobs:
   ci:
     name: CI
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: papra
+          POSTGRES_PASSWORD: papra
+          POSTGRES_DB: papra_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U papra -d papra_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
@@ -34,6 +48,15 @@ jobs:
       - name: Type check
         # Exclude docs as their are some typing issues we are ok with for now
         run: pnpm -r --parallel -F "!@papra/docs" typecheck
+
+      # Production uses the same command before starting the HTTP server. Running
+      # it twice here verifies both a clean install and migration idempotency.
+      - name: Validate production database migrations
+        env:
+          DATABASE_URL: postgresql://papra:papra@localhost:5432/papra_ci
+        run: |
+          pnpm --filter @papra/app-server migrate:up:prod
+          pnpm --filter @papra/app-server migrate:up:prod
 
       # Tests are run using vitest projects
       - name: Run tests

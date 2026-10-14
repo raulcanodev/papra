@@ -47,7 +47,7 @@ export const translations = {
   'auth.request-password-reset.requested': 'If an account exists for this email, we\'ve sent you an email to reset your password.',
   'auth.request-password-reset.back-to-login': 'Back to login',
   'auth.request-password-reset.form.email.label': 'Email',
-  'auth.request-password-reset.form.email.placeholder': 'Example: ada@papra.app',
+  'auth.request-password-reset.form.email.placeholder': 'Example: ada@heypaqui.com',
   'auth.request-password-reset.form.email.required': 'Please enter your email address',
   'auth.request-password-reset.form.email.invalid': 'This email address is invalid',
   'auth.request-password-reset.form.submit': 'Request password reset',
@@ -65,8 +65,8 @@ export const translations = {
 
   'auth.email-provider.open': 'Open {{ provider }}',
 
-  'auth.login.title': 'Login to Papra',
-  'auth.login.description': 'Enter your email or use social login to access your Papra account.',
+  'auth.login.title': 'Login to HeyPaqui',
+  'auth.login.description': 'Enter your email or use social login to access your HeyPaqui account.',
   'auth.login.eyebrow': 'Your workspace',
   'auth.login.welcome': 'Welcome back',
   'auth.login.welcome-description': 'Sign in to pick up where you left off.',
@@ -78,7 +78,7 @@ export const translations = {
   'auth.login.no-account': 'Don\'t have an account?',
   'auth.login.register': 'Register',
   'auth.login.form.email.label': 'Email',
-  'auth.login.form.email.placeholder': 'Example: ada@papra.app',
+  'auth.login.form.email.placeholder': 'Example: ada@heypaqui.com',
   'auth.login.form.email.required': 'Please enter your email address',
   'auth.login.form.email.invalid': 'This email address is invalid',
   'auth.login.form.password.label': 'Password',
@@ -102,8 +102,8 @@ export const translations = {
   'auth.login.two-factor.use-backup-code': 'Use backup code instead',
   'auth.login.two-factor.use-totp': 'Use authenticator app instead',
 
-  'auth.register.title': 'Register to Papra',
-  'auth.register.description': 'Create an account to start using Papra.',
+  'auth.register.title': 'Register to HeyPaqui',
+  'auth.register.description': 'Create an account to start using HeyPaqui.',
   'auth.register.register-with-email': 'Register with email',
   'auth.register.register-with-provider': 'Register with {{ provider }}',
   'auth.register.providers.google': 'Google',
@@ -111,9 +111,9 @@ export const translations = {
   'auth.register.have-account': 'Already have an account?',
   'auth.register.login': 'Login',
   'auth.register.registration-disabled.title': 'Registration is disabled',
-  'auth.register.registration-disabled.description': 'The creation of new accounts is currently disabled on this instance of Papra. Only users with existing accounts can log in. If you think this is a mistake, please contact the administrator of this instance.',
+  'auth.register.registration-disabled.description': 'The creation of new accounts is currently disabled on this instance of HeyPaqui. Only users with existing accounts can log in. If you think this is a mistake, please contact the administrator of this instance.',
   'auth.register.form.email.label': 'Email',
-  'auth.register.form.email.placeholder': 'Example: ada@papra.app',
+  'auth.register.form.email.placeholder': 'Example: ada@heypaqui.com',
   'auth.register.form.email.required': 'Please enter your email address',
   'auth.register.form.email.invalid': 'This email address is invalid',
   'auth.register.form.password.label': 'Password',
@@ -142,7 +142,7 @@ export const translations = {
   'auth.legal-links.privacy': 'Privacy Policy',
 
   'auth.no-auth-provider.title': 'No authentication provider',
-  'auth.no-auth-provider.description': 'There are no authentication providers enabled on this instance of Papra. Please contact the administrator of this instance to enable them.',
+  'auth.no-auth-provider.description': 'There are no authentication providers enabled on this instance of HeyPaqui. Please contact the administrator of this instance to enable them.',
 
   // User settings
 
@@ -305,7 +305,7 @@ export const translations = {
   'organizations.invite-member.title': 'Invite member',
   'organizations.invite-member.description': 'Invite a member to your organization',
   'organizations.invite-member.form.email.label': 'Email',
-  'organizations.invite-member.form.email.placeholder': 'Example: ada@papra.app',
+  'organizations.invite-member.form.email.placeholder': 'Example: ada@heypaqui.com',
   'organizations.invite-member.form.email.required': 'Please enter a valid email address',
   'organizations.invite-member.form.role.label': 'Role',
   'organizations.invite-member.form.submit': 'Invite to organization',
@@ -679,7 +679,7 @@ export const translations = {
   // Intake emails
 
   'intake-emails.title': 'Intake Emails',
-  'intake-emails.description': 'Intake emails address are used to automatically ingest emails into Papra. Just forward emails to the intake email address and their attachments will be added to your organization\'s documents.',
+  'intake-emails.description': 'Intake emails address are used to automatically ingest emails into HeyPaqui. Just forward emails to the intake email address and their attachments will be added to your organization\'s documents.',
   'intake-emails.disabled.title': 'Intake Emails are disabled',
   'intake-emails.disabled.description': 'Intake emails are disabled on this instance. Please contact your administrator to enable them. See the {{ documentation }} for more information.',
   'intake-emails.disabled.documentation': 'documentation',
@@ -707,7 +707,7 @@ export const translations = {
   'intake-emails.allowed-origins.title': 'Allowed origins',
   'intake-emails.allowed-origins.description': 'Only emails sent to {{ email }} from these origins will be processed. If no origins are specified, all emails will be discarded.',
   'intake-emails.allowed-origins.add.label': 'Add allowed origin email',
-  'intake-emails.allowed-origins.add.placeholder': 'Eg. ada@papra.app',
+  'intake-emails.allowed-origins.add.placeholder': 'Eg. ada@heypaqui.com',
   'intake-emails.allowed-origins.add.button': 'Add',
   'intake-emails.allowed-origins.add.error.exists': 'This email is already in the allowed origins for this intake email',
 
@@ -731,7 +731,7 @@ export const translations = {
   'api-keys.permissions.tags.tags:update': 'Update tags',
   'api-keys.permissions.tags.tags:delete': 'Delete tags',
   'api-keys.create.title': 'Create API key',
-  'api-keys.create.description': 'Create a new API key to access the Papra API.',
+  'api-keys.create.description': 'Create a new API key to access the HeyPaqui API.',
   'api-keys.create.success': 'The API key has been created successfully.',
   'api-keys.create.back': 'Back to API keys',
   'api-keys.create.form.name.label': 'Name',
@@ -746,7 +746,7 @@ export const translations = {
   'api-keys.list.description': 'Manage your API keys here.',
   'api-keys.list.create': 'Create API key',
   'api-keys.list.empty.title': 'No API keys',
-  'api-keys.list.empty.description': 'Create an API key to access the Papra API.',
+  'api-keys.list.empty.description': 'Create an API key to access the HeyPaqui API.',
   'api-keys.list.card.last-used': 'Last used',
   'api-keys.list.card.never': 'Never',
   'api-keys.list.card.created': 'Created',
@@ -900,7 +900,7 @@ export const translations = {
   'user-menu.invitations': 'Invitations',
   'user-menu.language': 'Language',
   'user-menu.theme': 'Theme',
-  'user-menu.about': 'About Papra',
+  'user-menu.about': 'About HeyPaqui',
   'user-menu.logout': 'Logout',
 
   // Command palette
@@ -992,7 +992,7 @@ export const translations = {
 
   'subscriptions.checkout-success.title': 'Payment Successful!',
   'subscriptions.checkout-success.description': 'Your subscription has been activated successfully.',
-  'subscriptions.checkout-success.thank-you': 'Thank you for upgrading to Papra Plus. You now have access to all premium features.',
+  'subscriptions.checkout-success.thank-you': 'Thank you for upgrading to HeyPaqui Plus. You now have access to all premium features.',
   'subscriptions.checkout-success.go-to-organizations': 'Go to Organizations',
   'subscriptions.checkout-success.redirecting': 'Redirecting in {{ count }} second{{ plural }}...',
 
@@ -1039,14 +1039,14 @@ export const translations = {
 
   // Admin
 
-  'admin.layout.header': 'Papra admin',
+  'admin.layout.header': 'HeyPaqui admin',
   'admin.layout.back-to-app': 'Back to App',
   'admin.layout.menu.analytics': 'Analytics',
   'admin.layout.menu.users': 'Users',
   'admin.layout.menu.organizations': 'Organizations',
 
   'admin.analytics.title': 'Dashboard',
-  'admin.analytics.description': 'Insights and analytics about Papra usage.',
+  'admin.analytics.description': 'Insights and analytics about HeyPaqui usage.',
   'admin.analytics.user-count': 'User count',
   'admin.analytics.organization-count': 'Organization count',
   'admin.analytics.document-count': 'Document count',
@@ -1160,11 +1160,11 @@ export const translations = {
 
   // About page
 
-  'about.title': 'About Papra',
+  'about.title': 'About HeyPaqui',
   'about.version': 'Version',
   'about.git-commit': 'Git Commit',
   'about.commit-date': 'Commit Date',
-  'about.description': 'Papra is an open-source document management system that helps you archive, organize, tag, and manage your documents with ease.',
+  'about.description': 'HeyPaqui is an open-source document management system that helps you archive, organize, tag, and manage your documents with ease.',
   'about.links.title': 'Links',
   'about.links.documentation': 'Documentation',
   'about.links.documentation-description': 'User guides and API reference',
@@ -1173,7 +1173,7 @@ export const translations = {
   'about.links.discord': 'Discord Community',
   'about.links.discord-description': 'Join our community',
   'about.links.sponsor': 'Sponsor',
-  'about.links.sponsor-description': 'Support Papra development',
+  'about.links.sponsor-description': 'Support HeyPaqui development',
 
   'socials.bluesky': 'Bluesky',
   'socials.mastodon': 'Mastodon',
@@ -1189,9 +1189,9 @@ export const translations = {
   'ai-assistant.open-full-page': 'Open full page',
   'ai-assistant.close-panel': 'Close assistant',
   'ai-assistant.welcome.description': 'Analyze documents and transactions, discover patterns and create classification rules with AI.',
-  'ai-assistant.input.placeholder': 'Message Papra AI...',
+  'ai-assistant.input.placeholder': 'Message HeyPaqui AI...',
   'ai-assistant.model.select': 'Select model',
-  'ai-assistant.disclaimer': 'Papra AI can make mistakes. Verify important information.',
+  'ai-assistant.disclaimer': 'HeyPaqui AI can make mistakes. Verify important information.',
   'ai-assistant.suggestion.documents-overview': 'What are my documents about?',
   'ai-assistant.suggestion.find-invoices': 'Find invoices and tell me the total amounts',
   'ai-assistant.suggestion.financial-summary': 'Show me a financial summary of my transactions',
