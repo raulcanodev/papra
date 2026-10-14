@@ -253,6 +253,8 @@ export const OnboardingFlow: Component<{
   });
 
   const fiscalProfile = (): FiscalProfileInput => ({
+    // Not asked during onboarding, set later from the fiscal profile settings
+    defaultWithholdingRateBps: 0,
     legalName: values.legalName.trim() || values.companyName.trim(),
     taxId: nullable(values.taxId),
     email: nullable(values.billingEmail),

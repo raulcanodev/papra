@@ -4,6 +4,8 @@ import { INVOICE_STATUSES, INVOICE_TEMPLATE_IDS, VERIFACTU_MODES } from './invoi
 
 const optionalText = z.string().trim().max(500).optional().nullable();
 const currencySchema = z.string().trim().length(3).transform(value => value.toUpperCase());
+// Spanish IRPF withholding rates go from 1% (some activities) to 24% (non residents), 50% leaves room for any case
+const withholdingRateBpsSchema = z.number().int().min(0).max(5_000);
 
 export const fiscalProfileSchema = z.object({
   legalName: z.string().trim().min(1).max(200),
@@ -21,6 +23,7 @@ export const fiscalProfileSchema = z.object({
   defaultNotes: z.string().trim().max(5_000).optional().nullable(),
   defaultTerms: z.string().trim().max(5_000).optional().nullable(),
   templateId: z.enum(INVOICE_TEMPLATE_IDS).default('minimal'),
+  defaultWithholdingRateBps: withholdingRateBpsSchema.default(0),
 });
 
 export const productSchema = z.object({
@@ -74,6 +77,7 @@ export const invoiceDraftSchema = z.object({
   notes: z.string().trim().max(5_000).optional().nullable(),
   terms: z.string().trim().max(5_000).optional().nullable(),
   templateId: z.enum(INVOICE_TEMPLATE_IDS).default('minimal'),
+  withholdingRateBps: withholdingRateBpsSchema.default(0),
   items: z.array(invoiceItemSchema).min(1).max(200),
 }).refine(value => value.dueDate >= value.issueDate, {
   message: 'Due date must not be before issue date',

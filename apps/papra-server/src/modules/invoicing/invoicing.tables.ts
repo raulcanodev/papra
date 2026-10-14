@@ -24,6 +24,8 @@ export const invoicingProfilesTable = pgTable('invoicing_profiles', {
   defaultNotes: text('default_notes'),
   defaultTerms: text('default_terms'),
   templateId: text('template_id').notNull().default('minimal'),
+  // IRPF withholding applied by default on new invoices (15% for professionals, 7% the first years, 0 otherwise)
+  defaultWithholdingRateBps: integer('default_withholding_rate_bps').notNull().default(0),
 });
 
 export const invoiceSeriesTable = pgTable('invoice_series', {
@@ -91,7 +93,11 @@ export const invoicesTable = pgTable('invoices', {
   brandingSnapshot: text('branding_snapshot'),
   subtotalMinor: integer('subtotal_minor').notNull().default(0),
   taxMinor: integer('tax_minor').notNull().default(0),
+  // Invoice total, taxes included: the amount declared to VERI*FACTU, the withholding is not subtracted from it
   totalMinor: integer('total_minor').notNull().default(0),
+  // IRPF withholding the customer pays to the tax agency on behalf of the issuer, computed on the subtotal
+  withholdingRateBps: integer('withholding_rate_bps').notNull().default(0),
+  withholdingMinor: integer('withholding_minor').notNull().default(0),
   notes: text('notes'),
   terms: text('terms'),
   templateId: text('template_id').notNull().default('minimal'),

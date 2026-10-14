@@ -1,4 +1,5 @@
 import type { jsPDF as JsPdf } from 'jspdf';
+import { getInvoicePayableMinor } from '../../invoicing/invoicing.models';
 
 type Party = Record<string, any>;
 
@@ -72,7 +73,14 @@ export async function renderDemoInvoicePdf({ invoice, seller, branding }: { invo
   const totals: Array<[string, string, boolean]> = [
     [locale === 'es' ? 'Base imponible' : 'Subtotal', money(invoice.subtotalMinor), false],
     ['IVA', money(invoice.taxMinor), false],
-    ['Total', money(invoice.totalMinor), true],
+    // With an IRPF withholding: the invoice total, the withholding, then what the customer actually pays
+    ...(invoice.withholdingMinor > 0
+      ? [
+          ['Total', money(invoice.totalMinor), false] as [string, string, boolean],
+          [`${locale === 'es' ? 'Retención IRPF' : 'IRPF withholding'} (${invoice.withholdingRateBps / 100}%)`, `-${money(invoice.withholdingMinor)}`, false] as [string, string, boolean],
+          [locale === 'es' ? 'Total a pagar' : 'Amount due', money(getInvoicePayableMinor({ totalMinor: invoice.totalMinor, withholdingMinor: invoice.withholdingMinor })), true] as [string, string, boolean],
+        ]
+      : [['Total', money(invoice.totalMinor), true] as [string, string, boolean]]),
   ];
   for (const [label, value, strong] of totals) {
     doc.setFont('helvetica', strong ? 'bold' : 'normal').setFontSize(strong ? 12 : 10).setTextColor(17, 24, 39);

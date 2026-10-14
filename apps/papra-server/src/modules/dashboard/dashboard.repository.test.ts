@@ -38,7 +38,8 @@ describe('dashboard repository', () => {
 
     await db.insert(invoicesTable).values([
       invoice('inv_1', { totalMinor: 10_000, issueDate: new Date('2026-03-15T00:00:00.000Z') }),
-      invoice('inv_2', { totalMinor: 5_000, status: 'sent', issueDate: new Date('2026-10-01T00:00:00.000Z'), dueDate: new Date('2026-10-10T00:00:00.000Z') }),
+      // With a 500 IRPF withholding: the customer owes 4.500, the withholding goes to the tax agency
+      invoice('inv_2', { totalMinor: 5_000, withholdingRateBps: 1_250, withholdingMinor: 500, status: 'sent', issueDate: new Date('2026-10-01T00:00:00.000Z'), dueDate: new Date('2026-10-10T00:00:00.000Z') }),
       invoice('inv_3', { totalMinor: 2_500, status: 'issued', issueDate: new Date('2026-10-05T00:00:00.000Z'), dueDate: new Date('2026-11-05T00:00:00.000Z') }),
       // Previous year: one before the same date (counted in the year to date comparison), one after
       invoice('inv_4', { totalMinor: 8_000, issueDate: new Date('2025-03-01T00:00:00.000Z'), dueDate: new Date('2025-04-01T00:00:00.000Z') }),
@@ -70,7 +71,7 @@ describe('dashboard repository', () => {
     expect(metrics.invoices.monthly[9]).to.eql({ month: 10, current: 2, previous: 0 });
 
     // inv_2 is past its due date, inv_3 is not yet
-    expect(metrics.outstanding).to.eql({ totalMinor: 7_500, count: 2, overdueTotalMinor: 5_000, overdueCount: 1 });
+    expect(metrics.outstanding).to.eql({ totalMinor: 7_000, count: 2, overdueTotalMinor: 4_500, overdueCount: 1 });
     expect(metrics.customers).to.eql({ total: 3, newThisMonth: 1, newPreviousMonth: 1 });
     expect(metrics.documents).to.eql({ total: 2, newThisMonth: 1, newPreviousMonth: 1 });
   });

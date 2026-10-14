@@ -8,6 +8,11 @@ export function getLineNetMinor(item: InvoiceItemInput) {
   return gross - Math.round(gross * item.discountRateBps / 10_000);
 }
 
+// Same rounding as the server: the withholding is computed on the taxable base
+export function getWithholdingMinor({ subtotalMinor, withholdingRateBps }: { subtotalMinor: number; withholdingRateBps: number }) {
+  return Math.round(subtotalMinor * withholdingRateBps / 10_000);
+}
+
 export function getLineTaxMinor(item: InvoiceItemInput) {
   return Math.round(getLineNetMinor(item) * item.taxRateBps / 10_000);
 }
@@ -65,6 +70,7 @@ export function InvoicePreview(props: {
   dueDate: string;
   currency: string;
   items: InvoiceItemInput[];
+  withholdingRateBps: number;
   notes: string;
   customer?: Party | null;
   profile?: FiscalProfile | null;
@@ -75,6 +81,8 @@ export function InvoicePreview(props: {
   const subtotal = () => props.items.reduce((sum, item) => sum + getLineNetMinor(item), 0);
   const tax = () => props.items.reduce((sum, item) => sum + getLineTaxMinor(item), 0);
   const total = () => subtotal() + tax();
+  const withholding = () => getWithholdingMinor({ subtotalMinor: subtotal(), withholdingRateBps: props.withholdingRateBps });
+  const amountDue = () => total() - withholding();
   const accent = () => props.branding?.accentColor ?? '#18181b';
   const visibleItems = () => props.items.filter(item => item.description.trim() || item.unitPriceMinor > 0);
   const issuerName = () => props.profile?.legalName ?? t('invoicing.preview.your-company');
@@ -110,7 +118,7 @@ export function InvoicePreview(props: {
       </div>
 
       <div class="mt-8 text-sm font-medium text-zinc-900">
-        {t('invoicing.preview.due-by', { amount: money(total()), date: formatDate(props.dueDate, getLocale()) })}
+        {t('invoicing.preview.due-by', { amount: money(amountDue()), date: formatDate(props.dueDate, getLocale()) })}
       </div>
 
       <table class="mt-5 w-full">
@@ -147,9 +155,19 @@ export function InvoicePreview(props: {
           <span>{t('invoicing.preview.tax')}</span>
           <span class="tabular-nums">{money(tax())}</span>
         </div>
+        <Show when={withholding() > 0}>
+          <div class="flex justify-between border-t border-zinc-200 pt-2 font-medium text-zinc-900">
+            <span>{t('invoicing.preview.total')}</span>
+            <span class="tabular-nums">{money(total())}</span>
+          </div>
+          <div class="flex justify-between">
+            <span>{t('invoicing.preview.withholding', { rate: props.withholdingRateBps / 100 })}</span>
+            <span class="tabular-nums">{`-${money(withholding())}`}</span>
+          </div>
+        </Show>
         <div class="flex justify-between border-t border-zinc-200 pt-2.5 text-sm font-semibold text-zinc-900">
           <span>{t('invoicing.preview.amount-due')}</span>
-          <span class="tabular-nums">{money(total())}</span>
+          <span class="tabular-nums">{money(amountDue())}</span>
         </div>
       </div>
 
