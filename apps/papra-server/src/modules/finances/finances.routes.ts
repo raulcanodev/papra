@@ -483,7 +483,7 @@ function setupSuggestClassificationConditionsRoute({ app, db, config }: RouteDef
       const provider = configuredProviders[0]!;
       const apiKey = getApiKeyForProvider({ provider, apiKeys });
 
-      if (!apiKey) {
+      if (apiKey === undefined || apiKey === '') {
         throw createAiNotConfiguredError();
       }
 
@@ -723,7 +723,7 @@ function setupCreateSubscriptionRoute({ app, db, config }: RouteDefinitionContex
         subscription: { ...body, organizationId },
       });
 
-      if (body.transactionSearchQuery && body.tagIds?.length) {
+      if (body.transactionSearchQuery !== undefined && body.transactionSearchQuery !== null && body.transactionSearchQuery !== '' && (body.tagIds?.length ?? 0) > 0) {
         const tagsRepository = createTagsRepository({ db });
         const { transactions } = await financesRepository.getTransactions({
           organizationId,
@@ -779,7 +779,7 @@ function setupUpdateSubscriptionRoute({ app, db, config }: RouteDefinitionContex
         updates,
       });
 
-      if (updates.transactionSearchQuery && updates.tagIds?.length) {
+      if (updates.transactionSearchQuery !== undefined && updates.transactionSearchQuery !== null && updates.transactionSearchQuery !== '' && (updates.tagIds?.length ?? 0) > 0) {
         const tagsRepository = createTagsRepository({ db });
         const { transactions } = await financesRepository.getTransactions({
           organizationId,
@@ -994,7 +994,7 @@ function setupSetTransactionCustomPropertyRoute({ app, db, config }: RouteDefini
         propertyDefinitionId,
         values: values.map(v => ({
           ...v,
-          dateValue: v.dateValue ? new Date(v.dateValue) : null,
+          dateValue: v.dateValue !== undefined && v.dateValue !== null && v.dateValue !== '' ? new Date(v.dateValue) : null,
         })),
       });
 

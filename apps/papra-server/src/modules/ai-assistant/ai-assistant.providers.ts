@@ -33,7 +33,8 @@ export function getApiKeyForProvider({ provider, apiKeys }: { provider: AiProvid
 }
 
 export function getDefaultModel({ configuredProviders }: { configuredProviders: AiProvider[] }): string {
-  for (const provider of configuredProviders) {
+  const [provider] = configuredProviders;
+  if (provider !== undefined) {
     return DEFAULT_MODELS[provider];
   }
 

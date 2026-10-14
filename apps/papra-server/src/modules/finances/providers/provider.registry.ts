@@ -9,9 +9,5 @@ const adapters: Record<BankProvider, () => BankProviderAdapter> = {
 };
 
 export function getBankProviderAdapter({ provider }: { provider: BankProvider }): BankProviderAdapter {
-  const factory = adapters[provider];
-  if (!factory) {
-    throw new Error(`Unknown bank provider: ${provider}`);
-  }
-  return factory();
+  return adapters[provider]();
 }

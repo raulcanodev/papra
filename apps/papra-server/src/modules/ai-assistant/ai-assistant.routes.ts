@@ -354,7 +354,7 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
                     controller.enqueue(encoder.encode(`s:${JSON.stringify(sources)}\n`));
                   }
                 }
-                if (toolResult?.requiresConfirmation) {
+                if (toolResult.requiresConfirmation === true) {
                   const conf = {
                     toolCallId: part.toolCallId,
                     toolName: toolResult.toolName as string,
@@ -406,7 +406,7 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
         return context.json({ error: 'Unknown or non-confirmable tool' }, 400);
       }
 
-      const validatedArgs = schema.parse(args);
+      const validatedArgs: unknown = schema.parse(args);
 
       const { executors } = createAssistantTools({
         db,
@@ -422,7 +422,7 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
         return context.json({ error: 'Executor not found' }, 400);
       }
 
-      const result = await executor(validatedArgs);
+      const result: unknown = await executor(validatedArgs);
       return context.json(result);
     },
   );

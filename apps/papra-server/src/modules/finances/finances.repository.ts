@@ -266,7 +266,7 @@ async function upsertTransactions({ db, transactions }: {
 }
 
 function buildAmountFilter(amountFilter?: string, amountValue?: number) {
-  if (!amountFilter || amountValue == null) {
+  if (amountFilter === undefined || amountFilter === '' || amountValue == null) {
     if (amountFilter === 'positive') {
       return gt(transactionsTable.amount, 0);
     }
@@ -288,7 +288,7 @@ function buildAmountFilter(amountFilter?: string, amountValue?: number) {
 }
 
 function buildSearchFilter(search?: string) {
-  if (!search || search.trim().length === 0) {
+  if (search === undefined || search.trim().length === 0) {
     return undefined;
   }
   const term = `%${search.trim()}%`;
@@ -324,11 +324,11 @@ async function getTransactions({ db, organizationId, pageIndex, pageSize, bankCo
 }) {
   const classificationFilter = classification === '__unclassified__'
     ? isNull(transactionsTable.classification)
-    : classification ? eq(transactionsTable.classification, classification) : undefined;
+    : classification !== undefined && classification !== '' ? eq(transactionsTable.classification, classification) : undefined;
 
   const query = db.select().from(transactionsTable).where(and(
     eq(transactionsTable.organizationId, organizationId),
-    bankConnectionId ? eq(transactionsTable.bankConnectionId, bankConnectionId) : undefined,
+    bankConnectionId !== undefined && bankConnectionId !== '' ? eq(transactionsTable.bankConnectionId, bankConnectionId) : undefined,
     classificationFilter,
     buildSearchFilter(search),
     buildAmountFilter(amountFilter, amountValue),
@@ -357,11 +357,11 @@ async function getTransactionsCount({ db, organizationId, bankConnectionId, clas
 }) {
   const classificationFilter = classification === '__unclassified__'
     ? isNull(transactionsTable.classification)
-    : classification ? eq(transactionsTable.classification, classification) : undefined;
+    : classification !== undefined && classification !== '' ? eq(transactionsTable.classification, classification) : undefined;
 
   const [result] = await db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(transactionsTable).where(and(
     eq(transactionsTable.organizationId, organizationId),
-    bankConnectionId ? eq(transactionsTable.bankConnectionId, bankConnectionId) : undefined,
+    bankConnectionId !== undefined && bankConnectionId !== '' ? eq(transactionsTable.bankConnectionId, bankConnectionId) : undefined,
     classificationFilter,
     buildSearchFilter(search),
     buildAmountFilter(amountFilter, amountValue),
@@ -384,11 +384,11 @@ async function getTransactionsTotalAmount({ db, organizationId, bankConnectionId
 }) {
   const classificationFilter = classification === '__unclassified__'
     ? isNull(transactionsTable.classification)
-    : classification ? eq(transactionsTable.classification, classification) : undefined;
+    : classification !== undefined && classification !== '' ? eq(transactionsTable.classification, classification) : undefined;
 
   const [result] = await db.select({ totalAmount: sql<number>`coalesce(sum(${transactionsTable.amount}), 0)`.mapWith(Number) }).from(transactionsTable).where(and(
     eq(transactionsTable.organizationId, organizationId),
-    bankConnectionId ? eq(transactionsTable.bankConnectionId, bankConnectionId) : undefined,
+    bankConnectionId !== undefined && bankConnectionId !== '' ? eq(transactionsTable.bankConnectionId, bankConnectionId) : undefined,
     classificationFilter,
     buildSearchFilter(search),
     buildAmountFilter(amountFilter, amountValue),
@@ -781,7 +781,7 @@ function extractTransactionPatterns(transactions: Array<{ description: string | 
   const allTokenized: Array<{ words: string[]; tx: typeof transactions[number] }> = [];
 
   for (const tx of transactions) {
-    if (!tx.description?.trim()) {
+    if (tx.description?.trim() === undefined || tx.description.trim() === '') {
       allTokenized.push({ words: [], tx });
       continue;
     }
@@ -818,7 +818,7 @@ function extractTransactionPatterns(transactions: Array<{ description: string | 
     const desc = tx.description ?? tx.counterparty ?? '';
 
     // Counterparty keywords
-    if (tx.counterparty?.trim()) {
+    if (tx.counterparty?.trim() !== undefined && tx.counterparty.trim() !== '') {
       const cp = tx.counterparty.trim().toLowerCase();
       if (cp.length >= 4) {
         const key = `cp:${cp}`;
@@ -942,7 +942,7 @@ function extractTransactionPatterns(transactions: Array<{ description: string | 
   }> = [];
 
   for (const [key, data] of candidates) {
-    const rawKeyword = key.replace(/^(cp|desc):/, '');
+    const rawKeyword = key.replace(/^(?:cp|desc):/, '');
 
     let isDuplicate = false;
     for (const used of usedKeywords) {

@@ -61,31 +61,42 @@ export const CONFIRMABLE_TOOL_SCHEMAS: Record<string, z.ZodSchema> = {
 function describeToolAction(toolName: string, args: Record<string, unknown>): string {
   switch (toolName) {
     case 'createClassificationRule': {
+      const name = typeof args.name === 'string' ? args.name : '';
+      const classification = typeof args.classification === 'string' ? args.classification : '';
       const conds = (args.conditions as Array<{ field: string; operator: string; value: string }>)
         ?.map(c => `${c.field} ${c.operator} "${c.value}"`)
         .join(', ') ?? '';
-      return `Create rule "${args.name}": classify as ${args.classification} when ${conds}`;
+      return `Create rule "${name}": classify as ${classification} when ${conds}`;
     }
-    case 'updateClassificationRule':
-      return `Update classification rule${args.name ? ` "${args.name}"` : ''}`;
+    case 'updateClassificationRule': {
+      const name = typeof args.name === 'string' ? args.name : '';
+      return `Update classification rule${name !== '' ? ` "${name}"` : ''}`;
+    }
     case 'deleteClassificationRule':
       return 'Delete a classification rule (irreversible)';
     case 'consolidateClassificationRules': {
       const count = (args.ruleIds as string[])?.length ?? 0;
-      return `Consolidate ${count} rules into "${args.name}" (${args.classification})`;
+      const name = typeof args.name === 'string' ? args.name : '';
+      const classification = typeof args.classification === 'string' ? args.classification : '';
+      return `Consolidate ${count} rules into "${name}" (${classification})`;
     }
     case 'createTaggingRule': {
+      const name = typeof args.name === 'string' ? args.name : '';
       const conds = (args.conditions as Array<{ field: string; operator: string; value: string }>)
         ?.map(c => `${c.field} ${c.operator} "${c.value}"`)
         .join(', ') ?? '';
-      return `Create document rule "${args.name}": auto-tag when ${conds}`;
+      return `Create document rule "${name}": auto-tag when ${conds}`;
     }
-    case 'updateTaggingRule':
-      return `Update document tagging rule${args.name ? ` "${args.name}"` : ''}`;
+    case 'updateTaggingRule': {
+      const name = typeof args.name === 'string' ? args.name : '';
+      return `Update document tagging rule${name !== '' ? ` "${name}"` : ''}`;
+    }
     case 'deleteTaggingRule':
       return 'Delete a document tagging rule (irreversible)';
-    case 'restoreFinanceBudgetVersion':
-      return `Restore budget goal to version ${args.versionId} (current buckets will be replaced)`;
+    case 'restoreFinanceBudgetVersion': {
+      const versionId = typeof args.versionId === 'string' ? args.versionId : '';
+      return `Restore budget goal to version ${versionId} (current buckets will be replaced)`;
+    }
     default:
       return `Execute ${toolName}`;
   }
@@ -337,7 +348,7 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
     },
     restoreFinanceBudgetVersion: async (args: { versionId: string; goalId?: string }) => {
       let resolvedGoalId = args.goalId;
-      if (!resolvedGoalId) {
+      if (resolvedGoalId === undefined || resolvedGoalId === '') {
         const { goal } = await financesRepo.getOrCreateFinanceGoal({ organizationId });
         resolvedGoalId = goal.id;
       }
@@ -416,8 +427,8 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
         const { stats, transactions } = await financesRepo.searchTransactionsAggregate({
           organizationId,
           searchText: args.searchText,
-          dateFrom: args.dateFrom ? new Date(args.dateFrom) : undefined,
-          dateTo: args.dateTo ? new Date(args.dateTo) : undefined,
+          dateFrom: args.dateFrom !== undefined && args.dateFrom !== '' ? new Date(args.dateFrom) : undefined,
+          dateTo: args.dateTo !== undefined && args.dateTo !== '' ? new Date(args.dateTo) : undefined,
         });
 
         return { stats, transactions };
@@ -431,8 +442,8 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
         const { breakdown } = await financesRepo.getSpendingBreakdown({
           organizationId,
           groupBy: args.groupBy,
-          dateFrom: args.dateFrom ? new Date(args.dateFrom) : undefined,
-          dateTo: args.dateTo ? new Date(args.dateTo) : undefined,
+          dateFrom: args.dateFrom !== undefined && args.dateFrom !== '' ? new Date(args.dateFrom) : undefined,
+          dateTo: args.dateTo !== undefined && args.dateTo !== '' ? new Date(args.dateTo) : undefined,
           limit: args.limit,
         });
 
@@ -718,7 +729,7 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
       },
     }),
 
-    ...(tavilyApiKey
+    ...(tavilyApiKey !== undefined && tavilyApiKey !== ''
       ? {
           webSearch: tool({
             description: 'Search the internet for up-to-date information. Use this when the user asks about legal requirements, regulations, filing deadlines, tax rules, compliance topics, country-specific business information, or anything that requires current external knowledge. Combine with searchDocuments/getDocumentById to cross-reference internet info with the user\'s own documents. Examples: "What are the Wyoming LLC annual report requirements?", "Spain tax obligations for US LLC owners", "How to fill out Form W-8BEN".',
@@ -790,7 +801,7 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
       })),
       execute: async (args) => {
         let resolvedGoalId = args.goalId;
-        if (!resolvedGoalId) {
+        if (resolvedGoalId === undefined || resolvedGoalId === '') {
           const { goal } = await financesRepo.getOrCreateFinanceGoal({ organizationId });
           resolvedGoalId = goal.id;
         }
@@ -826,7 +837,7 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
       })),
       execute: async (args) => {
         let resolvedGoalId = args.goalId;
-        if (!resolvedGoalId) {
+        if (resolvedGoalId === undefined || resolvedGoalId === '') {
           const { goal } = await financesRepo.getOrCreateFinanceGoal({ organizationId });
           resolvedGoalId = goal.id;
         }
