@@ -4,11 +4,14 @@ import { Portal } from 'solid-js/web';
 import { buildTimeConfig } from '../config/config';
 import { useI18n } from '../i18n/i18n.provider';
 import { Button } from '../ui/components/button';
+import { useDemoEmbedSync } from './demo-embed-sync';
 import { clearDemoStorage } from './demo.storage';
 
 export const DemoIndicator: Component = () => {
   const [getPopupState, setPopupState] = createSignal<'minified' | 'expanded' | 'hidden'>('minified');
   const { t } = useI18n();
+
+  useDemoEmbedSync();
 
   const clearDemo = async () => {
     await clearDemoStorage();

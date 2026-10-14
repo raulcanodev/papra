@@ -1,20 +1,40 @@
 import type { Component } from 'solid-js';
 import { A } from '@solidjs/router';
-import { For, Show } from 'solid-js';
-import { appBrand } from '@/modules/config/branding';
+import { createEffect, For, Show, untrack } from 'solid-js';
+import { appAgency, appBrand } from '@/modules/config/branding';
 import { buildTimeConfig } from '@/modules/config/config';
 import { useConfig } from '@/modules/config/config.provider';
+import { DEMO_PREFERENCES_MESSAGE_SOURCE } from '@/modules/demo/demo.constants';
 import { useI18n } from '@/modules/i18n/i18n.provider';
+import { LanguageToggleButton } from '@/modules/i18n/language-toggle-button.component';
 import { createVitrineUrl } from '@/modules/shared/utils/urls';
+import { ThemeToggleButton } from '@/modules/theme/theme-toggle-button.component';
+import { useTheme } from '@/modules/theme/theme.provider';
 import { AppLogo } from '@/modules/ui/components/app-logo';
 import { Button } from '@/modules/ui/components/button';
 import { ShaderGradient } from '@/modules/ui/components/shader-gradient';
 
 const DemoFrame: Component<{ url: string }> = (props) => {
-  const { t } = useI18n();
+  const { t, getLocale } = useI18n();
+  const { getTheme } = useTheme();
+  let frame: HTMLIFrameElement | undefined;
+
+  // The first load carries the preferences in the URL; later changes are pushed without reloading the frame
+  const initialUrl = untrack(() => {
+    const url = new URL(props.url);
+    url.searchParams.set('theme', getTheme());
+    url.searchParams.set('lang', getLocale());
+    return url.toString();
+  });
+
+  const sendPreferences = () => {
+    frame?.contentWindow?.postMessage({ source: DEMO_PREFERENCES_MESSAGE_SOURCE, theme: getTheme(), locale: getLocale() }, new URL(props.url).origin);
+  };
+
+  createEffect(sendPreferences);
 
   return (
-    <div id="demo" class="mx-auto w-full max-w-6xl scroll-mt-24 px-4 sm:px-8">
+    <div id="demo" class="mx-auto w-full max-w-[1500px] scroll-mt-24 px-3 sm:px-6">
       <div class="overflow-hidden rounded-2xl bg-card shadow-2xl shadow-black/15 ring-1 ring-black/5 dark:ring-white/10">
         <div class="flex items-center gap-3 bg-muted/60 px-4 py-2.5">
           <div class="flex gap-1.5" aria-hidden="true">
@@ -28,7 +48,7 @@ const DemoFrame: Component<{ url: string }> = (props) => {
             <span class="i-tabler-arrow-up-right size-3.5" />
           </a>
         </div>
-        <iframe src={props.url} title={t('landing.cta.demo')} loading="lazy" class="block h-[560px] w-full bg-background sm:h-[680px]" />
+        <iframe ref={frame} src={initialUrl} onLoad={sendPreferences} title={t('landing.cta.demo')} loading="lazy" class="block h-[80vh] min-h-[640px] w-full bg-background sm:h-[88vh] sm:min-h-[760px]" />
       </div>
     </div>
   );
@@ -69,6 +89,8 @@ export const LandingPage: Component = () => {
         <header class="relative z-10 mx-auto flex h-18 max-w-6xl items-center justify-between px-5 sm:px-8">
           <AppLogo as={A} href="/" class="text-base" />
           <nav class="flex items-center gap-2">
+            <LanguageToggleButton />
+            <ThemeToggleButton />
             <Button as={A} href="/login" variant="ghost" class="rounded-full">{t('landing.nav.login')}</Button>
             <Show when={config.auth.isRegistrationEnabled}>
               <Button as={A} href="/register" variant="outline" class="rounded-full bg-background/70 px-4">{t('landing.nav.start')}</Button>
@@ -76,7 +98,7 @@ export const LandingPage: Component = () => {
           </nav>
         </header>
 
-        <div class="relative z-10 mx-auto max-w-3xl px-5 pt-14 text-center sm:px-8 sm:pt-20">
+        <div class="relative z-10 mx-auto max-w-3xl px-5 pt-10 text-center sm:px-8 sm:pt-14">
           <h1 class="text-balance text-4xl font-semibold leading-[1.04] tracking-[-0.04em] sm:text-6xl">
             {t('landing.hero.title')}
             {' '}
@@ -94,7 +116,7 @@ export const LandingPage: Component = () => {
           </div>
         </div>
 
-        <div class="relative z-10 mt-14 pb-16 sm:mt-16 sm:pb-24">
+        <div class="relative z-10 mt-10 pb-12 sm:mt-12 sm:pb-20">
           <DemoFrame url={buildTimeConfig.demo.url} />
         </div>
       </section>
@@ -117,7 +139,7 @@ export const LandingPage: Component = () => {
         <div class="mx-auto grid max-w-6xl gap-10 px-5 py-12 sm:grid-cols-[1.4fr_1fr_1fr] sm:px-8">
           <div class="max-w-xs">
             <AppLogo class="text-sm" />
-            <p class="mt-3 text-sm leading-6 text-muted-foreground">{appBrand.description}</p>
+            <p class="mt-3 text-sm leading-6 text-muted-foreground">{t('app.description')}</p>
           </div>
 
           <nav aria-label={t('landing.footer.product')}>
@@ -141,9 +163,14 @@ export const LandingPage: Component = () => {
         </div>
 
         <div class="border-t">
-          <p class="mx-auto max-w-6xl px-5 py-5 text-xs text-muted-foreground sm:px-8">
-            {t('landing.footer.rights', { year: new Date().getFullYear(), name: appBrand.name })}
-          </p>
+          <div class="mx-auto flex max-w-6xl flex-col gap-1 px-5 py-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8">
+            <p>{t('landing.footer.rights', { year: new Date().getFullYear(), name: appBrand.name })}</p>
+            <p>
+              {t('landing.footer.by')}
+              {' '}
+              <a href={appAgency.url} target="_blank" rel="noopener noreferrer" class="font-medium text-foreground/80 underline-offset-4 transition hover:text-foreground hover:underline">{appAgency.name}</a>
+            </p>
+          </div>
         </div>
       </footer>
     </div>

@@ -1,4 +1,4 @@
-// Draws "Paqui", the HeyPaqui pixel-art mascot, and writes the logo and every favicon size.
+// Draws "Paqui", the Paqui pixel-art mascot, and writes the logo and every favicon size.
 // Run with: pnpm script:generate-brand-assets
 import { Buffer } from 'node:buffer';
 import fs from 'node:fs';

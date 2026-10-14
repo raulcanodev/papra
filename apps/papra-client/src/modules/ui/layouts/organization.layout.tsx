@@ -258,7 +258,7 @@ const OrganizationWorkspaceHeader: Component<{ organizationName?: string }> = (p
         aria-pressed={assistantPanel.isOpen() && !isAssistantPage()}
       >
         <div class="i-tabler-sparkles size-4" />
-        <span class="hidden sm:inline">HeyPaqui AI</span>
+        <span class="hidden sm:inline">Paqui AI</span>
       </Button>
     </div>
   );

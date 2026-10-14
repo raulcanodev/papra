@@ -5,12 +5,18 @@ const getBrandValue = (value: string | undefined, fallback: string) => value?.tr
  * touching page components. Every value can be overridden at build time.
  */
 export const appBrand = {
-  name: getBrandValue(import.meta.env.VITE_APP_NAME, 'HeyPaqui'),
+  name: getBrandValue(import.meta.env.VITE_APP_NAME, 'Paqui'),
   tagline: getBrandValue(import.meta.env.VITE_APP_TAGLINE, 'Your business, finally in order.'),
   description: getBrandValue(
     import.meta.env.VITE_APP_DESCRIPTION,
     'Documents, invoices and finances in one calm workspace.',
   ),
+} as const;
+
+/** The agency behind the product, credited in the landing footer. */
+export const appAgency = {
+  name: 'Halo Studio 27',
+  url: getBrandValue(import.meta.env.VITE_AGENCY_URL, 'https://halostudio27.com'),
 } as const;
 
 const hasCustomTagline = Boolean(import.meta.env.VITE_APP_TAGLINE?.trim());

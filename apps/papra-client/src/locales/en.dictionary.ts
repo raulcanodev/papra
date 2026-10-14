@@ -3,9 +3,9 @@ export const translations = {
 
   'landing.nav.login': 'Log in',
   'landing.nav.start': 'Get started',
-  'landing.hero.title': 'Less admin.',
-  'landing.hero.title-muted': 'More clarity.',
-  'landing.hero.description': 'Invoices, documents and an assistant that knows your business, in one calm workspace.',
+  'landing.hero.title': 'Like the Paqui from the office,',
+  'landing.hero.title-muted': 'but with AI and cheaper.',
+  'landing.hero.description': 'Invoices, documents and an assistant that knows it all. No coffee breaks, no office gossip.',
   'landing.cta.start': 'Create your workspace',
   'landing.cta.login': 'Open your workspace',
   'landing.cta.demo': 'Try the live demo',
@@ -14,6 +14,7 @@ export const translations = {
   'landing.footer.product': 'Product',
   'landing.footer.legal': 'Legal',
   'landing.footer.rights': '© {{ year }} {{ name }}. All rights reserved.',
+  'landing.footer.by': 'By',
   'landing.demo.open': 'Open in a new tab',
   'landing.demo.title': 'Live demo · fictional data, saved only in your browser',
   'landing.features.documents.title': 'Documents that stay findable',
@@ -46,8 +47,8 @@ export const translations = {
 
   'auth.email-provider.open': 'Open {{ provider }}',
 
-  'auth.login.title': 'Login to HeyPaqui',
-  'auth.login.description': 'Enter your email or use social login to access your HeyPaqui account.',
+  'auth.login.title': 'Login to Paqui',
+  'auth.login.description': 'Enter your email or use social login to access your Paqui account.',
   'auth.login.eyebrow': 'Your workspace',
   'auth.login.welcome': 'Welcome back',
   'auth.login.welcome-description': 'Sign in to pick up where you left off.',
@@ -83,8 +84,8 @@ export const translations = {
   'auth.login.two-factor.use-backup-code': 'Use backup code instead',
   'auth.login.two-factor.use-totp': 'Use authenticator app instead',
 
-  'auth.register.title': 'Register to HeyPaqui',
-  'auth.register.description': 'Create an account to start using HeyPaqui.',
+  'auth.register.title': 'Register to Paqui',
+  'auth.register.description': 'Create an account to start using Paqui.',
   'auth.register.register-with-email': 'Register with email',
   'auth.register.register-with-provider': 'Register with {{ provider }}',
   'auth.register.providers.google': 'Google',
@@ -92,7 +93,7 @@ export const translations = {
   'auth.register.have-account': 'Already have an account?',
   'auth.register.login': 'Login',
   'auth.register.registration-disabled.title': 'Registration is disabled',
-  'auth.register.registration-disabled.description': 'The creation of new accounts is currently disabled on this instance of HeyPaqui. Only users with existing accounts can log in. If you think this is a mistake, please contact the administrator of this instance.',
+  'auth.register.registration-disabled.description': 'The creation of new accounts is currently disabled on this instance of Paqui. Only users with existing accounts can log in. If you think this is a mistake, please contact the administrator of this instance.',
   'auth.register.form.email.label': 'Email',
   'auth.register.form.email.placeholder': 'Example: ada@heypaqui.com',
   'auth.register.form.email.required': 'Please enter your email address',
@@ -123,7 +124,7 @@ export const translations = {
   'auth.legal-links.privacy': 'Privacy Policy',
 
   'auth.no-auth-provider.title': 'No authentication provider',
-  'auth.no-auth-provider.description': 'There are no authentication providers enabled on this instance of HeyPaqui. Please contact the administrator of this instance to enable them.',
+  'auth.no-auth-provider.description': 'There are no authentication providers enabled on this instance of Paqui. Please contact the administrator of this instance to enable them.',
 
   // User settings
 
@@ -660,7 +661,7 @@ export const translations = {
   // Intake emails
 
   'intake-emails.title': 'Intake Emails',
-  'intake-emails.description': 'Intake emails address are used to automatically ingest emails into HeyPaqui. Just forward emails to the intake email address and their attachments will be added to your organization\'s documents.',
+  'intake-emails.description': 'Intake emails address are used to automatically ingest emails into Paqui. Just forward emails to the intake email address and their attachments will be added to your organization\'s documents.',
   'intake-emails.disabled.title': 'Intake Emails are disabled',
   'intake-emails.disabled.description': 'Intake emails are disabled on this instance. Please contact your administrator to enable them. See the {{ documentation }} for more information.',
   'intake-emails.disabled.documentation': 'documentation',
@@ -712,7 +713,7 @@ export const translations = {
   'api-keys.permissions.tags.tags:update': 'Update tags',
   'api-keys.permissions.tags.tags:delete': 'Delete tags',
   'api-keys.create.title': 'Create API key',
-  'api-keys.create.description': 'Create a new API key to access the HeyPaqui API.',
+  'api-keys.create.description': 'Create a new API key to access the Paqui API.',
   'api-keys.create.success': 'The API key has been created successfully.',
   'api-keys.create.back': 'Back to API keys',
   'api-keys.create.form.name.label': 'Name',
@@ -727,7 +728,7 @@ export const translations = {
   'api-keys.list.description': 'Manage your API keys here.',
   'api-keys.list.create': 'Create API key',
   'api-keys.list.empty.title': 'No API keys',
-  'api-keys.list.empty.description': 'Create an API key to access the HeyPaqui API.',
+  'api-keys.list.empty.description': 'Create an API key to access the Paqui API.',
   'api-keys.list.card.last-used': 'Last used',
   'api-keys.list.card.never': 'Never',
   'api-keys.list.card.created': 'Created',
@@ -881,7 +882,7 @@ export const translations = {
   'user-menu.invitations': 'Invitations',
   'user-menu.language': 'Language',
   'user-menu.theme': 'Theme',
-  'user-menu.about': 'About HeyPaqui',
+  'user-menu.about': 'About Paqui',
   'user-menu.logout': 'Logout',
 
   // Command palette
@@ -972,7 +973,7 @@ export const translations = {
 
   'subscriptions.checkout-success.title': 'Payment Successful!',
   'subscriptions.checkout-success.description': 'Your subscription has been activated successfully.',
-  'subscriptions.checkout-success.thank-you': 'Thank you for upgrading to HeyPaqui Plus. You now have access to all premium features.',
+  'subscriptions.checkout-success.thank-you': 'Thank you for upgrading to Paqui Plus. You now have access to all premium features.',
   'subscriptions.checkout-success.go-to-organizations': 'Go to Organizations',
   'subscriptions.checkout-success.redirecting': 'Redirecting in {{ count }} second{{ plural }}...',
 
@@ -1019,14 +1020,14 @@ export const translations = {
 
   // Admin
 
-  'admin.layout.header': 'HeyPaqui admin',
+  'admin.layout.header': 'Paqui admin',
   'admin.layout.back-to-app': 'Back to App',
   'admin.layout.menu.analytics': 'Analytics',
   'admin.layout.menu.users': 'Users',
   'admin.layout.menu.organizations': 'Organizations',
 
   'admin.analytics.title': 'Dashboard',
-  'admin.analytics.description': 'Insights and analytics about HeyPaqui usage.',
+  'admin.analytics.description': 'Insights and analytics about Paqui usage.',
   'admin.analytics.user-count': 'User count',
   'admin.analytics.organization-count': 'Organization count',
   'admin.analytics.document-count': 'Document count',
@@ -1140,11 +1141,11 @@ export const translations = {
 
   // About page
 
-  'about.title': 'About HeyPaqui',
+  'about.title': 'About Paqui',
   'about.version': 'Version',
   'about.git-commit': 'Git Commit',
   'about.commit-date': 'Commit Date',
-  'about.description': 'HeyPaqui is an open-source document management system that helps you archive, organize, tag, and manage your documents with ease.',
+  'about.description': 'Paqui is an open-source document management system that helps you archive, organize, tag, and manage your documents with ease.',
   'about.links.title': 'Links',
   'about.links.documentation': 'Documentation',
   'about.links.documentation-description': 'User guides and API reference',
@@ -1153,7 +1154,7 @@ export const translations = {
   'about.links.discord': 'Discord Community',
   'about.links.discord-description': 'Join our community',
   'about.links.sponsor': 'Sponsor',
-  'about.links.sponsor-description': 'Support HeyPaqui development',
+  'about.links.sponsor-description': 'Support Paqui development',
 
   'socials.bluesky': 'Bluesky',
   'socials.mastodon': 'Mastodon',
@@ -1169,7 +1170,7 @@ export const translations = {
   'ai-assistant.open-full-page': 'Open full page',
   'ai-assistant.close-panel': 'Close assistant',
   'ai-assistant.welcome.description': 'Analyze documents and transactions, discover patterns and create classification rules with AI.',
-  'ai-assistant.input.placeholder': 'Message HeyPaqui AI...',
+  'ai-assistant.input.placeholder': 'Message Paqui AI...',
   'ai-assistant.model.select': 'Select model',
   'ai-assistant.suggestion.documents-overview': 'What are my documents about?',
   'ai-assistant.suggestion.find-invoices': 'Find invoices and tell me the total amounts',

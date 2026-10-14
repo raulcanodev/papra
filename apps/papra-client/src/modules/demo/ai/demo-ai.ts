@@ -79,8 +79,8 @@ async function buildReply(question: string): Promise<string> {
   }
 
   return es
-    ? 'Soy el asistente de **HeyPaqui** en modo demo: respondo con los datos de ejemplo de **Acme SL** guardados en tu navegador. Prueba a preguntarme:\n\n- ¿Qué facturas tengo pendientes de cobro?\n- ¿Cuánto he facturado en total?\n- ¿Cuáles son mis mejores clientes?'
-    : 'I\'m the **HeyPaqui** assistant in demo mode: I answer using the sample data for **Acme SL** stored in your browser. Try asking:\n\n- Which invoices are unpaid?\n- How much have I invoiced in total?\n- Who are my top customers?';
+    ? 'Soy el asistente de **Paqui** en modo demo: respondo con los datos de ejemplo de **Acme SL** guardados en tu navegador. Prueba a preguntarme:\n\n- ¿Qué facturas tengo pendientes de cobro?\n- ¿Cuánto he facturado en total?\n- ¿Cuáles son mis mejores clientes?'
+    : 'I\'m the **Paqui** assistant in demo mode: I answer using the sample data for **Acme SL** stored in your browser. Try asking:\n\n- Which invoices are unpaid?\n- How much have I invoiced in total?\n- Who are my top customers?';
 }
 
 function titleFrom(text: string) {
@@ -139,7 +139,7 @@ export const aiHandlers = {
   ...defineHandler({
     path: '/api/ai/models',
     method: 'GET',
-    handler: () => ({ isConfigured: true, defaultModel: DEMO_AI_MODEL, providers: ['openai'], models: [{ id: DEMO_AI_MODEL, label: 'HeyPaqui AI', provider: 'openai' }] }),
+    handler: () => ({ isConfigured: true, defaultModel: DEMO_AI_MODEL, providers: ['openai'], models: [{ id: DEMO_AI_MODEL, label: 'Paqui AI', provider: 'openai' }] }),
   }),
   ...defineHandler({
     path: '/api/organizations/:organizationId/ai/sessions',
