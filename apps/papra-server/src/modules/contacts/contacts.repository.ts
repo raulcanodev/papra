@@ -16,6 +16,7 @@ export function createContactsRepository({ db }: { db: Database }) {
     getContactWithRole: async (args: { organizationId: string; contactId: string; role: ContactRole }) => getContactWithRole({ db, ...args }),
     createContact: async (args: { organizationId: string; contact: ContactInput }) => createContact({ db, ...args }),
     updateContact: async (args: { organizationId: string; contactId: string; contact: ContactInput }) => updateContact({ db, ...args }),
+    archiveContact: async (args: { organizationId: string; contactId: string }) => archiveContact({ db, ...args }),
   };
 }
 
@@ -107,4 +108,19 @@ async function updateContact({ db, organizationId, contactId, contact }: { db: D
   }
 
   return { contact: updated };
+}
+
+// Contacts are archived, never deleted: issued invoices, received invoices and document folders keep pointing at them
+async function archiveContact({ db, organizationId, contactId }: { db: Database; organizationId: string; contactId: string }) {
+  const [archived] = await db
+    .update(contactsTable)
+    .set({ archivedAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(contactsTable.id, contactId), eq(contactsTable.organizationId, organizationId), isNull(contactsTable.archivedAt)))
+    .returning();
+
+  if (!archived) {
+    throw createContactNotFoundError();
+  }
+
+  return { contact: archived };
 }

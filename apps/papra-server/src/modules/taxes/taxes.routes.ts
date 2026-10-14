@@ -38,7 +38,7 @@ export function registerTaxesRoutes(context: RouteDefinitionContext) {
 function setupGetQuarterlyTaxReportRoute({ app, db }: RouteDefinitionContext) {
   app.get(
     '/api/organizations/:organizationId/taxes/:year/:quarter',
-    requireAuthentication(),
+    requireAuthentication({ apiKeyPermissions: ['taxes:read'] }),
     legacyValidateParams(periodParamsSchema),
     legacyValidateQuery(simulationQuerySchema),
     async (context) => {
@@ -94,11 +94,11 @@ function setupSendAccountantPackRoute({ app, db, config, documentsStorageService
     '/api/organizations/:organizationId/taxes/:year/:quarter/send',
     requireAuthentication(),
     legacyValidateParams(periodParamsSchema),
-    legacyValidateJsonBody(z.object({ to: z.string().trim().email().optional() })),
+    legacyValidateJsonBody(z.object({ to: z.string().trim().email().optional(), saveAsAccountantEmail: z.boolean().optional() })),
     async (context) => {
       const { userId } = getUser({ context });
       const { organizationId, year, quarter } = context.req.valid('param');
-      const { to } = context.req.valid('json');
+      const { to, saveAsAccountantEmail = false } = context.req.valid('json');
       const organizationsRepository = createOrganizationsRepository({ db });
       const taxesRepository = createTaxesRepository({ db });
 
@@ -135,6 +135,11 @@ function setupSendAccountantPackRoute({ app, db, config, documentsStorageService
         ].join(''),
         attachments: [{ filename: fileName, content, contentType: 'application/zip' }],
       });
+
+      // Saved only once the email is sent, so a typo that bounces at the provider is not kept
+      if (saveAsAccountantEmail && to !== undefined && to !== profile?.accountantEmail) {
+        await taxesRepository.saveAccountantEmail({ organizationId, accountantEmail: to });
+      }
 
       return context.json({ recipient, skippedDocumentsCount });
     },

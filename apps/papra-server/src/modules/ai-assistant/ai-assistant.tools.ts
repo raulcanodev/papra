@@ -18,6 +18,8 @@ import { createSubscriptionsRepository } from '../subscriptions/subscriptions.re
 import { createTaggingRulesRepository } from '../tagging-rules/tagging-rules.repository';
 import { createTaggingRule as createTaggingRuleUsecase } from '../tagging-rules/tagging-rules.usecases';
 import { createTagsRepository } from '../tags/tags.repository';
+import { createConfirmationResult } from './tools/confirmation';
+import { searchTavily } from './tools/web-search';
 
 export const CONFIRMABLE_TOOL_SCHEMAS: Record<string, z.ZodSchema> = {
   createClassificationRule: z.object({
@@ -107,14 +109,7 @@ function describeToolAction(toolName: string, args: Record<string, unknown>): st
 }
 
 function confirmationResult(toolName: string, args: Record<string, unknown>) {
-  return {
-    requiresConfirmation: true,
-    toolName,
-    description: describeToolAction(toolName, args),
-    args,
-    status: 'PENDING_USER_APPROVAL',
-    message: 'This action has NOT been executed yet. A confirmation card is now shown to the user. Do NOT say you created/updated/deleted anything — say the action is pending approval. Wait for the user to respond before continuing.',
-  };
+  return createConfirmationResult({ toolName, description: describeToolAction(toolName, args), args });
 }
 
 const listTransactionsParams = z.object({
@@ -742,39 +737,7 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
           webSearch: tool({
             description: 'Search the internet for up-to-date information. Use this when the user asks about legal requirements, regulations, filing deadlines, tax rules, compliance topics, country-specific business information, or anything that requires current external knowledge. Combine with searchDocuments/getDocumentById to cross-reference internet info with the user\'s own documents. Examples: "What are the Wyoming LLC annual report requirements?", "Spain tax obligations for US LLC owners", "How to fill out Form W-8BEN".',
             inputSchema: zodSchema(webSearchParams),
-            execute: async (args) => {
-              const response = await fetch('https://api.tavily.com/search', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  api_key: tavilyApiKey,
-                  query: args.query,
-                  search_depth: args.searchDepth,
-                  max_results: args.maxResults,
-                  include_answer: true,
-                }),
-              });
-
-              if (!response.ok) {
-                return { error: `Web search failed (${response.status})` };
-              }
-
-              const data = await response.json() as {
-                answer?: string;
-                results: Array<{ title: string; url: string; content: string; score: number }>;
-              };
-
-              return {
-                answer: data.answer ?? null,
-                results: data.results.map(r => ({
-                  title: r.title,
-                  url: r.url,
-                  snippet: r.content,
-                  relevanceScore: r.score,
-                })),
-                query: args.query,
-              };
-            },
+            execute: async args => searchTavily({ apiKey: tavilyApiKey, query: args.query, searchDepth: args.searchDepth, maxResults: args.maxResults }),
           }),
         }
       : {}),

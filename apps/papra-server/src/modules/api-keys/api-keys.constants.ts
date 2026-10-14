@@ -7,25 +7,5 @@ export const API_KEY_PREFIX = 'ppapi';
 export const API_KEY_TOKEN_LENGTH = 64;
 export const API_KEY_TOKEN_REGEX = new RegExp(`^${API_KEY_PREFIX}_[A-Za-z0-9]{${API_KEY_TOKEN_LENGTH}}$`);
 
-export const API_KEY_PERMISSIONS = {
-  ORGANIZATIONS: {
-    CREATE: 'organizations:create',
-    READ: 'organizations:read',
-    UPDATE: 'organizations:update',
-    DELETE: 'organizations:delete',
-  },
-  DOCUMENTS: {
-    CREATE: 'documents:create',
-    READ: 'documents:read',
-    UPDATE: 'documents:update',
-    DELETE: 'documents:delete',
-  },
-  TAGS: {
-    CREATE: 'tags:create',
-    READ: 'tags:read',
-    UPDATE: 'tags:update',
-    DELETE: 'tags:delete',
-  },
-} as const;
-
-export const API_KEY_PERMISSIONS_VALUES = Object.values(API_KEY_PERMISSIONS).flatMap(permissions => Object.values(permissions));
+// Declared in the tool catalog: a tool names the permission it needs, the routes enforce the same list
+export { API_KEY_PERMISSIONS, API_KEY_PERMISSIONS_VALUES } from '@papra/tool-catalog';

@@ -21,12 +21,13 @@ export function registerContactsRoutes(context: RouteDefinitionContext) {
   setupGetContactRoute(context);
   setupCreateContactRoute(context);
   setupUpdateContactRoute(context);
+  setupArchiveContactRoute(context);
 }
 
 function setupListContactsRoute({ app, db }: RouteDefinitionContext) {
   app.get(
     '/api/organizations/:organizationId/contacts',
-    requireAuthentication(),
+    requireAuthentication({ apiKeyPermissions: ['contacts:read'] }),
     legacyValidateParams(organizationParamsSchema),
     legacyValidateQuery(contactListQuerySchema),
     async (context) => {
@@ -46,7 +47,7 @@ function setupListContactsRoute({ app, db }: RouteDefinitionContext) {
 function setupGetContactRoute({ app, db }: RouteDefinitionContext) {
   app.get(
     '/api/organizations/:organizationId/contacts/:contactId',
-    requireAuthentication(),
+    requireAuthentication({ apiKeyPermissions: ['contacts:read'] }),
     legacyValidateParams(contactParamsSchema),
     async (context) => {
       const { userId } = getUser({ context });
@@ -75,7 +76,7 @@ function setupGetContactRoute({ app, db }: RouteDefinitionContext) {
 function setupCreateContactRoute({ app, db }: RouteDefinitionContext) {
   app.post(
     '/api/organizations/:organizationId/contacts',
-    requireAuthentication(),
+    requireAuthentication({ apiKeyPermissions: ['contacts:create'] }),
     legacyValidateParams(organizationParamsSchema),
     legacyValidateJsonBody(contactBodySchema),
     async (context) => {
@@ -102,7 +103,7 @@ function setupCreateContactRoute({ app, db }: RouteDefinitionContext) {
 function setupUpdateContactRoute({ app, db }: RouteDefinitionContext) {
   app.put(
     '/api/organizations/:organizationId/contacts/:contactId',
-    requireAuthentication(),
+    requireAuthentication({ apiKeyPermissions: ['contacts:update'] }),
     legacyValidateParams(contactParamsSchema),
     legacyValidateJsonBody(contactBodySchema),
     async (context) => {
@@ -121,6 +122,24 @@ function setupUpdateContactRoute({ app, db }: RouteDefinitionContext) {
       });
 
       return context.json({ contact: updated });
+    },
+  );
+}
+
+function setupArchiveContactRoute({ app, db }: RouteDefinitionContext) {
+  app.delete(
+    '/api/organizations/:organizationId/contacts/:contactId',
+    requireAuthentication({ apiKeyPermissions: ['contacts:delete'] }),
+    legacyValidateParams(contactParamsSchema),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, contactId } = context.req.valid('param');
+
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository: createOrganizationsRepository({ db }) });
+
+      await createContactsRepository({ db }).archiveContact({ organizationId, contactId });
+
+      return context.body(null, 204);
     },
   );
 }
