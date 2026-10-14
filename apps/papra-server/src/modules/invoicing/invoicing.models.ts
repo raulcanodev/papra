@@ -1,12 +1,10 @@
 import type { z } from 'zod';
-import type { customerSchema, fiscalProfileSchema, invoiceBrandingSchema, invoiceDraftSchema, invoiceSeriesSchema, productSchema, salesRepresentativeSchema, taxRateSchema } from './invoicing.schemas';
+import type { fiscalProfileSchema, invoiceBrandingSchema, invoiceDraftSchema, invoiceSeriesSchema, productSchema, taxRateSchema } from './invoicing.schemas';
 
 export type FiscalProfileInput = z.infer<typeof fiscalProfileSchema>;
-export type CustomerInput = z.infer<typeof customerSchema>;
 export type InvoiceDraftInput = z.infer<typeof invoiceDraftSchema>;
 export type ProductInput = z.infer<typeof productSchema>;
 export type TaxRateInput = z.infer<typeof taxRateSchema>;
-export type SalesRepresentativeInput = z.infer<typeof salesRepresentativeSchema>;
 export type InvoiceSeriesInput = z.infer<typeof invoiceSeriesSchema>;
 export type InvoiceBrandingInput = z.infer<typeof invoiceBrandingSchema>;
 

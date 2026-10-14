@@ -6,7 +6,7 @@ import { createInMemoryDatabase } from '../../app/database/database.test-utils';
 import { createServer } from '../../app/server';
 import { createTestServerDependencies } from '../../app/server.test-utils';
 import { overrideConfig } from '../../config/config.test-utils';
-import { invoicingCustomersTable } from '../../invoicing/invoicing.tables';
+import { contactsTable } from '../../contacts/contacts.table';
 import { ORGANIZATION_ROLES } from '../../organizations/organizations.constants';
 import { entityCustomPropertyValuesTable } from '../custom-properties.table';
 
@@ -113,13 +113,13 @@ describe('entity custom properties e2e', () => {
       const [email, phone] = channels.options;
 
       const createResponse = await request({
-        path: `/api/organizations/${ORG_ID}/invoicing/customers`,
+        path: `/api/organizations/${ORG_ID}/contacts`,
         method: 'POST',
-        body: { name: 'Acme', customProperties: { [segment.id]: smb!.id, [employees.id]: 42, [channels.id]: [email!.id, phone!.id] } },
+        body: { name: 'Acme', isCustomer: true, customProperties: { [segment.id]: smb!.id, [employees.id]: 42, [channels.id]: [email!.id, phone!.id] } },
       });
 
       expect(createResponse.status).to.eql(201);
-      const { customer } = await createResponse.json() as { customer: { id: string; name: string } };
+      const { contact: customer } = await createResponse.json() as { contact: { id: string; name: string } };
       expect(customer.name).to.eql('Acme');
 
       const { customProperties } = await getCustomerProperties({ customerId: customer.id });
@@ -132,9 +132,9 @@ describe('entity custom properties e2e', () => {
 
       // Only the submitted properties are touched: the segment changes, employees is cleared, channels is kept
       const updateResponse = await request({
-        path: `/api/organizations/${ORG_ID}/invoicing/customers/${customer.id}`,
+        path: `/api/organizations/${ORG_ID}/contacts/${customer.id}`,
         method: 'PUT',
-        body: { name: 'Acme Inc', customProperties: { [segment.id]: enterprise!.id, [employees.id]: null } },
+        body: { name: 'Acme Inc', isCustomer: true, customProperties: { [segment.id]: enterprise!.id, [employees.id]: null } },
       });
 
       expect(updateResponse.status).to.eql(200);
@@ -153,13 +153,13 @@ describe('entity custom properties e2e', () => {
       const employees = await createDefinition({ name: 'Employees', type: 'number', entityType: 'customer' });
 
       const response = await request({
-        path: `/api/organizations/${ORG_ID}/invoicing/customers`,
+        path: `/api/organizations/${ORG_ID}/contacts`,
         method: 'POST',
-        body: { name: 'Acme', customProperties: { [employees.id]: 'not a number' } },
+        body: { name: 'Acme', isCustomer: true, customProperties: { [employees.id]: 'not a number' } },
       });
 
       expect(response.status).to.eql(400);
-      expect(await db.select().from(invoicingCustomersTable)).to.eql([]);
+      expect(await db.select().from(contactsTable)).to.eql([]);
     });
 
     test('a definition of another entity type cannot be used on a customer', async () => {
@@ -168,13 +168,13 @@ describe('entity custom properties e2e', () => {
       const productDefinition = await createDefinition({ name: 'Color', type: 'text', entityType: 'product' });
 
       const response = await request({
-        path: `/api/organizations/${ORG_ID}/invoicing/customers`,
+        path: `/api/organizations/${ORG_ID}/contacts`,
         method: 'POST',
-        body: { name: 'Acme', customProperties: { [productDefinition.id]: 'red' } },
+        body: { name: 'Acme', isCustomer: true, customProperties: { [productDefinition.id]: 'red' } },
       });
 
       expect(response.status).to.eql(404);
-      expect(await db.select().from(invoicingCustomersTable)).to.eql([]);
+      expect(await db.select().from(contactsTable)).to.eql([]);
     });
 
     test('an option of another property cannot be selected', async () => {
@@ -184,9 +184,9 @@ describe('entity custom properties e2e', () => {
       const tier = await createDefinition({ name: 'Tier', type: 'select', entityType: 'customer', options: [{ name: 'Gold' }] });
 
       const response = await request({
-        path: `/api/organizations/${ORG_ID}/invoicing/customers`,
+        path: `/api/organizations/${ORG_ID}/contacts`,
         method: 'POST',
-        body: { name: 'Acme', customProperties: { [segment.id]: tier.options[0]!.id } },
+        body: { name: 'Acme', isCustomer: true, customProperties: { [segment.id]: tier.options[0]!.id } },
       });
 
       expect(response.status).to.eql(400);
@@ -216,9 +216,9 @@ describe('entity custom properties e2e', () => {
       const otherOrgDefinition = await createDefinition({ organizationId: OTHER_ORG_ID, userId: OTHER_USER_ID, name: 'Segment', type: 'text', entityType: 'customer' });
 
       const response = await request({
-        path: `/api/organizations/${ORG_ID}/invoicing/customers`,
+        path: `/api/organizations/${ORG_ID}/contacts`,
         method: 'POST',
-        body: { name: 'Acme', customProperties: { [otherOrgDefinition.id]: 'SMB' } },
+        body: { name: 'Acme', isCustomer: true, customProperties: { [otherOrgDefinition.id]: 'SMB' } },
       });
 
       expect(response.status).to.eql(404);
@@ -228,20 +228,20 @@ describe('entity custom properties e2e', () => {
     test('a user cannot update the customer of another organization, nor attach values to it', async () => {
       const { db, request, createDefinition } = await setupApp();
 
-      const otherCustomerResponse = await request({ path: `/api/organizations/${OTHER_ORG_ID}/invoicing/customers`, method: 'POST', body: { name: 'Other' }, userId: OTHER_USER_ID });
-      const { customer: otherCustomer } = await otherCustomerResponse.json() as { customer: { id: string } };
+      const otherCustomerResponse = await request({ path: `/api/organizations/${OTHER_ORG_ID}/contacts`, method: 'POST', body: { name: 'Other', isCustomer: true }, userId: OTHER_USER_ID });
+      const { contact: otherCustomer } = await otherCustomerResponse.json() as { contact: { id: string } };
       const definition = await createDefinition({ name: 'Segment', type: 'text', entityType: 'customer' });
 
       const response = await request({
-        path: `/api/organizations/${ORG_ID}/invoicing/customers/${otherCustomer.id}`,
+        path: `/api/organizations/${ORG_ID}/contacts/${otherCustomer.id}`,
         method: 'PUT',
-        body: { name: 'Hijacked', customProperties: { [definition.id]: 'SMB' } },
+        body: { name: 'Hijacked', isCustomer: true, customProperties: { [definition.id]: 'SMB' } },
       });
 
       expect(response.status).to.eql(404);
       expect(await db.select().from(entityCustomPropertyValuesTable)).to.eql([]);
 
-      const [customer] = await db.select().from(invoicingCustomersTable).where(eq(invoicingCustomersTable.id, otherCustomer.id));
+      const [customer] = await db.select().from(contactsTable).where(eq(contactsTable.id, otherCustomer.id));
       expect(customer?.name).to.eql('Other');
     });
 
@@ -249,8 +249,8 @@ describe('entity custom properties e2e', () => {
       const { request, createDefinition, getCustomerProperties } = await setupApp();
 
       const definition = await createDefinition({ name: 'Segment', type: 'text', entityType: 'customer' });
-      const createResponse = await request({ path: `/api/organizations/${ORG_ID}/invoicing/customers`, method: 'POST', body: { name: 'Acme', customProperties: { [definition.id]: 'SMB' } } });
-      const { customer } = await createResponse.json() as { customer: { id: string } };
+      const createResponse = await request({ path: `/api/organizations/${ORG_ID}/contacts`, method: 'POST', body: { name: 'Acme', isCustomer: true, customProperties: { [definition.id]: 'SMB' } } });
+      const { contact: customer } = await createResponse.json() as { contact: { id: string } };
 
       // Not a member of the organization
       const { response: forbiddenResponse } = await getCustomerProperties({ customerId: customer.id, userId: OTHER_USER_ID });

@@ -885,7 +885,7 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
       description: 'List the custom property definitions of the organization for an entity type (defaults to transaction). Returns id, name, key, type, and available options for select/multi_select types. Use this before setting transaction custom properties to find propertyDefinitionId and understand expected value types.',
       inputSchema: zodSchema(listCustomPropertyDefinitionsParams),
       execute: async (args) => {
-        const { propertyDefinitions } = await customPropertiesRepo.getOrganizationPropertyDefinitions({ organizationId, entityType: args.entityType });
+        const { propertyDefinitions } = await customPropertiesRepo.getOrganizationPropertyDefinitions({ organizationId, entityTypes: [args.entityType] });
         return {
           propertyDefinitions: propertyDefinitions.map(d => ({
             id: d.id,

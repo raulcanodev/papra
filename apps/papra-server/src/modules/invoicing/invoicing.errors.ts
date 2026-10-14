@@ -6,12 +6,6 @@ export const createFiscalProfileRequiredError = createErrorFactory({
   statusCode: 409,
 });
 
-export const createCustomerNotFoundError = createErrorFactory({
-  code: 'invoicing.customer_not_found',
-  message: 'Customer not found',
-  statusCode: 404,
-});
-
 export const createInvoiceNotFoundError = createErrorFactory({
   code: 'invoicing.invoice_not_found',
   message: 'Invoice not found',

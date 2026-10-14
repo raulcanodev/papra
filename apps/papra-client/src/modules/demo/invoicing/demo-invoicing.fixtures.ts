@@ -43,9 +43,15 @@ export const demoSalesRepresentatives = [
   { key: 'diego', name: 'Diego Muestra', email: 'diego@acme.example', phone: '+34 600 000 002', taxId: null, notes: null },
 ];
 
-export const demoCustomers = [
+export const demoSuppliers = [
+  { key: 'nube', name: 'Nube Hosting SL', email: 'facturas@nube.example', phone: '+34 900 000 010', taxId: 'B00000010', addressLine1: 'Calle del Servidor 1', postalCode: '28001', city: 'Madrid', region: 'Madrid', country: 'ES' },
+  { key: 'papeleria', name: 'Papelería Ejemplo', email: 'ventas@papeleria.example', phone: '+34 900 000 011', taxId: 'B00000011', addressLine1: 'Avenida de los Folios 22', postalCode: '46001', city: 'Valencia', region: 'Valencia', country: 'ES' },
+];
+
+export const demoCustomers: Array<{ key: string; name: string; email: string | null; taxId: string; addressLine1: string; postalCode: string; city: string; region: string; country: string; isSupplier?: boolean }> = [
   { key: 'lumen', name: 'Estudio Lumen SL', email: 'admin@lumen.example', taxId: 'B00000001', addressLine1: 'Avenida de la Muestra 12', postalCode: '08010', city: 'Barcelona', region: 'Barcelona', country: 'ES' },
-  { key: 'norte', name: 'Talleres del Norte SA', email: 'compras@norte.example', taxId: 'A00000002', addressLine1: 'Polígono Industrial Demo, nave 7', postalCode: '48940', city: 'Leioa', region: 'Bizkaia', country: 'ES' },
+  // Also a supplier: a contact can play several roles
+  { key: 'norte', name: 'Talleres del Norte SA', email: 'compras@norte.example', taxId: 'A00000002', addressLine1: 'Polígono Industrial Demo, nave 7', postalCode: '48940', city: 'Leioa', region: 'Bizkaia', country: 'ES', isSupplier: true },
   { key: 'bruma', name: 'Bruma Café', email: 'hola@bruma.example', taxId: 'B00000003', addressLine1: 'Plaza de Prueba 3', postalCode: '41001', city: 'Sevilla', region: 'Sevilla', country: 'ES' },
   { key: 'cima', name: 'Cima Consultores', email: 'contabilidad@cima.example', taxId: 'B00000004', addressLine1: 'Calle Ficticia 91', postalCode: '46002', city: 'Valencia', region: 'Valencia', country: 'ES' },
   { key: 'marta', name: 'Marta Ejemplo (autónoma)', email: 'marta@ejemplo.example', taxId: '00000000T', addressLine1: 'Calle Inventada 5', postalCode: '50001', city: 'Zaragoza', region: 'Zaragoza', country: 'ES' },

@@ -6,8 +6,7 @@ import { documentsTable } from './documents.table';
 export function createDocumentFoldersRepository({ db }: { db: Database }) {
   return {
     createFolder: async (args: { organizationId: string; name: string; parentFolderId?: string | null }) => createFolder({ db, ...args }),
-    ensureCustomerFolder: async (args: { organizationId: string; customerId: string; customerName: string }) => ensureCustomerFolder({ db, ...args }),
-    renameCustomerFolder: async (args: { organizationId: string; customerId: string; customerName: string }) => renameCustomerFolder({ db, ...args }),
+    ensureContactFolder: async (args: { organizationId: string; contactId: string; contactName: string }) => ensureContactFolder({ db, ...args }),
     assignDocument: async (args: { organizationId: string; documentId: string; folderId: string }) => assignDocument({ db, ...args }),
     removeDocumentFromFolder: async (args: { organizationId: string; documentId: string }) => removeDocumentFromFolder({ db, ...args }),
     listFolders: async (args: { organizationId: string }) => listFolders({ db, ...args }),
@@ -27,17 +26,13 @@ async function createFolder({ db, organizationId, name, parentFolderId = null }:
   return { folder: folder! };
 }
 
-async function ensureCustomerFolder({ db, organizationId, customerId, customerName }: { db: Database; organizationId: string; customerId: string; customerName: string }) {
-  await db.insert(documentFoldersTable).values({ organizationId, customerId, name: customerName.trim(), kind: 'customer' }).onConflictDoNothing();
-  const [folder] = await db.select().from(documentFoldersTable).where(and(eq(documentFoldersTable.organizationId, organizationId), eq(documentFoldersTable.customerId, customerId))).limit(1);
+async function ensureContactFolder({ db, organizationId, contactId, contactName }: { db: Database; organizationId: string; contactId: string; contactName: string }) {
+  await db.insert(documentFoldersTable).values({ organizationId, contactId, name: contactName.trim(), kind: 'contact' }).onConflictDoNothing();
+  const [folder] = await db.select().from(documentFoldersTable).where(and(eq(documentFoldersTable.organizationId, organizationId), eq(documentFoldersTable.contactId, contactId))).limit(1);
   if (!folder) {
-    throw new Error('Unable to create customer folder');
+    throw new Error('Unable to create contact folder');
   }
   return { folder };
-}
-
-async function renameCustomerFolder({ db, organizationId, customerId, customerName }: { db: Database; organizationId: string; customerId: string; customerName: string }) {
-  await db.update(documentFoldersTable).set({ name: customerName.trim(), updatedAt: new Date() }).where(and(eq(documentFoldersTable.organizationId, organizationId), eq(documentFoldersTable.customerId, customerId), eq(documentFoldersTable.kind, 'customer')));
 }
 
 async function assignDocument({ db, organizationId, documentId, folderId }: { db: Database; organizationId: string; documentId: string; folderId: string }) {

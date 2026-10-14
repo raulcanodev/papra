@@ -26,7 +26,7 @@ import {
   webhooksStorage,
 } from './demo.storage';
 import { findMany, getValues } from './demo.storage.models';
-import { getDemoEntityCustomPropertyValues, getDemoInvoicingRecords, invoicingHandlers } from './invoicing/demo-invoicing';
+import { contactsHandlers, getDemoContact, getDemoEntityCustomPropertyValues, getDemoInvoicingRecords, invoicingHandlers } from './invoicing/demo-invoicing';
 import { miscHandlers } from './misc/demo-misc';
 import { generatePropertyKey, searchDemoDocuments } from './search/demo.search.services';
 import { demoUser } from './seed/users.fixtures';
@@ -71,6 +71,32 @@ async function deserializeFile(storageInfo: DocumentFile): Promise<File> {
   const { name, type, base64Content } = storageInfo;
 
   return new File([await fromBase64(base64Content)], name, { type });
+}
+
+// Same output as the server entity custom properties: stored raw values (definition id to value) formatted per type
+async function formatDemoEntityCustomProperties({ organizationId, entityTypes, entityId }: { organizationId: string; entityTypes: readonly string[]; entityId: string }) {
+  const [definitions, rawValues] = await Promise.all([
+    findMany(customPropertyDefinitionStorage, def => def.organizationId === organizationId && entityTypes.includes(def.entityType)),
+    Promise.all(entityTypes.map(async entityType => getDemoEntityCustomPropertyValues({ organizationId, entityType, entityId }))).then(values => Object.assign({}, ...values) as Record<string, unknown>),
+  ]);
+
+  return definitions
+    .filter(definition => rawValues[definition.id] !== undefined && rawValues[definition.id] !== null)
+    .map((definition) => {
+      const raw = rawValues[definition.id];
+      const toOption = (optionId: unknown) => {
+        const option = definition.options.find(({ id }) => id === optionId);
+        return option ? { optionId: option.id, name: option.name } : null;
+      };
+
+      const value = definition.type === 'select'
+        ? toOption(raw)
+        : definition.type === 'multi_select'
+          ? (raw as unknown[]).map(toOption).filter(Boolean)
+          : raw;
+
+      return { propertyDefinitionId: definition.id, key: definition.key, name: definition.name, type: definition.type, value };
+    });
 }
 
 function hydratePropertyValue({ value, definition }: { value: unknown; definition: CustomPropertyDefinition }): unknown {
@@ -133,6 +159,7 @@ let demoOnboardingStep: string | null = null;
 
 const inMemoryApiMock: Record<string, { handler: any }> = {
   ...invoicingHandlers,
+  ...contactsHandlers,
   ...aiHandlers,
   ...miscHandlers,
 
@@ -1022,30 +1049,21 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
 
       assert(organization, { status: 403 });
 
-      const [definitions, rawValues] = await Promise.all([
-        findMany(customPropertyDefinitionStorage, def => def.organizationId === organizationId && def.entityType === entityType),
-        getDemoEntityCustomPropertyValues({ organizationId, entityType, entityId }),
-      ]);
+      return { customProperties: await formatDemoEntityCustomProperties({ organizationId, entityTypes: [entityType], entityId }) };
+    },
+  }),
 
-      const customProperties = definitions
-        .filter(definition => rawValues[definition.id] !== undefined && rawValues[definition.id] !== null)
-        .map((definition) => {
-          const raw = rawValues[definition.id];
-          const toOption = (optionId: unknown) => {
-            const option = definition.options.find(({ id }) => id === optionId);
-            return option ? { optionId: option.id, name: option.name } : null;
-          };
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/contacts/:contactId',
+    method: 'GET',
+    handler: async ({ params: { organizationId, contactId } }) => {
+      const contact = await getDemoContact({ organizationId, contactId });
 
-          const value = definition.type === 'select'
-            ? toOption(raw)
-            : definition.type === 'multi_select'
-              ? (raw as unknown[]).map(toOption).filter(Boolean)
-              : raw;
+      assert(contact, { status: 404 });
 
-          return { propertyDefinitionId: definition.id, key: definition.key, name: definition.name, type: definition.type, value };
-        });
+      const entityTypes = (['customer', 'supplier', 'sales_representative'] as const).filter(role => contact[({ customer: 'isCustomer', supplier: 'isSupplier', sales_representative: 'isSalesRepresentative' } as const)[role]]);
 
-      return { customProperties };
+      return { contact, customProperties: await formatDemoEntityCustomProperties({ organizationId, entityTypes, entityId: contactId }) };
     },
   }),
 

@@ -1,9 +1,10 @@
 import { boolean, index, integer, pgTable, text, timestamp, unique } from 'drizzle-orm/pg-core';
+import { contactsTable } from '../contacts/contacts.table';
 import { documentsTable } from '../documents/documents.table';
 import { organizationsTable } from '../organizations/organizations.table';
 import { createPrimaryKeyField, createTimestampColumns } from '../shared/db/columns.helpers';
 import { usersTable } from '../users/users.table';
-import { CUSTOMER_ID_PREFIX, INVOICE_EVENT_ID_PREFIX, INVOICE_ID_PREFIX, INVOICE_ITEM_ID_PREFIX, INVOICE_SERIES_ID_PREFIX, PRODUCT_ID_PREFIX, SALES_REPRESENTATIVE_ID_PREFIX, TAX_RATE_ID_PREFIX, VERIFACTU_ATTEMPT_ID_PREFIX, VERIFACTU_RECORD_ID_PREFIX } from './invoicing.constants';
+import { INVOICE_EVENT_ID_PREFIX, INVOICE_ID_PREFIX, INVOICE_ITEM_ID_PREFIX, INVOICE_SERIES_ID_PREFIX, PRODUCT_ID_PREFIX, TAX_RATE_ID_PREFIX, VERIFACTU_ATTEMPT_ID_PREFIX, VERIFACTU_RECORD_ID_PREFIX } from './invoicing.constants';
 
 export const invoicingProfilesTable = pgTable('invoicing_profiles', {
   organizationId: text('organization_id').primaryKey().references(() => organizationsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
@@ -24,27 +25,6 @@ export const invoicingProfilesTable = pgTable('invoicing_profiles', {
   defaultTerms: text('default_terms'),
   templateId: text('template_id').notNull().default('minimal'),
 });
-
-export const invoicingCustomersTable = pgTable('invoicing_customers', {
-  ...createPrimaryKeyField({ prefix: CUSTOMER_ID_PREFIX }),
-  ...createTimestampColumns(),
-  organizationId: text('organization_id').notNull().references(() => organizationsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
-  name: text('name').notNull(),
-  email: text('email'),
-  taxId: text('tax_id'),
-  addressLine1: text('address_line_1'),
-  addressLine2: text('address_line_2'),
-  postalCode: text('postal_code'),
-  city: text('city'),
-  region: text('region'),
-  country: text('country'),
-  currency: text('currency').notNull().default('EUR'),
-  paymentTermsDays: integer('payment_terms_days').notNull().default(30),
-  notes: text('notes'),
-  archivedAt: timestamp('archived_at', { mode: 'date', withTimezone: true, precision: 3 }),
-}, table => [
-  index('invoicing_customers_organization_id_index').on(table.organizationId),
-]);
 
 export const invoiceSeriesTable = pgTable('invoice_series', {
   ...createPrimaryKeyField({ prefix: INVOICE_SERIES_ID_PREFIX }),
@@ -84,18 +64,6 @@ export const invoicingTaxRatesTable = pgTable('invoicing_tax_rates', {
   archivedAt: timestamp('archived_at', { mode: 'date', withTimezone: true, precision: 3 }),
 }, table => [index('invoicing_tax_rates_organization_id_index').on(table.organizationId), unique('invoicing_tax_rates_organization_name_unique').on(table.organizationId, table.name)]);
 
-export const invoicingSalesRepresentativesTable = pgTable('invoicing_sales_representatives', {
-  ...createPrimaryKeyField({ prefix: SALES_REPRESENTATIVE_ID_PREFIX }),
-  ...createTimestampColumns(),
-  organizationId: text('organization_id').notNull().references(() => organizationsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
-  name: text('name').notNull(),
-  email: text('email'),
-  phone: text('phone'),
-  taxId: text('tax_id'),
-  notes: text('notes'),
-  archivedAt: timestamp('archived_at', { mode: 'date', withTimezone: true, precision: 3 }),
-}, table => [index('invoicing_sales_representatives_organization_id_index').on(table.organizationId)]);
-
 export const invoicingBrandingTable = pgTable('invoicing_branding', {
   organizationId: text('organization_id').primaryKey().references(() => organizationsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
   ...createTimestampColumns(),
@@ -108,9 +76,9 @@ export const invoicesTable = pgTable('invoices', {
   ...createPrimaryKeyField({ prefix: INVOICE_ID_PREFIX }),
   ...createTimestampColumns(),
   organizationId: text('organization_id').notNull().references(() => organizationsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
-  customerId: text('customer_id').notNull().references(() => invoicingCustomersTable.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
+  customerId: text('customer_id').notNull().references(() => contactsTable.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
   seriesId: text('series_id').references(() => invoiceSeriesTable.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
-  salesRepresentativeId: text('sales_representative_id').references(() => invoicingSalesRepresentativesTable.id, { onDelete: 'set null', onUpdate: 'cascade' }),
+  salesRepresentativeId: text('sales_representative_id').references(() => contactsTable.id, { onDelete: 'set null', onUpdate: 'cascade' }),
   documentId: text('document_id').references(() => documentsTable.id, { onDelete: 'set null', onUpdate: 'cascade' }),
   status: text('status').notNull().default('draft'),
   number: text('number'),

@@ -2,6 +2,8 @@ import type { Database } from '../app/database/database.types';
 import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, test } from 'vitest';
 import { createInMemoryDatabase } from '../app/database/database.test-utils';
+import { createContactsRepository } from '../contacts/contacts.repository';
+import { createTestContactInput } from '../contacts/contacts.test-utils';
 import { createDocumentFoldersRepository } from '../documents/document-folders.repository';
 import { createDocumentsRepository } from '../documents/documents.repository';
 import { organizationsTable } from '../organizations/organizations.table';
@@ -35,27 +37,11 @@ describe('invoicing repository', () => {
         templateId: 'minimal',
       },
     });
-    const { customer } = await repository.createCustomer({
-      organizationId: 'organization-1',
-      customer: {
-        name: 'Acme SL',
-        email: 'billing@acme.test',
-        taxId: null,
-        addressLine1: null,
-        addressLine2: null,
-        postalCode: null,
-        city: null,
-        region: null,
-        country: 'ES',
-        currency: 'EUR',
-        paymentTermsDays: 30,
-        notes: null,
-      },
-    });
+    const { contact: customer } = await createContactsRepository({ db }).createContact({ organizationId: 'organization-1', contact: createTestContactInput({ name: 'Acme SL', email: 'billing@acme.test', isCustomer: true }) });
     const foldersRepository = createDocumentFoldersRepository({ db });
     const { folders } = await foldersRepository.listFolders({ organizationId: 'organization-1' });
     expect(folders).toHaveLength(1);
-    expect(folders[0]).toMatchObject({ customerId: customer.id, name: 'Acme SL', kind: 'customer', documentsCount: 0 });
+    expect(folders[0]).toMatchObject({ contactId: customer.id, name: 'Acme SL', kind: 'contact', documentsCount: 0 });
     const { invoice: draft } = await repository.createInvoice({
       organizationId: 'organization-1',
       userId: 'user-1',
@@ -123,23 +109,7 @@ describe('invoicing repository', () => {
       templateId: 'minimal' as const,
     };
     await repository.upsertFiscalProfile({ organizationId: 'organization-1', profile });
-    const { customer } = await repository.createCustomer({
-      organizationId: 'organization-1',
-      customer: {
-        name: 'Original Customer SL',
-        email: 'billing@example.com',
-        taxId: null,
-        addressLine1: null,
-        addressLine2: null,
-        postalCode: null,
-        city: null,
-        region: null,
-        country: 'ES',
-        currency: 'EUR',
-        paymentTermsDays: 30,
-        notes: null,
-      },
-    });
+    const { contact: customer } = await createContactsRepository({ db }).createContact({ organizationId: 'organization-1', contact: createTestContactInput({ name: 'Original Customer SL', email: 'billing@example.com', isCustomer: true }) });
     const { invoice } = await repository.createInvoice({
       organizationId: 'organization-1',
       userId: 'user-1',
@@ -157,10 +127,10 @@ describe('invoicing repository', () => {
     const { invoice: reserved } = await repository.reserveInvoiceNumber({ organizationId: 'organization-1', invoiceId: invoice!.id, userId: 'user-1' });
 
     await repository.upsertFiscalProfile({ organizationId: 'organization-1', profile: { ...profile, legalName: 'Changed Seller SL' } });
-    await repository.updateCustomer({
+    await createContactsRepository({ db }).updateContact({
       organizationId: 'organization-1',
-      customerId: customer.id,
-      customer: { ...customer, name: 'Changed Customer SL' },
+      contactId: customer.id,
+      contact: createTestContactInput({ name: 'Changed Customer SL', email: customer.email, isCustomer: true }),
     });
 
     expect(JSON.parse(reserved!.sellerSnapshot!)).toMatchObject({ legalName: 'Original Seller SL' });
@@ -175,10 +145,7 @@ describe('invoicing repository', () => {
       organizationId: 'organization-1',
       profile: { legalName: 'Jocrimar SL', taxId: 'B12345678', email: null, addressLine1: null, addressLine2: null, postalCode: null, city: null, region: null, country: 'ES', currency: 'EUR', locale: 'es-ES', paymentTermsDays: 30, defaultNotes: null, defaultTerms: null, templateId: 'minimal' },
     });
-    const { customer } = await invoicing.createCustomer({
-      organizationId: 'organization-1',
-      customer: { name: 'Cliente SL', email: null, taxId: 'B87654321', addressLine1: null, addressLine2: null, postalCode: null, city: null, region: null, country: 'ES', currency: 'EUR', paymentTermsDays: 30, notes: null },
-    });
+    const { contact: customer } = await createContactsRepository({ db }).createContact({ organizationId: 'organization-1', contact: createTestContactInput({ name: 'Cliente SL', taxId: 'B87654321', isCustomer: true }) });
     const { invoice } = await invoicing.createInvoice({
       organizationId: 'organization-1',
       userId: 'user-1',

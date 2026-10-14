@@ -5,7 +5,7 @@ import { createId } from '../demo.models';
 import { storage } from '../demo.storage';
 import { getValues } from '../demo.storage.models';
 
-type StoredFolder = { id: string; organizationId: string; parentFolderId: string | null; customerId: null; name: string; kind: 'manual'; documentsCount: number; createdAt: string; updatedAt: string };
+type StoredFolder = { id: string; organizationId: string; parentFolderId: string | null; contactId: null; name: string; kind: 'manual'; documentsCount: number; createdAt: string; updatedAt: string };
 
 const folderStorage = prefixStorage<StoredFolder>(storage, 'documentFolders');
 
@@ -69,7 +69,7 @@ export const miscHandlers = {
     handler: async ({ params: { organizationId }, body }) => {
       const { name, parentFolderId } = (body ?? {}) as { name?: string; parentFolderId?: string | null };
       const now = new Date().toISOString();
-      const folder: StoredFolder = { id: createId({ prefix: 'fld' }), organizationId, parentFolderId: parentFolderId ?? null, customerId: null, name: name ?? 'Folder', kind: 'manual', documentsCount: 0, createdAt: now, updatedAt: now };
+      const folder: StoredFolder = { id: createId({ prefix: 'fld' }), organizationId, parentFolderId: parentFolderId ?? null, contactId: null, name: name ?? 'Folder', kind: 'manual', documentsCount: 0, createdAt: now, updatedAt: now };
       await folderStorage.setItem(folder.id, folder);
       return { folder };
     },

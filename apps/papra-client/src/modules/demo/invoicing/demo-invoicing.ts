@@ -14,6 +14,7 @@ import {
   demoProducts,
   demoSalesRepresentatives,
   demoSeries,
+  demoSuppliers,
   demoTaxRates,
 } from './demo-invoicing.fixtures';
 
@@ -27,11 +28,11 @@ function createInvoicingStorages(storage: Storage<any>) {
   return {
     profile: prefixStorage<Stored>(storage, 'invoicing:profile'),
     branding: prefixStorage<Stored>(storage, 'invoicing:branding'),
-    customers: prefixStorage<Stored>(storage, 'invoicing:customers'),
+    // The address book: customers, suppliers and sales representatives, flagged by role like the server contacts
+    contacts: prefixStorage<Stored>(storage, 'invoicing:contacts'),
     products: prefixStorage<Stored>(storage, 'invoicing:products'),
     taxRates: prefixStorage<Stored>(storage, 'invoicing:taxRates'),
     series: prefixStorage<Stored>(storage, 'invoicing:series'),
-    salesRepresentatives: prefixStorage<Stored>(storage, 'invoicing:salesRepresentatives'),
     invoices: prefixStorage<Stored>(storage, 'invoicing:invoices'),
   };
 }
@@ -71,12 +72,18 @@ function formatNumber({ prefix, nextNumber, padding }: { prefix: string; nextNum
 
 const byCreatedAt = (a: Stored, b: Stored) => String(a.createdAt).localeCompare(String(b.createdAt));
 
+const CONTACT_ROLE_FLAGS = { customer: 'isCustomer', supplier: 'isSupplier', sales_representative: 'isSalesRepresentative' } as const;
+
+function emptyDemoContact(): Stored {
+  return { kind: 'company', email: null, phone: null, taxId: null, addressLine1: null, addressLine2: null, postalCode: null, city: null, region: null, country: null, currency: 'EUR', paymentTermsDays: 30, notes: null, isCustomer: false, isSupplier: false, isSalesRepresentative: false, archivedAt: null };
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Seed
 // ---------------------------------------------------------------------------------------------------------------------
 
 export async function seedDemoInvoicing({ organizationId, now = new Date() }: { organizationId: string; now?: Date }) {
-  const { profile, branding, customers, products, taxRates, series, salesRepresentatives, invoices } = db();
+  const { profile, branding, contacts, products, taxRates, series, invoices } = db();
   const created = daysAgoToDate(now, 150).toISOString();
   const base = { organizationId, createdAt: created, updatedAt: created, archivedAt: null };
 
@@ -102,15 +109,18 @@ export async function seedDemoInvoicing({ organizationId, now = new Date() }: { 
   for (const rep of demoSalesRepresentatives) {
     const id = createId({ prefix: 'rep' });
     repIds.set(rep.key, id);
-    await salesRepresentatives.setItem(id, { id, ...base, name: rep.name, email: rep.email, phone: rep.phone, taxId: rep.taxId, notes: rep.notes });
+    await contacts.setItem(id, { ...emptyDemoContact(), id, ...base, kind: 'person', name: rep.name, email: rep.email, phone: rep.phone, taxId: rep.taxId, notes: rep.notes, isSalesRepresentative: true });
   }
 
   const customerRecords = new Map<string, Stored>();
   for (const customer of demoCustomers) {
     const id = createId({ prefix: 'cus' });
     const record = {
+      ...emptyDemoContact(),
       id,
       ...base,
+      isCustomer: true,
+      isSupplier: customer.isSupplier ?? false,
       name: customer.name,
       email: customer.email,
       taxId: customer.taxId,
@@ -125,7 +135,12 @@ export async function seedDemoInvoicing({ organizationId, now = new Date() }: { 
       notes: null,
     };
     customerRecords.set(customer.key, record);
-    await customers.setItem(id, record);
+    await contacts.setItem(id, record);
+  }
+
+  for (const { key: _key, ...supplier } of demoSuppliers) {
+    const id = createId({ prefix: 'ctc' });
+    await contacts.setItem(id, { ...emptyDemoContact(), id, ...base, ...supplier, isSupplier: true });
   }
 
   const productIds = new Map<string, string>();
@@ -209,9 +224,9 @@ export async function seedDemoInvoicing({ organizationId, now = new Date() }: { 
 // Handlers
 // ---------------------------------------------------------------------------------------------------------------------
 
-type CatalogKey = 'customers' | 'products' | 'taxRates' | 'series' | 'salesRepresentatives';
+type CatalogKey = 'products' | 'taxRates' | 'series';
 
-const CUSTOM_PROPERTY_ENTITY_CATALOG_KEYS = { customer: 'customers', product: 'products', sales_representative: 'salesRepresentatives' } as const;
+const CUSTOM_PROPERTY_ENTITY_CATALOG_KEYS = { customer: 'contacts', supplier: 'contacts', product: 'products', sales_representative: 'contacts' } as const;
 
 /** Raw custom property values (definition id to value) stored on a demo invoicing entity */
 export async function getDemoEntityCustomPropertyValues({ organizationId, entityType, entityId }: { organizationId: string; entityType: string; entityId: string }): Promise<Record<string, unknown>> {
@@ -282,15 +297,27 @@ function singleDefault(key: 'taxRates' | 'series') {
 }
 
 async function hydrateInvoice(invoice: Stored): Promise<Stored> {
-  const customer = invoice.customerId ? await db().customers.getItem(invoice.customerId) : null;
+  const customer = invoice.customerId ? await db().contacts.getItem(invoice.customerId) : null;
 
   return { ...invoice, customer, customerName: customer?.name ?? invoice.customerName, customerEmail: customer?.email ?? invoice.customerEmail };
 }
 
 async function buildInvoiceFromDraft({ organizationId, draft, existing }: { organizationId: string; draft: InvoiceDraftInput; existing?: Stored }): Promise<Stored> {
-  const customer = await db().customers.getItem(draft.customerId);
-  if (!customer) {
-    fail('Customer not found', 404);
+  const customer = await db().contacts.getItem(draft.customerId);
+  if (!customer || customer.organizationId !== organizationId) {
+    fail('Contact not found', 404);
+  }
+  if (!customer.isCustomer) {
+    fail('The contact does not have the role required for this operation.', 400);
+  }
+  if (draft.salesRepresentativeId) {
+    const representative = await db().contacts.getItem(draft.salesRepresentativeId);
+    if (!representative || representative.organizationId !== organizationId) {
+      fail('Contact not found', 404);
+    }
+    if (!representative.isSalesRepresentative) {
+      fail('The contact does not have the role required for this operation.', 400);
+    }
   }
 
   const now = new Date().toISOString();
@@ -364,6 +391,57 @@ async function getInvoiceOrFail(invoiceId: string) {
   return invoice;
 }
 
+// Same routes as the server contacts module, the address book lives with the invoicing records it is linked to
+export const contactsHandlers = {
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/contacts',
+    method: 'GET',
+    handler: async ({ params: { organizationId }, query }: any) => {
+      const role = query?.role as keyof typeof CONTACT_ROLE_FLAGS | undefined;
+      const contacts = (await getValues(db().contacts))
+        .filter(contact => contact.organizationId === organizationId && !contact.archivedAt && (!role || contact[CONTACT_ROLE_FLAGS[role]]))
+        .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+
+      return { contacts };
+    },
+  }),
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/contacts',
+    method: 'POST',
+    handler: async ({ params: { organizationId }, body }: any) => {
+      const now = new Date().toISOString();
+      const id = createId({ prefix: 'ctc' });
+      const { customProperties, ...fields } = body ?? {};
+      const contact: Stored = { ...emptyDemoContact(), ...fields, customProperties: customProperties ?? {}, id, organizationId, archivedAt: null, createdAt: now, updatedAt: now };
+      await db().contacts.setItem(id, contact);
+
+      return { contact };
+    },
+  }),
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/contacts/:contactId',
+    method: 'PUT',
+    handler: async ({ params: { organizationId, contactId }, body }: any) => {
+      const existing = await db().contacts.getItem(contactId);
+      if (!existing || existing.organizationId !== organizationId) {
+        fail('Contact not found', 404);
+      }
+      const { customProperties, ...fields } = body ?? {};
+      // Like the server, only the submitted custom properties are replaced
+      const contact: Stored = { ...existing, ...fields, customProperties: { ...existing.customProperties, ...customProperties }, id: existing.id, organizationId, updatedAt: new Date().toISOString() };
+      await db().contacts.setItem(contactId, contact);
+
+      return { contact };
+    },
+  }),
+};
+
+export async function getDemoContact({ organizationId, contactId }: { organizationId: string; contactId: string }) {
+  const contact = await db().contacts.getItem(contactId);
+
+  return contact?.organizationId === organizationId ? contact : null;
+}
+
 export const invoicingHandlers = {
   ...defineHandler({
     path: '/api/organizations/:organizationId/invoicing/profile',
@@ -399,11 +477,9 @@ export const invoicingHandlers = {
     },
   }),
 
-  ...catalogHandlers({ path: 'customers', key: 'customers', listKey: 'customers', itemKey: 'customer', prefix: 'cus' }),
   ...catalogHandlers({ path: 'products', key: 'products', listKey: 'products', itemKey: 'product', prefix: 'prd' }),
   ...catalogHandlers({ path: 'tax-rates', key: 'taxRates', listKey: 'taxRates', itemKey: 'taxRate', prefix: 'tax', onSave: singleDefault('taxRates') }),
   ...catalogHandlers({ path: 'series', key: 'series', listKey: 'series', itemKey: 'series', prefix: 'ser', onSave: singleDefault('series') }),
-  ...catalogHandlers({ path: 'sales-representatives', key: 'salesRepresentatives', listKey: 'salesRepresentatives', itemKey: 'salesRepresentative', prefix: 'rep' }),
 
   ...defineHandler({
     path: '/api/organizations/:organizationId/invoicing/invoices',
@@ -522,13 +598,13 @@ export async function listDemoInvoices(): Promise<Stored[]> {
 export async function getDemoInvoicingRecords({ organizationId }: { organizationId: string }) {
   const [invoices, customers, profile] = await Promise.all([
     getValues(db().invoices),
-    getValues(db().customers),
+    getValues(db().contacts),
     db().profile.getItem(organizationId),
   ]);
 
   return {
     invoices: invoices.filter(invoice => invoice.organizationId === organizationId),
-    customers: customers.filter(customer => customer.organizationId === organizationId),
+    customers: customers.filter(customer => customer.organizationId === organizationId && customer.isCustomer),
     currency: (profile?.currency as string | undefined) ?? 'EUR',
   };
 }

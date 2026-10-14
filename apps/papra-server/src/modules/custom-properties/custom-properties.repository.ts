@@ -43,14 +43,18 @@ export function createCustomPropertiesRepository({ db }: { db: Database }) {
   );
 }
 
-async function getOrganizationPropertyDefinitions({ organizationId, entityType, db }: { organizationId: string; entityType?: CustomPropertyEntityType; db: Database }) {
+async function getOrganizationPropertyDefinitions({ organizationId, entityTypes, db }: { organizationId: string; entityTypes?: CustomPropertyEntityType[]; db: Database }) {
+  if (isDefined(entityTypes) && entityTypes.length === 0) {
+    return { propertyDefinitions: [] };
+  }
+
   const definitions = await db
     .select()
     .from(customPropertyDefinitionsTable)
     .where(
       and(
         eq(customPropertyDefinitionsTable.organizationId, organizationId),
-        isDefined(entityType) ? eq(customPropertyDefinitionsTable.entityType, entityType) : undefined,
+        isDefined(entityTypes) ? inArray(customPropertyDefinitionsTable.entityType, entityTypes) : undefined,
       ),
     )
     .orderBy(asc(customPropertyDefinitionsTable.displayOrder), asc(customPropertyDefinitionsTable.createdAt));
@@ -513,8 +517,8 @@ export type EntityCustomPropertyValueRow = {
 };
 
 // Single query for any number of entities, scoped to the organization: no N+1 when enriching lists
-async function getEntityCustomPropertyValues({ organizationId, entityType, entityIds, db }: { organizationId: string; entityType: GenericCustomPropertyEntityType; entityIds: string[]; db: Database }) {
-  if (entityIds.length === 0) {
+async function getEntityCustomPropertyValues({ organizationId, entityTypes, entityIds, db }: { organizationId: string; entityTypes: GenericCustomPropertyEntityType[]; entityIds: string[]; db: Database }) {
+  if (entityIds.length === 0 || entityTypes.length === 0) {
     return { rows: [] as EntityCustomPropertyValueRow[] };
   }
 
@@ -547,7 +551,7 @@ async function getEntityCustomPropertyValues({ organizationId, entityType, entit
     .where(
       and(
         eq(entityCustomPropertyValuesTable.organizationId, organizationId),
-        eq(entityCustomPropertyValuesTable.entityType, entityType),
+        inArray(entityCustomPropertyValuesTable.entityType, entityTypes),
         inArray(entityCustomPropertyValuesTable.entityId, entityIds),
       ),
     )
@@ -558,12 +562,13 @@ async function getEntityCustomPropertyValues({ organizationId, entityType, entit
 }
 
 // Replaces the values of the given properties of an entity, an entry without values clears the property.
-// Expected to be called within a transaction alongside the entity write.
-async function replaceEntityCustomPropertyValues({ organizationId, entityType, entityId, entries, db }: {
+// An entity can carry properties of several entity types (a contact that is both customer and supplier), each entry
+// says which one so the value matches its definition. Expected to be called within a transaction with the entity write.
+async function replaceEntityCustomPropertyValues({ organizationId, entityId, entries, db }: {
   organizationId: string;
-  entityType: GenericCustomPropertyEntityType;
   entityId: string;
   entries: {
+    entityType: GenericCustomPropertyEntityType;
     propertyDefinitionId: string;
     values: {
       textValue?: string | null;
@@ -584,13 +589,12 @@ async function replaceEntityCustomPropertyValues({ organizationId, entityType, e
     .where(
       and(
         eq(entityCustomPropertyValuesTable.organizationId, organizationId),
-        eq(entityCustomPropertyValuesTable.entityType, entityType),
         eq(entityCustomPropertyValuesTable.entityId, entityId),
         inArray(entityCustomPropertyValuesTable.propertyDefinitionId, entries.map(({ propertyDefinitionId }) => propertyDefinitionId)),
       ),
     );
 
-  const rows = entries.flatMap(({ propertyDefinitionId, values }) => values.map(value => ({
+  const rows = entries.flatMap(({ entityType, propertyDefinitionId, values }) => values.map(value => ({
     organizationId,
     entityType,
     entityId,

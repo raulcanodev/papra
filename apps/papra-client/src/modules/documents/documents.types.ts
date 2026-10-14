@@ -25,9 +25,9 @@ export type DocumentFolder = {
   id: string;
   organizationId: string;
   parentFolderId?: string | null;
-  customerId?: string | null;
+  contactId?: string | null;
   name: string;
-  kind: 'manual' | 'customer';
+  kind: 'manual' | 'contact';
   documentsCount: number;
   createdAt: Date;
   updatedAt: Date;

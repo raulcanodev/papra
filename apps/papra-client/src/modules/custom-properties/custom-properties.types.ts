@@ -1,9 +1,9 @@
 export type CustomPropertyType = 'text' | 'number' | 'date' | 'boolean' | 'select' | 'multi_select' | 'user_relation' | 'document_relation';
 
-export type CustomPropertyEntityType = 'document' | 'transaction' | 'customer' | 'product' | 'sales_representative';
+export type CustomPropertyEntityType = 'document' | 'transaction' | 'customer' | 'supplier' | 'product' | 'sales_representative';
 
 // Entities whose values are edited within their own create / edit form
-export type GenericCustomPropertyEntityType = 'customer' | 'product' | 'sales_representative';
+export type GenericCustomPropertyEntityType = 'customer' | 'supplier' | 'product' | 'sales_representative';
 
 export type EntityCustomProperty = {
   propertyDefinitionId: string;

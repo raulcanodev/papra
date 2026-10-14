@@ -6,10 +6,13 @@ import type { CustomPropertiesRepository, EntityCustomPropertyValueRow } from '.
 import type { DocumentCustomPropertyValueWithRelatedInfo } from './definitions/custom-property-definition.models';
 import type { CustomPropertiesOptionsRepository } from './options/custom-properties-options.repository';
 import { z } from 'zod';
+import { createDocumentsRepository } from '../documents/documents.repository';
+import { createOrganizationsRepository } from '../organizations/organizations.repository';
 import { createCustomPropertyDefinitionNotFoundError, createCustomPropertyValueInvalidError } from './custom-properties.errors';
 import { createCustomPropertiesRepository } from './custom-properties.repository';
 import { customPropertyDefinitionIdSchema } from './custom-properties.schemas.legacy';
 import { getCustomPropertyTypeDefinition } from './definitions/custom-property-definition.registry';
+import { createCustomPropertiesOptionsRepository } from './options/custom-properties-options.repository';
 
 // Map of property definition id to its raw value, a null value clears the property.
 // The record size is bounded by the number of definitions an organization can have.
@@ -22,7 +25,7 @@ type PreparedEntityCustomPropertyEntries = Parameters<CustomPropertiesRepository
 // Validates every value against its definition before anything is written, so an invalid value never leaves a half saved entity
 export async function prepareEntityCustomPropertyValues({
   organizationId,
-  entityType,
+  entityTypes,
   input,
   customPropertiesRepository,
   customPropertiesOptionsRepository,
@@ -30,7 +33,8 @@ export async function prepareEntityCustomPropertyValues({
   documentsRepository,
 }: {
   organizationId: string;
-  entityType: GenericCustomPropertyEntityType;
+  /** The entity types whose properties the entity may carry, one per role for a contact */
+  entityTypes: GenericCustomPropertyEntityType[];
   input: EntityCustomPropertiesInput;
   customPropertiesRepository: CustomPropertiesRepository;
   customPropertiesOptionsRepository: CustomPropertiesOptionsRepository;
@@ -43,8 +47,8 @@ export async function prepareEntityCustomPropertyValues({
     return { entries: [] };
   }
 
-  // One query for all the definitions of the entity type, instead of one per submitted property
-  const { propertyDefinitions } = await customPropertiesRepository.getOrganizationPropertyDefinitions({ organizationId, entityType });
+  // One query for all the definitions of the entity types, instead of one per submitted property
+  const { propertyDefinitions } = await customPropertiesRepository.getOrganizationPropertyDefinitions({ organizationId, entityTypes });
   const definitionsById = new Map(propertyDefinitions.map(definition => [definition.id, definition]));
 
   const entries: PreparedEntityCustomPropertyEntries = [];
@@ -57,8 +61,11 @@ export async function prepareEntityCustomPropertyValues({
       throw createCustomPropertyDefinitionNotFoundError();
     }
 
+    // The definitions were filtered on these entity types, the cast only narrows the column union
+    const entityType = definition.entityType as GenericCustomPropertyEntityType;
+
     if (rawValue === null || (Array.isArray(rawValue) && rawValue.length === 0) || rawValue === '') {
-      entries.push({ propertyDefinitionId, values: [] });
+      entries.push({ entityType, propertyDefinitionId, values: [] });
       continue;
     }
 
@@ -80,7 +87,7 @@ export async function prepareEntityCustomPropertyValues({
 
     const dbValue = customPropertyTypeDefinition.value.toDb({ value: parseResult.data });
 
-    entries.push({ propertyDefinitionId, values: Array.isArray(dbValue) ? dbValue : [dbValue] });
+    entries.push({ entityType, propertyDefinitionId, values: Array.isArray(dbValue) ? dbValue : [dbValue] });
   }
 
   return { entries };
@@ -90,13 +97,11 @@ export async function prepareEntityCustomPropertyValues({
 export async function persistEntityWithCustomProperties<T extends { id: string }>({
   db,
   organizationId,
-  entityType,
   entries,
   persistEntity,
 }: {
   db: Database;
   organizationId: string;
-  entityType: GenericCustomPropertyEntityType;
   entries: PreparedEntityCustomPropertyEntries;
   persistEntity: (args: { db: Database }) => Promise<T>;
 }) {
@@ -110,13 +115,40 @@ export async function persistEntityWithCustomProperties<T extends { id: string }
 
     await createCustomPropertiesRepository({ db: tx }).replaceEntityCustomPropertyValues({
       organizationId,
-      entityType,
       entityId: entity.id,
       entries,
     });
 
     return entity;
   });
+}
+
+// Entry point for the routes saving an entity along with its custom properties: validates the values first,
+// then writes the entity and its values in a single transaction
+export async function saveEntityWithCustomProperties<T extends { id: string }>({
+  db,
+  organizationId,
+  entityTypes,
+  customProperties,
+  persistEntity,
+}: {
+  db: Database;
+  organizationId: string;
+  entityTypes: GenericCustomPropertyEntityType[];
+  customProperties: EntityCustomPropertiesInput | undefined;
+  persistEntity: (args: { db: Database }) => Promise<T>;
+}) {
+  const { entries } = await prepareEntityCustomPropertyValues({
+    organizationId,
+    entityTypes,
+    input: customProperties ?? {},
+    customPropertiesRepository: createCustomPropertiesRepository({ db }),
+    customPropertiesOptionsRepository: createCustomPropertiesOptionsRepository({ db }),
+    organizationsRepository: createOrganizationsRepository({ db }),
+    documentsRepository: createDocumentsRepository({ db }),
+  });
+
+  return persistEntityWithCustomProperties({ db, organizationId, entries, persistEntity });
 }
 
 export type EntityCustomPropertyForApi = {
@@ -171,16 +203,16 @@ export function groupEntityCustomPropertyValues({ rows }: { rows: EntityCustomPr
 
 export async function getEntitiesCustomProperties({
   organizationId,
-  entityType,
+  entityTypes,
   entityIds,
   customPropertiesRepository,
 }: {
   organizationId: string;
-  entityType: GenericCustomPropertyEntityType;
+  entityTypes: GenericCustomPropertyEntityType[];
   entityIds: string[];
   customPropertiesRepository: CustomPropertiesRepository;
 }) {
-  const { rows } = await customPropertiesRepository.getEntityCustomPropertyValues({ organizationId, entityType, entityIds });
+  const { rows } = await customPropertiesRepository.getEntityCustomPropertyValues({ organizationId, entityTypes, entityIds });
 
   return groupEntityCustomPropertyValues({ rows });
 }

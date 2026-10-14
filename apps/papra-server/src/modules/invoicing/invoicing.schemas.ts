@@ -23,21 +23,6 @@ export const fiscalProfileSchema = z.object({
   templateId: z.enum(INVOICE_TEMPLATE_IDS).default('minimal'),
 });
 
-export const customerSchema = z.object({
-  name: z.string().trim().min(1).max(200),
-  email: z.string().trim().email().optional().nullable(),
-  taxId: optionalText,
-  addressLine1: optionalText,
-  addressLine2: optionalText,
-  postalCode: optionalText,
-  city: optionalText,
-  region: optionalText,
-  country: optionalText,
-  currency: currencySchema.default('EUR'),
-  paymentTermsDays: z.number().int().min(0).max(365).default(30),
-  notes: z.string().trim().max(5_000).optional().nullable(),
-});
-
 export const productSchema = z.object({
   name: z.string().trim().min(1).max(200),
   description: z.string().trim().max(1_000).optional().nullable(),
@@ -47,25 +32,14 @@ export const productSchema = z.object({
   taxRateBps: z.number().int().min(0).max(10_000).default(2_100),
 });
 
+// Request body: the product fields plus the values of the organization custom properties for products
+export const productBodySchema = productSchema.extend({ customProperties: entityCustomPropertiesInputSchema.optional() });
+
 export const taxRateSchema = z.object({
   name: z.string().trim().min(1).max(100),
   rateBps: z.number().int().min(0).max(10_000),
   isDefault: z.boolean().default(false),
 });
-
-export const salesRepresentativeSchema = z.object({
-  name: z.string().trim().min(1).max(200),
-  email: z.string().trim().email().optional().nullable(),
-  phone: optionalText,
-  taxId: optionalText,
-  notes: z.string().trim().max(2_000).optional().nullable(),
-});
-
-// Request bodies: the entity fields plus the values of the organization custom properties for this entity type
-const withCustomProperties = { customProperties: entityCustomPropertiesInputSchema.optional() };
-export const customerBodySchema = customerSchema.extend(withCustomProperties);
-export const productBodySchema = productSchema.extend(withCustomProperties);
-export const salesRepresentativeBodySchema = salesRepresentativeSchema.extend(withCustomProperties);
 
 export const invoiceSeriesSchema = z.object({
   name: z.string().trim().min(1).max(100),

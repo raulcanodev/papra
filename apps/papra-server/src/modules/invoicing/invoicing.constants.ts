@@ -1,11 +1,9 @@
-export const CUSTOMER_ID_PREFIX = 'cus';
 export const INVOICE_ID_PREFIX = 'inv';
 export const INVOICE_ITEM_ID_PREFIX = 'invit';
 export const INVOICE_SERIES_ID_PREFIX = 'isr';
 export const INVOICE_EVENT_ID_PREFIX = 'inev';
 export const PRODUCT_ID_PREFIX = 'prd';
 export const TAX_RATE_ID_PREFIX = 'tax';
-export const SALES_REPRESENTATIVE_ID_PREFIX = 'rep';
 export const VERIFACTU_RECORD_ID_PREFIX = 'vfr';
 export const VERIFACTU_ATTEMPT_ID_PREFIX = 'vfa';
 

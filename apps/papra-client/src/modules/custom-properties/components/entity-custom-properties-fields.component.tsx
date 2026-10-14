@@ -46,6 +46,8 @@ export function EntityCustomPropertiesFields(props: {
   entityId: string | null;
   value: EntityCustomPropertiesInput;
   onChange: (value: EntityCustomPropertiesInput) => void;
+  /** Section heading, defaults to "Custom fields" (a contact shows one section per role) */
+  title?: string;
 }) {
   const { t } = useI18n();
 
@@ -76,7 +78,7 @@ export function EntityCustomPropertiesFields(props: {
   return (
     <Show when={definitions().length > 0}>
       <div class="col-span-full mt-2 flex items-center justify-between border-t pt-4">
-        <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('custom-properties.entity-fields.title')}</p>
+        <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">{props.title ?? t('custom-properties.entity-fields.title')}</p>
         <A
           href={`${getOrganizationRouteHref({ organizationId: props.organizationId, routeId: 'settingsCustomProperties' })}?entityType=${props.entityType}`}
           class="text-xs text-muted-foreground hover:text-foreground hover:underline"

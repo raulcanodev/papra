@@ -85,7 +85,7 @@ function setupGetOrganizationPropertyDefinitionsRoute({ app, db }: RouteDefiniti
 
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
-      const { propertyDefinitions } = await customPropertiesRepository.getOrganizationPropertyDefinitions({ organizationId, entityType });
+      const { propertyDefinitions } = await customPropertiesRepository.getOrganizationPropertyDefinitions({ organizationId, entityTypes: entityType === undefined ? undefined : [entityType] });
 
       return context.json({ propertyDefinitions });
     },
@@ -317,7 +317,7 @@ function setupGetEntityCustomPropertyValuesRoute({ app, db }: RouteDefinitionCon
       // Values are always filtered by organization, an entity id of another organization simply yields no values
       const { customPropertiesByEntityId } = await getEntitiesCustomProperties({
         organizationId,
-        entityType,
+        entityTypes: [entityType],
         entityIds: [entityId],
         customPropertiesRepository,
       });

@@ -2,8 +2,6 @@
 import type { Buffer } from 'node:buffer';
 import type { Database } from '../app/database/database.types';
 import type { Context, RouteDefinitionContext } from '../app/server.types';
-import type { GenericCustomPropertyEntityType } from '../custom-properties/custom-properties.constants';
-import type { EntityCustomPropertiesInput } from '../custom-properties/entity-custom-properties.usecases';
 import type { PdfInvoice } from './invoicing.pdf';
 import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
@@ -11,9 +9,7 @@ import { z } from 'zod';
 import { requireAuthentication } from '../app/auth/auth.middleware';
 import { getUser } from '../app/auth/auth.models';
 import { CUSTOM_PROPERTY_ENTITY_TYPES } from '../custom-properties/custom-properties.constants';
-import { createCustomPropertiesRepository } from '../custom-properties/custom-properties.repository';
-import { persistEntityWithCustomProperties, prepareEntityCustomPropertyValues } from '../custom-properties/entity-custom-properties.usecases';
-import { createCustomPropertiesOptionsRepository } from '../custom-properties/options/custom-properties-options.repository';
+import { saveEntityWithCustomProperties } from '../custom-properties/entity-custom-properties.usecases';
 import { createDocumentFoldersRepository } from '../documents/document-folders.repository';
 import { createDocumentsRepository } from '../documents/documents.repository';
 import { createDocumentCreationUsecase } from '../documents/documents.usecases';
@@ -25,7 +21,7 @@ import { legacyValidateJsonBody, legacyValidateParams, legacyValidateQuery } fro
 import { createInvoiceEmailRequiredError, createInvoiceNotFoundError, createInvoiceNotIssuableError } from './invoicing.errors';
 import { renderInvoicePdf } from './invoicing.pdf';
 import { createInvoicingRepository } from './invoicing.repository';
-import { customerBodySchema, fiscalProfileSchema, invoiceBrandingSchema, invoiceDraftSchema, invoiceListQuerySchema, invoiceSeriesSchema, productBodySchema, salesRepresentativeBodySchema, taxRateSchema } from './invoicing.schemas';
+import { fiscalProfileSchema, invoiceBrandingSchema, invoiceDraftSchema, invoiceListQuerySchema, invoiceSeriesSchema, productBodySchema, taxRateSchema } from './invoicing.schemas';
 import { createVerifactuRepository } from './verifactu.repository';
 
 const resourceParams = z.object({
@@ -35,7 +31,6 @@ const resourceParams = z.object({
 
 export function registerInvoicingRoutes(context: RouteDefinitionContext) {
   setupFiscalProfileRoutes(context);
-  setupCustomerRoutes(context);
   setupSeriesRoutes(context);
   setupCatalogRoutes(context);
   setupVerifactuRoutes(context);
@@ -71,30 +66,6 @@ function setupFiscalProfileRoutes({ app, db }: RouteDefinitionContext) {
   });
 }
 
-function setupCustomerRoutes({ app, db }: RouteDefinitionContext) {
-  app.get('/api/organizations/:organizationId/invoicing/customers', requireAuthentication(), legacyValidateParams(z.object({ organizationId: organizationIdSchema })), async (context) => {
-    const { organizationId } = context.req.valid('param');
-    await authorizeMember({ context, db, organizationId });
-    return context.json(await createInvoicingRepository({ db }).listCustomers({ organizationId }));
-  });
-
-  app.post('/api/organizations/:organizationId/invoicing/customers', requireAuthentication(), legacyValidateParams(z.object({ organizationId: organizationIdSchema })), legacyValidateJsonBody(customerBodySchema), async (context) => {
-    const { organizationId } = context.req.valid('param');
-    const { customProperties, ...customer } = context.req.valid('json');
-    await authorizeMember({ context, db, organizationId });
-    const created = await saveEntityWithCustomProperties({ db, organizationId, entityType: CUSTOM_PROPERTY_ENTITY_TYPES.CUSTOMER, customProperties, persistEntity: async ({ db: tx }) => (await createInvoicingRepository({ db: tx }).createCustomer({ organizationId, customer })).customer });
-    return context.json({ customer: created }, 201);
-  });
-
-  app.put('/api/organizations/:organizationId/invoicing/customers/:resourceId', requireAuthentication(), legacyValidateParams(resourceParams), legacyValidateJsonBody(customerBodySchema), async (context) => {
-    const { organizationId, resourceId: customerId } = context.req.valid('param');
-    const { customProperties, ...customer } = context.req.valid('json');
-    await authorizeMember({ context, db, organizationId });
-    const updated = await saveEntityWithCustomProperties({ db, organizationId, entityType: CUSTOM_PROPERTY_ENTITY_TYPES.CUSTOMER, customProperties, persistEntity: async ({ db: tx }) => (await createInvoicingRepository({ db: tx }).updateCustomer({ organizationId, customerId, customer })).customer });
-    return context.json({ customer: updated });
-  });
-}
-
 function setupSeriesRoutes({ app, db }: RouteDefinitionContext) {
   app.get('/api/organizations/:organizationId/invoicing/series', requireAuthentication(), legacyValidateParams(z.object({ organizationId: organizationIdSchema })), async (context) => {
     const { organizationId } = context.req.valid('param');
@@ -120,12 +91,12 @@ function setupCatalogRoutes({ app, db }: RouteDefinitionContext) {
   });
   app.post('/api/organizations/:organizationId/invoicing/products', requireAuthentication(), legacyValidateParams(organizationParams), legacyValidateJsonBody(productBodySchema), async (context) => {
     const { organizationId } = context.req.valid('param'); const { customProperties, ...product } = context.req.valid('json'); await authorizeMember({ context, db, organizationId });
-    const created = await saveEntityWithCustomProperties({ db, organizationId, entityType: CUSTOM_PROPERTY_ENTITY_TYPES.PRODUCT, customProperties, persistEntity: async ({ db: tx }) => (await createInvoicingRepository({ db: tx }).createProduct({ organizationId, product })).product });
+    const created = await saveEntityWithCustomProperties({ db, organizationId, entityTypes: [CUSTOM_PROPERTY_ENTITY_TYPES.PRODUCT], customProperties, persistEntity: async ({ db: tx }) => (await createInvoicingRepository({ db: tx }).createProduct({ organizationId, product })).product });
     return context.json({ product: created }, 201);
   });
   app.put('/api/organizations/:organizationId/invoicing/products/:resourceId', requireAuthentication(), legacyValidateParams(resourceParams), legacyValidateJsonBody(productBodySchema), async (context) => {
     const { organizationId, resourceId: productId } = context.req.valid('param'); const { customProperties, ...product } = context.req.valid('json'); await authorizeMember({ context, db, organizationId });
-    const updated = await saveEntityWithCustomProperties({ db, organizationId, entityType: CUSTOM_PROPERTY_ENTITY_TYPES.PRODUCT, customProperties, persistEntity: async ({ db: tx }) => (await createInvoicingRepository({ db: tx }).updateProduct({ organizationId, productId, product })).product });
+    const updated = await saveEntityWithCustomProperties({ db, organizationId, entityTypes: [CUSTOM_PROPERTY_ENTITY_TYPES.PRODUCT], customProperties, persistEntity: async ({ db: tx }) => (await createInvoicingRepository({ db: tx }).updateProduct({ organizationId, productId, product })).product });
     return context.json({ product: updated });
   });
 
@@ -137,20 +108,6 @@ function setupCatalogRoutes({ app, db }: RouteDefinitionContext) {
   });
   app.put('/api/organizations/:organizationId/invoicing/tax-rates/:resourceId', requireAuthentication(), legacyValidateParams(resourceParams), legacyValidateJsonBody(taxRateSchema), async (context) => {
     const { organizationId, resourceId: taxRateId } = context.req.valid('param'); await authorizeMember({ context, db, organizationId }); return context.json(await createInvoicingRepository({ db }).updateTaxRate({ organizationId, taxRateId, taxRate: context.req.valid('json') }));
-  });
-
-  app.get('/api/organizations/:organizationId/invoicing/sales-representatives', requireAuthentication(), legacyValidateParams(organizationParams), async (context) => {
-    const { organizationId } = context.req.valid('param'); await authorizeMember({ context, db, organizationId }); return context.json(await createInvoicingRepository({ db }).listSalesRepresentatives({ organizationId }));
-  });
-  app.post('/api/organizations/:organizationId/invoicing/sales-representatives', requireAuthentication(), legacyValidateParams(organizationParams), legacyValidateJsonBody(salesRepresentativeBodySchema), async (context) => {
-    const { organizationId } = context.req.valid('param'); const { customProperties, ...representative } = context.req.valid('json'); await authorizeMember({ context, db, organizationId });
-    const created = await saveEntityWithCustomProperties({ db, organizationId, entityType: CUSTOM_PROPERTY_ENTITY_TYPES.SALES_REPRESENTATIVE, customProperties, persistEntity: async ({ db: tx }) => (await createInvoicingRepository({ db: tx }).createSalesRepresentative({ organizationId, representative })).salesRepresentative });
-    return context.json({ salesRepresentative: created }, 201);
-  });
-  app.put('/api/organizations/:organizationId/invoicing/sales-representatives/:resourceId', requireAuthentication(), legacyValidateParams(resourceParams), legacyValidateJsonBody(salesRepresentativeBodySchema), async (context) => {
-    const { organizationId, resourceId: representativeId } = context.req.valid('param'); const { customProperties, ...representative } = context.req.valid('json'); await authorizeMember({ context, db, organizationId });
-    const updated = await saveEntityWithCustomProperties({ db, organizationId, entityType: CUSTOM_PROPERTY_ENTITY_TYPES.SALES_REPRESENTATIVE, customProperties, persistEntity: async ({ db: tx }) => (await createInvoicingRepository({ db: tx }).updateSalesRepresentative({ organizationId, representativeId, representative })).salesRepresentative });
-    return context.json({ salesRepresentative: updated });
   });
 
   app.get('/api/organizations/:organizationId/invoicing/branding', requireAuthentication(), legacyValidateParams(organizationParams), async (context) => {
@@ -274,7 +231,7 @@ async function issueAndArchiveInvoice({ routeContext, organizationId, invoiceId,
   }
   if (invoice.status === 'issued' || invoice.status === 'sent' || invoice.status === 'paid') {
     if (invoice.documentId !== null) {
-      await assignInvoiceDocumentToCustomerFolder({ routeContext, organizationId, invoice, documentId: invoice.documentId });
+      await assignInvoiceDocumentToContactFolder({ routeContext, organizationId, invoice, documentId: invoice.documentId });
     }
     return { invoice };
   }
@@ -282,13 +239,13 @@ async function issueAndArchiveInvoice({ routeContext, organizationId, invoiceId,
   const { record } = await createVerifactuRepository({ db }).ensureInvoiceRecord({ organizationId, invoiceId });
   const pdf = await renderInvoicePdf({ ...invoice, verifactuQrUrl: record?.qrUrl ?? null } as PdfInvoice);
   const documentId = await archiveInvoicePdf({ routeContext, organizationId, userId, invoice: invoice!, pdf });
-  await assignInvoiceDocumentToCustomerFolder({ routeContext, organizationId, invoice: invoice!, documentId });
+  await assignInvoiceDocumentToContactFolder({ routeContext, organizationId, invoice: invoice!, documentId });
   return repository.finalizeInvoice({ organizationId, invoiceId, documentId, userId });
 }
 
-async function assignInvoiceDocumentToCustomerFolder({ routeContext, organizationId, invoice, documentId }: { routeContext: RouteDefinitionContext; organizationId: string; invoice: NonNullable<Awaited<ReturnType<ReturnType<typeof createInvoicingRepository>['getInvoice']>>['invoice']>; documentId: string }) {
+async function assignInvoiceDocumentToContactFolder({ routeContext, organizationId, invoice, documentId }: { routeContext: RouteDefinitionContext; organizationId: string; invoice: NonNullable<Awaited<ReturnType<ReturnType<typeof createInvoicingRepository>['getInvoice']>>['invoice']>; documentId: string }) {
   const foldersRepository = createDocumentFoldersRepository({ db: routeContext.db });
-  const { folder } = await foldersRepository.ensureCustomerFolder({ organizationId, customerId: invoice.customerId, customerName: invoice.customer!.name });
+  const { folder } = await foldersRepository.ensureContactFolder({ organizationId, contactId: invoice.customerId, contactName: invoice.customer!.name });
   await foldersRepository.assignDocument({ organizationId, documentId, folderId: folder.id });
 }
 
@@ -318,21 +275,6 @@ async function archiveInvoicePdf({ routeContext, organizationId, userId, invoice
     }
     throw error;
   }
-}
-
-// Validates the custom property values first, then writes the entity and its values in a single transaction
-async function saveEntityWithCustomProperties<T extends { id: string }>({ db, organizationId, entityType, customProperties, persistEntity }: { db: Database; organizationId: string; entityType: GenericCustomPropertyEntityType; customProperties: EntityCustomPropertiesInput | undefined; persistEntity: (args: { db: Database }) => Promise<T> }) {
-  const { entries } = await prepareEntityCustomPropertyValues({
-    organizationId,
-    entityType,
-    input: customProperties ?? {},
-    customPropertiesRepository: createCustomPropertiesRepository({ db }),
-    customPropertiesOptionsRepository: createCustomPropertiesOptionsRepository({ db }),
-    organizationsRepository: createOrganizationsRepository({ db }),
-    documentsRepository: createDocumentsRepository({ db }),
-  });
-
-  return persistEntityWithCustomProperties({ db, organizationId, entityType, entries, persistEntity });
 }
 
 async function authorizeMember({ context, db, organizationId }: { context: Context; db: Database; organizationId: string }) {

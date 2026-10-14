@@ -12,12 +12,13 @@ export const PROPERTY_TYPE_LABEL_I18N_KEYS: Record<CustomPropertyType, keyof Tra
   document_relation: 'custom-properties.types.document_relation',
 } as const;
 
-export const CUSTOM_PROPERTY_ENTITY_TYPES: CustomPropertyEntityType[] = ['document', 'transaction', 'customer', 'product', 'sales_representative'];
+export const CUSTOM_PROPERTY_ENTITY_TYPES: CustomPropertyEntityType[] = ['document', 'transaction', 'customer', 'supplier', 'product', 'sales_representative'];
 
 export const ENTITY_TYPE_LABEL_I18N_KEYS: Record<CustomPropertyEntityType, keyof TranslationsDictionary> = {
   document: 'custom-properties.entities.document',
   transaction: 'custom-properties.entities.transaction',
   customer: 'custom-properties.entities.customer',
+  supplier: 'custom-properties.entities.supplier',
   product: 'custom-properties.entities.product',
   sales_representative: 'custom-properties.entities.sales_representative',
 } as const;
@@ -29,6 +30,7 @@ export const PROPERTY_TYPES_BY_ENTITY_TYPE: Record<CustomPropertyEntityType, Cus
   document: ['text', 'number', 'date', 'boolean', 'select', 'multi_select', 'user_relation', 'document_relation'],
   transaction: SCALAR_PROPERTY_TYPES,
   customer: SCALAR_PROPERTY_TYPES,
+  supplier: SCALAR_PROPERTY_TYPES,
   product: SCALAR_PROPERTY_TYPES,
   sales_representative: SCALAR_PROPERTY_TYPES,
 };

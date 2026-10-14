@@ -4,6 +4,7 @@ import { registerAiAssistantRoutes } from '../ai-assistant/ai-assistant.routes';
 import { registerApiKeysRoutes } from '../api-keys/api-keys.routes';
 import { registerCalendarRoutes } from '../calendar/calendar.routes';
 import { registerConfigRoutes } from '../config/config.routes';
+import { registerContactsRoutes } from '../contacts/contacts.routes';
 import { registerCustomPropertiesRoutes } from '../custom-properties/custom-properties.routes';
 import { registerDashboardRoutes } from '../dashboard/dashboard.routes';
 import { registerDocumentActivityRoutes } from '../documents/document-activity/document-activity.routes';
@@ -39,6 +40,7 @@ export function registerRoutes(context: RouteDefinitionContext) {
   registerCalendarRoutes(context);
   registerWebhooksRoutes(context);
   registerInvitationsRoutes(context);
+  registerContactsRoutes(context);
   registerInvoicingRoutes(context);
   registerDashboardRoutes(context);
   registerDocumentActivityRoutes(context);

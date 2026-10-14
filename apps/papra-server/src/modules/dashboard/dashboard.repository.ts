@@ -1,7 +1,8 @@
 import type { Database } from '../app/database/database.types';
 import { and, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
+import { contactsTable } from '../contacts/contacts.table';
 import { documentsTable } from '../documents/documents.table';
-import { invoicesTable, invoicingCustomersTable, invoicingProfilesTable } from '../invoicing/invoicing.tables';
+import { invoicesTable, invoicingProfilesTable } from '../invoicing/invoicing.tables';
 import { buildMonthlyComparison, getDashboardPeriods } from './dashboard.models';
 
 // Invoices that count as billed: a draft is not revenue yet and a voided invoice is not revenue anymore
@@ -63,11 +64,11 @@ async function getOrganizationMetrics({ db, organizationId, now = new Date() }: 
     db
       .select({
         total: sql<number>`count(*)::int`,
-        newThisMonth: sql<number>`(count(*) filter (where ${invoicingCustomersTable.createdAt} >= ${periods.startOfMonth}))::int`,
-        newPreviousMonth: sql<number>`(count(*) filter (where ${invoicingCustomersTable.createdAt} >= ${periods.startOfPreviousMonth} and ${invoicingCustomersTable.createdAt} < ${periods.startOfMonth}))::int`,
+        newThisMonth: sql<number>`(count(*) filter (where ${contactsTable.createdAt} >= ${periods.startOfMonth}))::int`,
+        newPreviousMonth: sql<number>`(count(*) filter (where ${contactsTable.createdAt} >= ${periods.startOfPreviousMonth} and ${contactsTable.createdAt} < ${periods.startOfMonth}))::int`,
       })
-      .from(invoicingCustomersTable)
-      .where(and(eq(invoicingCustomersTable.organizationId, organizationId), isNull(invoicingCustomersTable.archivedAt))),
+      .from(contactsTable)
+      .where(and(eq(contactsTable.organizationId, organizationId), eq(contactsTable.isCustomer, true), isNull(contactsTable.archivedAt))),
 
     db
       .select({

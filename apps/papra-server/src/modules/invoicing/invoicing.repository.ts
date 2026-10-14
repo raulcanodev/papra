@@ -1,20 +1,17 @@
 /* eslint-disable style/max-statements-per-line */
 import type { Database } from '../app/database/database.types';
-import type { CustomerInput, FiscalProfileInput, InvoiceBrandingInput, InvoiceDraftInput, InvoiceSeriesInput, ProductInput, SalesRepresentativeInput, TaxRateInput } from './invoicing.models';
+import type { FiscalProfileInput, InvoiceBrandingInput, InvoiceDraftInput, InvoiceSeriesInput, ProductInput, TaxRateInput } from './invoicing.models';
 import { and, asc, desc, eq, isNull } from 'drizzle-orm';
-import { documentFoldersTable } from '../documents/document-folders.table';
-import { createCustomerNotFoundError, createFiscalProfileRequiredError, createInvoiceNotEditableError, createInvoiceNotFoundError, createInvoiceNotIssuableError } from './invoicing.errors';
+import { createContactsRepository } from '../contacts/contacts.repository';
+import { contactsTable } from '../contacts/contacts.table';
+import { createFiscalProfileRequiredError, createInvoiceNotEditableError, createInvoiceNotFoundError, createInvoiceNotIssuableError } from './invoicing.errors';
 import { calculateInvoiceTotals, formatInvoiceNumber } from './invoicing.models';
-import { invoiceEventsTable, invoiceItemsTable, invoiceSeriesTable, invoicesTable, invoicingBrandingTable, invoicingCustomersTable, invoicingProductsTable, invoicingProfilesTable, invoicingSalesRepresentativesTable, invoicingTaxRatesTable } from './invoicing.tables';
+import { invoiceEventsTable, invoiceItemsTable, invoiceSeriesTable, invoicesTable, invoicingBrandingTable, invoicingProductsTable, invoicingProfilesTable, invoicingTaxRatesTable } from './invoicing.tables';
 
 export function createInvoicingRepository({ db }: { db: Database }) {
   return {
     getFiscalProfile: async (args: { organizationId: string }) => getFiscalProfile({ db, ...args }),
     upsertFiscalProfile: async (args: { organizationId: string; profile: FiscalProfileInput }) => upsertFiscalProfile({ db, ...args }),
-    listCustomers: async (args: { organizationId: string }) => listCustomers({ db, ...args }),
-    getCustomer: async (args: { organizationId: string; customerId: string }) => getCustomer({ db, ...args }),
-    createCustomer: async (args: { organizationId: string; customer: CustomerInput }) => createCustomer({ db, ...args }),
-    updateCustomer: async (args: { organizationId: string; customerId: string; customer: CustomerInput }) => updateCustomer({ db, ...args }),
     listSeries: async (args: { organizationId: string }) => listSeries({ db, ...args }),
     ensureDefaultSeries: async (args: { organizationId: string }) => ensureDefaultSeries({ db, ...args }),
     createSeries: async (args: { organizationId: string; series: InvoiceSeriesInput }) => createSeries({ db, ...args }),
@@ -25,9 +22,6 @@ export function createInvoicingRepository({ db }: { db: Database }) {
     listTaxRates: async (args: { organizationId: string }) => listTaxRates({ db, ...args }),
     createTaxRate: async (args: { organizationId: string; taxRate: TaxRateInput }) => createTaxRate({ db, ...args }),
     updateTaxRate: async (args: { organizationId: string; taxRateId: string; taxRate: TaxRateInput }) => updateTaxRate({ db, ...args }),
-    listSalesRepresentatives: async (args: { organizationId: string }) => listSalesRepresentatives({ db, ...args }),
-    createSalesRepresentative: async (args: { organizationId: string; representative: SalesRepresentativeInput }) => createSalesRepresentative({ db, ...args }),
-    updateSalesRepresentative: async (args: { organizationId: string; representativeId: string; representative: SalesRepresentativeInput }) => updateSalesRepresentative({ db, ...args }),
     getBranding: async (args: { organizationId: string }) => getBranding({ db, ...args }),
     upsertBranding: async (args: { organizationId: string; branding: InvoiceBrandingInput }) => upsertBranding({ db, ...args }),
     listInvoices: async (args: { organizationId: string; status?: string }) => listInvoices({ db, ...args }),
@@ -53,39 +47,6 @@ async function upsertFiscalProfile({ db, organizationId, profile }: { db: Databa
     .onConflictDoUpdate({ target: invoicingProfilesTable.organizationId, set: { ...profile, updatedAt: new Date() } })
     .returning();
   return { profile: saved! };
-}
-
-async function listCustomers({ db, organizationId }: { db: Database; organizationId: string }) {
-  const customers = await db.select().from(invoicingCustomersTable).where(and(eq(invoicingCustomersTable.organizationId, organizationId), isNull(invoicingCustomersTable.archivedAt))).orderBy(asc(invoicingCustomersTable.name));
-  return { customers };
-}
-
-async function getCustomer({ db, organizationId, customerId }: { db: Database; organizationId: string; customerId: string }) {
-  const [customer] = await db.select().from(invoicingCustomersTable).where(and(eq(invoicingCustomersTable.id, customerId), eq(invoicingCustomersTable.organizationId, organizationId))).limit(1);
-  return { customer: customer ?? null };
-}
-
-async function createCustomer({ db, organizationId, customer }: { db: Database; organizationId: string; customer: CustomerInput }) {
-  const created = await db.transaction(async (tx) => {
-    const [row] = await tx.insert(invoicingCustomersTable).values({ organizationId, ...customer }).returning();
-    await tx.insert(documentFoldersTable).values({ organizationId, customerId: row!.id, name: row!.name, kind: 'customer' });
-    return row!;
-  });
-  return { customer: created };
-}
-
-async function updateCustomer({ db, organizationId, customerId, customer }: { db: Database; organizationId: string; customerId: string; customer: CustomerInput }) {
-  const updated = await db.transaction(async (tx) => {
-    const [row] = await tx.update(invoicingCustomersTable).set({ ...customer, updatedAt: new Date() }).where(and(eq(invoicingCustomersTable.id, customerId), eq(invoicingCustomersTable.organizationId, organizationId))).returning();
-    if (row) {
-      await tx.update(documentFoldersTable).set({ name: row.name, updatedAt: new Date() }).where(and(eq(documentFoldersTable.organizationId, organizationId), eq(documentFoldersTable.customerId, customerId), eq(documentFoldersTable.kind, 'customer')));
-    }
-    return row;
-  });
-  if (!updated) {
-    throw createCustomerNotFoundError();
-  }
-  return { customer: updated };
 }
 
 async function listSeries({ db, organizationId }: { db: Database; organizationId: string }) {
@@ -153,19 +114,6 @@ async function updateTaxRate({ db, organizationId, taxRateId, taxRate }: { db: D
   } return { taxRate: saved };
 }
 
-async function listSalesRepresentatives({ db, organizationId }: { db: Database; organizationId: string }) {
-  return { salesRepresentatives: await db.select().from(invoicingSalesRepresentativesTable).where(and(eq(invoicingSalesRepresentativesTable.organizationId, organizationId), isNull(invoicingSalesRepresentativesTable.archivedAt))).orderBy(asc(invoicingSalesRepresentativesTable.name)) };
-}
-async function createSalesRepresentative({ db, organizationId, representative }: { db: Database; organizationId: string; representative: SalesRepresentativeInput }) {
-  const [saved] = await db.insert(invoicingSalesRepresentativesTable).values({ organizationId, ...representative }).returning(); return { salesRepresentative: saved! };
-}
-async function updateSalesRepresentative({ db, organizationId, representativeId, representative }: { db: Database; organizationId: string; representativeId: string; representative: SalesRepresentativeInput }) {
-  const [saved] = await db.update(invoicingSalesRepresentativesTable).set({ ...representative, updatedAt: new Date() }).where(and(eq(invoicingSalesRepresentativesTable.id, representativeId), eq(invoicingSalesRepresentativesTable.organizationId, organizationId))).returning();
-  if (!saved) {
-    throw createInvoiceNotFoundError();
-  } return { salesRepresentative: saved };
-}
-
 async function getBranding({ db, organizationId }: { db: Database; organizationId: string }) {
   const [branding] = await db.select().from(invoicingBrandingTable).where(eq(invoicingBrandingTable.organizationId, organizationId)).limit(1); return { branding: branding ?? null };
 }
@@ -184,9 +132,9 @@ async function ensureDefaultSeries({ db, organizationId }: { db: Database; organ
 }
 
 async function listInvoices({ db, organizationId, status }: { db: Database; organizationId: string; status?: string }) {
-  const invoices = await db.select({ invoice: invoicesTable, customerName: invoicingCustomersTable.name, customerEmail: invoicingCustomersTable.email })
+  const invoices = await db.select({ invoice: invoicesTable, customerName: contactsTable.name, customerEmail: contactsTable.email })
     .from(invoicesTable)
-    .innerJoin(invoicingCustomersTable, eq(invoicesTable.customerId, invoicingCustomersTable.id))
+    .innerJoin(contactsTable, eq(invoicesTable.customerId, contactsTable.id))
     .where(and(eq(invoicesTable.organizationId, organizationId), status !== undefined && status !== '' ? eq(invoicesTable.status, status) : undefined))
     .orderBy(desc(invoicesTable.issueDate), desc(invoicesTable.createdAt));
   return { invoices: invoices.map(({ invoice, customerName, customerEmail }) => ({ ...invoice, customerName, customerEmail })) };
@@ -198,15 +146,23 @@ async function getInvoice({ db, organizationId, invoiceId }: { db: Database; org
     return { invoice: null };
   }
   const items = await db.select().from(invoiceItemsTable).where(eq(invoiceItemsTable.invoiceId, invoiceId)).orderBy(asc(invoiceItemsTable.position));
-  const { customer } = await getCustomer({ db, organizationId, customerId: invoice.customerId });
+  const { contact: customer } = await createContactsRepository({ db }).getContact({ organizationId, contactId: invoice.customerId });
   return { invoice: { ...invoice, items, customer } };
 }
 
-async function createInvoice({ db, organizationId, draft, userId }: { db: Database; organizationId: string; draft: InvoiceDraftInput; userId: string }) {
-  const { customer } = await getCustomer({ db, organizationId, customerId: draft.customerId });
-  if (!customer) {
-    throw createCustomerNotFoundError();
+// The customer and the sales representative must be contacts of the organization with the matching role
+async function ensureInvoiceContacts({ db, organizationId, draft }: { db: Database; organizationId: string; draft: InvoiceDraftInput }) {
+  const contactsRepository = createContactsRepository({ db });
+
+  await contactsRepository.getContactWithRole({ organizationId, contactId: draft.customerId, role: 'customer' });
+
+  if (draft.salesRepresentativeId !== undefined && draft.salesRepresentativeId !== null) {
+    await contactsRepository.getContactWithRole({ organizationId, contactId: draft.salesRepresentativeId, role: 'sales_representative' });
   }
+}
+
+async function createInvoice({ db, organizationId, draft, userId }: { db: Database; organizationId: string; draft: InvoiceDraftInput; userId: string }) {
+  await ensureInvoiceContacts({ db, organizationId, draft });
   const { profile } = await getFiscalProfile({ db, organizationId });
   const effectiveDraft = {
     ...draft,
@@ -232,10 +188,7 @@ async function updateInvoice({ db, organizationId, invoiceId, draft, userId }: {
   if (existing.status !== 'draft') {
     throw createInvoiceNotEditableError();
   }
-  const { customer } = await getCustomer({ db, organizationId, customerId: draft.customerId });
-  if (!customer) {
-    throw createCustomerNotFoundError();
-  }
+  await ensureInvoiceContacts({ db, organizationId, draft });
   const totals = calculateInvoiceTotals(draft.items);
   const { items: invoiceItems, ...invoiceDraft } = draft;
   await db.transaction(async (tx) => {
@@ -265,7 +218,7 @@ async function reserveInvoiceNumber({ db, organizationId, invoiceId, userId }: {
   const { series: defaultSeries } = invoice.seriesId !== null ? { series: null } : await ensureDefaultSeries({ db, organizationId });
   const seriesId = invoice.seriesId ?? defaultSeries!.id;
   const { branding } = await getBranding({ db, organizationId });
-  const [salesRepresentative] = invoice.salesRepresentativeId !== null ? await db.select().from(invoicingSalesRepresentativesTable).where(and(eq(invoicingSalesRepresentativesTable.id, invoice.salesRepresentativeId), eq(invoicingSalesRepresentativesTable.organizationId, organizationId))).limit(1) : [];
+  const [salesRepresentative] = invoice.salesRepresentativeId !== null ? await db.select().from(contactsTable).where(and(eq(contactsTable.id, invoice.salesRepresentativeId), eq(contactsTable.organizationId, organizationId))).limit(1) : [];
 
   await db.transaction(async (tx) => {
     const [currentInvoice] = await tx.select({ status: invoicesTable.status }).from(invoicesTable).where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.organizationId, organizationId))).limit(1);

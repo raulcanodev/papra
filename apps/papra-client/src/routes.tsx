@@ -18,6 +18,7 @@ import { RegisterPage } from './modules/auth/pages/register.page';
 import { RequestPasswordResetPage } from './modules/auth/pages/request-password-reset.page';
 import { ResetPasswordPage } from './modules/auth/pages/reset-password.page';
 import { CalendarPage } from './modules/calendar/pages/calendar.page';
+import { ContactsPage } from './modules/contacts/pages/contacts.page';
 import { CreateCustomPropertyPage } from './modules/custom-properties/pages/create-custom-property.page';
 import { CustomPropertiesPage } from './modules/custom-properties/pages/custom-properties-list.page';
 import { UpdateCustomPropertyPage } from './modules/custom-properties/pages/update-custom-property.page';
@@ -34,13 +35,11 @@ import { TransactionsPage } from './modules/finances/pages/transactions.page';
 import { IntakeEmailsPage } from './modules/intake-emails/pages/intake-emails.page';
 import { InvitationsPage } from './modules/invitations/pages/invitations.page';
 import { CreateInvoicePage } from './modules/invoicing/pages/create-invoice.page';
-import { CustomersPage } from './modules/invoicing/pages/customers.page';
 import { FiscalProfilePage } from './modules/invoicing/pages/fiscal-profile.page';
 import { InvoiceBrandingPage } from './modules/invoicing/pages/invoice-branding.page';
 import { InvoiceSeriesPage } from './modules/invoicing/pages/invoice-series.page';
 import { InvoicesPage } from './modules/invoicing/pages/invoices.page';
 import { ProductsPage } from './modules/invoicing/pages/products.page';
-import { SalesRepresentativesPage } from './modules/invoicing/pages/sales-representatives.page';
 import { TaxesPage } from './modules/invoicing/pages/taxes.page';
 import { VerifactuPage } from './modules/invoicing/pages/verifactu.page';
 import { OnboardingGate } from './modules/onboarding/components/onboarding-gate.component';
@@ -72,11 +71,11 @@ import { CreateWebhookPage } from './modules/webhooks/pages/create-webhook.page'
 import { EditWebhookPage } from './modules/webhooks/pages/edit-webhook.page';
 import { WebhooksPage } from './modules/webhooks/pages/webhooks.page';
 
-function OrganizationRouteRedirect(props: { routeId: OrganizationRouteId; childPath?: string }) {
+function OrganizationRouteRedirect(props: { routeId: OrganizationRouteId; childPath?: string; search?: string }) {
   const params = useParams();
-  const href = () => props.childPath
+  const href = () => `${props.childPath
     ? getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: props.routeId, childPath: props.childPath })
-    : getOrganizationRouteHref({ organizationId: params.organizationId, routeId: props.routeId });
+    : getOrganizationRouteHref({ organizationId: params.organizationId, routeId: props.routeId })}${props.search ?? ''}`;
 
   return <Navigate href={href()} />;
 }
@@ -205,17 +204,23 @@ export const routes: RouteDefinition[] = [
                         component: CreateInvoicePage,
                       },
                       {
-                        path: getOrganizationNestedRoutePath('customers'),
-                        component: CustomersPage,
+                        path: getOrganizationNestedRoutePath('contacts'),
+                        component: ContactsPage,
+                      },
+                      {
+                        // Former customers and sales representatives pages, merged into the contacts
+                        path: '/invoicing/customers',
+                        component: () => <OrganizationRouteRedirect routeId="contacts" search="?role=customer" />,
+                      },
+                      {
+                        path: '/invoicing/sales-representatives',
+                        component: () => <OrganizationRouteRedirect routeId="contacts" search="?role=sales_representative" />,
                       },
                       {
                         path: getOrganizationNestedRoutePath('products'),
                         component: ProductsPage,
                       },
-                      {
-                        path: getOrganizationNestedRoutePath('salesRepresentatives'),
-                        component: SalesRepresentativesPage,
-                      },
+
                       {
                         path: '/invoicing/calendar',
                         component: () => <OrganizationRouteRedirect routeId="calendar" />,

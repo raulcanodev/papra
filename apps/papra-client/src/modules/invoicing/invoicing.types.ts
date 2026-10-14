@@ -1,3 +1,5 @@
+import type { Contact } from '../contacts/contacts.types';
+
 export type InvoiceStatus = 'draft' | 'issuing' | 'issued' | 'sent' | 'paid' | 'void';
 export type InvoiceTemplateId = 'minimal' | 'classic';
 export type VerifactuMode = 'disabled' | 'test' | 'production' | 'not_applicable';
@@ -57,35 +59,11 @@ export type FiscalProfile = {
 
 export type FiscalProfileInput = Omit<FiscalProfile, 'organizationId' | 'createdAt' | 'updatedAt'>;
 
-export type InvoicingCustomer = {
-  id: string;
-  organizationId: string;
-  name: string;
-  email: string | null;
-  taxId: string | null;
-  addressLine1: string | null;
-  addressLine2: string | null;
-  postalCode: string | null;
-  city: string | null;
-  region: string | null;
-  country: string | null;
-  currency: string;
-  paymentTermsDays: number;
-  notes: string | null;
-  archivedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export type CustomerInput = Omit<InvoicingCustomer, 'id' | 'organizationId' | 'archivedAt' | 'createdAt' | 'updatedAt'>;
-
 type CatalogEntity = { id: string; organizationId: string; createdAt: Date; updatedAt: Date; archivedAt: Date | null };
 export type InvoicingProduct = CatalogEntity & { name: string; description: string | null; unit: string; unitPriceMinor: number; currency: string; taxRateBps: number };
 export type ProductInput = Omit<InvoicingProduct, keyof CatalogEntity>;
 export type InvoicingTaxRate = CatalogEntity & { name: string; rateBps: number; isDefault: boolean };
 export type TaxRateInput = Omit<InvoicingTaxRate, keyof CatalogEntity>;
-export type SalesRepresentative = CatalogEntity & { name: string; email: string | null; phone: string | null; taxId: string | null; notes: string | null };
-export type SalesRepresentativeInput = Omit<SalesRepresentative, keyof CatalogEntity>;
 export type InvoiceSeries = CatalogEntity & { name: string; prefix: string; nextNumber: number; padding: number; isDefault: boolean };
 export type InvoiceSeriesInput = Omit<InvoiceSeries, keyof CatalogEntity>;
 export type InvoiceBranding = { organizationId: string; accentColor: string; footerText: string | null; paymentDetails: string | null; createdAt: Date; updatedAt: Date };
@@ -119,7 +97,7 @@ export type Invoice = {
   customerId: string;
   customerName?: string;
   customerEmail?: string | null;
-  customer?: InvoicingCustomer | null;
+  customer?: Contact | null;
   seriesId: string | null;
   salesRepresentativeId: string | null;
   documentId: string | null;

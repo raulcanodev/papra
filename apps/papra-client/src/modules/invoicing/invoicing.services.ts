@@ -1,7 +1,7 @@
 /* eslint-disable style/max-statements-per-line */
 import type { EntityCustomPropertiesInput } from '../custom-properties/custom-properties.types';
 import type { AsDto } from '../shared/http/http-client.types';
-import type { CustomerInput, FiscalProfile, FiscalProfileInput, Invoice, InvoiceBranding, InvoiceBrandingInput, InvoiceDraftInput, InvoiceSeries, InvoiceSeriesInput, InvoicingCustomer, InvoicingProduct, InvoicingTaxRate, ProductInput, SalesRepresentative, SalesRepresentativeInput, TaxRateInput, VerifactuConfiguration, VerifactuRecord } from './invoicing.types';
+import type { FiscalProfile, FiscalProfileInput, Invoice, InvoiceBranding, InvoiceBrandingInput, InvoiceDraftInput, InvoiceSeries, InvoiceSeriesInput, InvoicingProduct, InvoicingTaxRate, ProductInput, TaxRateInput, VerifactuConfiguration, VerifactuRecord } from './invoicing.types';
 import { buildTimeConfig } from '../config/config';
 import { apiClient } from '../shared/http/api-client';
 import { coerceDates } from '../shared/http/http-client.models';
@@ -28,22 +28,7 @@ export async function fetchVerifactuRecords({ organizationId }: { organizationId
   return { records: records.map(record => ({ ...record, generatedAt: new Date(record.generatedAt), createdAt: new Date(record.createdAt), acceptedAt: record.acceptedAt ? new Date(record.acceptedAt) : null })) };
 }
 
-export async function fetchCustomers({ organizationId }: { organizationId: string }) {
-  const { customers } = await apiClient<{ customers: AsDto<InvoicingCustomer>[] }>({ path: `${basePath(organizationId)}/customers`, method: 'GET' });
-  return { customers: customers.map(coerceDates) };
-}
-
 type WithCustomProperties<T> = T & { customProperties?: EntityCustomPropertiesInput };
-
-export async function createCustomer({ organizationId, customer }: { organizationId: string; customer: WithCustomProperties<CustomerInput> }) {
-  const result = await apiClient<{ customer: AsDto<InvoicingCustomer> }>({ path: `${basePath(organizationId)}/customers`, method: 'POST', body: customer });
-  return { customer: coerceDates(result.customer) };
-}
-
-export async function updateCustomer({ organizationId, customerId, customer }: { organizationId: string; customerId: string; customer: WithCustomProperties<CustomerInput> }) {
-  const result = await apiClient<{ customer: AsDto<InvoicingCustomer> }>({ path: `${basePath(organizationId)}/customers/${customerId}`, method: 'PUT', body: customer });
-  return { customer: coerceDates(result.customer) };
-}
 
 export async function fetchProducts({ organizationId }: { organizationId: string }) {
   const { products } = await apiClient<{ products: AsDto<InvoicingProduct>[] }>({ path: `${basePath(organizationId)}/products`, method: 'GET' }); return { products: products.map(product => coerceDates(product) as InvoicingProduct) };
@@ -63,16 +48,6 @@ export async function createTaxRate({ organizationId, taxRate }: { organizationI
 }
 export async function updateTaxRate({ organizationId, taxRateId, taxRate }: { organizationId: string; taxRateId: string; taxRate: TaxRateInput }) {
   return apiClient<{ taxRate: AsDto<InvoicingTaxRate> }>({ path: `${basePath(organizationId)}/tax-rates/${taxRateId}`, method: 'PUT', body: taxRate });
-}
-
-export async function fetchSalesRepresentatives({ organizationId }: { organizationId: string }) {
-  const { salesRepresentatives } = await apiClient<{ salesRepresentatives: AsDto<SalesRepresentative>[] }>({ path: `${basePath(organizationId)}/sales-representatives`, method: 'GET' }); return { salesRepresentatives: salesRepresentatives.map(representative => coerceDates(representative) as SalesRepresentative) };
-}
-export async function createSalesRepresentative({ organizationId, representative }: { organizationId: string; representative: WithCustomProperties<SalesRepresentativeInput> }) {
-  return apiClient<{ salesRepresentative: AsDto<SalesRepresentative> }>({ path: `${basePath(organizationId)}/sales-representatives`, method: 'POST', body: representative });
-}
-export async function updateSalesRepresentative({ organizationId, representativeId, representative }: { organizationId: string; representativeId: string; representative: WithCustomProperties<SalesRepresentativeInput> }) {
-  return apiClient<{ salesRepresentative: AsDto<SalesRepresentative> }>({ path: `${basePath(organizationId)}/sales-representatives/${representativeId}`, method: 'PUT', body: representative });
 }
 
 export async function fetchInvoiceSeries({ organizationId }: { organizationId: string }) {

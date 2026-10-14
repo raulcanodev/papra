@@ -171,14 +171,14 @@ export const DocumentsPage: Component = () => {
                       }}
                     >
                       <div class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-primary transition-colors group-hover:bg-primary/12">
-                        <Show when={folder.kind === 'customer'} fallback={<div class="i-tabler-folder size-5" />}>
+                        <Show when={folder.kind === 'contact'} fallback={<div class="i-tabler-folder size-5" />}>
                           <div class="i-tabler-folder-star size-5" />
                         </Show>
                       </div>
                       <div class="min-w-0 flex-1">
                         <div class="flex items-center gap-2">
                           <span class="truncate font-medium">{folder.name}</span>
-                          <Show when={folder.kind === 'customer'}>
+                          <Show when={folder.kind === 'contact'}>
                             <Badge variant="outline" class="shrink-0 bg-muted/40 px-1.5 py-0 text-[10px] text-muted-foreground">{t('documents.folders.customer-label')}</Badge>
                           </Show>
                         </div>
@@ -201,7 +201,7 @@ export const DocumentsPage: Component = () => {
                 <div class="i-tabler-arrow-left size-4" />
               </Button>
               <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-primary">
-                <Show when={activeFolder()?.kind === 'customer'} fallback={<div class="i-tabler-folder-open size-5" />}>
+                <Show when={activeFolder()?.kind === 'contact'} fallback={<div class="i-tabler-folder-open size-5" />}>
                   <div class="i-tabler-folder-star size-5" />
                 </Show>
               </div>

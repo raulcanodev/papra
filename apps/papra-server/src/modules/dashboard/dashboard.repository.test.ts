@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { createInMemoryDatabase } from '../app/database/database.test-utils';
+import { contactsTable } from '../contacts/contacts.table';
 import { documentsTable } from '../documents/documents.table';
-import { invoicesTable, invoicingCustomersTable, invoicingProfilesTable } from '../invoicing/invoicing.tables';
+import { invoicesTable, invoicingProfilesTable } from '../invoicing/invoicing.tables';
 import { createDashboardRepository } from './dashboard.repository';
 
 const ORG_ID = 'org_111111111111111111111111';
@@ -15,11 +16,11 @@ describe('dashboard repository', () => {
     });
 
     await db.insert(invoicingProfilesTable).values({ organizationId: ORG_ID, legalName: 'Acme SL', currency: 'EUR' });
-    await db.insert(invoicingCustomersTable).values([
-      { id: 'cus_1', organizationId: ORG_ID, name: 'Old customer', createdAt: new Date('2026-01-10T00:00:00.000Z') },
-      { id: 'cus_2', organizationId: ORG_ID, name: 'New customer', createdAt: new Date('2026-10-02T00:00:00.000Z') },
-      { id: 'cus_3', organizationId: ORG_ID, name: 'September customer', createdAt: new Date('2026-09-20T00:00:00.000Z') },
-      { id: 'cus_4', organizationId: ORG_ID, name: 'Archived', archivedAt: new Date('2026-05-01T00:00:00.000Z') },
+    await db.insert(contactsTable).values([
+      { id: 'cus_1', organizationId: ORG_ID, name: 'Old customer', isCustomer: true, createdAt: new Date('2026-01-10T00:00:00.000Z') },
+      { id: 'cus_2', organizationId: ORG_ID, name: 'New customer', isCustomer: true, createdAt: new Date('2026-10-02T00:00:00.000Z') },
+      { id: 'cus_3', organizationId: ORG_ID, name: 'September customer', isCustomer: true, createdAt: new Date('2026-09-20T00:00:00.000Z') },
+      { id: 'cus_4', organizationId: ORG_ID, name: 'Archived', isCustomer: true, archivedAt: new Date('2026-05-01T00:00:00.000Z') },
       { id: 'cus_other', organizationId: OTHER_ORG_ID, name: 'Other org customer' },
     ]);
 

@@ -1,4 +1,5 @@
-import type { FiscalProfile, InvoiceBranding, InvoiceItemInput, InvoicingCustomer } from '../invoicing.types';
+import type { FiscalProfile, InvoiceBranding, InvoiceItemInput } from '../invoicing.types';
+import type { Contact } from '@/modules/contacts/contacts.types';
 import { For, Show } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 
@@ -24,7 +25,7 @@ function formatDate(value: string, locale?: string) {
   return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat(locale, { dateStyle: 'long' }).format(date);
 }
 
-type Party = Pick<InvoicingCustomer, 'name' | 'email' | 'taxId' | 'addressLine1' | 'addressLine2' | 'postalCode' | 'city' | 'region' | 'country'>;
+type Party = Pick<Contact, 'name' | 'email' | 'taxId' | 'addressLine1' | 'addressLine2' | 'postalCode' | 'city' | 'region' | 'country'>;
 
 function PartyLines(props: { party?: Party | null; name?: string }) {
   const lines = () => {
@@ -65,7 +66,7 @@ export function InvoicePreview(props: {
   currency: string;
   items: InvoiceItemInput[];
   notes: string;
-  customer?: InvoicingCustomer | null;
+  customer?: Party | null;
   profile?: FiscalProfile | null;
   branding?: InvoiceBranding | null;
 }) {

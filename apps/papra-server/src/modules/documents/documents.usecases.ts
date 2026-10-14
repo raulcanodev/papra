@@ -633,7 +633,7 @@ export async function enrichAndFormatDocumentsForApi({
   const [{ tagsByDocumentId }, { valuesByDocumentId }, { propertyDefinitions }] = await Promise.all([
     tagsRepository.getTagsByDocumentIds({ documentIds }),
     customPropertiesRepository.getCustomPropertyValuesByDocumentIds({ documentIds }),
-    customPropertiesRepository.getOrganizationPropertyDefinitions({ organizationId, entityType: CUSTOM_PROPERTY_ENTITY_TYPES.DOCUMENT }),
+    customPropertiesRepository.getOrganizationPropertyDefinitions({ organizationId, entityTypes: [CUSTOM_PROPERTY_ENTITY_TYPES.DOCUMENT] }),
   ]);
 
   return {

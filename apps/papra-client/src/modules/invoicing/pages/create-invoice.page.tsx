@@ -1,7 +1,10 @@
-import type { InvoiceDraftInput, InvoiceItemInput, InvoiceTemplateId, InvoicingCustomer } from '../invoicing.types';
+import type { InvoiceDraftInput, InvoiceItemInput, InvoiceTemplateId } from '../invoicing.types';
+import type { Contact } from '@/modules/contacts/contacts.types';
 import { A, useNavigate, useParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
 import { createEffect, createMemo, createSignal, For, Index, Show } from 'solid-js';
+import { ContactFormFields, emptyContact } from '@/modules/contacts/components/contact-form';
+import { createContact, fetchContacts, getContactsQueryKey } from '@/modules/contacts/contacts.services';
 import { getDocumentLocale } from '@/modules/i18n/document-locale';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { queryClient } from '@/modules/shared/query/query-client';
@@ -14,9 +17,8 @@ import { TextArea } from '@/modules/ui/components/textarea';
 import { TextField } from '@/modules/ui/components/textfield';
 import { getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
 import { FormField, SaveButton } from '../components/catalog-page';
-import { CustomerFormFields, emptyCustomer } from '../components/customer-form';
 import { getLineNetMinor, InvoicePreview } from '../components/invoice-preview';
-import { createCustomer, createInvoice, fetchCustomers, fetchFiscalProfile, fetchInvoice, fetchInvoiceBranding, fetchInvoiceSeries, fetchProducts, fetchSalesRepresentatives, fetchTaxRates, sendInvoice, updateInvoice } from '../invoicing.services';
+import { createInvoice, fetchFiscalProfile, fetchInvoice, fetchInvoiceBranding, fetchInvoiceSeries, fetchProducts, fetchTaxRates, sendInvoice, updateInvoice } from '../invoicing.services';
 
 const CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF', 'MXN', 'CAD', 'AUD'];
 const FALLBACK_TAX_RATES_BPS = [0, 400, 1_000, 2_100];
@@ -37,7 +39,7 @@ function formatMoney(minor: number, currency: string) {
   }
 }
 
-function customerSummary(customer: InvoicingCustomer) {
+function customerSummary(customer: Contact) {
   return [customer.addressLine1, [customer.postalCode, customer.city].filter(Boolean).join(' '), customer.country].filter(Boolean).join(', ');
 }
 
@@ -51,13 +53,12 @@ export function CreateInvoicePage() {
   const navigate = useNavigate();
   const invoicesHref = () => getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'invoices' });
 
-  const customersQuery = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'customers'], queryFn: () => fetchCustomers({ organizationId: params.organizationId }) }));
+  const contactsQuery = useQuery(() => ({ queryKey: getContactsQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchContacts({ organizationId: params.organizationId }) }));
   const profileQuery = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'profile'], queryFn: () => fetchFiscalProfile({ organizationId: params.organizationId }) }));
   const brandingQuery = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'branding'], queryFn: () => fetchInvoiceBranding({ organizationId: params.organizationId }) }));
   const productsQuery = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'products'], queryFn: () => fetchProducts({ organizationId: params.organizationId }) }));
   const taxesQuery = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'tax-rates'], queryFn: () => fetchTaxRates({ organizationId: params.organizationId }) }));
   const seriesQuery = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'series'], queryFn: () => fetchInvoiceSeries({ organizationId: params.organizationId }) }));
-  const representativesQuery = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'sales-representatives'], queryFn: () => fetchSalesRepresentatives({ organizationId: params.organizationId }) }));
   const invoiceQuery = useQuery(() => ({
     queryKey: ['invoicing', params.organizationId, 'invoices', params.invoiceId],
     queryFn: () => fetchInvoice({ organizationId: params.organizationId, invoiceId: params.invoiceId }),
@@ -75,7 +76,7 @@ export function CreateInvoicePage() {
   const [items, setItems] = createSignal<InvoiceItemInput[]>([newLine()]);
   const [customerSearch, setCustomerSearch] = createSignal('');
   const [isCustomerDialogOpen, setIsCustomerDialogOpen] = createSignal(false);
-  const [newCustomer, setNewCustomer] = createSignal(emptyCustomer());
+  const [newCustomer, setNewCustomer] = createSignal(emptyContact({ isCustomer: true }));
 
   let loadedInvoiceId: string | undefined;
   createEffect(() => {
@@ -113,7 +114,8 @@ export function CreateInvoicePage() {
   });
 
   const taxRates = () => taxesQuery.data?.taxRates.length ? taxesQuery.data.taxRates : FALLBACK_TAX_RATES_BPS.map(rateBps => ({ id: String(rateBps), name: t('invoicing.editor.vat'), rateBps }));
-  const customers = () => customersQuery.data?.customers ?? [];
+  const customers = () => (contactsQuery.data?.contacts ?? []).filter(contact => contact.isCustomer);
+  const salesRepresentatives = () => (contactsQuery.data?.contacts ?? []).filter(contact => contact.isSalesRepresentative);
   const selectedCustomer = () => customers().find(customer => customer.id === customerId());
   const filteredCustomers = createMemo(() => {
     const search = customerSearch().trim().toLowerCase();
@@ -137,7 +139,7 @@ export function CreateInvoicePage() {
     return series ? `${series.prefix}${String(series.nextNumber).padStart(series.padding, '0')}` : null;
   };
 
-  const selectCustomer = (customer: InvoicingCustomer) => {
+  const selectCustomer = (customer: Contact) => {
     setCustomerId(customer.id);
     setCurrency(customer.currency);
     setDueDate(plusDays(customer.paymentTermsDays));
@@ -145,15 +147,15 @@ export function CreateInvoicePage() {
   };
 
   const openNewCustomerDialog = () => {
-    setNewCustomer({ ...emptyCustomer(), name: customerSearch().trim(), currency: currency() });
+    setNewCustomer(emptyContact({ isCustomer: true, name: customerSearch().trim(), currency: currency() }));
     setIsCustomerDialogOpen(true);
   };
 
   const createCustomerMutation = createMutation(() => ({
-    mutationFn: () => createCustomer({ organizationId: params.organizationId, customer: newCustomer() }),
-    onSuccess: async ({ customer }) => {
-      await queryClient.invalidateQueries({ queryKey: ['invoicing', params.organizationId, 'customers'] });
-      selectCustomer(customer);
+    mutationFn: () => createContact({ organizationId: params.organizationId, contact: newCustomer() }),
+    onSuccess: async ({ contact }) => {
+      await queryClient.invalidateQueries({ queryKey: getContactsQueryKey({ organizationId: params.organizationId }) });
+      selectCustomer(contact);
       setIsCustomerDialogOpen(false);
       createToast({ type: 'success', message: t('invoicing.editor.customer.toast.created') });
     },
@@ -401,7 +403,7 @@ export function CreateInvoicePage() {
                   onChange={setSalesRepresentativeId}
                   options={[
                     { value: '', label: t('invoicing.editor.sales-representative.none') },
-                    ...(representativesQuery.data?.salesRepresentatives ?? []).map(person => ({ value: person.id, label: person.name })),
+                    ...salesRepresentatives().map(person => ({ value: person.id, label: person.name })),
                   ]}
                 />
               </FormField>
@@ -472,7 +474,7 @@ export function CreateInvoicePage() {
               }
             }}
           >
-            <CustomerFormFields value={newCustomer()} onChange={setNewCustomer} autofocus />
+            <ContactFormFields value={newCustomer()} onChange={setNewCustomer} autofocus lockedRoles={['customer']} />
             <SaveButton loading={createCustomerMutation.isPending} editing={false} onCancel={() => setIsCustomerDialogOpen(false)} />
           </form>
         </DialogContent>

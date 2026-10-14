@@ -8,7 +8,7 @@ import type { Webhook } from '../webhooks/webhooks.types';
 import { createStorage, prefixStorage } from 'unstorage';
 import localStorageDriver from 'unstorage/drivers/localstorage';
 import { trackingServices } from '../tracking/tracking.services';
-import { DEMO_IS_SEEDED_KEY } from './demo.constants';
+import { DEMO_DATA_VERSION, DEMO_IS_SEEDED_KEY } from './demo.constants';
 import { createId } from './demo.models';
 import { bindInvoicingStorage, seedDemoInvoicing } from './invoicing/demo-invoicing';
 import { customPropertyDefinitionsFixtures } from './seed/custom-property-definitions.fixtures';
@@ -53,8 +53,8 @@ export async function clearDemoStorage() {
 let seedingPromise: Promise<void> | null = null;
 
 export async function ensureDemoStorageSeeded() {
-  // If already seeded, return immediately
-  if (localStorage.getItem(DEMO_IS_SEEDED_KEY)) {
+  // If already seeded with the current data version, return immediately
+  if (localStorage.getItem(DEMO_IS_SEEDED_KEY) === DEMO_DATA_VERSION) {
     return;
   }
 
@@ -68,7 +68,7 @@ export async function ensureDemoStorageSeeded() {
   // Start seeding
   seedingPromise = seedDemoStorage()
     .then(() => {
-      localStorage.setItem(DEMO_IS_SEEDED_KEY, 'true');
+      localStorage.setItem(DEMO_IS_SEEDED_KEY, DEMO_DATA_VERSION);
     })
     .finally(() => {
       seedingPromise = null;

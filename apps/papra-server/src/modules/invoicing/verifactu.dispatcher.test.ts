@@ -2,6 +2,8 @@ import type { Database } from '../app/database/database.types';
 import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { createInMemoryDatabase } from '../app/database/database.test-utils';
+import { createContactsRepository } from '../contacts/contacts.repository';
+import { createTestContactInput } from '../contacts/contacts.test-utils';
 import { organizationsTable } from '../organizations/organizations.table';
 import { usersTable } from '../users/users.table';
 import { createInvoicingRepository } from './invoicing.repository';
@@ -48,7 +50,7 @@ async function createPendingRecord(): Promise<{ db: Database; recordId: string }
   await db.insert(organizationsTable).values({ id: 'organization-1', name: 'Jocrimar' });
   const invoicing = createInvoicingRepository({ db });
   await invoicing.upsertFiscalProfile({ organizationId: 'organization-1', profile: { legalName: 'Jocrimar SL', taxId: 'B12345678', email: null, addressLine1: null, addressLine2: null, postalCode: null, city: null, region: null, country: 'ES', currency: 'EUR', locale: 'es-ES', paymentTermsDays: 30, defaultNotes: null, defaultTerms: null, templateId: 'minimal' } });
-  const { customer } = await invoicing.createCustomer({ organizationId: 'organization-1', customer: { name: 'Cliente SL', email: null, taxId: 'B87654321', addressLine1: null, addressLine2: null, postalCode: null, city: null, region: null, country: 'ES', currency: 'EUR', paymentTermsDays: 30, notes: null } });
+  const { contact: customer } = await createContactsRepository({ db }).createContact({ organizationId: 'organization-1', contact: createTestContactInput({ name: 'Cliente SL', taxId: 'B87654321', isCustomer: true }) });
   const { invoice } = await invoicing.createInvoice({ organizationId: 'organization-1', userId: 'user-1', draft: { customerId: customer.id, issueDate: new Date('2026-10-13T00:00:00.000Z'), dueDate: new Date('2026-11-12T00:00:00.000Z'), currency: 'EUR', notes: null, terms: null, templateId: 'minimal', items: [{ description: 'Servicio', quantityMillis: 1_000, unitPriceMinor: 10_000, taxRateBps: 2_100, discountRateBps: 0 }] } });
   await invoicing.reserveInvoiceNumber({ organizationId: 'organization-1', invoiceId: invoice!.id, userId: 'user-1' });
   const verifactu = createVerifactuRepository({ db });
