@@ -10,6 +10,7 @@ import { FetchError } from 'ofetch';
 import { createRouter } from 'radix3';
 import { get } from '../shared/utils/get';
 import { aiHandlers } from './ai/demo-ai';
+import { computeDemoDashboardMetrics } from './dashboard/demo-dashboard';
 import { defineHandler } from './demo-api-mock.models';
 import { createId, randomString } from './demo.models';
 import {
@@ -25,7 +26,7 @@ import {
   webhooksStorage,
 } from './demo.storage';
 import { findMany, getValues } from './demo.storage.models';
-import { getDemoEntityCustomPropertyValues, invoicingHandlers } from './invoicing/demo-invoicing';
+import { getDemoEntityCustomPropertyValues, getDemoInvoicingRecords, invoicingHandlers } from './invoicing/demo-invoicing';
 import { miscHandlers } from './misc/demo-misc';
 import { generatePropertyKey, searchDemoDocuments } from './search/demo.search.services';
 import { demoUser } from './seed/users.fixtures';
@@ -978,6 +979,23 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
           maxFileSize: 1024 * 1024 * 50, // 50 MiB
         },
       };
+    },
+  }),
+
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/dashboard/metrics',
+    method: 'GET',
+    handler: async ({ params: { organizationId } }) => {
+      const organization = await organizationStorage.getItem(organizationId);
+
+      assert(organization, { status: 403 });
+
+      const [{ invoices, customers, currency }, documents] = await Promise.all([
+        getDemoInvoicingRecords({ organizationId }),
+        findMany(documentStorage, document => document?.organizationId === organizationId && !document?.deletedAt),
+      ]);
+
+      return { metrics: computeDemoDashboardMetrics({ invoices: invoices as never, customers, documents, currency }) };
     },
   }),
 

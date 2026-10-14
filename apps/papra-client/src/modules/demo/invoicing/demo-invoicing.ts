@@ -517,3 +517,18 @@ export type { Invoice };
 export async function listDemoInvoices(): Promise<Stored[]> {
   return Promise.all((await getValues(db().invoices)).map(hydrateInvoice));
 }
+
+/** Raw demo invoicing records, used to compute the home dashboard metrics in the browser */
+export async function getDemoInvoicingRecords({ organizationId }: { organizationId: string }) {
+  const [invoices, customers, profile] = await Promise.all([
+    getValues(db().invoices),
+    getValues(db().customers),
+    db().profile.getItem(organizationId),
+  ]);
+
+  return {
+    invoices: invoices.filter(invoice => invoice.organizationId === organizationId),
+    customers: customers.filter(customer => customer.organizationId === organizationId),
+    currency: (profile?.currency as string | undefined) ?? 'EUR',
+  };
+}

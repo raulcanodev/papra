@@ -5,6 +5,7 @@ import { registerApiKeysRoutes } from '../api-keys/api-keys.routes';
 import { registerCalendarRoutes } from '../calendar/calendar.routes';
 import { registerConfigRoutes } from '../config/config.routes';
 import { registerCustomPropertiesRoutes } from '../custom-properties/custom-properties.routes';
+import { registerDashboardRoutes } from '../dashboard/dashboard.routes';
 import { registerDocumentActivityRoutes } from '../documents/document-activity/document-activity.routes';
 import { registerDocumentsRoutes } from '../documents/documents.routes';
 import { registerFeatureFlagsRoutes } from '../feature-flags/feature-flags.routes';
@@ -39,6 +40,7 @@ export function registerRoutes(context: RouteDefinitionContext) {
   registerWebhooksRoutes(context);
   registerInvitationsRoutes(context);
   registerInvoicingRoutes(context);
+  registerDashboardRoutes(context);
   registerDocumentActivityRoutes(context);
   registerCustomPropertiesRoutes(context);
   registerAdminRoutes(context);

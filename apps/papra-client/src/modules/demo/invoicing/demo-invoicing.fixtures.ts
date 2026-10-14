@@ -82,7 +82,31 @@ export const demoInvoices: DemoInvoiceFixture[] = [
   { customerKey: 'norte', repKey: 'diego', status: 'issued', daysAgo: 45, paymentTermsDays: 15, notes: 'Factura vencida: recordatorio pendiente.', items: [{ productKey: 'web', description: 'Mantenimiento correctivo', quantity: 8, unitPriceMinor: 6500, taxKey: 'iva21' }] },
   { customerKey: 'verde', repKey: null, status: 'draft', daysAgo: 2, paymentTermsDays: 30, items: [{ productKey: 'consulting', description: 'Consultoría estratégica', quantity: 3, unitPriceMinor: 18000, taxKey: 'iva21' }] },
   { customerKey: 'bruma', repKey: 'laura', status: 'draft', daysAgo: 0, paymentTermsDays: 30, items: [{ productKey: 'catering', description: 'Servicio de catering', quantity: 2, unitPriceMinor: 35000, taxKey: 'iva10' }] },
+  ...buildDemoInvoiceHistory(),
 ];
+
+// Fifteen months of paid invoices before the hand written ones, so the home dashboard has a previous year to compare
+// with. Deterministic (no randomness) so every demo visitor sees the same figures, billing slowly growing over time.
+function buildDemoInvoiceHistory(): DemoInvoiceFixture[] {
+  const customerKeys = ['lumen', 'norte', 'cima', 'bruma', 'marta'];
+
+  return Array.from({ length: 15 }, (_, index) => {
+    const monthsBack = 15 - index;
+    const growth = 0.7 + index * 0.03;
+
+    return {
+      customerKey: customerKeys[index % customerKeys.length]!,
+      repKey: index % 2 === 0 ? 'laura' : 'diego',
+      status: 'paid' as const,
+      daysAgo: 135 + monthsBack * 30,
+      paymentTermsDays: 30,
+      items: [
+        { productKey: 'web', description: 'Desarrollo web', quantity: Math.round((10 + (index % 4) * 6) * growth), unitPriceMinor: 6500, taxKey: 'iva21' },
+        { productKey: 'hosting', description: 'Hosting y mantenimiento', quantity: 1, unitPriceMinor: 4500, taxKey: 'iva21' },
+      ],
+    };
+  });
+}
 
 export function daysAgoToDate(now: Date, daysAgo: number) {
   return new Date(now.getTime() - daysAgo * DAY);
