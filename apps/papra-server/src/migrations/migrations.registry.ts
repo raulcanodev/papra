@@ -5,6 +5,7 @@ import { entityCustomPropertiesMigration } from './list/0002-entity-custom-prope
 import { contactsMigration } from './list/0003-contacts.migration';
 import { invoiceWithholdingMigration } from './list/0004-invoice-withholding.migration';
 import { purchaseInvoicesMigration } from './list/0005-purchase-invoices.migration';
+import { taxProfileMigration } from './list/0006-tax-profile.migration';
 
 export const migrations: Migration[] = [
   postgresInitialSchemaMigration,
@@ -12,4 +13,5 @@ export const migrations: Migration[] = [
   contactsMigration,
   invoiceWithholdingMigration,
   purchaseInvoicesMigration,
+  taxProfileMigration,
 ];

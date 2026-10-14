@@ -615,3 +615,7 @@ export async function getDemoInvoicingRecords({ organizationId }: { organization
 export async function listDemoContacts({ organizationId }: { organizationId: string }) {
   return (await getValues(db().contacts)).filter(contact => contact.organizationId === organizationId);
 }
+
+export async function getDemoFiscalProfile({ organizationId }: { organizationId: string }) {
+  return db().profile.getItem(organizationId);
+}

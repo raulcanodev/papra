@@ -33,6 +33,8 @@ function setValidParams(path: string) {
     .replaceAll(':key', 'profile-key')
     .replaceAll(':contactId', 'ctc_333333333333333333333333')
     .replaceAll(':purchaseInvoiceId', 'pinv_333333333333333333333333')
+    .replaceAll(':year', '2026')
+    .replaceAll(':quarter', '3')
     .replaceAll(':entityType', 'customer')
     .replaceAll(':entityId', 'cus_333333333333333333333333')
     .replaceAll(':resourceId', 'resource_333333333333333333333333');

@@ -8,12 +8,18 @@ export type TaxRateInput = z.infer<typeof taxRateSchema>;
 export type InvoiceSeriesInput = z.infer<typeof invoiceSeriesSchema>;
 export type InvoiceBrandingInput = z.infer<typeof invoiceBrandingSchema>;
 
+// Amounts of one line, rounded to the cent line by line: the single place every total (invoices, purchases, taxes) comes from
+export function getLineAmounts(item: Pick<InvoiceDraftInput['items'][number], 'quantityMillis' | 'unitPriceMinor' | 'discountRateBps' | 'taxRateBps'>) {
+  const gross = Math.round(item.quantityMillis * item.unitPriceMinor / 1_000);
+  const netMinor = gross - Math.round(gross * item.discountRateBps / 10_000);
+  const taxMinor = Math.round(netMinor * item.taxRateBps / 10_000);
+
+  return { netMinor, taxMinor };
+}
+
 export function calculateInvoiceTotals({ items, withholdingRateBps }: Pick<InvoiceDraftInput, 'items' | 'withholdingRateBps'>) {
   const totals = items.reduce((sums, item) => {
-    const gross = Math.round(item.quantityMillis * item.unitPriceMinor / 1_000);
-    const discountMinor = Math.round(gross * item.discountRateBps / 10_000);
-    const netMinor = gross - discountMinor;
-    const taxMinor = Math.round(netMinor * item.taxRateBps / 10_000);
+    const { netMinor, taxMinor } = getLineAmounts(item);
 
     return {
       subtotalMinor: sums.subtotalMinor + netMinor,

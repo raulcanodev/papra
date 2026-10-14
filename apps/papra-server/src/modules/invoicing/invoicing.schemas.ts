@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { entityCustomPropertiesInputSchema } from '../custom-properties/entity-custom-properties.usecases';
+import { INCOME_TAX_METHODS, LEGAL_FORMS, VAT_REGIMES } from '../taxes/taxes.constants';
 import { INVOICE_STATUSES, INVOICE_TEMPLATE_IDS, VERIFACTU_MODES } from './invoicing.constants';
 
 const optionalText = z.string().trim().max(500).optional().nullable();
@@ -24,6 +25,11 @@ export const fiscalProfileSchema = z.object({
   defaultTerms: z.string().trim().max(5_000).optional().nullable(),
   templateId: z.enum(INVOICE_TEMPLATE_IDS).default('minimal'),
   defaultWithholdingRateBps: withholdingRateBpsSchema.default(0),
+  legalForm: z.enum(LEGAL_FORMS).optional().nullable(),
+  vatRegime: z.enum(VAT_REGIMES).default('general'),
+  incomeTaxMethod: z.enum(INCOME_TAX_METHODS).default('direct_simplified'),
+  lastCorporateTaxQuotaMinor: z.number().int().min(0).max(100_000_000_000).optional().nullable(),
+  accountantEmail: z.string().trim().email().optional().nullable(),
 });
 
 export const productSchema = z.object({

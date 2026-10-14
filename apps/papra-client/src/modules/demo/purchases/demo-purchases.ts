@@ -189,3 +189,7 @@ export const purchasesHandlers = {
     },
   }),
 };
+
+export async function listDemoPurchaseInvoices({ organizationId }: { organizationId: string }) {
+  return (await getValues(db())).filter(purchaseInvoice => purchaseInvoice.organizationId === organizationId);
+}

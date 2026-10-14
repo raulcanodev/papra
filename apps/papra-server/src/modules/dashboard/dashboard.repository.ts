@@ -56,8 +56,8 @@ async function getOrganizationMetrics({ db, organizationId, now = new Date() }: 
         // What customers still owe: the total minus the withholding they pay to the tax agency instead
         totalMinor: sql<number>`coalesce(sum(${invoicesTable.totalMinor} - ${invoicesTable.withholdingMinor}), 0)::double precision`,
         count: sql<number>`count(*)::int`,
-        overdueTotalMinor: sql<number>`coalesce(sum(${invoicesTable.totalMinor} - ${invoicesTable.withholdingMinor}) filter (where ${invoicesTable.dueDate} < ${now}), 0)::double precision`,
-        overdueCount: sql<number>`(count(*) filter (where ${invoicesTable.dueDate} < ${now}))::int`,
+        overdueTotalMinor: sql<number>`coalesce(sum(${invoicesTable.totalMinor} - ${invoicesTable.withholdingMinor}) filter (where ${lt(invoicesTable.dueDate, now)}), 0)::double precision`,
+        overdueCount: sql<number>`(count(*) filter (where ${lt(invoicesTable.dueDate, now)}))::int`,
       })
       .from(invoicesTable)
       .where(and(eq(invoicesTable.organizationId, organizationId), inArray(invoicesTable.status, UNPAID_INVOICE_STATUSES), eq(invoicesTable.currency, currency))),
@@ -65,8 +65,8 @@ async function getOrganizationMetrics({ db, organizationId, now = new Date() }: 
     db
       .select({
         total: sql<number>`count(*)::int`,
-        newThisMonth: sql<number>`(count(*) filter (where ${contactsTable.createdAt} >= ${periods.startOfMonth}))::int`,
-        newPreviousMonth: sql<number>`(count(*) filter (where ${contactsTable.createdAt} >= ${periods.startOfPreviousMonth} and ${contactsTable.createdAt} < ${periods.startOfMonth}))::int`,
+        newThisMonth: sql<number>`(count(*) filter (where ${gte(contactsTable.createdAt, periods.startOfMonth)}))::int`,
+        newPreviousMonth: sql<number>`(count(*) filter (where ${and(gte(contactsTable.createdAt, periods.startOfPreviousMonth), lt(contactsTable.createdAt, periods.startOfMonth))}))::int`,
       })
       .from(contactsTable)
       .where(and(eq(contactsTable.organizationId, organizationId), eq(contactsTable.isCustomer, true), isNull(contactsTable.archivedAt))),
@@ -74,8 +74,8 @@ async function getOrganizationMetrics({ db, organizationId, now = new Date() }: 
     db
       .select({
         total: sql<number>`count(*)::int`,
-        newThisMonth: sql<number>`(count(*) filter (where ${documentsTable.createdAt} >= ${periods.startOfMonth}))::int`,
-        newPreviousMonth: sql<number>`(count(*) filter (where ${documentsTable.createdAt} >= ${periods.startOfPreviousMonth} and ${documentsTable.createdAt} < ${periods.startOfMonth}))::int`,
+        newThisMonth: sql<number>`(count(*) filter (where ${gte(documentsTable.createdAt, periods.startOfMonth)}))::int`,
+        newPreviousMonth: sql<number>`(count(*) filter (where ${and(gte(documentsTable.createdAt, periods.startOfPreviousMonth), lt(documentsTable.createdAt, periods.startOfMonth))}))::int`,
       })
       .from(documentsTable)
       .where(and(eq(documentsTable.organizationId, organizationId), eq(documentsTable.isDeleted, false))),

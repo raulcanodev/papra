@@ -18,6 +18,13 @@ export const demoFiscalProfile = {
   defaultNotes: 'Gracias por confiar en Acme SL.',
   defaultTerms: 'Pago por transferencia en un plazo de 30 días desde la fecha de factura.',
   templateId: 'minimal' as const,
+  defaultWithholdingRateBps: 0,
+  // A company: VAT return and corporate tax instalments in the taxes page
+  legalForm: 'company' as const,
+  vatRegime: 'general' as const,
+  incomeTaxMethod: 'direct_simplified' as const,
+  lastCorporateTaxQuotaMinor: 1_250_000,
+  accountantEmail: 'gestoria@ejemplo.example',
 };
 
 export const demoBranding = {

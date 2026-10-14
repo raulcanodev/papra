@@ -3,6 +3,7 @@ import { contactsTable } from '../contacts/contacts.table';
 import { documentsTable } from '../documents/documents.table';
 import { organizationsTable } from '../organizations/organizations.table';
 import { createPrimaryKeyField, createTimestampColumns } from '../shared/db/columns.helpers';
+import { INCOME_TAX_METHODS, LEGAL_FORMS, VAT_REGIMES } from '../taxes/taxes.constants';
 import { usersTable } from '../users/users.table';
 import { INVOICE_EVENT_ID_PREFIX, INVOICE_ID_PREFIX, INVOICE_ITEM_ID_PREFIX, INVOICE_SERIES_ID_PREFIX, PRODUCT_ID_PREFIX, TAX_RATE_ID_PREFIX, VERIFACTU_ATTEMPT_ID_PREFIX, VERIFACTU_RECORD_ID_PREFIX } from './invoicing.constants';
 
@@ -26,6 +27,14 @@ export const invoicingProfilesTable = pgTable('invoicing_profiles', {
   templateId: text('template_id').notNull().default('minimal'),
   // IRPF withholding applied by default on new invoices (15% for professionals, 7% the first years, 0 otherwise)
   defaultWithholdingRateBps: integer('default_withholding_rate_bps').notNull().default(0),
+  // Tax profile used by the quarterly taxes estimation (null until the organization fills it in)
+  legalForm: text('legal_form', { enum: LEGAL_FORMS }),
+  vatRegime: text('vat_regime', { enum: VAT_REGIMES }).notNull().default('general'),
+  incomeTaxMethod: text('income_tax_method', { enum: INCOME_TAX_METHODS }).notNull().default('direct_simplified'),
+  // Companies: the corporate tax quota of the last closed year, base of the model 202 instalments
+  lastCorporateTaxQuotaMinor: integer('last_corporate_tax_quota_minor'),
+  // Where the quarterly documents for the accountant are sent
+  accountantEmail: text('accountant_email'),
 });
 
 export const invoiceSeriesTable = pgTable('invoice_series', {

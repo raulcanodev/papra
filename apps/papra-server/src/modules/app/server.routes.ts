@@ -20,6 +20,7 @@ import { registerPurchasesRoutes } from '../purchases/purchases.routes';
 import { registerSubscriptionsRoutes } from '../subscriptions/subscriptions.routes';
 import { registerTaggingRulesRoutes } from '../tagging-rules/tagging-rules.routes';
 import { registerTagsRoutes } from '../tags/tags.routes';
+import { registerTaxesRoutes } from '../taxes/taxes.routes';
 import { registerUsersRoutes } from '../users/users.routes';
 import { registerWebhooksRoutes } from '../webhooks/webhooks.routes';
 import { registerAuthRoutes } from './auth/auth.routes';
@@ -44,6 +45,7 @@ export function registerRoutes(context: RouteDefinitionContext) {
   registerContactsRoutes(context);
   registerInvoicingRoutes(context);
   registerPurchasesRoutes(context);
+  registerTaxesRoutes(context);
   registerDashboardRoutes(context);
   registerDocumentActivityRoutes(context);
   registerCustomPropertiesRoutes(context);
