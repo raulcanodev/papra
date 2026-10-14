@@ -61,7 +61,10 @@ jobs:
 
       # Tests are run using vitest projects
       - name: Run tests
-        run: pnpm test
+        run: |
+          pnpm test
+          pnpm --filter @papra/mcp-server test
+          pnpm --filter @papra/mcp test
 
       # Now build the apps, the longer step, so we do it last as they are more unlikely to fail if the previous steps works
       - name: Build the apps

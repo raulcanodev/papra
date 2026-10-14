@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     isolate: false,
     reporters: ['verbose'],
-    projects: ['apps/*', 'packages/*'],
+    projects: ['apps/*/vitest.config.ts', 'packages/*/vitest.config.ts'],
     coverage: {
       include: ['packages/*/src'],
     },
