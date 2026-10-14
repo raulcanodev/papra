@@ -32,6 +32,54 @@ export const API_KEY_PERMISSIONS = [
       'tags:delete',
     ],
   },
+  {
+    section: 'contacts',
+    permissions: [
+      'contacts:create',
+      'contacts:read',
+      'contacts:update',
+      'contacts:delete',
+    ],
+  },
+  {
+    section: 'products',
+    permissions: [
+      'products:create',
+      'products:read',
+      'products:update',
+      'products:delete',
+    ],
+  },
+  {
+    section: 'invoices',
+    permissions: [
+      'invoices:create',
+      'invoices:read',
+      'invoices:update',
+      'invoices:delete',
+    ],
+  },
+  {
+    section: 'purchases',
+    permissions: [
+      'purchases:create',
+      'purchases:read',
+      'purchases:update',
+      'purchases:delete',
+    ],
+  },
+  {
+    section: 'taxes',
+    permissions: [
+      'taxes:read',
+    ],
+  },
+  {
+    section: 'calendar',
+    permissions: [
+      'calendar:read',
+    ],
+  },
 ] as const;
 
 export const API_KEY_PERMISSIONS_LIST = API_KEY_PERMISSIONS.flatMap(permission => permission.permissions);

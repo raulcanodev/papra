@@ -189,6 +189,22 @@ const settingsNavigation: readonly NavigationSectionDefinition[] = [
   },
 ];
 
+// Pages that open one record or a creation form: they are not in the menu but are real destinations,
+// and the assistant is told about them. Declared once, the router and the assistant both read this.
+export const organizationEntityRoutes = {
+  document: { path: 'documents/:documentId', label: 'Document viewer' },
+  newInvoice: { path: 'invoicing/invoices/new', label: 'New issued invoice' },
+  editInvoice: { path: 'invoicing/invoices/:invoiceId/edit', label: 'Issued invoice editor' },
+  newPurchaseInvoice: { path: 'invoicing/invoices/received/new', label: 'New received invoice' },
+  editPurchaseInvoice: { path: 'invoicing/invoices/received/:purchaseInvoiceId/edit', label: 'Received invoice editor' },
+} as const satisfies Record<string, { path: string; label: string }>;
+
+export type OrganizationEntityRouteId = keyof typeof organizationEntityRoutes;
+
+export function getOrganizationEntityRoutePath(routeId: OrganizationEntityRouteId) {
+  return `/${organizationEntityRoutes[routeId].path}`;
+}
+
 export function getOrganizationRouteHref({ organizationId, routeId }: { organizationId: string; routeId: OrganizationRouteId }) {
   return `/organizations/${organizationId}/${organizationRoutes[routeId].path}`;
 }

@@ -69,7 +69,7 @@ import { QuarterlyTaxesPage } from './modules/taxes/pages/quarterly-taxes.page';
 import { OrganizationSettingsLayout } from './modules/ui/layouts/organization-settings.layout';
 import { OrganizationLayout } from './modules/ui/layouts/organization.layout';
 import { SettingsLayout } from './modules/ui/layouts/settings.layout';
-import { getOrganizationNestedRoutePath, getOrganizationRouteChildHref, getOrganizationRouteHref } from './modules/ui/navigation/organization-navigation';
+import { getOrganizationEntityRoutePath, getOrganizationNestedRoutePath, getOrganizationRouteChildHref, getOrganizationRouteHref } from './modules/ui/navigation/organization-navigation';
 import { OrganizationPlaceholderPage } from './modules/ui/pages/organization-placeholder.page';
 import { UserSettingsPage } from './modules/users/pages/user-settings.page';
 import { CreateWebhookPage } from './modules/webhooks/pages/create-webhook.page';
@@ -203,7 +203,7 @@ export const routes: RouteDefinition[] = [
                         component: DocumentsPage,
                       },
                       {
-                        path: '/documents/:documentId',
+                        path: getOrganizationEntityRoutePath('document'),
                         component: DocumentPage,
                       },
                       {
@@ -219,7 +219,7 @@ export const routes: RouteDefinition[] = [
                         component: CalendarPage,
                       },
                       {
-                        path: ['/invoicing/invoices/new', '/invoicing/invoices/:invoiceId/edit'],
+                        path: [getOrganizationEntityRoutePath('newInvoice'), getOrganizationEntityRoutePath('editInvoice')],
                         component: CreateInvoicePage,
                       },
                       {
@@ -231,7 +231,7 @@ export const routes: RouteDefinition[] = [
                         component: PurchasesPage,
                       },
                       {
-                        path: ['/invoicing/invoices/received/new', '/invoicing/invoices/received/:purchaseInvoiceId/edit'],
+                        path: [getOrganizationEntityRoutePath('newPurchaseInvoice'), getOrganizationEntityRoutePath('editPurchaseInvoice')],
                         component: PurchaseEditorPage,
                       },
                       {

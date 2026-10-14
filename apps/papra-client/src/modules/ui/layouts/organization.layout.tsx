@@ -10,7 +10,6 @@ import { AiAssistant } from '@/modules/ai-assistant/pages/ai-assistant.page';
 import { useCommandPalette } from '@/modules/command-palette/command-palette.provider';
 import { useConfig } from '@/modules/config/config.provider';
 import { DocumentUploadProvider } from '@/modules/documents/components/document-import-status.component';
-import { useFeatureFlags } from '@/modules/feature-flags/feature-flags.provider';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { fetchOrganization, fetchOrganizations } from '@/modules/organizations/organizations.services';
 import { queryClient } from '@/modules/shared/query/query-client';
@@ -19,6 +18,7 @@ import { UpgradeDialog } from '@/modules/subscriptions/components/upgrade-dialog
 import { fetchOrganizationSubscription } from '@/modules/subscriptions/subscriptions.services';
 import { SideNav } from '@/modules/ui/components/sidenav';
 import { buildOrganizationWorkspaceNavigation, getOrganizationRouteHref, getOrganizationRouteLabelKey } from '@/modules/ui/navigation/organization-navigation';
+import { useNavigationCapabilities } from '@/modules/ui/navigation/use-navigation-capabilities';
 import { UserSettingsDropdown } from '@/modules/users/components/user-settings.component';
 import { useCurrentUser } from '@/modules/users/composables/useCurrentUser';
 import { Button } from '../components/button';
@@ -82,14 +82,10 @@ const OrganizationLayoutSideNav: Component = () => {
   const navigate = useNavigate();
   const params = useParams();
   const { t } = useI18n();
-  const { hasFlag } = useFeatureFlags();
   const { openCommandPalette } = useCommandPalette();
   const { user, hasPermission } = useCurrentUser();
 
-  const getCapabilities = () => ({
-    'invoicing': true,
-    'personal-finances': hasFlag('llc_finances'),
-  } as const);
+  const getCapabilities = useNavigationCapabilities();
 
   const getMainMenuSections = () => buildOrganizationWorkspaceNavigation({
     organizationId: params.organizationId,
