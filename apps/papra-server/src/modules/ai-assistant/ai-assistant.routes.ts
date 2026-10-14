@@ -7,6 +7,7 @@ import { organizationIdSchema } from '../organizations/organization.schemas.lega
 import { createOrganizationsRepository } from '../organizations/organizations.repository';
 import { ensureUserIsInOrganization } from '../organizations/organizations.usecases';
 import { legacyValidateJsonBody, legacyValidateParams } from '../shared/validation/validation.legacy';
+import { getAssistantCapabilities } from './ai-assistant.capabilities.usecases';
 import { AI_CHAT_SESSION_ID_REGEX } from './ai-assistant.constants';
 import { createAiNotConfiguredError } from './ai-assistant.errors';
 import { AI_MODELS } from './ai-assistant.models';
@@ -77,7 +78,8 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
       const modelLabel = resolvedModelDef?.label ?? resolvedModelId;
       const providerLabel = ({ xai: 'xAI (Grok)', openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google' } as Record<string, string>)[provider] ?? provider;
       const { profile: userProfile } = await aiAssistantRepository.getUserProfile({ userId });
-      const systemPrompt = buildSystemPrompt({ now: new Date(), providerLabel, modelLabel, profile: userProfile, pageContext, organizationId });
+      const capabilities = await getAssistantCapabilities({ userId, db });
+      const systemPrompt = buildSystemPrompt({ now: new Date(), providerLabel, modelLabel, profile: userProfile, pageContext, organizationId, capabilities });
 
       const { tools } = createAssistantToolset({
         db,
@@ -91,6 +93,7 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
         requestHeaders: context.req.raw.headers,
         env: context.env,
         pageContext,
+        capabilities,
       });
 
       // Create or reuse chat session
@@ -270,6 +273,7 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
         requestHeaders: context.req.raw.headers,
         env: context.env,
         pageContext: undefined,
+        capabilities: await getAssistantCapabilities({ userId, db }),
       });
 
       const executor = executors[toolName];

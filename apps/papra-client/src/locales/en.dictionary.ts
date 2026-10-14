@@ -1460,6 +1460,8 @@ export const translations = {
   'ai-assistant.model.select': 'Select model',
   'ai-assistant.suggestion.documents-overview': 'What are my documents about?',
   'ai-assistant.suggestion.find-invoices': 'Find invoices and tell me the total amounts',
+  'ai-assistant.suggestion.quarterly-taxes': 'What taxes do I have to pay this quarter?',
+  'ai-assistant.suggestion.unpaid-invoices': 'Which invoices have not been paid yet?',
   'ai-assistant.suggestion.financial-summary': 'Show me a financial summary of my transactions',
   'ai-assistant.suggestion.transfer-rules': 'Find all transfers between owners and create a rule',
   'ai-assistant.suggestion.classify-rules': 'Analyze my transactions and suggest classification rules',

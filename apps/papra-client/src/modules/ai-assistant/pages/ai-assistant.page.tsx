@@ -1,6 +1,7 @@
 import type { Component, JSX } from 'solid-js';
 import type { ChatMessage, ChatSession, ToolConfirmation } from '../ai-assistant.services';
 import type { TranslationKeys } from '@/modules/i18n/locales.types';
+import type { OrganizationNavigationCapability } from '@/modules/ui/navigation/organization-navigation';
 import { useLocation, useNavigate, useParams } from '@solidjs/router';
 import remarkGfm from 'remark-gfm';
 import { createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
@@ -18,13 +19,16 @@ import { deleteChatSession, executeToolAction, fetchAiModels, fetchChatSession, 
 import { buildPageContext } from '../page-context/build-page-context';
 import { capturePageSnapshot } from '../page-context/capture-page-snapshot';
 
-const PLACEHOLDER_SUGGESTION_CONFIG = [
-  { icon: 'i-tabler-files', key: 'ai-assistant.suggestion.documents-overview' as const },
-  { icon: 'i-tabler-file-search', key: 'ai-assistant.suggestion.find-invoices' as const },
-  { icon: 'i-tabler-chart-bar', key: 'ai-assistant.suggestion.financial-summary' as const },
-  { icon: 'i-tabler-transfer', key: 'ai-assistant.suggestion.transfer-rules' as const },
-  { icon: 'i-tabler-tag', key: 'ai-assistant.suggestion.classify-rules' as const },
-  { icon: 'i-tabler-help', key: 'ai-assistant.suggestion.unclassified' as const },
+// Suggestions about bank transactions only for users with the personal finances module, like its tools on the server
+const PLACEHOLDER_SUGGESTION_CONFIG: Array<{ icon: string; key: TranslationKeys; requires?: OrganizationNavigationCapability }> = [
+  { icon: 'i-tabler-files', key: 'ai-assistant.suggestion.documents-overview' },
+  { icon: 'i-tabler-file-search', key: 'ai-assistant.suggestion.find-invoices' },
+  { icon: 'i-tabler-receipt-tax', key: 'ai-assistant.suggestion.quarterly-taxes' },
+  { icon: 'i-tabler-clock-dollar', key: 'ai-assistant.suggestion.unpaid-invoices' },
+  { icon: 'i-tabler-chart-bar', key: 'ai-assistant.suggestion.financial-summary', requires: 'personal-finances' },
+  { icon: 'i-tabler-transfer', key: 'ai-assistant.suggestion.transfer-rules', requires: 'personal-finances' },
+  { icon: 'i-tabler-tag', key: 'ai-assistant.suggestion.classify-rules', requires: 'personal-finances' },
+  { icon: 'i-tabler-help', key: 'ai-assistant.suggestion.unclassified', requires: 'personal-finances' },
 ];
 
 // The public demo only has invoices to talk about.
@@ -754,7 +758,8 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
   const models = () => modelsData()?.models ?? [];
   const currentModel = () => selectedModel() || modelsData()?.defaultModel || '';
   const sessions = () => sessionsData()?.sessions ?? [];
-  const suggestions = () => (isDemoMode ? DEMO_SUGGESTION_CONFIG : PLACEHOLDER_SUGGESTION_CONFIG).map(s => ({ icon: s.icon, text: t(s.key) }));
+  const suggestions = () => (isDemoMode ? DEMO_SUGGESTION_CONFIG : PLACEHOLDER_SUGGESTION_CONFIG.filter(suggestion => suggestion.requires === undefined || getNavigationCapabilities()[suggestion.requires]))
+    .map(suggestion => ({ icon: suggestion.icon, text: t(suggestion.key) }));
 
   function selectModel(id: string) {
     setSelectedModel(id);

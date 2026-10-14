@@ -24,6 +24,7 @@ export function createAssistantToolset({ app, requestHeaders, env, pageContext, 
   env: unknown;
   pageContext: PageContext | undefined;
 }) {
+  // The legacy tools already leave out what the capabilities forbid, for tools and executors alike
   const legacy = createAssistantTools(legacyParams);
 
   const catalog = createCatalogAssistantTools({

@@ -81,4 +81,12 @@ describe('ai assistant approved actions e2e', () => {
     expect((await approve({ toolName: 'list_contacts', args: {} })).status).to.eql(400);
     expect((await approve({ toolName: 'create_contact', args: { name: 'Intruder' }, userId: OUTSIDER_ID })).status).to.eql(403);
   });
+
+  test('without the personal finances feature flag, a finances action cannot be executed even with a crafted request', async () => {
+    const { approve } = await setupApp();
+
+    const { status } = await approve({ toolName: 'deleteClassificationRule', args: { ruleId: 'rule_1' } });
+
+    expect(status).to.eql(400);
+  });
 });

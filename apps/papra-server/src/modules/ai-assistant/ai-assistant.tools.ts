@@ -2,6 +2,7 @@ import type { Database } from '../app/database/database.types';
 import type { CustomPropertyEntityType } from '../custom-properties/custom-properties.constants';
 import type { DocumentSearchServices } from '../documents/document-search/document-search.types';
 import type { FinancesRepository } from '../finances/finances.repository';
+import type { AssistantCapabilities } from './ai-assistant.capabilities';
 import type { AiAssistantRepository } from './ai-assistant.repository';
 import { tool, zodSchema } from 'ai';
 import { z } from 'zod';
@@ -18,6 +19,7 @@ import { createSubscriptionsRepository } from '../subscriptions/subscriptions.re
 import { createTaggingRulesRepository } from '../tagging-rules/tagging-rules.repository';
 import { createTaggingRule as createTaggingRuleUsecase } from '../tagging-rules/tagging-rules.usecases';
 import { createTagsRepository } from '../tags/tags.repository';
+import { pickAllowedTools } from './ai-assistant.capabilities';
 import { createConfirmationResult } from './tools/confirmation';
 import { searchTavily } from './tools/web-search';
 
@@ -142,17 +144,17 @@ const getDocumentByIdParams = z.object({
   documentId: z.string().min(1).describe('The ID of the document to retrieve'),
 });
 
-const applyTagParams = z.object({
-  entityType: z.enum(['document', 'transaction']).describe('Whether to apply the tag to a document or transaction'),
-  entityId: z.string().min(1).describe('The ID of the document or transaction'),
-  tagId: z.string().min(1).describe('The ID of the tag to apply. Use listTags to find available tags.'),
-});
+type TaggableEntityType = 'document' | 'transaction';
 
-const removeTagParams = z.object({
-  entityType: z.enum(['document', 'transaction']).describe('Whether to remove the tag from a document or transaction'),
-  entityId: z.string().min(1).describe('The ID of the document or transaction'),
-  tagId: z.string().min(1).describe('The ID of the tag to remove'),
-});
+function createTagTargetParams({ entityTypes, tagIdDescription }: { entityTypes: [TaggableEntityType, ...TaggableEntityType[]]; tagIdDescription: string }) {
+  const targets = entityTypes.join(' or ');
+
+  return z.object({
+    entityType: z.enum(entityTypes).describe(`What the tag goes on: ${targets}`),
+    entityId: z.string().min(1).describe(`The ID of the ${targets}`),
+    tagId: z.string().min(1).describe(tagIdDescription),
+  });
+}
 
 const createTagParams = z.object({
   name: z.string().min(1).max(64).describe('Name for the new tag'),
@@ -238,9 +240,11 @@ const setTransactionCustomPropertyParams = z.object({
   value: z.string().describe('Value to set. Encoding: text→plain string; number→numeric string like "42.5"; date→ISO 8601 like "2024-01-15"; boolean→"true" or "false"; select→single option ID; multi_select→comma-separated option IDs like "id1,id2"'),
 });
 
-const listCustomPropertyDefinitionsParams = z.object({
-  entityType: z.enum(CUSTOM_PROPERTY_ENTITY_TYPES_LIST as [CustomPropertyEntityType, ...CustomPropertyEntityType[]]).default(CUSTOM_PROPERTY_ENTITY_TYPES.TRANSACTION).describe('Entity type the properties apply to: document, transaction, customer, product or sales_representative'),
-});
+function createListCustomPropertyDefinitionsParams({ entityTypes, defaultEntityType }: { entityTypes: [CustomPropertyEntityType, ...CustomPropertyEntityType[]]; defaultEntityType: CustomPropertyEntityType }) {
+  return z.object({
+    entityType: z.enum(entityTypes).default(defaultEntityType).describe(`Entity type the properties apply to: ${entityTypes.join(', ')}`),
+  });
+}
 
 const deleteTransactionCustomPropertyParams = z.object({
   transactionId: z.string().min(1).describe('ID of the transaction'),
@@ -253,7 +257,8 @@ const webSearchParams = z.object({
   maxResults: z.number().int().min(1).max(10).default(5).describe('Number of results to return. Use 3-5 for most queries, up to 10 for broad research.'),
 });
 
-export function createAssistantTools({ db, organizationId, userId, authSecret, documentSearchServices, tavilyApiKey, aiAssistantRepository }: {
+export function createAssistantTools({ db, organizationId, userId, authSecret, documentSearchServices, tavilyApiKey, aiAssistantRepository, capabilities }: {
+  capabilities: AssistantCapabilities;
   db: Database;
   organizationId: string;
   userId: string;
@@ -268,6 +273,18 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
   const taggingRulesRepo = createTaggingRulesRepository({ db });
   const subscriptionsRepo = createSubscriptionsRepository({ db });
   const customPropertiesRepo = createCustomPropertiesRepository({ db });
+
+  // Without personal finances, transactions are not something the assistant knows about at all
+  const taggableEntityTypes: [TaggableEntityType, ...TaggableEntityType[]] = capabilities.personalFinances ? ['document', 'transaction'] : ['document'];
+  const taggableEntitiesLabel = taggableEntityTypes.join(' or ');
+  const applyTagParams = createTagTargetParams({ entityTypes: taggableEntityTypes, tagIdDescription: 'The ID of the tag to apply. Use listTags to find available tags.' });
+  const removeTagParams = createTagTargetParams({ entityTypes: taggableEntityTypes, tagIdDescription: 'The ID of the tag to remove' });
+  const customPropertyEntityTypes = (CUSTOM_PROPERTY_ENTITY_TYPES_LIST as CustomPropertyEntityType[])
+    .filter(entityType => capabilities.personalFinances || entityType !== CUSTOM_PROPERTY_ENTITY_TYPES.TRANSACTION) as [CustomPropertyEntityType, ...CustomPropertyEntityType[]];
+  const listCustomPropertyDefinitionsParams = createListCustomPropertyDefinitionsParams({
+    entityTypes: customPropertyEntityTypes,
+    defaultEntityType: capabilities.personalFinances ? CUSTOM_PROPERTY_ENTITY_TYPES.TRANSACTION : CUSTOM_PROPERTY_ENTITY_TYPES.DOCUMENT,
+  });
 
   // Write tool executors (actual business logic)
   const executors: Record<string, (args: any) => Promise<any>> = {
@@ -455,7 +472,9 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
     }),
 
     listTags: tool({
-      description: 'List all tags for this organization. Tags can be used to label documents via tagging rules and also applied to transactions via classification rules. Use tag IDs when creating classification rules with tagIds parameter.',
+      description: capabilities.personalFinances
+        ? 'List all tags for this organization. Tags can be used to label documents via tagging rules and also applied to transactions via classification rules. Use tag IDs when creating classification rules with tagIds parameter.'
+        : 'List all tags for this organization. Tags label documents, by hand or with tagging rules.',
       inputSchema: zodSchema(emptyParams),
       execute: async () => {
         const { tags } = await tagsRepo.getOrganizationTags({ organizationId });
@@ -638,7 +657,7 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
     }),
 
     applyTag: tool({
-      description: 'Apply a tag to a document or transaction. Use listTags to find the tag ID first. If the tag does not exist, create it with createTag first.',
+      description: `Apply a tag to a ${taggableEntitiesLabel}. Use listTags to find the tag ID first. If the tag does not exist, create it with createTag first.`,
       inputSchema: zodSchema(applyTagParams),
       execute: async (args) => {
         if (args.entityType === 'document') {
@@ -652,7 +671,7 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
     }),
 
     removeTag: tool({
-      description: 'Remove a tag from a document or transaction.',
+      description: `Remove a tag from a ${taggableEntitiesLabel}.`,
       inputSchema: zodSchema(removeTagParams),
       execute: async (args) => {
         if (args.entityType === 'document') {
@@ -845,7 +864,9 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
     }),
 
     listCustomPropertyDefinitions: tool({
-      description: 'List the custom property definitions of the organization for an entity type (defaults to transaction). Returns id, name, key, type, and available options for select/multi_select types. Use this before setting transaction custom properties to find propertyDefinitionId and understand expected value types.',
+      description: capabilities.personalFinances
+        ? 'List the custom property definitions of the organization for an entity type (defaults to transaction). Returns id, name, key, type, and available options for select/multi_select types. Use this before setting transaction custom properties to find propertyDefinitionId and understand expected value types.'
+        : 'List the custom property definitions of the organization for an entity type (defaults to document). Returns id, name, key, type, and available options for select/multi_select types.',
       inputSchema: zodSchema(listCustomPropertyDefinitionsParams),
       execute: async (args) => {
         const { propertyDefinitions } = await customPropertiesRepo.getOrganizationPropertyDefinitions({ organizationId, entityTypes: [args.entityType] });
@@ -922,7 +943,10 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
     }),
   };
 
-  return { tools, executors };
+  return {
+    tools: pickAllowedTools({ tools, capabilities }),
+    executors: pickAllowedTools({ tools: executors, capabilities }),
+  };
 }
 
 async function runAutoClassify({ financesRepo, tagsRepo, organizationId }: { financesRepo: FinancesRepository; tagsRepo: ReturnType<typeof createTagsRepository>; organizationId: string }) {

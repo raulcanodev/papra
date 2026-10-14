@@ -1462,6 +1462,8 @@ export const translations: Partial<TranslationsDictionary> = {
   'ai-assistant.model.select': 'Seleccionar modelo',
   'ai-assistant.suggestion.documents-overview': '¿De qué tratan mis documentos?',
   'ai-assistant.suggestion.find-invoices': 'Busca facturas y dime los importes totales',
+  'ai-assistant.suggestion.quarterly-taxes': '¿Qué impuestos tengo que pagar este trimestre?',
+  'ai-assistant.suggestion.unpaid-invoices': '¿Qué facturas me quedan por cobrar?',
   'ai-assistant.suggestion.financial-summary': 'Muéstrame un resumen financiero de mis transacciones',
   'ai-assistant.suggestion.transfer-rules': 'Encuentra todas las transferencias entre propietarios y crea una regla',
   'ai-assistant.suggestion.classify-rules': 'Analiza mis transacciones y sugiere reglas de clasificación',
