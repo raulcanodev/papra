@@ -1,10 +1,14 @@
 import type { Database } from '../app/database/database.types';
+import type { CustomPropertyEntityType } from '../custom-properties/custom-properties.constants';
 import type { DocumentSearchServices } from '../documents/document-search/document-search.types';
 import type { FinancesRepository } from '../finances/finances.repository';
 import type { AiAssistantRepository } from './ai-assistant.repository';
 import { tool, zodSchema } from 'ai';
 import { z } from 'zod';
+import { CUSTOM_PROPERTY_ENTITY_TYPES, CUSTOM_PROPERTY_ENTITY_TYPES_LIST } from '../custom-properties/custom-properties.constants';
 import { createCustomPropertiesRepository } from '../custom-properties/custom-properties.repository';
+import { ensurePropertyDefinitionExists, ensureTransactionCustomPropertyValuesAreValid } from '../custom-properties/custom-properties.usecases';
+import { createCustomPropertiesOptionsRepository } from '../custom-properties/options/custom-properties-options.repository';
 import { searchOrganizationDocuments } from '../documents/document-search/document-search.usecase';
 import { createDocumentsRepository } from '../documents/documents.repository';
 import { convertCurrency } from '../finances/exchange-rates';
@@ -237,6 +241,10 @@ const setTransactionCustomPropertyParams = z.object({
   propertyDefinitionId: z.string().min(1).describe('ID of the property definition (from listCustomPropertyDefinitions)'),
   type: z.enum(['text', 'number', 'date', 'boolean', 'select', 'multi_select']).describe('Type of the property — use the type from listCustomPropertyDefinitions'),
   value: z.string().describe('Value to set. Encoding: text→plain string; number→numeric string like "42.5"; date→ISO 8601 like "2024-01-15"; boolean→"true" or "false"; select→single option ID; multi_select→comma-separated option IDs like "id1,id2"'),
+});
+
+const listCustomPropertyDefinitionsParams = z.object({
+  entityType: z.enum(CUSTOM_PROPERTY_ENTITY_TYPES_LIST as [CustomPropertyEntityType, ...CustomPropertyEntityType[]]).default(CUSTOM_PROPERTY_ENTITY_TYPES.TRANSACTION).describe('Entity type the properties apply to: document, transaction, customer, product or sales_representative'),
 });
 
 const deleteTransactionCustomPropertyParams = z.object({
@@ -874,10 +882,10 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
     }),
 
     listCustomPropertyDefinitions: tool({
-      description: 'List all custom property definitions for the organization. Returns id, name, key, type, and available options for select/multi_select types. Use this before setting transaction custom properties to find propertyDefinitionId and understand expected value types.',
-      inputSchema: zodSchema(emptyParams),
-      execute: async () => {
-        const { propertyDefinitions } = await customPropertiesRepo.getOrganizationPropertyDefinitions({ organizationId });
+      description: 'List the custom property definitions of the organization for an entity type (defaults to transaction). Returns id, name, key, type, and available options for select/multi_select types. Use this before setting transaction custom properties to find propertyDefinitionId and understand expected value types.',
+      inputSchema: zodSchema(listCustomPropertyDefinitionsParams),
+      execute: async (args) => {
+        const { propertyDefinitions } = await customPropertiesRepo.getOrganizationPropertyDefinitions({ organizationId, entityType: args.entityType });
         return {
           propertyDefinitions: propertyDefinitions.map(d => ({
             id: d.id,
@@ -894,6 +902,8 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
       description: 'Get all custom property values currently set on a specific transaction. Returns each property definition and its value. Use this before updating a property to see what is already set.',
       inputSchema: zodSchema(getTransactionCustomPropertiesParams),
       execute: async (args) => {
+        // The transaction id comes from the model, it must be checked against the organization
+        await financesRepo.getTransactionById({ transactionId: args.transactionId, organizationId });
         const { values } = await customPropertiesRepo.getTransactionCustomPropertyValues({ transactionId: args.transactionId });
         return {
           transactionId: args.transactionId,
@@ -917,6 +927,14 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
       inputSchema: zodSchema(setTransactionCustomPropertyParams),
       execute: async (args) => {
         const values = parseCustomPropertyValue(args.type, args.value);
+        await financesRepo.getTransactionById({ transactionId: args.transactionId, organizationId });
+        await ensureTransactionCustomPropertyValuesAreValid({
+          organizationId,
+          propertyDefinitionId: args.propertyDefinitionId,
+          values,
+          customPropertiesRepository: customPropertiesRepo,
+          customPropertiesOptionsRepository: createCustomPropertiesOptionsRepository({ db }),
+        });
         await customPropertiesRepo.setTransactionCustomPropertyValue({
           transactionId: args.transactionId,
           propertyDefinitionId: args.propertyDefinitionId,
@@ -930,6 +948,8 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
       description: 'Remove a custom property value from a transaction.',
       inputSchema: zodSchema(deleteTransactionCustomPropertyParams),
       execute: async (args) => {
+        await financesRepo.getTransactionById({ transactionId: args.transactionId, organizationId });
+        await ensurePropertyDefinitionExists({ propertyDefinitionId: args.propertyDefinitionId, organizationId, entityType: CUSTOM_PROPERTY_ENTITY_TYPES.TRANSACTION, customPropertiesRepository: customPropertiesRepo });
         await customPropertiesRepo.deleteTransactionCustomPropertyValue({
           transactionId: args.transactionId,
           propertyDefinitionId: args.propertyDefinitionId,

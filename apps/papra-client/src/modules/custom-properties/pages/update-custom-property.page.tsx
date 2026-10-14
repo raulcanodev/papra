@@ -23,8 +23,8 @@ export const UpdateCustomPropertyPage: Component = () => {
 
   const updateMutation = useMutation(() => ({
     mutationFn: async ({ propertyDefinition }: { propertyDefinition: PropertyDefinitionDraft }) => {
-      // Cannot update the type
-      const { type: _, ...definition } = propertyDefinition;
+      // Neither the type nor the entity type can be updated
+      const { type: _type, entityType: _entityType, ...definition } = propertyDefinition;
 
       await updateCustomPropertyDefinition({
         organizationId: params.organizationId,

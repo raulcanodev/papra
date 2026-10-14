@@ -211,6 +211,16 @@ export async function seedDemoInvoicing({ organizationId, now = new Date() }: { 
 
 type CatalogKey = 'customers' | 'products' | 'taxRates' | 'series' | 'salesRepresentatives';
 
+const CUSTOM_PROPERTY_ENTITY_CATALOG_KEYS = { customer: 'customers', product: 'products', sales_representative: 'salesRepresentatives' } as const;
+
+/** Raw custom property values (definition id to value) stored on a demo invoicing entity */
+export async function getDemoEntityCustomPropertyValues({ organizationId, entityType, entityId }: { organizationId: string; entityType: string; entityId: string }): Promise<Record<string, unknown>> {
+  const key = CUSTOM_PROPERTY_ENTITY_CATALOG_KEYS[entityType as keyof typeof CUSTOM_PROPERTY_ENTITY_CATALOG_KEYS];
+  const record = key ? await db()[key].getItem(entityId) : null;
+
+  return record?.organizationId === organizationId ? (record.customProperties ?? {}) : {};
+}
+
 function catalogHandlers<Path extends string>({ path, key, listKey, itemKey, prefix, onSave }: {
   path: Path;
   key: CatalogKey;
@@ -250,7 +260,9 @@ function catalogHandlers<Path extends string>({ path, key, listKey, itemKey, pre
         if (!existing) {
           fail('Not found', 404);
         }
-        const record: Stored = { ...existing, ...body, id: existing.id, organizationId: existing.organizationId, updatedAt: new Date().toISOString() };
+        // Like the server, only the submitted custom properties are replaced
+        const customProperties = { ...existing.customProperties, ...body?.customProperties };
+        const record: Stored = { ...existing, ...body, customProperties, id: existing.id, organizationId: existing.organizationId, updatedAt: new Date().toISOString() };
         await onSave?.(record, await getValues(db()[key]));
         await db()[key].setItem(resourceId, record);
         return { [itemKey]: record };

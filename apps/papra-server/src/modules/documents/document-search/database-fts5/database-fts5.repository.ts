@@ -1,7 +1,8 @@
 import type { Database } from '../../../app/database/database.types';
 import type { DocumentSearchableData } from '../document-search.types';
 import { injectArguments } from '@corentinth/chisels';
-import { desc, eq, getTableColumns, sql } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns, sql } from 'drizzle-orm';
+import { CUSTOM_PROPERTY_ENTITY_TYPES } from '../../../custom-properties/custom-properties.constants';
 import { customPropertyDefinitionsTable } from '../../../custom-properties/custom-properties.table';
 import { omit, omitUndefined } from '../../../shared/objects';
 import { documentsTable } from '../../documents.table';
@@ -23,7 +24,10 @@ async function searchOrganizationDocuments({ organizationId, searchQuery, pageIn
   const customPropertyDefinitions = await db
     .select()
     .from(customPropertyDefinitionsTable)
-    .where(eq(customPropertyDefinitionsTable.organizationId, organizationId));
+    .where(and(
+      eq(customPropertyDefinitionsTable.organizationId, organizationId),
+      eq(customPropertyDefinitionsTable.entityType, CUSTOM_PROPERTY_ENTITY_TYPES.DOCUMENT),
+    ));
 
   const { searchWhereClause } = makeSearchWhereClause({ organizationId, query: searchQuery, db, now, customPropertyDefinitions });
 

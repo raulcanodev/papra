@@ -1,8 +1,10 @@
 /* eslint-disable style/indent, style/jsx-max-props-per-line, style/jsx-one-expression-per-line, style/max-statements-per-line, style/no-trailing-spaces */
 import type { CustomerInput, InvoicingCustomer } from '../invoicing.types';
+import type { EntityCustomPropertiesInput } from '@/modules/custom-properties/custom-properties.types';
 import { useParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For } from 'solid-js';
+import { EntityCustomPropertiesFields, invalidateEntityCustomProperties } from '@/modules/custom-properties/components/entity-custom-properties-fields.component';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { Button } from '@/modules/ui/components/button';
@@ -15,17 +17,17 @@ const empty = emptyCustomer;
 const toInput = (customer: InvoicingCustomer): CustomerInput => ({ name: customer.name, email: customer.email, taxId: customer.taxId, addressLine1: customer.addressLine1, addressLine2: customer.addressLine2, postalCode: customer.postalCode, city: customer.city, region: customer.region, country: customer.country, currency: customer.currency, paymentTermsDays: customer.paymentTermsDays, notes: customer.notes });
 export function CustomersPage() {
   const { t } = useI18n();
-  const params = useParams(); const [value, setValue] = createSignal(empty()); const [editingId, setEditingId] = createSignal<string | null>(null); const [formOpen, setFormOpen] = createSignal(false); const [search, setSearch] = createSignal('');
+  const params = useParams(); const [value, setValue] = createSignal(empty()); const [editingId, setEditingId] = createSignal<string | null>(null); const [customProperties, setCustomProperties] = createSignal<EntityCustomPropertiesInput>({}); const [formOpen, setFormOpen] = createSignal(false); const [search, setSearch] = createSignal('');
   const query = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'customers'], queryFn: () => fetchCustomers({ organizationId: params.organizationId }) }));
   const rows = createMemo(() => (query.data?.customers ?? []).filter(customer => `${customer.name} ${customer.email ?? ''} ${customer.taxId ?? ''}`.toLowerCase().includes(search().toLowerCase())));
   const reset = () => {
-    setValue(empty()); setEditingId(null); setFormOpen(false);
+    setValue(empty()); setEditingId(null); setCustomProperties({}); setFormOpen(false);
   };
   const edit = (customer: InvoicingCustomer) => {
-    setEditingId(customer.id); setValue(toInput(customer)); setFormOpen(true);
+    setCustomProperties({}); setEditingId(customer.id); setValue(toInput(customer)); setFormOpen(true);
   };
-  const mutation = createMutation(() => ({ mutationFn: () => editingId() ? updateCustomer({ organizationId: params.organizationId, customerId: editingId()!, customer: value() }) : createCustomer({ organizationId: params.organizationId, customer: value() }), onSuccess: async () => {
-    reset(); await queryClient.invalidateQueries({ queryKey: ['invoicing', params.organizationId, 'customers'] }); createToast({ type: 'success', message: t('invoicing.customers.toast.saved') });
+  const mutation = createMutation(() => ({ mutationFn: () => editingId() ? updateCustomer({ organizationId: params.organizationId, customerId: editingId()!, customer: { ...value(), customProperties: customProperties() } }) : createCustomer({ organizationId: params.organizationId, customer: { ...value(), customProperties: customProperties() } }), onSuccess: async () => {
+    reset(); await invalidateEntityCustomProperties({ organizationId: params.organizationId, entityType: 'customer' }); await queryClient.invalidateQueries({ queryKey: ['invoicing', params.organizationId, 'customers'] }); createToast({ type: 'success', message: t('invoicing.customers.toast.saved') });
   }, onError: () => createToast({ type: 'error', message: t('invoicing.customers.toast.error') }) }));
   return (
     <CatalogPage
@@ -50,6 +52,7 @@ export function CustomersPage() {
           }}
         >
           <CustomerFormFields value={value()} onChange={setValue} autofocus />
+          <EntityCustomPropertiesFields organizationId={params.organizationId} entityType="customer" entityId={editingId()} value={customProperties()} onChange={setCustomProperties} />
           <SaveButton loading={mutation.isPending} editing={editingId() !== null} onCancel={reset} />
         </form>
       )}

@@ -5,7 +5,10 @@ import { createAiNotConfiguredError } from '../ai-assistant/ai-assistant.errors'
 import { createLlmModel, getApiKeyForProvider, getConfiguredProviders } from '../ai-assistant/ai-assistant.providers';
 import { requireAuthentication } from '../app/auth/auth.middleware';
 import { getUser } from '../app/auth/auth.models';
+import { CUSTOM_PROPERTY_ENTITY_TYPES } from '../custom-properties/custom-properties.constants';
 import { createCustomPropertiesRepository } from '../custom-properties/custom-properties.repository';
+import { ensurePropertyDefinitionExists, ensureTransactionCustomPropertyValuesAreValid } from '../custom-properties/custom-properties.usecases';
+import { createCustomPropertiesOptionsRepository } from '../custom-properties/options/custom-properties-options.repository';
 import { requireFeatureFlag } from '../feature-flags/feature-flags.middleware';
 import { organizationIdSchema } from '../organizations/organization.schemas.legacy';
 import { createOrganizationsRepository } from '../organizations/organizations.repository';
@@ -18,6 +21,28 @@ import { BANK_PROVIDERS, BILLING_CYCLES, TRANSACTION_CLASSIFICATIONS } from './f
 import { createFinancesRepository } from './finances.repository';
 import { addBankConnection, autoClassifyTransactions, computeGoalActuals, refreshAccountBalances, syncBankTransactions } from './finances.usecases';
 import { getBankProviderAdapter } from './providers/provider.registry';
+
+/**
+ * Ensures the given finance goal id actually belongs to the organization.
+ *
+ * Route params carry both :organizationId and :goalId, but several goal/bucket
+ * repository methods are scoped only by goalId/bucketId. Without this guard a
+ * member of one organization could read or mutate another organization's goal
+ * (and its buckets) by passing a foreign goalId. Call it after the org
+ * membership check and before touching any goal-scoped repository method.
+ */
+async function ensureGoalBelongsToOrganization({
+  financesRepository,
+  organizationId,
+  goalId,
+}: {
+  financesRepository: ReturnType<typeof createFinancesRepository>;
+  organizationId: string;
+  goalId: string;
+}): Promise<boolean> {
+  const { goal } = await financesRepository.getFinanceGoal({ organizationId });
+  return goal !== null && goal.id === goalId;
+}
 
 export function registerFinancesRoutes(context: RouteDefinitionContext) {
   setupGetBankConnectionsRoute(context);
@@ -983,11 +1008,13 @@ function setupSetTransactionCustomPropertyRoute({ app, db, config }: RouteDefini
       await financesRepository.getTransactionById({ transactionId, organizationId });
 
       const customPropertiesRepository = createCustomPropertiesRepository({ db });
-      const { definition } = await customPropertiesRepository.getPropertyDefinitionById({ propertyDefinitionId, organizationId });
-
-      if (!definition) {
-        throw new Error('Property definition not found');
-      }
+      await ensureTransactionCustomPropertyValuesAreValid({
+        organizationId,
+        propertyDefinitionId,
+        values,
+        customPropertiesRepository,
+        customPropertiesOptionsRepository: createCustomPropertiesOptionsRepository({ db }),
+      });
 
       await customPropertiesRepository.setTransactionCustomPropertyValue({
         transactionId,
@@ -1024,6 +1051,7 @@ function setupDeleteTransactionCustomPropertyRoute({ app, db, config }: RouteDef
       await financesRepository.getTransactionById({ transactionId, organizationId });
 
       const customPropertiesRepository = createCustomPropertiesRepository({ db });
+      await ensurePropertyDefinitionExists({ propertyDefinitionId, organizationId, entityType: CUSTOM_PROPERTY_ENTITY_TYPES.TRANSACTION, customPropertiesRepository });
       await customPropertiesRepository.deleteTransactionCustomPropertyValue({ transactionId, propertyDefinitionId });
 
       return context.body(null, 204);
@@ -1103,6 +1131,10 @@ function setupCreateFinanceGoalBucketRoute({ app, db, config }: RouteDefinitionC
 
       const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
 
+      if (!(await ensureGoalBelongsToOrganization({ financesRepository, organizationId, goalId }))) {
+        return context.json({ error: 'Goal not found' }, 404);
+      }
+
       // Validate total target percentage will not exceed 100
       const { buckets: existing } = await financesRepository.getFinanceGoalBuckets({ goalId });
       const currentTotal = existing.reduce((sum, b) => sum + b.targetPercentage, 0);
@@ -1148,6 +1180,10 @@ function setupUpdateFinanceGoalBucketRoute({ app, db, config }: RouteDefinitionC
 
       const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
 
+      if (!(await ensureGoalBelongsToOrganization({ financesRepository, organizationId, goalId }))) {
+        return context.json({ error: 'Goal not found' }, 404);
+      }
+
       if (updates.targetPercentage !== undefined) {
         const { buckets: existing } = await financesRepository.getFinanceGoalBuckets({ goalId });
         const othersTotal = existing.filter(b => b.id !== bucketId).reduce((sum, b) => sum + b.targetPercentage, 0);
@@ -1182,6 +1218,11 @@ function setupDeleteFinanceGoalBucketRoute({ app, db, config }: RouteDefinitionC
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
       const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+
+      if (!(await ensureGoalBelongsToOrganization({ financesRepository, organizationId, goalId }))) {
+        return context.json({ error: 'Goal not found' }, 404);
+      }
+
       await financesRepository.deleteFinanceGoalBucket({ bucketId, goalId });
       await financesRepository.snapshotGoalVersion({ goalId, organizationId });
 
@@ -1209,6 +1250,11 @@ function setupGetGoalActualsRoute({ app, db, config }: RouteDefinitionContext) {
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
       const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+
+      if (!(await ensureGoalBelongsToOrganization({ financesRepository, organizationId, goalId }))) {
+        return context.json({ error: 'Goal not found' }, 404);
+      }
+
       const actuals = await computeGoalActuals({
         db,
         organizationId,
@@ -1237,6 +1283,11 @@ function setupListGoalVersionsRoute({ app, db, config }: RouteDefinitionContext)
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
       const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+
+      if (!(await ensureGoalBelongsToOrganization({ financesRepository, organizationId, goalId }))) {
+        return context.json({ error: 'Goal not found' }, 404);
+      }
+
       const { versions } = await financesRepository.listGoalVersions({ goalId });
 
       return context.json({ versions });
@@ -1258,6 +1309,11 @@ function setupRestoreGoalVersionRoute({ app, db, config }: RouteDefinitionContex
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
       const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });
+
+      if (!(await ensureGoalBelongsToOrganization({ financesRepository, organizationId, goalId }))) {
+        return context.json({ error: 'Goal not found' }, 404);
+      }
+
       const result = await financesRepository.restoreGoalVersion({ versionId, goalId, organizationId });
 
       return context.json(result);

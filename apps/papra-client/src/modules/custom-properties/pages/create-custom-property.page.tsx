@@ -1,6 +1,7 @@
 import type { Component } from 'solid-js';
 import type { PropertyDefinitionDraft } from '../components/custom-property-definition-form.component';
-import { useNavigate, useParams } from '@solidjs/router';
+import type { CustomPropertyEntityType } from '../custom-properties.types';
+import { useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { useMutation } from '@tanstack/solid-query';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { queryClient } from '@/modules/shared/query/query-client';
@@ -8,12 +9,17 @@ import { Button } from '@/modules/ui/components/button';
 import { createToast } from '@/modules/ui/components/sonner';
 import { getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
 import { CustomPropertyDefinitionForm } from '../components/custom-property-definition-form.component';
+import { CUSTOM_PROPERTY_ENTITY_TYPES } from '../custom-properties.constants';
 import { createCustomPropertyDefinition } from '../custom-properties.services';
 
 export const CreateCustomPropertyPage: Component = () => {
   const params = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { t } = useI18n();
+
+  // Preselected when coming from an entity form ("Manage fields") or a filtered listing
+  const defaultEntityType = () => CUSTOM_PROPERTY_ENTITY_TYPES.find(entityType => entityType === searchParams.entityType) as CustomPropertyEntityType | undefined;
 
   const createMutation = useMutation(() => ({
     mutationFn: async ({ propertyDefinition }: { propertyDefinition: PropertyDefinitionDraft }) => {
@@ -46,6 +52,7 @@ export const CreateCustomPropertyPage: Component = () => {
 
       <CustomPropertyDefinitionForm
         organizationId={params.organizationId}
+        defaultEntityType={defaultEntityType()}
         onSubmit={({ propertyDefinition }) => createMutation.mutateAsync({ propertyDefinition })}
         submitButton={(
           <Button type="submit" isLoading={createMutation.isPending}>

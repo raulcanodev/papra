@@ -31,6 +31,8 @@ function setValidParams(path: string) {
     .replaceAll(':sessionId', 'session_333333333333333333333333')
     .replaceAll(':messageId', 'message_333333333333333333333333')
     .replaceAll(':key', 'profile-key')
+    .replaceAll(':entityType', 'customer')
+    .replaceAll(':entityId', 'cus_333333333333333333333333')
     .replaceAll(':resourceId', 'resource_333333333333333333333333');
 
   // throw if there are any remaining params
