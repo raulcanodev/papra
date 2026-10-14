@@ -21,6 +21,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { getDocumentIcon, getDocumentNameExtension, getDocumentNameWithoutExtension } from '../document.models';
 import { DocumentManagementDropdown } from './document-management-dropdown.component';
 
+function getResponsiveColumnClass(columnId: string) {
+  return cn({
+    'hidden sm:table-cell': ['tags', 'createdAt', 'deletedAt'].includes(columnId),
+    'hidden md:table-cell': columnId === 'folder',
+    'w-14': columnId === 'actions',
+  });
+}
+
 export const createdAtColumn: ColumnDef<Document> = {
   header: () => {
     const { t } = useI18n();
@@ -140,51 +148,53 @@ export const DocumentsPaginatedList: Component<{
     <div>
       <Switch>
         <Match when={props.documentsCount > 0}>
-          <Table>
-            <TableHeader>
-              <For each={table.getHeaderGroups()}>
-                {headerGroup => (
-                  <TableRow>
-                    <For each={headerGroup.headers}>
-                      {(header) => {
-                        return (
-                          <TableHead>
-                            {header.isPlaceholder
-                              ? null
-                              : flexRender(
-                                  header.column.columnDef.header,
-                                  header.getContext(),
-                                )}
-                          </TableHead>
-                        );
-                      }}
-                    </For>
-                  </TableRow>
-                )}
-              </For>
-            </TableHeader>
-
-            <TableBody>
-              <Show when={table.getRowModel().rows?.length}>
-                <For each={table.getRowModel().rows}>
-                  {row => (
-                    <TableRow data-state={row.getIsSelected() && 'selected'}>
-                      <For each={row.getVisibleCells()}>
-                        {cell => (
-                          <TableCell>
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext(),
-                            )}
-                          </TableCell>
-                        )}
+          <div class="overflow-hidden rounded-xl border border-border/80 bg-card shadow-[0_1px_2px_rgb(0_0_0/0.04)] dark:shadow-none">
+            <Table class="[&_tbody_tr:last-child]:border-b-0">
+              <TableHeader class="bg-muted/35">
+                <For each={table.getHeaderGroups()}>
+                  {headerGroup => (
+                    <TableRow class="hover:bg-transparent">
+                      <For each={headerGroup.headers}>
+                        {(header) => {
+                          return (
+                            <TableHead class={getResponsiveColumnClass(header.column.id)}>
+                              {header.isPlaceholder
+                                ? null
+                                : flexRender(
+                                    header.column.columnDef.header,
+                                    header.getContext(),
+                                  )}
+                            </TableHead>
+                          );
+                        }}
                       </For>
                     </TableRow>
                   )}
                 </For>
-              </Show>
-            </TableBody>
-          </Table>
+              </TableHeader>
+
+              <TableBody>
+                <Show when={table.getRowModel().rows?.length}>
+                  <For each={table.getRowModel().rows}>
+                    {row => (
+                      <TableRow class="group" data-state={row.getIsSelected() && 'selected'}>
+                        <For each={row.getVisibleCells()}>
+                          {cell => (
+                            <TableCell class={getResponsiveColumnClass(cell.column.id)}>
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext(),
+                              )}
+                            </TableCell>
+                          )}
+                        </For>
+                      </TableRow>
+                    )}
+                  </For>
+                </Show>
+              </TableBody>
+            </Table>
+          </div>
 
           <Show when={props.showPagination ?? true}>
             <Show when={props.getPagination && props.setPagination}>
