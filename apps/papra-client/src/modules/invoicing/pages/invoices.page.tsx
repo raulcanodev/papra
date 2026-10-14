@@ -58,7 +58,7 @@ export function InvoicesPage() {
           <div class="i-tabler-receipt size-9 mx-auto text-muted-foreground/50 mb-3" />
           <div class="font-medium">{t('invoicing.invoices.empty.title')}</div>
           <div class="text-sm text-muted-foreground mt-1">{t('invoicing.invoices.empty.description')}</div>
-          <Button variant="outline" size="sm" class="mt-4" as={A} href={`${getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'contacts' })}?role=customer`}>{t('invoicing.invoices.empty.manage-customers')}</Button>
+          <Button variant="outline" size="sm" class="mt-4" as={A} href={getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'customers' })}>{t('invoicing.invoices.empty.manage-customers')}</Button>
         </div>
       </Show>
       <Show when={invoices().length > 0}>
