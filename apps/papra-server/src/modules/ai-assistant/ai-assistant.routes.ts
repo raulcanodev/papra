@@ -1,3 +1,4 @@
+import type { ModelMessage } from 'ai';
 import type { RouteDefinitionContext } from '../app/server.types';
 import { stepCountIs, streamText } from 'ai';
 import { z } from 'zod';
@@ -14,6 +15,10 @@ import { AI_MODELS } from './ai-assistant.models';
 import { buildSystemPrompt } from './ai-assistant.prompt';
 import { createLlmModel, getApiKeyForProvider, getConfiguredProviders, getDefaultModel } from './ai-assistant.providers';
 import { createAiAssistantRepository } from './ai-assistant.repository';
+import { MAX_CHAT_ATTACHMENTS } from './attachments/attachments.constants';
+import { toChatAttachment } from './attachments/attachments.models';
+import { registerAiAttachmentsRoutes } from './attachments/attachments.routes';
+import { buildModelMessages, getOrganizationDocuments, getTitleFromMessage } from './attachments/attachments.usecases';
 import { pageContextSchema } from './page-context/page-context.schemas';
 import { CONFIRMABLE_TOOL_SCHEMAS, createAssistantToolset } from './tools/assistant-toolset';
 
@@ -21,6 +26,8 @@ const chatBodySchema = z.object({
   messages: z.array(z.object({
     role: z.enum(['user', 'assistant', 'system']),
     content: z.string(),
+    // Documents of the organization attached to the message (uploaded first)
+    attachments: z.array(z.object({ documentId: z.string().min(1).max(64) })).max(MAX_CHAT_ATTACHMENTS).optional(),
   })),
   model: z.string().optional(),
   sessionId: z.string().optional(),
@@ -32,8 +39,11 @@ const sessionIdParamSchema = z.object({
   sessionId: z.string().regex(AI_CHAT_SESSION_ID_REGEX),
 });
 
-export function registerAiAssistantRoutes({ app, db, config, documentSearchServices }: RouteDefinitionContext) {
+export function registerAiAssistantRoutes(routeContext: RouteDefinitionContext) {
+  const { app, db, config, documentSearchServices, documentsStorageService } = routeContext;
   const aiAssistantRepository = createAiAssistantRepository({ db });
+
+  registerAiAttachmentsRoutes(routeContext);
 
   app.post(
     '/api/organizations/:organizationId/ai/chat',
@@ -94,7 +104,20 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
         env: context.env,
         pageContext,
         capabilities,
+        config,
+        documentsStorageService,
       });
+
+      // The attached files must be documents of this organization: unknown ids are dropped
+      const { documents: attachedDocuments } = await getOrganizationDocuments({ db, organizationId, documentIds: [...new Set(messages.flatMap(message => message.attachments ?? []).map(({ documentId }) => documentId))] });
+      const getAttachments = (message: (typeof messages)[number]) => (message.attachments ?? [])
+        .map(({ documentId }) => attachedDocuments.find(document => document.id === documentId))
+        .filter(document => document !== undefined);
+      // Kept with the message so the conversation shows its files again when reopened
+      const getMessageMetadata = (message: (typeof messages)[number]) => {
+        const attachments = getAttachments(message);
+        return attachments.length > 0 ? JSON.stringify({ attachments: attachments.map(toChatAttachment) }) : undefined;
+      };
 
       // Create or reuse chat session
       let activeSessionId = sessionId;
@@ -109,9 +132,7 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
       }
       if (activeSessionId === undefined || activeSessionId === '') {
         const lastUserMessage = messages.findLast(m => m.role === 'user');
-        const title = lastUserMessage
-          ? lastUserMessage.content.trim().slice(0, 50) + (lastUserMessage.content.length > 50 ? '...' : '')
-          : 'New chat';
+        const title = lastUserMessage ? getTitleFromMessage({ content: lastUserMessage.content, attachments: getAttachments(lastUserMessage) }) : 'New chat';
 
         const { session } = await aiAssistantRepository.createChatSession({
           organizationId,
@@ -124,7 +145,7 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
         // Save all initial messages
         await aiAssistantRepository.addChatMessages({
           sessionId: activeSessionId,
-          messages: messages.map(m => ({ role: m.role, content: m.content })),
+          messages: messages.map(m => ({ role: m.role, content: m.content, metadata: getMessageMetadata(m) })),
         });
       } else {
         // Save only the last user message (previous messages already stored)
@@ -134,13 +155,14 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
             sessionId: activeSessionId,
             role: lastUserMessage.role,
             content: lastUserMessage.content,
+            metadata: getMessageMetadata(lastUserMessage),
           });
 
           // Update title if this is the first user message
           const { messages: existingMessages } = await aiAssistantRepository.getChatMessages({ sessionId: activeSessionId });
           const userMessages = existingMessages.filter(m => m.role === 'user');
           if (userMessages.length === 1) {
-            const title = lastUserMessage.content.trim().slice(0, 50) + (lastUserMessage.content.length > 50 ? '...' : '');
+            const title = getTitleFromMessage({ content: lastUserMessage.content, attachments: getAttachments(lastUserMessage) });
             await aiAssistantRepository.updateChatSessionTitle({ sessionId: activeSessionId, userId, title });
           }
         }
@@ -148,9 +170,12 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
 
       // Sliding window: keep only the last N messages to control context size and costs
       const MAX_CONTEXT_MESSAGES = 20;
-      const contextMessages = messages.length > MAX_CONTEXT_MESSAGES
-        ? messages.slice(-MAX_CONTEXT_MESSAGES)
-        : messages;
+      const contextMessages: ModelMessage[] = await buildModelMessages({
+        messages: (messages.length > MAX_CONTEXT_MESSAGES ? messages.slice(-MAX_CONTEXT_MESSAGES) : messages)
+          .map(message => ({ role: message.role, content: message.content, attachments: getAttachments(message) })),
+        documentsStorageService,
+        config,
+      });
 
       const collectedSources: Array<{ title: string; url: string }> = [];
       const collectedConfirmations: Array<{ toolCallId: string; toolName: string; description: string; args: Record<string, unknown>; status: 'pending' }> = [];
@@ -273,6 +298,8 @@ export function registerAiAssistantRoutes({ app, db, config, documentSearchServi
         requestHeaders: context.req.raw.headers,
         env: context.env,
         pageContext: undefined,
+        config,
+        documentsStorageService,
         capabilities: await getAssistantCapabilities({ userId, db }),
       });
 

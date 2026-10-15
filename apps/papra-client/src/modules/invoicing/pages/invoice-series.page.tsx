@@ -1,4 +1,4 @@
-/* eslint-disable style/indent, style/jsx-max-props-per-line, style/jsx-one-expression-per-line, style/max-statements-per-line, style/no-trailing-spaces */
+/* eslint-disable style/indent, style/max-statements-per-line, style/no-trailing-spaces */
 import type { InvoiceSeriesInput } from '../invoicing.types';
 import { useParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
@@ -6,8 +6,8 @@ import { createMemo, createSignal, For, Show } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { Badge } from '@/modules/ui/components/badge';
-import { Button } from '@/modules/ui/components/button';
 import { Checkbox, CheckboxControl } from '@/modules/ui/components/checkbox';
+import { RowActions } from '@/modules/ui/components/row-actions';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextField } from '@/modules/ui/components/textfield';
 import { CatalogCell, CatalogPage, CatalogRow, CatalogTable, FormField, SaveButton } from '../components/catalog-page';
@@ -64,7 +64,7 @@ export function InvoiceSeriesPage() {
         </form>
       )}
     >
-      <CatalogTable headers={[{ label: t('invoicing.series.table.series') }, { label: t('invoicing.series.table.next-invoice') }, { label: t('invoicing.series.form.digits'), class: 'text-right' }, { label: t('invoicing.common.default'), class: 'text-center' }, { label: '', class: 'w-16' }]}>
+      <CatalogTable headers={[{ label: t('invoicing.series.table.series') }, { label: t('invoicing.series.table.next-invoice') }, { label: t('invoicing.series.form.digits'), class: 'text-right' }, { label: t('invoicing.common.default'), class: 'text-center' }, { label: '', class: 'w-14' }]}>
         <For each={rows()}>
           {series => (
             <CatalogRow onClick={() => edit(series)}>
@@ -76,12 +76,8 @@ export function InvoiceSeriesPage() {
               <CatalogCell class="text-right tabular-nums">{series.padding}</CatalogCell>
               <CatalogCell class="text-center"><Show when={series.isDefault}><Badge>{t('invoicing.common.default')}</Badge></Show></CatalogCell>
               <CatalogCell>
-                <Button
-                  variant="ghost" size="icon" aria-label={t('invoicing.series.edit')} onClick={(event) => {
-                    event.stopPropagation(); edit(series);
-                  }}
-                ><div class="i-tabler-pencil size-4" />
-                </Button>
+                {/* Series are not deleted: issued invoices keep pointing to them */}
+                <RowActions itemName={series.name} onEdit={() => edit(series)} />
               </CatalogCell>
             </CatalogRow>
           )}

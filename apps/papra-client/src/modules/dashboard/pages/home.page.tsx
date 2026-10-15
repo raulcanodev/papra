@@ -1,6 +1,5 @@
 import type { DashboardMetrics } from '../dashboard.types';
 import type { DashboardFormatters, DashboardWidgetSettings } from '../dashboard.widgets';
-import type { ActiveFilter, FilterField } from '@/modules/ui/components/table-filters';
 import { useParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For, Match, Show, Switch } from 'solid-js';
@@ -10,27 +9,23 @@ import { useMemberPreferences } from '@/modules/preferences/use-member-preferenc
 import { Button } from '@/modules/ui/components/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/modules/ui/components/popover';
 import { SimpleCheckbox } from '@/modules/ui/components/simple-checkbox';
-import { getActiveFilter, isDateRangeValue, resolveDatePreset } from '@/modules/ui/components/table-filters';
-import { TableToolbar } from '@/modules/ui/components/table-toolbar';
+import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { fetchDashboardMetrics } from '../dashboard.services';
 import { DASHBOARD_WIDGETS } from '../dashboard.widgets';
+
+// Years offered in the period selector: this one and the three before
+const PERIOD_YEARS = 4;
 
 export function HomePage() {
   const params = useParams();
   const { t, getLocale } = useI18n();
-  const [filters, setFilters] = createSignal<ActiveFilter[]>([{ fieldId: 'period', value: resolveDatePreset('this_year') }]);
-  const filterFields = createMemo((): FilterField[] => [{
-    id: 'period',
-    type: 'date-range',
-    label: t('dashboard.filters.period'),
-    icon: 'i-tabler-calendar',
-    required: true,
-    presets: ['this_year', 'last_year'],
-  }]);
-  const selectedYear = () => {
-    const value = getActiveFilter(filters(), 'period')?.value;
-    return isDateRangeValue(value) ? Number(value.from.slice(0, 4)) : new Date().getFullYear();
-  };
+  // The metrics are yearly: the period is a year, picked next to the layout controls of the page
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = createSignal(currentYear);
+  const periodOptions = createMemo(() => Array.from({ length: PERIOD_YEARS }, (_, index) => currentYear - index).map(year => ({
+    value: String(year),
+    label: year === currentYear ? t('table.filters.date.this_year') : year === currentYear - 1 ? t('table.filters.date.last_year') : String(year),
+  })));
 
   const query = useQuery(() => ({
     queryKey: ['organizations', params.organizationId, 'dashboard', 'metrics', selectedYear()],
@@ -105,30 +100,37 @@ export function HomePage() {
           <p class="page-description">{t('dashboard.description')}</p>
         </div>
 
-        <Popover>
-          <PopoverTrigger as={Button} variant="outline" size="sm" class="gap-1.5">
-            <div class="i-tabler-layout-dashboard size-4" />
-            {t('dashboard.customize.button')}
-          </PopoverTrigger>
-          <PopoverContent class="w-64 p-3">
-            <p class="text-sm font-medium">{t('dashboard.customize.title')}</p>
-            <p class="mb-3 text-xs text-muted-foreground">{t('dashboard.customize.description')}</p>
-            <div class="flex flex-col gap-2">
-              <For each={DASHBOARD_WIDGETS}>
-                {widget => (
-                  <SimpleCheckbox
-                    checked={!hiddenWidgetIds().includes(widget.id)}
-                    onChange={checked => toggleWidget(widget.id, checked)}
-                    label={t(widget.titleKey)}
-                  />
-                )}
-              </For>
-            </div>
-          </PopoverContent>
-        </Popover>
+        <div class="flex items-center gap-2">
+          <SimpleSelect
+            aria-label={t('dashboard.filters.period')}
+            triggerClass="h-8 gap-1.5 text-sm"
+            value={String(selectedYear())}
+            onChange={year => setSelectedYear(Number(year))}
+            options={periodOptions()}
+          />
+          <Popover>
+            <PopoverTrigger as={Button} variant="outline" size="sm" class="gap-1.5">
+              <div class="i-tabler-layout-dashboard size-4" />
+              {t('dashboard.customize.button')}
+            </PopoverTrigger>
+            <PopoverContent class="w-64 p-3">
+              <p class="text-sm font-medium">{t('dashboard.customize.title')}</p>
+              <p class="mb-3 text-xs text-muted-foreground">{t('dashboard.customize.description')}</p>
+              <div class="flex flex-col gap-2">
+                <For each={DASHBOARD_WIDGETS}>
+                  {widget => (
+                    <SimpleCheckbox
+                      checked={!hiddenWidgetIds().includes(widget.id)}
+                      onChange={checked => toggleWidget(widget.id, checked)}
+                      label={t(widget.titleKey)}
+                    />
+                  )}
+                </For>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
-
-      <TableToolbar fields={filterFields()} filters={filters()} onFiltersChange={setFilters} class="mb-4" />
 
       <Switch>
         <Match when={query.isError}>

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { API_KEY_PERMISSIONS } from '../permissions';
-import { organizationPath, segment, withoutUndefined } from '../request';
+import { organizationPath, segment, withoutUndefined, withQuery } from '../request';
 import { defineOrganizationTool } from '../tool-definition';
 import { amountToMinor, bpsToPercent, minorToAmount, percentToBps } from '../units';
 import { amountSchema, currencySchema, idSchema, optionalText, percentSchema, READ_ONLY_NOTE } from './schemas';
@@ -12,12 +12,13 @@ const productFields = {
   unitPrice: amountSchema('Unit price WITHOUT tax.'),
   currency: currencySchema,
   taxRatePercent: percentSchema('VAT rate in percent: 21 general, 10 reduced, 4 super reduced, 0 exempt.'),
+  contactId: z.string().trim().min(1).nullable().optional().describe('Contact the product belongs to: a supplier (what we buy from them) or a customer (their own product or price). Omit or null for our own catalog.'),
 };
 
-type StoredProduct = { id: string; name: string; description: string | null; unit: string; unitPriceMinor: number; currency: string; taxRateBps: number };
+type StoredProduct = { id: string; name: string; description: string | null; unit: string; unitPriceMinor: number; currency: string; taxRateBps: number; contactId: string | null };
 
 // Stored products use minor units and basis points, the tools use human units
-function toProductBody(product: { name: string; description?: string | null; unit: string; unitPrice: number; currency: string; taxRatePercent: number }) {
+function toProductBody(product: { name: string; description?: string | null; unit: string; unitPrice: number; currency: string; taxRatePercent: number; contactId?: string | null }) {
   return {
     name: product.name,
     description: product.description,
@@ -25,6 +26,7 @@ function toProductBody(product: { name: string; description?: string | null; uni
     unitPriceMinor: amountToMinor(product.unitPrice),
     currency: product.currency,
     taxRateBps: percentToBps(product.taxRatePercent),
+    contactId: product.contactId,
   };
 }
 
@@ -36,6 +38,7 @@ function toProductFields(product: StoredProduct) {
     unitPrice: minorToAmount(product.unitPriceMinor),
     currency: product.currency,
     taxRatePercent: bpsToPercent(product.taxRateBps),
+    contactId: product.contactId,
   };
 }
 
@@ -43,10 +46,11 @@ export const productTools = [
   defineOrganizationTool({
     name: 'list_products',
     title: 'List products',
-    description: `List the catalog of products and services that can be put on an invoice. ${READ_ONLY_NOTE}`,
+    description: `List products and services: our own catalog (contactId null) and the products that belong to a supplier or a customer (contactId and contactName). Pass contactId to list only the products of that contact. ${READ_ONLY_NOTE}`,
     risk: 'read',
     permission: API_KEY_PERMISSIONS.PRODUCTS.READ,
-    run: (_input, { api, organizationId }) => api.request('GET', organizationPath(organizationId, '/invoicing/products')),
+    input: { contactId: z.string().trim().min(1).optional().describe('Only the products of this supplier or customer') },
+    run: ({ contactId }, { api, organizationId }) => api.request('GET', withQuery(organizationPath(organizationId, '/invoicing/products'), { contactId })),
   }),
   defineOrganizationTool({
     name: 'create_product',
@@ -76,6 +80,7 @@ export const productTools = [
       unitPrice: productFields.unitPrice.optional(),
       currency: productFields.currency.optional(),
       taxRatePercent: productFields.taxRatePercent.optional(),
+      contactId: productFields.contactId,
     },
     run: async ({ productId, ...changes }, { api, organizationId }) => {
       const { products } = await api.request<{ products: StoredProduct[] }>('GET', organizationPath(organizationId, '/invoicing/products'));

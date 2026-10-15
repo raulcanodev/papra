@@ -5,7 +5,7 @@ import type { Organization } from '@/modules/organizations/organizations.types';
 import type { SideNavCustomization } from '@/modules/ui/components/sidenav';
 import { useLocation, useNavigate, useParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
-import { createEffect, createSignal, on, Show } from 'solid-js';
+import { createEffect, createMemo, createSignal, on, Show } from 'solid-js';
 import { AiAssistantPanelProvider, useAiAssistantPanel } from '@/modules/ai-assistant/ai-assistant-panel.provider';
 import { AiAssistant } from '@/modules/ai-assistant/pages/ai-assistant.page';
 import { useCommandPalette } from '@/modules/command-palette/command-palette.provider';
@@ -90,13 +90,15 @@ const OrganizationLayoutSideNav: Component = () => {
   const { getPreferences, updatePreferences } = useMemberPreferences();
   const [isCustomizingMenu, setIsCustomizingMenu] = createSignal(false);
 
-  const getMainMenuSections = () => buildOrganizationWorkspaceNavigation({
+  // One memo for the whole menu: during the redirect from / the params briefly lose the organization, and evaluating
+  // the sections on every read left the links stuck on /organizations/undefined/...
+  const getMainMenuSections = createMemo(() => buildOrganizationWorkspaceNavigation({
     organizationId: params.organizationId,
     capabilities: getCapabilities(),
     translate: t,
     hiddenItemIds: getPreferences().navigation.hiddenItemIds,
     includeHidden: isCustomizingMenu(),
-  });
+  }));
 
   const getMenuCustomization = (): SideNavCustomization => ({
     isEditing: isCustomizingMenu(),

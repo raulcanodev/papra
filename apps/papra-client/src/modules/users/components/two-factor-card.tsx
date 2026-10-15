@@ -11,7 +11,6 @@ import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-err
 import { CopyButton } from '@/modules/shared/utils/copy';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/modules/ui/components/card';
 import {
   Dialog,
   DialogContent,
@@ -21,6 +20,7 @@ import {
   DialogTitle,
 } from '@/modules/ui/components/dialog';
 import { QrCode } from '@/modules/ui/components/qr-code';
+import { SettingsSection } from '@/modules/ui/components/settings-section';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextField, TextFieldErrorMessage, TextFieldLabel, TextFieldRoot } from '@/modules/ui/components/textfield';
 import { getSecretFromTotpUri } from '../2fa.models';
@@ -364,7 +364,7 @@ const RegenerateBackupCodesDialog: Component<{
 
 type DialogState = 'none' | 'enable-password' | 'setup-qr' | 'backup-codes' | 'disable-password' | 'regenerate-codes';
 
-export const TwoFactorCard: Component<{ twoFactorEnabled: boolean; onUpdate: () => void }> = (props) => {
+export const TwoFactorSection: Component<{ twoFactorEnabled: boolean; onUpdate: () => void }> = (props) => {
   const { t } = useI18n();
   const [dialogState, setDialogState] = createSignal<DialogState>('none');
   const [totpUri, setTotpUri] = createSignal<string>('');
@@ -400,40 +400,35 @@ export const TwoFactorCard: Component<{ twoFactorEnabled: boolean; onUpdate: () 
 
   return (
     <>
-      <Card>
-        <CardHeader class="border-b">
-          <div class="flex items-center justify-between">
-            <div>
-              <CardTitle>{t('user.settings.two-factor.title')}</CardTitle>
-              <CardDescription>{t('user.settings.two-factor.description')}</CardDescription>
-            </div>
-            <Badge variant={props.twoFactorEnabled ? 'default' : 'secondary'}>
-              {props.twoFactorEnabled
-                ? t('user.settings.two-factor.status.enabled')
-                : t('user.settings.two-factor.status.disabled')}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent class="pt-6">
-          <div class="flex flex-row justify-end gap-3">
-            <Show
-              when={props.twoFactorEnabled}
-              fallback={(
-                <Button onClick={() => setDialogState('enable-password')}>
-                  {t('user.settings.two-factor.enable-button')}
-                </Button>
-              )}
-            >
-              <Button variant="outline" onClick={() => setDialogState('regenerate-codes')}>
-                {t('user.settings.two-factor.regenerate-codes-button')}
+      <SettingsSection
+        title={t('user.settings.two-factor.title')}
+        description={t('user.settings.two-factor.description')}
+        aside={(
+          <Badge variant={props.twoFactorEnabled ? 'default' : 'secondary'}>
+            {props.twoFactorEnabled
+              ? t('user.settings.two-factor.status.enabled')
+              : t('user.settings.two-factor.status.disabled')}
+          </Badge>
+        )}
+      >
+        <div class="flex flex-wrap gap-3">
+          <Show
+            when={props.twoFactorEnabled}
+            fallback={(
+              <Button onClick={() => setDialogState('enable-password')}>
+                {t('user.settings.two-factor.enable-button')}
               </Button>
-              <Button variant="destructive" onClick={() => setDialogState('disable-password')}>
-                {t('user.settings.two-factor.disable-button')}
-              </Button>
-            </Show>
-          </div>
-        </CardContent>
-      </Card>
+            )}
+          >
+            <Button variant="outline" onClick={() => setDialogState('regenerate-codes')}>
+              {t('user.settings.two-factor.regenerate-codes-button')}
+            </Button>
+            <Button variant="destructive" onClick={() => setDialogState('disable-password')}>
+              {t('user.settings.two-factor.disable-button')}
+            </Button>
+          </Show>
+        </div>
+      </SettingsSection>
 
       <EnableTwoFactorDialog
         open={dialogState() === 'enable-password'}

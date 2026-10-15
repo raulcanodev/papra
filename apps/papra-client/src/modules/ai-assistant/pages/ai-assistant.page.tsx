@@ -1,5 +1,6 @@
 import type { Component, JSX } from 'solid-js';
 import type { ChatMessage, ChatSession, ToolConfirmation } from '../ai-assistant.services';
+import type { PendingAttachment } from '../components/chat-attachments';
 import type { TranslationKeys } from '@/modules/i18n/locales.types';
 import type { OrganizationNavigationCapability } from '@/modules/ui/navigation/organization-navigation';
 import { useLocation, useNavigate, useParams } from '@solidjs/router';
@@ -7,6 +8,7 @@ import remarkGfm from 'remark-gfm';
 import { createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { SolidMarkdown } from 'solid-markdown';
 import { isDemoMode } from '@/modules/config/config';
+import { fetchDocument } from '@/modules/documents/documents.services';
 import { getClassificationLabelKey } from '@/modules/finances/finances-labels';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cn } from '@/modules/shared/style/cn';
@@ -15,7 +17,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { buildOrganizationSettingsNavigation, buildOrganizationWorkspaceNavigation } from '@/modules/ui/navigation/organization-navigation';
 import { useNavigationCapabilities } from '@/modules/ui/navigation/use-navigation-capabilities';
 import { useAiAssistantPanel } from '../ai-assistant-panel.provider';
-import { deleteChatSession, executeToolAction, fetchAiModels, fetchChatSession, fetchChatSessions, renameChatSession, streamChatMessage, updateMessageMetadata } from '../ai-assistant.services';
+import { deleteChatSession, executeToolAction, fetchAiModels, fetchChatSession, fetchChatSessions, renameChatSession, streamChatMessage, updateMessageMetadata, uploadChatAttachment } from '../ai-assistant.services';
+import { AttachmentChip, ChatAttachMenu, MAX_CHAT_ATTACHMENTS } from '../components/chat-attachments';
 import { buildPageContext } from '../page-context/build-page-context';
 import { capturePageSnapshot } from '../page-context/capture-page-snapshot';
 
@@ -512,9 +515,18 @@ const MessageBubble: Component<{ message: ChatMessage; isStreaming?: boolean; or
 
       <div class={cn('flex flex-col gap-1 min-w-0 flex-1', isUser() ? 'items-end' : 'items-start')}>
         <Show when={isUser()}>
-          <div class="rounded-2xl bg-muted text-foreground rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words max-w-full">
-            {props.message.content}
-          </div>
+          <Show when={(props.message.attachments ?? []).length > 0}>
+            <div class="flex flex-wrap justify-end gap-1.5 max-w-full">
+              <For each={props.message.attachments}>
+                {attachment => <AttachmentChip name={attachment.name} mimeType={attachment.mimeType} size={attachment.size} />}
+              </For>
+            </div>
+          </Show>
+          <Show when={props.message.content}>
+            <div class="rounded-2xl bg-muted text-foreground rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words max-w-full">
+              {props.message.content}
+            </div>
+          </Show>
         </Show>
         <Show when={!isUser()}>
           <div class="text-sm leading-relaxed break-words max-w-full prose prose-sm prose-neutral dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-pre:my-2 prose-pre:bg-muted prose-pre:text-foreground prose-code:text-foreground prose-code:before:content-none prose-code:after:content-none">
@@ -694,6 +706,8 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
   const [selectedModel, setSelectedModel] = createSignal<string>(localStorage.getItem('papra-ai-model') ?? '');
   const [activeChatId, setActiveChatId] = createSignal<string | undefined>(sessionStorage.getItem('papra-ai-chat') ?? undefined);
   const [showHistory, setShowHistory] = createSignal(false);
+  const [pendingAttachments, setPendingAttachments] = createSignal<PendingAttachment[]>([]);
+  const [isDraggingFiles, setIsDraggingFiles] = createSignal(false);
   let abortController: AbortController | undefined;
   let pendingNavigation: string | undefined;
   let messagesScrollRef: HTMLDivElement | undefined;
@@ -818,10 +832,43 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
     textareaRef.style.overflowY = desired >= 160 ? 'auto' : 'hidden';
   }
 
+  const readyAttachments = () => pendingAttachments().flatMap(pending => (pending.status === 'ready' && pending.attachment ? [pending.attachment] : []));
+  const isUploadingAttachments = () => pendingAttachments().some(pending => pending.status === 'uploading');
+  const updatePendingAttachment = (key: string, changes: Partial<PendingAttachment>) => setPendingAttachments(current => current.map(pending => (pending.key === key ? { ...pending, ...changes } : pending)));
+  let nextAttachmentKey = 0;
+
+  // Uploaded right away: by the time the message is sent the files are documents the assistant can read
+  function addAttachmentFiles(files: File[]) {
+    const room = MAX_CHAT_ATTACHMENTS - pendingAttachments().length;
+    for (const file of files.slice(0, Math.max(room, 0))) {
+      const key = `attachment-${nextAttachmentKey++}`;
+      setPendingAttachments(current => [...current, { key, name: file.name, mimeType: file.type, size: file.size, status: 'uploading' }]);
+      uploadChatAttachment({ organizationId: orgId(), file })
+        .then(({ attachment }) => updatePendingAttachment(key, { status: 'ready', attachment, name: attachment.name }))
+        .catch(() => updatePendingAttachment(key, { status: 'error' }));
+    }
+  }
+
+  // Photos sent from the phone are documents already
+  function addAttachmentDocuments(documentIds: string[]) {
+    for (const documentId of documentIds.slice(0, Math.max(MAX_CHAT_ATTACHMENTS - pendingAttachments().length, 0))) {
+      const key = `attachment-${nextAttachmentKey++}`;
+      setPendingAttachments(current => [...current, { key, name: '…', mimeType: 'image/jpeg', size: 0, status: 'uploading' }]);
+      fetchDocument({ organizationId: orgId(), documentId })
+        .then(({ document }) => updatePendingAttachment(key, { status: 'ready', name: document.name, mimeType: document.mimeType, size: document.originalSize, attachment: { documentId, name: document.name, mimeType: document.mimeType, size: document.originalSize } }))
+        .catch(() => updatePendingAttachment(key, { status: 'error' }));
+    }
+  }
+
   async function sendMessage(text?: string) {
     const content = (text ?? textareaRef?.value ?? '').trim();
-    if (!content || isStreaming()) {
+    const attachments = text === undefined ? readyAttachments() : [];
+    if ((!content && attachments.length === 0) || isStreaming() || (text === undefined && isUploadingAttachments())) {
       return;
+    }
+
+    if (text === undefined) {
+      setPendingAttachments([]);
     }
 
     setHasInput(false);
@@ -830,7 +877,7 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
       textareaRef.style.height = 'auto';
     }
 
-    const userMessage: ChatMessage = { role: 'user', content };
+    const userMessage: ChatMessage = { role: 'user', content, ...(attachments.length > 0 ? { attachments } : {}) };
     const updatedMessages = [...messages(), userMessage];
     setMessages(updatedMessages);
 
@@ -976,6 +1023,7 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
   function handleNewChat() {
     abortController?.abort();
     setMessages([]);
+    setPendingAttachments([]);
     setHasInput(false);
     if (textareaRef) {
       textareaRef.value = '';
@@ -1134,38 +1182,87 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
         {/* Input area */}
         <div class={cn('bg-white dark:bg-card shrink-0', isPanel() ? 'px-3 py-3' : 'px-6 py-4')}>
           <div class="max-w-3xl mx-auto">
-            <div class="relative flex items-end gap-2 rounded-2xl border border-border bg-background shadow-sm transition-shadow focus-within:ring-1 focus-within:ring-ring">
-              <textarea
-                ref={textareaRef}
-                placeholder={t('ai-assistant.input.placeholder')}
-                onInput={(e) => {
-                  setHasInput(!!e.currentTarget.value.trim());
-                  autoResizeTextarea();
-                }}
-                onKeyDown={handleKeyDown}
-                disabled={isStreaming()}
-                rows={1}
-                class="flex-1 resize-none bg-transparent px-4 py-3 text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50 max-h-[160px]"
-              />
-              <div class="flex items-center gap-1 pb-1.5 pr-2">
-                <Show when={isStreaming()}>
+            <div
+              class={cn('relative flex flex-col rounded-2xl border border-border bg-background shadow-sm transition-shadow focus-within:ring-1 focus-within:ring-ring', isDraggingFiles() && 'ring-2 ring-primary/60')}
+              onDragOver={(event) => {
+                if (event.dataTransfer?.types.includes('Files')) {
+                  event.preventDefault();
+                  setIsDraggingFiles(true);
+                }
+              }}
+              onDragLeave={() => setIsDraggingFiles(false)}
+              onDrop={(event) => {
+                setIsDraggingFiles(false);
+                const files = [...(event.dataTransfer?.files ?? [])];
+                if (files.length > 0) {
+                  event.preventDefault();
+                  addAttachmentFiles(files);
+                }
+              }}
+            >
+              <Show when={pendingAttachments().length > 0}>
+                <div class="flex flex-wrap gap-1.5 px-3 pt-3">
+                  <For each={pendingAttachments()}>
+                    {pending => (
+                      <AttachmentChip
+                        name={pending.name}
+                        mimeType={pending.mimeType}
+                        size={pending.size}
+                        status={pending.status}
+                        onRemove={() => setPendingAttachments(current => current.filter(item => item.key !== pending.key))}
+                      />
+                    )}
+                  </For>
+                </div>
+              </Show>
+              <div class="flex items-end gap-1">
+                <div class="pb-1.5 pl-2">
+                  <ChatAttachMenu
+                    organizationId={orgId()}
+                    disabled={isStreaming() || pendingAttachments().length >= MAX_CHAT_ATTACHMENTS}
+                    onFiles={addAttachmentFiles}
+                    onDocuments={addAttachmentDocuments}
+                  />
+                </div>
+                <textarea
+                  ref={textareaRef}
+                  placeholder={t('ai-assistant.input.placeholder')}
+                  onInput={(e) => {
+                    setHasInput(!!e.currentTarget.value.trim());
+                    autoResizeTextarea();
+                  }}
+                  onKeyDown={handleKeyDown}
+                  onPaste={(event) => {
+                    const files = [...(event.clipboardData?.files ?? [])];
+                    if (files.length > 0) {
+                      event.preventDefault();
+                      addAttachmentFiles(files);
+                    }
+                  }}
+                  disabled={isStreaming()}
+                  rows={1}
+                  class="flex-1 resize-none bg-transparent px-2 py-3 text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50 max-h-[160px]"
+                />
+                <div class="flex items-center gap-1 pb-1.5 pr-2">
+                  <Show when={isStreaming()}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      class="h-8 w-8 p-0 rounded-full"
+                      onClick={() => abortController?.abort()}
+                    >
+                      <div class="i-tabler-player-stop-filled size-4" />
+                    </Button>
+                  </Show>
                   <Button
-                    variant="ghost"
                     size="sm"
-                    class="h-8 w-8 p-0 rounded-full"
-                    onClick={() => abortController?.abort()}
+                    class="h-8 w-8 p-0 rounded-full border border-black/10 bg-white text-neutral-900 shadow-xs hover:bg-neutral-100"
+                    onClick={() => void sendMessage()}
+                    disabled={isStreaming() || isUploadingAttachments() || (!hasInput() && readyAttachments().length === 0)}
                   >
-                    <div class="i-tabler-player-stop-filled size-4" />
+                    <div class="i-tabler-arrow-up size-4" />
                   </Button>
-                </Show>
-                <Button
-                  size="sm"
-                  class="h-8 w-8 p-0 rounded-full border border-black/10 bg-white text-neutral-900 shadow-xs hover:bg-neutral-100"
-                  onClick={() => void sendMessage()}
-                  disabled={isStreaming() || !hasInput()}
-                >
-                  <div class="i-tabler-arrow-up size-4" />
-                </Button>
+                </div>
               </div>
             </div>
             <div class="flex items-center justify-between mt-2">

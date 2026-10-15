@@ -1,7 +1,8 @@
 import type { Database } from '../app/database/database.types';
-import { and, asc, eq, gte, inArray, lt } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, lt, notInArray } from 'drizzle-orm';
 import { contactsTable } from '../contacts/contacts.table';
 import { invoiceItemsTable, invoicesTable, invoicingProfilesTable } from '../invoicing/invoicing.tables';
+import { NON_TAXABLE_PURCHASE_DOCUMENT_KINDS } from '../purchases/purchases.constants';
 import { purchaseInvoiceItemsTable, purchaseInvoicesTable } from '../purchases/purchases.tables';
 
 // Invoices that count for taxes: a draft is not issued yet, a voided invoice does not count anymore
@@ -49,6 +50,8 @@ async function getTaxableDocuments({ db, organizationId, from, to, currency }: {
       .innerJoin(contactsTable, eq(purchaseInvoicesTable.supplierId, contactsTable.id))
       .where(and(
         eq(purchaseInvoicesTable.organizationId, organizationId),
+        // A delivery note is not a tax document, its invoice is
+        notInArray(purchaseInvoicesTable.kind, NON_TAXABLE_PURCHASE_DOCUMENT_KINDS),
         eq(purchaseInvoicesTable.currency, currency),
         gte(purchaseInvoicesTable.issueDate, from),
         lt(purchaseInvoicesTable.issueDate, to),

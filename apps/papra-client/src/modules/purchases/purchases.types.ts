@@ -5,6 +5,11 @@ export type PurchaseInvoiceStatus = 'pending' | 'paid';
 
 export type ExpenseCategory = 'goods' | 'supplies' | 'rent' | 'professional_services' | 'software' | 'marketing' | 'travel' | 'vehicle' | 'insurance' | 'bank_fees' | 'taxes_and_fees' | 'other';
 
+export type PurchaseDocumentKind = 'invoice' | 'simplified_invoice' | 'delivery_note';
+
+/** Data read on the paper that has no field of its own (payment method, order reference, IBAN...) */
+export type PurchaseMetadataEntry = { label: string; value: string };
+
 export type PurchaseInvoiceItemInput = {
   description: string;
   quantityMillis: number;
@@ -18,6 +23,7 @@ export type PurchaseInvoiceItemInput = {
 export type PurchaseInvoiceDraftInput = {
   supplierId: string;
   number: string;
+  kind: PurchaseDocumentKind;
   issueDate: Date;
   dueDate: Date | null;
   currency: string;
@@ -25,6 +31,7 @@ export type PurchaseInvoiceDraftInput = {
   withholdingRateBps: number;
   notes: string | null;
   documentId: string | null;
+  metadata: PurchaseMetadataEntry[];
   items: PurchaseInvoiceItemInput[];
 };
 
@@ -50,19 +57,31 @@ export type PurchaseInvoice = Omit<PurchaseInvoiceDraftInput, 'items'> & {
 
 export type InvoiceDirection = 'received' | 'issued' | 'unknown';
 
+// matched: an existing contact (by tax id or by the same name), create: a name was read but no contact has it,
+// ask: nothing identifies the counterparty, the user types its name or picks a supplier
+export type SupplierResolutionStatus = 'matched' | 'create' | 'ask';
+
+export type SupplierCandidate = { contactId: string; name: string; taxId: string | null; isSupplier: boolean; similarity: number };
+
 export type PurchaseInvoiceExtraction = {
+  schemaVersion: number;
   direction: InvoiceDirection;
   draft: Omit<PurchaseInvoiceDraftInput, 'supplierId' | 'issueDate' | 'notes'> & { supplierId: string | null; issueDate: Date | null };
   counterparty: {
+    status: SupplierResolutionStatus;
     contactId: string | null;
+    matchedBy: 'tax_id' | 'name' | null;
     hasSupplierRole: boolean;
-    name: string;
+    candidates: SupplierCandidate[];
+    name: string | null;
     taxId: string | null;
     email: string | null;
+    phone: string | null;
     addressLine1: string | null;
     postalCode: string | null;
     city: string | null;
     country: string | null;
   };
-  printedTotal: number;
+  warnings: string[];
+  printedTotal: number | null;
 };

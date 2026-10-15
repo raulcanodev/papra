@@ -68,8 +68,9 @@ export type FiscalProfile = {
 export type FiscalProfileInput = Omit<FiscalProfile, 'organizationId' | 'createdAt' | 'updatedAt'>;
 
 type CatalogEntity = { id: string; organizationId: string; createdAt: Date; updatedAt: Date; archivedAt: Date | null };
-export type InvoicingProduct = CatalogEntity & { name: string; description: string | null; unit: string; unitPriceMinor: number; currency: string; taxRateBps: number; icon: string | null; iconColor: EntityIconColor | null };
-export type ProductInput = Omit<InvoicingProduct, keyof CatalogEntity | 'icon' | 'iconColor'> & Partial<Pick<InvoicingProduct, 'icon' | 'iconColor'>>;
+// contactId: the supplier or customer it belongs to, null for our own catalog
+export type InvoicingProduct = CatalogEntity & { name: string; description: string | null; unit: string; unitPriceMinor: number; currency: string; taxRateBps: number; icon: string | null; iconColor: EntityIconColor | null; contactId: string | null; contactName: string | null; imageDocumentId: string | null };
+export type ProductInput = Omit<InvoicingProduct, keyof CatalogEntity | 'icon' | 'iconColor' | 'contactName' | 'imageDocumentId'> & Partial<Pick<InvoicingProduct, 'icon' | 'iconColor' | 'imageDocumentId'>>;
 export type InvoicingTaxRate = CatalogEntity & { name: string; rateBps: number; isDefault: boolean };
 export type TaxRateInput = Omit<InvoicingTaxRate, keyof CatalogEntity>;
 export type InvoiceSeries = CatalogEntity & { name: string; prefix: string; nextNumber: number; padding: number; isDefault: boolean };

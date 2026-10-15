@@ -8,6 +8,7 @@ import { getValues } from '../demo.storage.models';
 import {
   daysAgoToDate,
   demoBranding,
+  demoContactProducts,
   demoCustomers,
   demoFiscalProfile,
   demoInvoices,
@@ -144,8 +145,10 @@ export async function seedDemoInvoicing({ organizationId, now = new Date() }: { 
     await contacts.setItem(id, record);
   }
 
-  for (const { key: _key, ...supplier } of demoSuppliers) {
+  const contactIdsByKey = new Map([...customerRecords].map(([key, record]) => [key, record.id as string]));
+  for (const { key, ...supplier } of demoSuppliers) {
     const id = createId({ prefix: 'ctc' });
+    contactIdsByKey.set(key, id);
     await contacts.setItem(id, { ...emptyDemoContact(), id, ...base, ...supplier, isSupplier: true });
   }
 
@@ -164,7 +167,13 @@ export async function seedDemoInvoicing({ organizationId, now = new Date() }: { 
       unitPriceMinor: product.unitPriceMinor,
       currency: 'EUR',
       taxRateBps: taxIds.get(product.taxKey)?.rateBps ?? 2100,
+      contactId: null,
     });
+  }
+
+  for (const { contactKey, taxKey, ...product } of demoContactProducts) {
+    const id = createId({ prefix: 'prd' });
+    await products.setItem(id, { id, ...base, ...product, currency: 'EUR', taxRateBps: taxIds.get(taxKey)?.rateBps ?? 2100, contactId: contactIdsByKey.get(contactKey) ?? null });
   }
 
   const mainSeries = seriesRecords.get('main')!;
@@ -251,13 +260,15 @@ export async function getDemoEntityCustomPropertyValues({ organizationId, entity
   return record?.organizationId === organizationId ? (record.customProperties ?? {}) : {};
 }
 
-function catalogHandlers<Path extends string>({ path, key, listKey, itemKey, prefix, onSave }: {
+function catalogHandlers<Path extends string>({ path, key, listKey, itemKey, prefix, onSave, toListItems }: {
   path: Path;
   key: CatalogKey;
   listKey: string;
   itemKey: string;
   prefix: string;
   onSave?: (record: Stored, all: Stored[]) => Promise<void>;
+  /** Filters and completes the listing like the server does (products by contact, with the contact name) */
+  toListItems?: (args: { records: Stored[]; query: Record<string, unknown> }) => Promise<Stored[]>;
 }) {
   const base = `/api/organizations/:organizationId/invoicing/${path}` as const;
 
@@ -265,9 +276,11 @@ function catalogHandlers<Path extends string>({ path, key, listKey, itemKey, pre
     ...defineHandler({
       path: base,
       method: 'GET',
-      handler: async ({ params: { organizationId } }: any) => {
+      handler: async ({ params: { organizationId }, query }: any) => {
         const records = (await getValues(db()[key])).filter(record => record.organizationId === organizationId && !record.archivedAt);
-        return { [listKey]: records.sort(byCreatedAt) };
+        // A custom listing keeps its own order, like the server endpoint it mirrors
+        const items = toListItems === undefined ? records.sort(byCreatedAt) : await toListItems({ records, query: query ?? {} });
+        return { [listKey]: items };
       },
     }),
     ...defineHandler({
@@ -296,6 +309,19 @@ function catalogHandlers<Path extends string>({ path, key, listKey, itemKey, pre
         await onSave?.(record, await getValues(db()[key]));
         await db()[key].setItem(resourceId, record);
         return { [itemKey]: record };
+      },
+    }),
+    // Archived like on the server: invoices that already use it keep their lines
+    ...defineHandler({
+      path: `${base}/:resourceId`,
+      method: 'DELETE',
+      handler: async ({ params: { organizationId, resourceId } }: any) => {
+        const existing = await db()[key].getItem(resourceId);
+        if (!existing || existing.organizationId !== organizationId || existing.archivedAt) {
+          fail('Not found', 404);
+        }
+        await db()[key].setItem(resourceId, { ...existing, archivedAt: new Date().toISOString() });
+        return {};
       },
     }),
   };
@@ -408,6 +434,19 @@ async function getInvoiceOrFail(invoiceId: string) {
 
 // Same routes as the server contacts module, the address book lives with the invoicing records it is linked to
 export const contactsHandlers = {
+  // Archived like on the server: the contact leaves the address book, its invoices are kept
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/contacts/:contactId',
+    method: 'DELETE',
+    handler: async ({ params: { organizationId, contactId } }: any) => {
+      const existing = await db().contacts.getItem(contactId);
+      if (!existing || existing.organizationId !== organizationId || existing.archivedAt) {
+        fail('Contact not found.', 404);
+      }
+      await db().contacts.setItem(contactId, { ...existing, archivedAt: new Date().toISOString() });
+      return {};
+    },
+  }),
   ...defineHandler({
     path: '/api/organizations/:organizationId/contacts',
     method: 'GET',
@@ -492,7 +531,22 @@ export const invoicingHandlers = {
     },
   }),
 
-  ...catalogHandlers({ path: 'products', key: 'products', listKey: 'products', itemKey: 'product', prefix: 'prd' }),
+  ...catalogHandlers({
+    path: 'products',
+    key: 'products',
+    listKey: 'products',
+    itemKey: 'product',
+    prefix: 'prd',
+    toListItems: async ({ records, query }) => {
+      const contacts = await getValues(db().contacts);
+      const contactId = typeof query.contactId === 'string' && query.contactId !== '' ? query.contactId : undefined;
+
+      return records
+        .filter(record => contactId === undefined || record.contactId === contactId)
+        .map((record): Stored => ({ ...record, contactId: record.contactId ?? null, contactName: contacts.find(contact => contact.id === record.contactId)?.name ?? null }))
+        .sort((left, right) => String(left.name).localeCompare(String(right.name), 'es'));
+    },
+  }),
   ...catalogHandlers({ path: 'tax-rates', key: 'taxRates', listKey: 'taxRates', itemKey: 'taxRate', prefix: 'tax', onSave: singleDefault('taxRates') }),
   ...catalogHandlers({ path: 'series', key: 'series', listKey: 'series', itemKey: 'series', prefix: 'ser', onSave: singleDefault('series') }),
 

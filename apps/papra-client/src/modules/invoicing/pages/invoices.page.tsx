@@ -2,7 +2,7 @@
 import type { Invoice, InvoiceStatus } from '../invoicing.types';
 import type { TranslationKeys } from '@/modules/i18n/locales.types';
 import type { ActiveFilter, FilterField } from '@/modules/ui/components/table-filters';
-import { A, useParams } from '@solidjs/router';
+import { A, useNavigate, useParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
@@ -10,6 +10,7 @@ import { queryClient } from '@/modules/shared/query/query-client';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { EntityIcon } from '@/modules/ui/components/entity-icon';
+import { RowActions } from '@/modules/ui/components/row-actions';
 import { createToast } from '@/modules/ui/components/sonner';
 import { dateIsInRange, getActiveFilter, isDateRangeValue } from '@/modules/ui/components/table-filters';
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
@@ -17,13 +18,13 @@ import { getOrganizationRouteChildHref, getOrganizationRouteHref } from '@/modul
 import { CatalogCell, CatalogRow, CatalogTable } from '../components/catalog-page';
 import { InvoicesTabs } from '../components/invoices-tabs';
 import { getInvoicePayableMinor } from '../invoicing.models';
-import { downloadInvoicePdf, fetchInvoices, markInvoicePaid, sendInvoice } from '../invoicing.services';
+import { deleteDraftInvoice, downloadInvoicePdf, fetchInvoices, markInvoicePaid, sendInvoice } from '../invoicing.services';
 
 export const invoiceStatusLabelKeys = { draft: 'invoicing.status.draft', issuing: 'invoicing.status.issuing', issued: 'invoicing.status.issued', sent: 'invoicing.status.sent', paid: 'invoicing.status.paid', void: 'invoicing.status.void' } as const satisfies Record<InvoiceStatus, TranslationKeys>;
 export function InvoicesPage() {
   const { t, getLocale } = useI18n();
   const statusOptions = () => Object.entries(invoiceStatusLabelKeys).map(([value, key]) => ({ value, label: t(key) }));
-  const params = useParams(); const [search, setSearch] = createSignal(''); const [filters, setFilters] = createSignal<ActiveFilter[]>([]);
+  const params = useParams(); const navigate = useNavigate(); const [search, setSearch] = createSignal(''); const [filters, setFilters] = createSignal<ActiveFilter[]>([]);
   const filterFields = createMemo((): FilterField[] => [
     { id: 'status', type: 'multi-select', label: t('invoicing.invoices.filter.status'), icon: 'i-tabler-progress-check', options: statusOptions() },
     { id: 'date', type: 'date-range', label: t('invoicing.invoices.table.issue-date'), icon: 'i-tabler-calendar' },
@@ -41,6 +42,10 @@ export function InvoicesPage() {
   const sendMutation = createMutation(() => ({ mutationFn: (invoiceId: string) => sendInvoice({ organizationId: params.organizationId, invoiceId }), onSuccess: async () => {
     createToast({ type: 'success', message: t('invoicing.invoices.toast.sent') }); await refresh();
   }, onError: () => createToast({ type: 'error', message: t('invoicing.invoices.toast.send-error') }) }));
+  const deleteMutation = createMutation(() => ({ mutationFn: (invoiceId: string) => deleteDraftInvoice({ organizationId: params.organizationId, invoiceId }), onSuccess: async () => {
+    createToast({ type: 'success', message: t('invoicing.invoices.toast.deleted') }); await refresh();
+  }, onError: () => createToast({ type: 'error', message: t('invoicing.invoices.toast.delete-error') }) }));
+  const editHref = (invoice: Invoice) => getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: `${invoice.id}/edit` });
   const paidMutation = createMutation(() => ({ mutationFn: (invoiceId: string) => markInvoicePaid({ organizationId: params.organizationId, invoiceId }), onSuccess: refresh }));
   // The amount the customer pays, the IRPF withholding goes to the tax agency
   const money = (invoice: Invoice) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency: invoice.currency }).format(getInvoicePayableMinor(invoice) / 100);
@@ -68,10 +73,10 @@ export function InvoicesPage() {
         </div>
       </Show>
       <Show when={invoices().length > 0}>
-        <CatalogTable headers={[{ label: t('invoicing.invoices.table.invoice') }, { label: t('invoicing.invoices.table.customer') }, { label: t('invoicing.invoices.table.issue-date') }, { label: t('invoicing.invoices.table.status') }, { label: t('invoicing.invoices.table.total'), class: 'text-right' }, { label: '', class: 'w-36' }]}>
+        <CatalogTable headers={[{ label: t('invoicing.invoices.table.invoice') }, { label: t('invoicing.invoices.table.customer') }, { label: t('invoicing.invoices.table.issue-date') }, { label: t('invoicing.invoices.table.status') }, { label: t('invoicing.invoices.table.total'), class: 'text-right' }, { label: '', class: 'w-14' }]}>
           <For each={invoices()}>
             {invoice => (
-              <CatalogRow>
+              <CatalogRow onClick={invoice.status === 'draft' ? () => navigate(editHref(invoice)) : undefined}>
                 <CatalogCell class="font-medium">{invoice.number ?? t('invoicing.status.draft')}</CatalogCell>
                 <CatalogCell>
                   <div class="flex items-center gap-2">
@@ -83,22 +88,18 @@ export function InvoicesPage() {
                 <CatalogCell><Badge variant="outline">{t(invoiceStatusLabelKeys[invoice.status])}</Badge></CatalogCell>
                 <CatalogCell class="text-right font-medium tabular-nums">{money(invoice)}</CatalogCell>
                 <CatalogCell>
-                  <div class="flex justify-end gap-1">
-                    <Show when={invoice.status === 'draft'}>
-                      <Button
-                        as={A}
-                        size="icon"
-                        variant="ghost"
-                        aria-label={t('invoicing.invoices.actions.edit-draft')}
-                        href={`/organizations/${params.organizationId}/invoicing/invoices/${invoice.id}/edit`}
-                      >
-                        <div class="i-tabler-pencil size-4" />
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => sendMutation.mutate(invoice.id)}>{t('invoicing.invoices.actions.send')}</Button>
-                    </Show>
-                    <Show when={invoice.status !== 'draft' && invoice.status !== 'issuing'}><Button size="icon" variant="ghost" aria-label={t('invoicing.invoices.actions.download')} onClick={() => downloadInvoicePdf({ organizationId: params.organizationId, invoiceId: invoice.id, filename: invoice.number ?? invoice.id })}><div class="i-tabler-download size-4" /></Button></Show>
-                    <Show when={invoice.status === 'issued' || invoice.status === 'sent'}><Button size="icon" variant="ghost" aria-label={t('invoicing.invoices.actions.mark-paid')} onClick={() => paidMutation.mutate(invoice.id)}><div class="i-tabler-check size-4" /></Button></Show>
-                  </div>
+                  <RowActions
+                    itemName={invoice.number ?? t('invoicing.status.draft')}
+                    actions={[
+                      ...(invoice.status === 'draft' ? [{ label: t('invoicing.invoices.actions.send'), icon: 'i-tabler-send', onSelect: () => sendMutation.mutate(invoice.id) }] : []),
+                      ...(invoice.status !== 'draft' && invoice.status !== 'issuing' ? [{ label: t('invoicing.invoices.actions.download'), icon: 'i-tabler-download', onSelect: () => void downloadInvoicePdf({ organizationId: params.organizationId, invoiceId: invoice.id, filename: invoice.number ?? invoice.id }) }] : []),
+                      ...(invoice.status === 'issued' || invoice.status === 'sent' ? [{ label: t('invoicing.invoices.actions.mark-paid'), icon: 'i-tabler-check', onSelect: () => paidMutation.mutate(invoice.id) }] : []),
+                    ]}
+                    // An issued invoice is a legal record: it is corrected with a credit note, never edited nor deleted
+                    onEdit={invoice.status === 'draft' ? () => navigate(editHref(invoice)) : undefined}
+                    onDelete={() => deleteMutation.mutateAsync(invoice.id)}
+                    deleteDisabled={invoice.status !== 'draft'}
+                  />
                 </CatalogCell>
               </CatalogRow>
             )}

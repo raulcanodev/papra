@@ -22,7 +22,7 @@ import { createInvoiceEmailRequiredError, createInvoiceNotFoundError, createInvo
 import { getInvoicePayableMinor } from './invoicing.models';
 import { renderInvoicePdf } from './invoicing.pdf';
 import { createInvoicingRepository } from './invoicing.repository';
-import { fiscalProfileSchema, invoiceBrandingSchema, invoiceDraftSchema, invoiceListQuerySchema, invoiceSeriesSchema, productBodySchema, taxRateSchema } from './invoicing.schemas';
+import { fiscalProfileSchema, invoiceBrandingSchema, invoiceDraftSchema, invoiceListQuerySchema, invoiceSeriesSchema, productBodySchema, productListQuerySchema, taxRateSchema } from './invoicing.schemas';
 import { createVerifactuRepository } from './verifactu.repository';
 
 const resourceParams = z.object({
@@ -87,8 +87,8 @@ function setupSeriesRoutes({ app, db }: RouteDefinitionContext) {
 
 function setupCatalogRoutes({ app, db }: RouteDefinitionContext) {
   const organizationParams = z.object({ organizationId: organizationIdSchema });
-  app.get('/api/organizations/:organizationId/invoicing/products', requireAuthentication({ apiKeyPermissions: ['products:read'] }), legacyValidateParams(organizationParams), async (context) => {
-    const { organizationId } = context.req.valid('param'); await authorizeMember({ context, db, organizationId }); return context.json(await createInvoicingRepository({ db }).listProducts({ organizationId }));
+  app.get('/api/organizations/:organizationId/invoicing/products', requireAuthentication({ apiKeyPermissions: ['products:read'] }), legacyValidateParams(organizationParams), legacyValidateQuery(productListQuerySchema), async (context) => {
+    const { organizationId } = context.req.valid('param'); const { contactId } = context.req.valid('query'); await authorizeMember({ context, db, organizationId }); return context.json(await createInvoicingRepository({ db }).listProducts({ organizationId, contactId }));
   });
   app.post('/api/organizations/:organizationId/invoicing/products', requireAuthentication({ apiKeyPermissions: ['products:create'] }), legacyValidateParams(organizationParams), legacyValidateJsonBody(productBodySchema), async (context) => {
     const { organizationId } = context.req.valid('param'); const { customProperties, ...product } = context.req.valid('json'); await authorizeMember({ context, db, organizationId });

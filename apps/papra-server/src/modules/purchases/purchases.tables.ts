@@ -1,10 +1,11 @@
+import type { PurchaseMetadataEntry } from './purchases.schemas';
 import { sql } from 'drizzle-orm';
-import { check, index, integer, pgTable, text, timestamp, unique } from 'drizzle-orm/pg-core';
+import { check, index, integer, jsonb, pgTable, text, timestamp, unique } from 'drizzle-orm/pg-core';
 import { contactsTable } from '../contacts/contacts.table';
 import { documentsTable } from '../documents/documents.table';
 import { organizationsTable } from '../organizations/organizations.table';
 import { createPrimaryKeyField, createTimestampColumns } from '../shared/db/columns.helpers';
-import { EXPENSE_CATEGORIES, PURCHASE_INVOICE_ID_PREFIX, PURCHASE_INVOICE_ITEM_ID_PREFIX, PURCHASE_INVOICE_STATUSES } from './purchases.constants';
+import { EXPENSE_CATEGORIES, PURCHASE_DOCUMENT_KINDS, PURCHASE_INVOICE_ID_PREFIX, PURCHASE_INVOICE_ITEM_ID_PREFIX, PURCHASE_INVOICE_STATUSES } from './purchases.constants';
 
 // Invoices received from suppliers: the expenses side of the books (deductible VAT, income tax expenses)
 export const purchaseInvoicesTable = pgTable('purchase_invoices', {
@@ -14,6 +15,7 @@ export const purchaseInvoicesTable = pgTable('purchase_invoices', {
   supplierId: text('supplier_id').notNull().references(() => contactsTable.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
   // The supplier own invoice number, as printed on the invoice
   number: text('number').notNull(),
+  kind: text('kind', { enum: PURCHASE_DOCUMENT_KINDS }).notNull().default('invoice'),
   issueDate: timestamp('issue_date', { mode: 'date', withTimezone: true, precision: 3 }).notNull(),
   dueDate: timestamp('due_date', { mode: 'date', withTimezone: true, precision: 3 }),
   currency: text('currency').notNull().default('EUR'),
@@ -27,6 +29,8 @@ export const purchaseInvoicesTable = pgTable('purchase_invoices', {
   withholdingRateBps: integer('withholding_rate_bps').notNull().default(0),
   withholdingMinor: integer('withholding_minor').notNull().default(0),
   notes: text('notes'),
+  // Everything printed on the paper that has no column of its own, as read by the AI or typed by the user
+  metadata: jsonb('metadata').notNull().$type<PurchaseMetadataEntry[]>().default([]),
   // The invoice file, archived in the supplier folder
   documentId: text('document_id').references(() => documentsTable.id, { onDelete: 'set null', onUpdate: 'cascade' }),
   paidAt: timestamp('paid_at', { mode: 'date', withTimezone: true, precision: 3 }),
@@ -37,6 +41,7 @@ export const purchaseInvoicesTable = pgTable('purchase_invoices', {
   // The same supplier invoice cannot be registered twice
   unique('purchase_invoices_organization_supplier_number_unique').on(table.organizationId, table.supplierId, table.number),
   check('purchase_invoices_status_check', sql.raw(`"status" IN (${PURCHASE_INVOICE_STATUSES.map(status => `'${status}'`).join(', ')})`)),
+  check('purchase_invoices_kind_check', sql.raw(`"kind" IN (${PURCHASE_DOCUMENT_KINDS.map(kind => `'${kind}'`).join(', ')})`)),
   check('purchase_invoices_category_check', sql.raw(`"category" IN (${EXPENSE_CATEGORIES.map(category => `'${category}'`).join(', ')})`)),
 ]);
 

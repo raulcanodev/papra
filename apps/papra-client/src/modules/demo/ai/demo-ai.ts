@@ -27,6 +27,15 @@ function detectLanguage(text: string): Language {
 const money = (minor: number, locale: Language) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR' }).format(minor / 100);
 const day = (value: string, locale: Language) => new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(value));
 
+// The demo has no model to read files: it says what the real assistant does with them
+function buildAttachmentsReply({ question, names }: { question: string; names: string[] }) {
+  const list = names.map(name => `**${name}**`).join(', ');
+
+  return detectLanguage(question || 'hola') === 'es'
+    ? `He recibido ${list}. En tu cuenta los leería sin plantilla: facturas, tickets y albaranes los registro como facturas recibidas (y creo el proveedor si no existe), un Excel de productos o clientes lo paso a tu catálogo o tus contactos, y cualquier otra cosa la guardo interpretada para consultarla después. En esta demo pública no hay IA conectada, así que no puedo leer el contenido.`
+    : `I received ${list}. In your account I would read them without any template: invoices, tickets and delivery notes become received invoices (creating the supplier if needed), a spreadsheet of products or customers goes to your catalog or contacts, and anything else is kept interpreted to answer from later. This public demo has no AI connected, so I cannot read their content.`;
+}
+
 async function buildReply(question: string): Promise<string> {
   const lang = detectLanguage(question);
   const es = lang === 'es';
@@ -106,19 +115,21 @@ export async function demoStreamChatMessage({ organizationId, messages, sessionI
   onSessionId?: (id: string) => void;
   signal?: AbortSignal;
 }) {
-  const lastUser = [...messages].reverse().find(message => message.role === 'user')?.content ?? '';
+  const lastUserMessage = [...messages].reverse().find(message => message.role === 'user');
+  const lastUser = lastUserMessage?.content ?? '';
+  const attachments = lastUserMessage?.attachments ?? [];
   const now = new Date().toISOString();
 
   let session = sessionId ? await sessionStorage_.getItem(sessionId) : null;
   if (!session) {
-    session = { id: createId({ prefix: 'ais' }), organizationId, title: titleFrom(lastUser) || 'Chat', model: DEMO_AI_MODEL, createdAt: now, updatedAt: now };
+    session = { id: createId({ prefix: 'ais' }), organizationId, title: titleFrom(lastUser) || attachments.map(attachment => attachment.name).join(', ') || 'Chat', model: DEMO_AI_MODEL, createdAt: now, updatedAt: now };
   }
   await sessionStorage_.setItem(session.id, { ...session, updatedAt: now });
   onSessionId?.(session.id);
 
-  await messageStorage.setItem(`${session.id}:${now}:u`, { id: createId({ prefix: 'aim' }), sessionId: session.id, role: 'user', content: lastUser, createdAt: now });
+  await messageStorage.setItem(`${session.id}:${now}:u`, { id: createId({ prefix: 'aim' }), sessionId: session.id, role: 'user', content: lastUser, createdAt: now, metadata: attachments.length > 0 ? { attachments } : undefined });
 
-  const reply = await buildReply(lastUser);
+  const reply = attachments.length > 0 ? buildAttachmentsReply({ question: lastUser, names: attachments.map(attachment => attachment.name) }) : await buildReply(lastUser);
   await sleep(450, signal);
 
   try {

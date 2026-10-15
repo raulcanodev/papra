@@ -6,7 +6,6 @@ import { Buffer } from 'node:buffer';
 import { generateObject } from 'ai';
 import { and, eq } from 'drizzle-orm';
 import { getConfiguredLlmModel } from '../ai-assistant/ai-assistant.providers';
-import { normalizeTaxId } from '../contacts/contacts.models';
 import { createContactsRepository } from '../contacts/contacts.repository';
 import { createDocumentNotFoundError } from '../documents/documents.errors';
 import { extractDocumentText } from '../documents/documents.services';
@@ -15,15 +14,36 @@ import { invoicingProfilesTable } from '../invoicing/invoicing.tables';
 import { collectStreamToFile } from '../shared/streams/stream.convertion';
 import { EXTRACTABLE_DOCUMENT_MIME_TYPES, MAX_EXTRACTABLE_DOCUMENT_SIZE_BYTES } from './purchases.constants';
 import { createPurchaseDocumentNotExtractableError, createPurchaseExtractionFailedError } from './purchases.errors';
-import { getInvoiceDirection, invoiceExtractionSchema, toPurchaseInvoiceDraft } from './purchases.extraction.models';
+import { getInvoiceDirection, INVOICE_EXTRACTION_SCHEMA_VERSION, invoiceExtractionSchema, resolveSupplier, toPurchaseInvoiceDraft } from './purchases.extraction.models';
 
-// Reads an invoice from its text when available (any provider, cheaper), from the file itself otherwise (scans)
-export type InvoiceReader = (args: { text: string } | { file: { data: Buffer; mediaType: string } }) => Promise<InvoiceExtraction>;
+// Reads the paper from its text when it has a text layer (cheaper, any provider), from the file itself otherwise:
+// a photo goes to the vision model, with the text already extracted from it (if any) as a hint
+export type InvoiceReaderInput = {
+  text?: string;
+  file?: { data: Buffer; mediaType: string };
+  // Who "we" are: lets the model tell the issuer from the recipient on a crumpled ticket
+  organization: { name: string | null; taxId: string | null };
+};
 
-const READER_INSTRUCTIONS = `You read Spanish and European invoices for an accounting app.
-Extract exactly what is printed, never invent values: use null (or 0 for rates) when something is not on the invoice.
-Amounts are decimals in the invoice currency. Unit prices are before VAT and before discounts.
-The issuer is who sends and charges the invoice, the recipient is who has to pay it.`;
+export type InvoiceReader = (input: InvoiceReaderInput) => Promise<InvoiceExtraction>;
+
+const READER_INSTRUCTIONS = `You read invoices, tickets and delivery notes (albaranes), mostly Spanish and European, for an accounting app.
+They come as PDF text or as phone photos that can be skewed, folded, blurry or partly handwritten.
+Extract exactly what is printed, never invent values: use null (or 0 for rates and prices) when something is not on the paper.
+Amounts are decimals in the document currency. Unit prices are before VAT and before discounts: when only VAT-included prices are printed (tickets), compute the price before VAT from the rate.
+The issuer is who sends and charges the document (its header, logo, tax id), the recipient is who receives the goods or has to pay.
+Anything useful printed that has no dedicated field goes to metadata, with a short label, instead of being lost.
+Report in warnings anything the reviewer should double check.`;
+
+function getReaderPrompt({ text, file, organization }: InvoiceReaderInput) {
+  const lines = [
+    organization.name !== null || organization.taxId !== null ? `We are ${[organization.name, organization.taxId].filter(Boolean).join(', ')}: we are usually the recipient.` : undefined,
+    file ? 'Read this document.' : undefined,
+    text !== undefined && text !== '' ? `${file ? 'Text recognized on it, may contain OCR mistakes' : 'Document text'}:\n\n${text.slice(0, 40_000)}` : undefined,
+  ];
+
+  return lines.filter(Boolean).join('\n\n');
+}
 
 export function createAiInvoiceReader({ config }: { config: Config }): InvoiceReader {
   return async (input) => {
@@ -35,9 +55,10 @@ export function createAiInvoiceReader({ config }: { config: Config }): InvoiceRe
       system: READER_INSTRUCTIONS,
       messages: [{
         role: 'user',
-        content: 'text' in input
-          ? [{ type: 'text', text: `Invoice text:\n\n${input.text.slice(0, 40_000)}` }]
-          : [{ type: 'text', text: 'Read this invoice.' }, { type: 'file', data: input.file.data, mediaType: input.file.mediaType }],
+        content: [
+          { type: 'text', text: getReaderPrompt(input) },
+          ...(input.file ? [{ type: 'file' as const, data: input.file.data, mediaType: input.file.mediaType }] : []),
+        ],
       }],
     });
 
@@ -82,44 +103,56 @@ export async function extractPurchaseInvoiceFromDocument({
       fileEncryptionKeyWrapped: document.fileEncryptionKeyWrapped,
     });
 
-    return collectStreamToFile({ fileStream, fileName: document.name, mimeType: document.mimeType });
+    const { file } = await collectStreamToFile({ fileStream, fileName: document.name, mimeType: document.mimeType });
+
+    return file;
   };
 
-  // The content is extracted in the background after an upload: right after it, read the text now instead of waiting
-  let text = document.content.trim();
-  let file: File | undefined;
+  const [profile] = await db.select({ legalName: invoicingProfilesTable.legalName, taxId: invoicingProfilesTable.taxId }).from(invoicingProfilesTable).where(eq(invoicingProfilesTable.organizationId, organizationId)).limit(1);
+  const organization = { name: profile?.legalName ?? null, taxId: profile?.taxId ?? null };
+  const asReaderFile = async (file: File) => ({ data: Buffer.from(await file.arrayBuffer()), mediaType: document.mimeType });
 
-  if (text === '') {
-    ({ file } = await loadFile());
-    text = (await extractDocumentText({ file, ocrLanguages: config.documents.ocrLanguages })).text.trim();
-  }
+  // The content is extracted in the background after an upload: right after it, a PDF text is read now instead of waiting
+  const readerInput = await (async (): Promise<InvoiceReaderInput> => {
+    const text = document.content.trim();
 
-  const extraction = await readInvoice(text !== ''
-    ? { text }
-    : { file: { data: Buffer.from(await (file ?? (await loadFile()).file).arrayBuffer()), mediaType: document.mimeType } },
-  ).catch((error: unknown) => {
+    if (isPhoto({ mimeType: document.mimeType })) {
+      return { file: await asReaderFile(await loadFile()), text: text || undefined, organization };
+    }
+
+    if (text !== '') {
+      return { text, organization };
+    }
+
+    const file = await loadFile();
+    const extractedText = (await extractDocumentText({ file, ocrLanguages: config.documents.ocrLanguages })).text.trim();
+
+    return extractedText !== '' ? { text: extractedText, organization } : { file: await asReaderFile(file), organization };
+  })();
+
+  const extraction = await readInvoice(readerInput).catch((error: unknown) => {
     throw createPurchaseExtractionFailedError({ cause: error });
   });
 
-  const [profile] = await db.select({ taxId: invoicingProfilesTable.taxId }).from(invoicingProfilesTable).where(eq(invoicingProfilesTable.organizationId, organizationId)).limit(1);
-  const direction = getInvoiceDirection({ extraction, organizationTaxId: profile?.taxId });
+  const direction = getInvoiceDirection({ extraction, organizationTaxId: organization.taxId });
 
   // The counterparty of the organization: the issuer of a received invoice is the supplier
   const counterparty = direction === 'issued' ? extraction.recipient : extraction.issuer;
-  const counterpartyTaxId = normalizeTaxId({ taxId: counterparty.taxId });
   const { contacts } = await createContactsRepository({ db }).listContacts({ organizationId });
-  const matchedContact = counterpartyTaxId === null ? undefined : contacts.find(contact => normalizeTaxId({ taxId: contact.taxId }) === counterpartyTaxId);
+  const supplier = resolveSupplier({ party: counterparty, contacts });
 
   return {
+    schemaVersion: INVOICE_EXTRACTION_SCHEMA_VERSION,
     direction,
-    draft: toPurchaseInvoiceDraft({ extraction, supplierId: matchedContact?.isSupplier === true ? matchedContact.id : null, documentId }),
-    // Shown to the user: an existing contact to use (adding it the supplier role if needed), or the data to create one
-    counterparty: {
-      contactId: matchedContact?.id ?? null,
-      hasSupplierRole: matchedContact?.isSupplier ?? false,
-      ...counterparty,
-    },
+    draft: toPurchaseInvoiceDraft({ extraction, supplierId: supplier.status === 'matched' && supplier.hasSupplierRole ? supplier.contactId : null, documentId }),
+    // Shown to the user: the contact to use (adding it the supplier role if needed), similar ones, or the data to create one
+    counterparty: { ...counterparty, ...supplier },
+    warnings: extraction.warnings,
     // Lets the review screen warn when the lines do not add up to the printed total
-    printedTotal: Math.round(extraction.total * 100),
+    printedTotal: extraction.total === null ? null : Math.round(extraction.total * 100),
   };
+}
+
+function isPhoto({ mimeType }: { mimeType: string }) {
+  return mimeType.startsWith('image/');
 }

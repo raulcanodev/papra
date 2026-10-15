@@ -1,5 +1,5 @@
 import type { TranslationKeys } from '../i18n/locales.types';
-import type { ExpenseCategory, PurchaseInvoiceStatus } from './purchases.types';
+import type { ExpenseCategory, PurchaseDocumentKind, PurchaseInvoiceStatus } from './purchases.types';
 
 export const EXPENSE_CATEGORIES: ExpenseCategory[] = ['goods', 'supplies', 'rent', 'professional_services', 'software', 'marketing', 'travel', 'vehicle', 'insurance', 'bank_fees', 'taxes_and_fees', 'other'];
 
@@ -17,6 +17,14 @@ export const EXPENSE_CATEGORY_LABEL_I18N_KEYS = {
   taxes_and_fees: 'purchases.categories.taxes_and_fees',
   other: 'purchases.categories.other',
 } as const satisfies Record<ExpenseCategory, TranslationKeys>;
+
+export const PURCHASE_DOCUMENT_KINDS: PurchaseDocumentKind[] = ['invoice', 'simplified_invoice', 'delivery_note'];
+
+export const PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS = {
+  invoice: 'purchases.kinds.invoice',
+  simplified_invoice: 'purchases.kinds.simplified_invoice',
+  delivery_note: 'purchases.kinds.delivery_note',
+} as const satisfies Record<PurchaseDocumentKind, TranslationKeys>;
 
 export const PURCHASE_STATUS_LABEL_I18N_KEYS = {
   pending: 'purchases.status.pending',

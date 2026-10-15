@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { Badge } from '@/modules/ui/components/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/modules/ui/components/card';
+import { SettingsSection, SettingsSections } from '@/modules/ui/components/settings-section';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
 import { dateIsInRange, getActiveFilter, isDateRangeValue, matchesSelectedFilter, toDistinctFilterOptions } from '@/modules/ui/components/table-filters';
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
@@ -34,17 +34,15 @@ export function VerifactuPage() {
   });
 
   return (
-    <main class="page space-y-6">
-      <div>
-        <h1 class="page-title">VERI*FACTU</h1>
-        <p class="page-description">{t('verifactu.page.description')}</p>
+    <main class="page">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">VERI*FACTU</h1>
+          <p class="page-description">{t('verifactu.page.description')}</p>
+        </div>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('verifactu.page.status.title')}</CardTitle>
-          <CardDescription>{t('verifactu.page.status.description')}</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <SettingsSections>
+        <SettingsSection title={t('verifactu.page.status.title')} description={t('verifactu.page.status.description')}>
           <Show when={configuration.data?.configuration} fallback={<p class="text-sm text-muted-foreground">{t('verifactu.page.not-configured')}</p>}>
             {config => (
               <div class="grid gap-4 sm:grid-cols-3">
@@ -63,48 +61,46 @@ export function VerifactuPage() {
               </div>
             )}
           </Show>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('verifactu.page.records.title')}</CardTitle>
-          <CardDescription>{t('verifactu.page.records.description')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Show when={allRecords().length > 0} fallback={<p class="text-sm text-muted-foreground">{t('verifactu.page.records.empty')}</p>}>
-            <TableToolbar fields={filterFields()} filters={filters()} onFiltersChange={setFilters} />
-            <div class="overflow-x-auto rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('verifactu.page.records.date')}</TableHead>
-                    <TableHead>{t('verifactu.page.records.type')}</TableHead>
-                    <TableHead>{t('verifactu.page.records.status')}</TableHead>
-                    <TableHead>{t('verifactu.page.records.hash')}</TableHead>
-                    <TableHead>{t('verifactu.page.records.attempts')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <For each={filteredRecords()}>
-                    {record => (
-                      <TableRow>
-                        <TableCell>{record.generatedAt.toLocaleString(getLocale())}</TableCell>
-                        <TableCell>{record.recordType}</TableCell>
-                        <TableCell><Badge variant="outline">{record.status}</Badge></TableCell>
-                        <TableCell class="font-mono text-xs">
-                          {record.hash.slice(0, 14)}
-                          …
-                        </TableCell>
-                        <TableCell>{record.attemptCount}</TableCell>
-                      </TableRow>
-                    )}
-                  </For>
-                </TableBody>
-              </Table>
-            </div>
-          </Show>
-        </CardContent>
-      </Card>
+        </SettingsSection>
+      </SettingsSections>
+      <section class="space-y-4 border-t pt-6">
+        <div class="space-y-1">
+          <h2 class="text-sm font-medium">{t('verifactu.page.records.title')}</h2>
+          <p class="text-sm text-muted-foreground">{t('verifactu.page.records.description')}</p>
+        </div>
+        <Show when={allRecords().length > 0} fallback={<p class="text-sm text-muted-foreground">{t('verifactu.page.records.empty')}</p>}>
+          <TableToolbar fields={filterFields()} filters={filters()} onFiltersChange={setFilters} />
+          <div class="overflow-x-auto rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('verifactu.page.records.date')}</TableHead>
+                  <TableHead>{t('verifactu.page.records.type')}</TableHead>
+                  <TableHead>{t('verifactu.page.records.status')}</TableHead>
+                  <TableHead>{t('verifactu.page.records.hash')}</TableHead>
+                  <TableHead>{t('verifactu.page.records.attempts')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <For each={filteredRecords()}>
+                  {record => (
+                    <TableRow>
+                      <TableCell>{record.generatedAt.toLocaleString(getLocale())}</TableCell>
+                      <TableCell>{record.recordType}</TableCell>
+                      <TableCell><Badge variant="outline">{record.status}</Badge></TableCell>
+                      <TableCell class="font-mono text-xs">
+                        {record.hash.slice(0, 14)}
+                        …
+                      </TableCell>
+                      <TableCell>{record.attemptCount}</TableCell>
+                    </TableRow>
+                  )}
+                </For>
+              </TableBody>
+            </Table>
+          </div>
+        </Show>
+      </section>
     </main>
   );
 }

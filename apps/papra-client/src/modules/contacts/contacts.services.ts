@@ -34,3 +34,8 @@ export async function updateContact({ organizationId, contactId, contact }: { or
 
   return { contact: coerceDates(updated) as Contact };
 }
+
+/** Archives the contact: it leaves the address book, its invoices and documents are kept */
+export async function deleteContact({ organizationId, contactId }: { organizationId: string; contactId: string }) {
+  await apiClient({ path: `/api/organizations/${organizationId}/contacts/${contactId}`, method: 'DELETE' });
+}

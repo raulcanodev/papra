@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { describe, expect, test } from 'vitest';
 import { router } from './demo-api-mock';
 
@@ -12,34 +11,46 @@ const EXEMPTIONS: Array<{ prefix: RegExp; reason: string }> = [
   { prefix: /^\/api\/organizations\/[^/]+\/ai\/chat$/, reason: 'the demo assistant streams from the browser (demoStreamChatMessage)' },
 ];
 
-const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
+const METHOD_PATTERN = /method: '(GET|POST|PUT|PATCH|DELETE)'/;
 
-function extractApiPaths(source: string) {
-  const paths = new Set<string>();
+// The HTTP method of the call the path belongs to: looked for inside that call only (between its `({` and `})`),
+// GET when the call does not say
+function findMethod({ source, index }: { source: string; index: number }) {
+  const callStart = source.lastIndexOf('({', index);
+  const callEnd = source.indexOf('})', index);
+  const call = source.slice(callStart === -1 ? index : callStart, callEnd === -1 ? index : callEnd);
+
+  return METHOD_PATTERN.exec(call)?.[1] ?? 'GET';
+}
+
+function extractApiCalls(source: string) {
+  const calls = new Set<string>();
 
   for (const match of source.matchAll(/['`](\/api\/[^'`?]+)/g)) {
-    // Template parameters become a sample value, the router matches them as route parameters
     // A trailing unclosed ${...} is an optional query string (`${year ? `?year=...` : ''}`), not part of the path
-    paths.add(match[1]!.replace(/\$\{[^}]*$/, '').replace(/\$\{[^}]*\}/g, 'sample').replace(/\/+$/, ''));
+    const path = match[1]!.replace(/\$\{[^}]*$/, '').replace(/\$\{[^}]*\}/g, 'sample').replace(/\/+$/, '');
+    calls.add(`${findMethod({ source, index: match.index })} ${path}`);
   }
 
-  return paths;
+  return calls;
 }
 
 describe('demo api coverage', () => {
-  const clientPaths = [...new Set(Object.values(sources).flatMap(source => [...extractApiPaths(source)]))].toSorted();
+  const clientCalls = [...new Set(Object.values(sources).flatMap(source => [...extractApiCalls(source)]))].toSorted();
 
   test('the app source is scanned', () => {
-    expect(clientPaths.length).toBeGreaterThan(80);
+    expect(clientCalls.length).toBeGreaterThan(80);
   });
 
-  test('every API call of the app has a demo handler or an explicit exemption, so the demo never falls behind', () => {
-    const missing = clientPaths.filter((path) => {
+  test('every API call of the app (path and method) has a demo handler or an explicit exemption, so the demo never falls behind', () => {
+    const missing = clientCalls.filter((call) => {
+      const [method, path] = call.split(' ') as [string, string];
+
       if (EXEMPTIONS.some(({ prefix }) => prefix.test(path))) {
         return false;
       }
 
-      return !HTTP_METHODS.some(method => router.lookup(`/${method}${path}`) !== null);
+      return router.lookup(`/${method}${path}`) === null;
     });
 
     expect(missing, 'Add a handler in modules/demo (with realistic data), or an exemption above with its reason').to.eql([]);

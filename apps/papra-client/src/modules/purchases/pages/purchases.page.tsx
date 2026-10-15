@@ -3,6 +3,7 @@ import type { ActiveFilter, FilterField } from '@/modules/ui/components/table-fi
 import { A, useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For, Show } from 'solid-js';
+import { PhotoCaptureButton } from '@/modules/captures/components/photo-capture-button';
 import { uploadDocument } from '@/modules/documents/documents.services';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { CatalogCell, CatalogRow, CatalogTable } from '@/modules/invoicing/components/catalog-page';
@@ -12,12 +13,13 @@ import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
 import { EntityIcon } from '@/modules/ui/components/entity-icon';
+import { RowActions } from '@/modules/ui/components/row-actions';
 import { createToast } from '@/modules/ui/components/sonner';
 import { dateIsInRange, getActiveFilter, isDateRangeValue } from '@/modules/ui/components/table-filters';
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
-import { EXPENSE_CATEGORY_LABEL_I18N_KEYS, EXTRACTABLE_FILE_ACCEPT, PURCHASE_STATUS_BADGE_CLASSES, PURCHASE_STATUS_LABEL_I18N_KEYS } from '../purchases.constants';
-import { fetchPurchaseInvoices, getPurchaseInvoicesQueryKey, setPurchaseInvoiceStatus } from '../purchases.services';
+import { EXPENSE_CATEGORY_LABEL_I18N_KEYS, EXTRACTABLE_FILE_ACCEPT, PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS, PURCHASE_STATUS_BADGE_CLASSES, PURCHASE_STATUS_LABEL_I18N_KEYS } from '../purchases.constants';
+import { deletePurchaseInvoice, fetchPurchaseInvoices, getPurchaseInvoicesQueryKey, setPurchaseInvoiceStatus } from '../purchases.services';
 
 const STATUS_FILTERS: (PurchaseInvoiceStatus | undefined)[] = [undefined, 'pending', 'paid'];
 
@@ -68,7 +70,21 @@ export function PurchasesPage() {
   const money = (purchaseInvoice: PurchaseInvoice, minor: number) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency: purchaseInvoice.currency }).format(minor / 100);
   const editorHref = (childPath: string) => getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath });
 
-  // Files are uploaded as documents first, then reviewed one after the other in the editor prefilled by the AI
+  // The documents are reviewed one after the other in the editor prefilled by the AI
+  const reviewDocuments = (documentIds: string[]) => {
+    const [first, ...queue] = documentIds;
+    if (first === undefined) {
+      return;
+    }
+
+    const search = new URLSearchParams({ documentId: first });
+    if (queue.length > 0) {
+      search.set('queue', queue.join(','));
+    }
+    navigate(`${editorHref('new')}?${search.toString()}`);
+  };
+
+  // Files (or photos taken on this device) are uploaded as documents first, photos sent from the phone already are
   const uploadFiles = async (files: File[]) => {
     if (files.length === 0) {
       return;
@@ -83,12 +99,7 @@ export function PurchasesPage() {
         documentIds.push(document.id);
       }
 
-      const [first, ...queue] = documentIds;
-      const search = new URLSearchParams({ documentId: first! });
-      if (queue.length > 0) {
-        search.set('queue', queue.join(','));
-      }
-      navigate(`${editorHref('new')}?${search.toString()}`);
+      reviewDocuments(documentIds);
     } catch {
       createToast({ type: 'error', message: t('purchases.upload.error') });
     } finally {
@@ -100,6 +111,15 @@ export function PurchasesPage() {
     mutationFn: ({ purchaseInvoiceId, status }: { purchaseInvoiceId: string; status: PurchaseInvoiceStatus }) => setPurchaseInvoiceStatus({ organizationId: params.organizationId, purchaseInvoiceId, status }),
     onSuccess: async () => queryClient.invalidateQueries({ queryKey: getPurchaseInvoicesQueryKey({ organizationId: params.organizationId }) }),
     onError: () => createToast({ type: 'error', message: t('purchases.toast.error') }),
+  }));
+
+  const deleteMutation = createMutation(() => ({
+    mutationFn: (purchaseInvoiceId: string) => deletePurchaseInvoice({ organizationId: params.organizationId, purchaseInvoiceId }),
+    onSuccess: async () => {
+      createToast({ type: 'success', message: t('purchases.toast.deleted') });
+      await queryClient.invalidateQueries({ queryKey: getPurchaseInvoicesQueryKey({ organizationId: params.organizationId }) });
+    },
+    onError: () => createToast({ type: 'error', message: t('purchases.toast.delete-error') }),
   }));
 
   return (
@@ -114,6 +134,10 @@ export function PurchasesPage() {
             <div class="i-tabler-pencil-plus size-4" />
             {t('purchases.new-manual')}
           </Button>
+          <PhotoCaptureButton organizationId={params.organizationId} purpose="purchase" variant="outline" size="sm" class="gap-1.5" isLoading={isUploading()} onFiles={files => void uploadFiles(files)} onDocuments={reviewDocuments}>
+            <div class="i-tabler-camera size-4" />
+            {t('purchases.upload.photo')}
+          </PhotoCaptureButton>
           <Button size="sm" class="gap-1.5" isLoading={isUploading()} onClick={() => fileInput?.click()}>
             <div class="i-tabler-sparkles size-4" />
             {t('purchases.upload.button')}
@@ -159,6 +183,7 @@ export function PurchasesPage() {
           { label: t('purchases.table.vat'), class: 'text-right' },
           { label: t('purchases.table.total'), class: 'text-right' },
           { label: t('purchases.table.status') },
+          { label: '', class: 'w-14' },
         ]}
         >
           <For each={rows()}>
@@ -179,7 +204,14 @@ export function PurchasesPage() {
                     </div>
                   </div>
                 </CatalogCell>
-                <CatalogCell class="text-muted-foreground">{purchaseInvoice.number}</CatalogCell>
+                <CatalogCell class="text-muted-foreground">
+                  <div class="flex items-center gap-2">
+                    <span>{purchaseInvoice.number}</span>
+                    <Show when={purchaseInvoice.kind !== 'invoice'}>
+                      <span class="rounded-full bg-muted px-2 py-0.5 text-xs whitespace-nowrap">{t(PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS[purchaseInvoice.kind])}</span>
+                    </Show>
+                  </div>
+                </CatalogCell>
                 <CatalogCell class="text-muted-foreground">{t(EXPENSE_CATEGORY_LABEL_I18N_KEYS[purchaseInvoice.category])}</CatalogCell>
                 <CatalogCell class="text-right tabular-nums text-muted-foreground">{money(purchaseInvoice, purchaseInvoice.taxMinor)}</CatalogCell>
                 <CatalogCell class="text-right font-medium tabular-nums">{money(purchaseInvoice, getInvoicePayableMinor(purchaseInvoice))}</CatalogCell>
@@ -195,6 +227,19 @@ export function PurchasesPage() {
                   >
                     {t(PURCHASE_STATUS_LABEL_I18N_KEYS[purchaseInvoice.status])}
                   </button>
+                </CatalogCell>
+                <CatalogCell>
+                  <RowActions
+                    itemName={`${purchaseInvoice.supplierName} ${purchaseInvoice.number}`}
+                    actions={[{
+                      label: purchaseInvoice.status === 'pending' ? t('purchases.actions.mark-paid') : t('purchases.actions.mark-pending'),
+                      icon: purchaseInvoice.status === 'pending' ? 'i-tabler-check' : 'i-tabler-clock',
+                      onSelect: () => statusMutation.mutate({ purchaseInvoiceId: purchaseInvoice.id, status: purchaseInvoice.status === 'pending' ? 'paid' : 'pending' }),
+                    }]}
+                    onEdit={() => navigate(editorHref(`${purchaseInvoice.id}/edit`))}
+                    onDelete={() => deleteMutation.mutateAsync(purchaseInvoice.id)}
+                    deleteMessage={t('purchases.delete-message')}
+                  />
                 </CatalogCell>
               </CatalogRow>
             )}

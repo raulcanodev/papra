@@ -9,15 +9,15 @@ import { signOut } from '@/modules/auth/auth.services';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { createForm } from '@/modules/shared/form/form';
 import { Button } from '@/modules/ui/components/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/modules/ui/components/card';
+import { SettingsSection, SettingsSections } from '@/modules/ui/components/settings-section';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextField, TextFieldLabel, TextFieldRoot } from '@/modules/ui/components/textfield';
-import { TwoFactorCard } from '../components/two-factor-card';
+import { TwoFactorSection } from '../components/two-factor-card';
 import { useUpdateCurrentUser } from '../users.composables';
 import { nameSchema } from '../users.schemas';
 import { fetchCurrentUser } from '../users.services';
 
-const LogoutCard: Component = () => {
+const LogoutSection: Component = () => {
   const [getIsLoading, setIsLoading] = createSignal(false);
   const navigate = useNavigate();
   const { t } = useI18n();
@@ -29,42 +29,32 @@ const LogoutCard: Component = () => {
   };
 
   return (
-    <Card class="flex flex-row justify-between items-center p-6 border-destructive">
-      <div class="flex flex-col gap-1.5">
-        <CardTitle>{t('user.settings.logout.title')}</CardTitle>
-        <CardDescription>
-          {t('user.settings.logout.description')}
-        </CardDescription>
+    <SettingsSection title={t('user.settings.logout.title')} description={t('user.settings.logout.description')} variant="destructive">
+      <div>
+        <Button onClick={handleLogout} variant="destructive" isLoading={getIsLoading()}>
+          {t('user.settings.logout.button')}
+        </Button>
       </div>
-      <Button onClick={handleLogout} variant="destructive" isLoading={getIsLoading()}>
-        {t('user.settings.logout.button')}
-      </Button>
-    </Card>
+    </SettingsSection>
   );
 };
 
-const UserEmailCard: Component<{ email: string }> = (props) => {
+const UserEmailSection: Component<{ email: string }> = (props) => {
   const { t } = useI18n();
 
   return (
-    <Card>
-      <CardHeader class="border-b">
-        <CardTitle>{t('user.settings.email.title')}</CardTitle>
-        <CardDescription>{t('user.settings.email.description')}</CardDescription>
-      </CardHeader>
-      <CardContent class="pt-6">
-        <TextFieldRoot>
-          <TextFieldLabel for="email" class="sr-only">
-            {t('user.settings.email.label')}
-          </TextFieldLabel>
-          <TextField id="email" value={props.email} disabled readOnly />
-        </TextFieldRoot>
-      </CardContent>
-    </Card>
+    <SettingsSection title={t('user.settings.email.title')} description={t('user.settings.email.description')}>
+      <TextFieldRoot>
+        <TextFieldLabel for="email" class="sr-only">
+          {t('user.settings.email.label')}
+        </TextFieldLabel>
+        <TextField id="email" value={props.email} disabled readOnly />
+      </TextFieldRoot>
+    </SettingsSection>
   );
 };
 
-const UpdateFullNameCard: Component<{ name: string }> = (props) => {
+const UpdateFullNameSection: Component<{ name: string }> = (props) => {
   const { updateCurrentUser } = useUpdateCurrentUser();
   const { t } = useI18n();
 
@@ -85,51 +75,44 @@ const UpdateFullNameCard: Component<{ name: string }> = (props) => {
   });
 
   return (
-    <Card>
-      <CardHeader class="border-b">
-        <CardTitle>{t('user.settings.name.title')}</CardTitle>
-        <CardDescription>{t('user.settings.name.description')}</CardDescription>
-      </CardHeader>
-
+    <SettingsSection title={t('user.settings.name.title')} description={t('user.settings.name.description')}>
       <Form>
-        <CardContent class="pt-6">
-          <Field name="name">
-            {(field, inputProps) => (
-              <TextFieldRoot class="flex flex-col gap-1">
-                <TextFieldLabel for="name" class="sr-only">
-                  {t('user.settings.name.label')}
-                </TextFieldLabel>
-                <div class="flex gap-2 flex-col sm:flex-row">
-                  <TextField
-                    type="text"
-                    id="name"
-                    placeholder={t('user.settings.name.placeholder')}
-                    {...inputProps}
-                    value={field.value}
-                    aria-invalid={Boolean(field.error)}
-                  />
-                  <Button
-                    type="submit"
-                    isLoading={form.submitting}
-                    class="flex-shrink-0"
-                    disabled={field.value?.trim() === props.name}
-                  >
-                    {t('user.settings.name.update')}
-                  </Button>
-                </div>
-                {field.error && <div class="text-red-500 text-sm">{field.error}</div>}
-              </TextFieldRoot>
-            )}
-          </Field>
+        <Field name="name">
+          {(field, inputProps) => (
+            <TextFieldRoot class="flex flex-col gap-1">
+              <TextFieldLabel for="name" class="sr-only">
+                {t('user.settings.name.label')}
+              </TextFieldLabel>
+              <div class="flex gap-2 flex-col sm:flex-row">
+                <TextField
+                  type="text"
+                  id="name"
+                  placeholder={t('user.settings.name.placeholder')}
+                  {...inputProps}
+                  value={field.value}
+                  aria-invalid={Boolean(field.error)}
+                />
+                <Button
+                  type="submit"
+                  isLoading={form.submitting}
+                  class="flex-shrink-0"
+                  disabled={field.value?.trim() === props.name}
+                >
+                  {t('user.settings.name.update')}
+                </Button>
+              </div>
+              {field.error && <div class="text-red-500 text-sm">{field.error}</div>}
+            </TextFieldRoot>
+          )}
+        </Field>
 
-          <div class="text-red-500 text-sm">{form.response.message}</div>
-        </CardContent>
+        <div class="text-red-500 text-sm">{form.response.message}</div>
       </Form>
-    </Card>
+    </SettingsSection>
   );
 };
 
-const AiMemoryCard: Component = () => {
+const AiMemorySection: Component = () => {
   const { t } = useI18n();
   const [profile, setProfile] = createSignal<Record<string, string>>({});
   const [isLoading, setIsLoading] = createSignal(true);
@@ -188,80 +171,72 @@ const AiMemoryCard: Component = () => {
   };
 
   return (
-    <Card>
-      <CardHeader class="border-b">
-        <CardTitle>{t('user.settings.ai-memory.title')}</CardTitle>
-        <CardDescription>
-          {t('user.settings.ai-memory.description')}
-        </CardDescription>
-      </CardHeader>
-      <CardContent class="pt-4">
-        <Show when={!isLoading()} fallback={<div class="text-sm text-muted-foreground">{t('user.settings.ai-memory.loading')}</div>}>
-          <Show when={!isError()} fallback={<p class="text-sm text-muted-foreground">{t('user.settings.ai-memory.error')}</p>}>
-            <div class="flex flex-col gap-2">
-              <For each={Object.entries(profile())}>
-                {([key, value]) => (
-                  <div class="flex items-center gap-2 text-sm">
-                    <span class="font-medium min-w-24 text-muted-foreground">{key}</span>
-                    <Show
-                      when={editingKey() === key}
-                      fallback={(
-                        <>
-                          <span class="flex-1">{value}</span>
-                          <Button variant="ghost" size="sm" aria-label={t('user.settings.ai-memory.edit')} onClick={() => startEdit(key, value)}>
-                            <div class="i-tabler-edit size-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" aria-label={t('user.settings.ai-memory.delete')} onClick={() => handleDelete(key)}>
-                            <div class="i-tabler-trash size-4" />
-                          </Button>
-                        </>
-                      )}
-                    >
-                      <TextFieldRoot class="flex-1 flex">
-                        <TextField
-                          type="text"
-                          value={editValue()}
-                          onInput={e => setEditValue(e.currentTarget.value)}
-                          class="flex-1 min-w-0"
-                        />
-                      </TextFieldRoot>
-                      <Button size="sm" onClick={() => saveEdit(key)}>{t('user.settings.ai-memory.save')}</Button>
-                      <Button variant="ghost" size="sm" onClick={() => setEditingKey(null)}>{t('user.settings.ai-memory.cancel')}</Button>
-                    </Show>
-                  </div>
-                )}
-              </For>
+    <SettingsSection title={t('user.settings.ai-memory.title')} description={t('user.settings.ai-memory.description')}>
+      <Show when={!isLoading()} fallback={<div class="text-sm text-muted-foreground">{t('user.settings.ai-memory.loading')}</div>}>
+        <Show when={!isError()} fallback={<p class="text-sm text-muted-foreground">{t('user.settings.ai-memory.error')}</p>}>
+          <div class="flex flex-col gap-2">
+            <For each={Object.entries(profile())}>
+              {([key, value]) => (
+                <div class="flex items-center gap-2 text-sm">
+                  <span class="font-medium min-w-24 text-muted-foreground">{key}</span>
+                  <Show
+                    when={editingKey() === key}
+                    fallback={(
+                      <>
+                        <span class="flex-1">{value}</span>
+                        <Button variant="ghost" size="sm" aria-label={t('user.settings.ai-memory.edit')} onClick={() => startEdit(key, value)}>
+                          <div class="i-tabler-edit size-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" aria-label={t('user.settings.ai-memory.delete')} onClick={() => handleDelete(key)}>
+                          <div class="i-tabler-trash size-4" />
+                        </Button>
+                      </>
+                    )}
+                  >
+                    <TextFieldRoot class="flex-1 flex">
+                      <TextField
+                        type="text"
+                        value={editValue()}
+                        onInput={e => setEditValue(e.currentTarget.value)}
+                        class="flex-1 min-w-0"
+                      />
+                    </TextFieldRoot>
+                    <Button size="sm" onClick={() => saveEdit(key)}>{t('user.settings.ai-memory.save')}</Button>
+                    <Button variant="ghost" size="sm" onClick={() => setEditingKey(null)}>{t('user.settings.ai-memory.cancel')}</Button>
+                  </Show>
+                </div>
+              )}
+            </For>
 
-              <Show when={Object.keys(profile()).length === 0}>
-                <p class="text-sm text-muted-foreground">{t('user.settings.ai-memory.empty')}</p>
-              </Show>
+            <Show when={Object.keys(profile()).length === 0}>
+              <p class="text-sm text-muted-foreground">{t('user.settings.ai-memory.empty')}</p>
+            </Show>
 
-              <div class="flex items-center gap-2 mt-2 pt-2 border-t">
-                <TextFieldRoot class="min-w-24 max-w-32 flex">
-                  <TextField
-                    type="text"
-                    placeholder={t('user.settings.ai-memory.key')}
-                    value={newKey()}
-                    onInput={e => setNewKey(e.currentTarget.value)}
-                    class="w-full text-sm"
-                  />
-                </TextFieldRoot>
-                <TextFieldRoot class="flex-1 flex">
-                  <TextField
-                    type="text"
-                    placeholder={t('user.settings.ai-memory.value')}
-                    value={newValue()}
-                    onInput={e => setNewValue(e.currentTarget.value)}
-                    class="w-full text-sm"
-                  />
-                </TextFieldRoot>
-                <Button size="sm" onClick={addEntry} disabled={!newKey().trim() || !newValue().trim()}>{t('user.settings.ai-memory.add')}</Button>
-              </div>
+            <div class="flex items-center gap-2 mt-2 pt-2 border-t">
+              <TextFieldRoot class="min-w-24 max-w-32 flex">
+                <TextField
+                  type="text"
+                  placeholder={t('user.settings.ai-memory.key')}
+                  value={newKey()}
+                  onInput={e => setNewKey(e.currentTarget.value)}
+                  class="w-full text-sm"
+                />
+              </TextFieldRoot>
+              <TextFieldRoot class="flex-1 flex">
+                <TextField
+                  type="text"
+                  placeholder={t('user.settings.ai-memory.value')}
+                  value={newValue()}
+                  onInput={e => setNewValue(e.currentTarget.value)}
+                  class="w-full text-sm"
+                />
+              </TextFieldRoot>
+              <Button size="sm" onClick={addEntry} disabled={!newKey().trim() || !newValue().trim()}>{t('user.settings.ai-memory.add')}</Button>
             </div>
-          </Show>
+          </div>
         </Show>
-      </CardContent>
-    </Card>
+      </Show>
+    </SettingsSection>
   );
 };
 
@@ -278,18 +253,20 @@ export const UserSettingsPage: Component = () => {
         <Show when={query.data?.user}>
           {getUser => (
             <>
-              <div class="border-b pb-4">
-                <h1 class="text-2xl font-semibold mb-1">{t('user.settings.title')}</h1>
-                <p class="text-muted-foreground">{t('user.settings.description')}</p>
+              <div class="page-header">
+                <div>
+                  <h1 class="page-title">{t('user.settings.title')}</h1>
+                  <p class="page-description">{t('user.settings.description')}</p>
+                </div>
               </div>
 
-              <div class="mt-6 flex flex-col gap-6">
-                <UserEmailCard email={getUser().email} />
-                <UpdateFullNameCard name={getUser().name} />
-                <TwoFactorCard twoFactorEnabled={getUser().twoFactorEnabled} onUpdate={() => query.refetch()} />
-                <AiMemoryCard />
-                <LogoutCard />
-              </div>
+              <SettingsSections>
+                <UserEmailSection email={getUser().email} />
+                <UpdateFullNameSection name={getUser().name} />
+                <TwoFactorSection twoFactorEnabled={getUser().twoFactorEnabled} onUpdate={() => query.refetch()} />
+                <AiMemorySection />
+                <LogoutSection />
+              </SettingsSections>
             </>
           )}
         </Show>

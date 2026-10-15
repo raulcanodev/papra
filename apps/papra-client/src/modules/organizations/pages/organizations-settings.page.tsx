@@ -13,14 +13,14 @@ import { createForm } from '@/modules/shared/form/form';
 import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-errors';
 import { fetchOrganizationSubscription, getCustomerPortalUrl } from '@/modules/subscriptions/subscriptions.services';
 import { Button } from '@/modules/ui/components/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/modules/ui/components/card';
+import { SettingsSection, SettingsSections } from '@/modules/ui/components/settings-section';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextField, TextFieldLabel, TextFieldRoot } from '@/modules/ui/components/textfield';
 import { useCurrentUserRole, useDeleteOrganization, useUpdateOrganization } from '../organizations.composables';
 import { organizationNameSchema } from '../organizations.schemas';
 import { fetchOrganization } from '../organizations.services';
 
-const DeleteOrganizationCard: Component<{ organization: Organization }> = (props) => {
+const DeleteOrganizationSection: Component<{ organization: Organization }> = (props) => {
   const { deleteOrganization } = useDeleteOrganization();
   const { confirm } = useConfirmModal();
   const { t } = useI18n();
@@ -87,41 +87,31 @@ const DeleteOrganizationCard: Component<{ organization: Organization }> = (props
   };
 
   return (
-    <div>
-      <Card class="border-destructive">
-        <CardHeader class="border-b">
-          <CardTitle>{t('organization.settings.delete.title')}</CardTitle>
-          <CardDescription>
-            {t('organization.settings.delete.description')}
-          </CardDescription>
-        </CardHeader>
+    <SettingsSection title={t('organization.settings.delete.title')} description={t('organization.settings.delete.description')} variant="destructive">
+      <div class="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+        <Button class="flex-shrink-0" onClick={handleDelete} variant="destructive" disabled={!getIsOwner() || getHasBlockingSubscription()}>
+          {t('organization.settings.delete.confirm.confirm-button')}
+        </Button>
 
-        <CardFooter class="pt-6 gap-4 flex-col items-start sm:flex-row sm:items-center">
-          <Button class="flex-shrink-0" onClick={handleDelete} variant="destructive" disabled={!getIsOwner() || getHasBlockingSubscription()}>
-            {t('organization.settings.delete.confirm.confirm-button')}
-          </Button>
+        <Switch>
+          <Match when={query.isSuccess && !getIsOwner()}>
+            <span class="text-xs text-muted-foreground">
+              {t('organization.settings.delete.only-owner')}
+            </span>
+          </Match>
 
-          <Switch>
-            <Match when={query.isSuccess && !getIsOwner()}>
-              <span class="text-xs text-muted-foreground">
-                {t('organization.settings.delete.only-owner')}
-              </span>
-            </Match>
-
-            <Match when={getHasBlockingSubscription()}>
-              <span class="text-xs text-muted-foreground">
-                {t('organization.settings.delete.has-active-subscription')}
-              </span>
-            </Match>
-          </Switch>
-
-        </CardFooter>
-      </Card>
-    </div>
+          <Match when={getHasBlockingSubscription()}>
+            <span class="text-xs text-muted-foreground">
+              {t('organization.settings.delete.has-active-subscription')}
+            </span>
+          </Match>
+        </Switch>
+      </div>
+    </SettingsSection>
   );
 };
 
-export const SubscriptionCard: Component<{ organization: Organization }> = (props) => {
+export const SubscriptionSection: Component<{ organization: Organization }> = (props) => {
   const { config } = useConfig();
 
   if (!config.isSubscriptionsEnabled) {
@@ -151,21 +141,17 @@ export const SubscriptionCard: Component<{ organization: Organization }> = (prop
   };
 
   return (
-    <Card class="flex flex-col sm:flex-row justify-between gap-4 sm:items-center p-6 ">
+    <SettingsSection title={t('organization.settings.subscription.title')} description={t('organization.settings.subscription.description')}>
       <div>
-        <div class="font-semibold">{t('organization.settings.subscription.title')}</div>
-        <div class="text-sm text-muted-foreground">
-          {t('organization.settings.subscription.description')}
-        </div>
+        <Button onClick={goToCustomerPortal} isLoading={getIsLoading()} disabled={isDemoMode}>
+          {t('organization.settings.subscription.manage')}
+        </Button>
       </div>
-      <Button onClick={goToCustomerPortal} isLoading={getIsLoading()} class="flex-shrink-0" disabled={isDemoMode}>
-        {t('organization.settings.subscription.manage')}
-      </Button>
-    </Card>
+    </SettingsSection>
   );
 };
 
-const UpdateOrganizationNameCard: Component<{ organization: Organization }> = (props) => {
+const UpdateOrganizationNameSection: Component<{ organization: Organization }> = (props) => {
   const { updateOrganization } = useUpdateOrganization();
   const { t } = useI18n();
 
@@ -187,37 +173,29 @@ const UpdateOrganizationNameCard: Component<{ organization: Organization }> = (p
   });
 
   return (
-    <div>
-      <Card>
-        <CardHeader class="border-b">
-          <CardTitle>{t('organization.settings.name.title')}</CardTitle>
-        </CardHeader>
+    <SettingsSection title={t('organization.settings.name.title')}>
+      <Form>
+        <Field name="organizationName">
+          {(field, inputProps) => (
+            <TextFieldRoot class="flex flex-col gap-1">
+              <TextFieldLabel for="organizationName" class="sr-only">
+                {t('organization.settings.name.title')}
+              </TextFieldLabel>
+              <div class="flex gap-2 flex-col sm:flex-row">
+                <TextField type="text" id="organizationName" placeholder={t('organization.settings.name.placeholder')} {...inputProps} autoFocus value={field.value} aria-invalid={Boolean(field.error)} />
 
-        <Form>
-          <CardContent class="pt-6 ">
-            <Field name="organizationName">
-              {(field, inputProps) => (
-                <TextFieldRoot class="flex flex-col gap-1">
-                  <TextFieldLabel for="organizationName" class="sr-only">
-                    {t('organization.settings.name.title')}
-                  </TextFieldLabel>
-                  <div class="flex gap-2 flex-col sm:flex-row">
-                    <TextField type="text" id="organizationName" placeholder={t('organization.settings.name.placeholder')} {...inputProps} autoFocus value={field.value} aria-invalid={Boolean(field.error)} />
+                <Button type="submit" isLoading={form.submitting} class="flex-shrink-0" disabled={field.value?.trim() === props.organization.name}>
+                  {t('organization.settings.name.update')}
+                </Button>
+              </div>
+              {field.error && <div class="text-red-500 text-sm">{field.error}</div>}
+            </TextFieldRoot>
+          )}
+        </Field>
 
-                    <Button type="submit" isLoading={form.submitting} class="flex-shrink-0" disabled={field.value?.trim() === props.organization.name}>
-                      {t('organization.settings.name.update')}
-                    </Button>
-                  </div>
-                  {field.error && <div class="text-red-500 text-sm">{field.error}</div>}
-                </TextFieldRoot>
-              )}
-            </Field>
-
-            <div class="text-red-500 text-sm">{form.response.message}</div>
-          </CardContent>
-        </Form>
-      </Card>
-    </div>
+        <div class="text-red-500 text-sm">{form.response.message}</div>
+      </Form>
+    </SettingsSection>
   );
 };
 
@@ -236,19 +214,18 @@ export const OrganizationsSettingsPage: Component = () => {
         <Show when={query.data?.organization}>
           { getOrganization => (
             <>
-              <h1 class="text-xl font-semibold mb-2">
-                {t('organization.settings.page.title')}
-              </h1>
-
-              <p class="text-muted-foreground">
-                {t('organization.settings.page.description')}
-              </p>
-
-              <div class="mt-6 flex flex-col gap-6">
-                <UpdateOrganizationNameCard organization={getOrganization()} />
-                <SubscriptionCard organization={getOrganization()} />
-                <DeleteOrganizationCard organization={getOrganization()} />
+              <div class="page-header">
+                <div>
+                  <h1 class="page-title">{t('organization.settings.page.title')}</h1>
+                  <p class="page-description">{t('organization.settings.page.description')}</p>
+                </div>
               </div>
+
+              <SettingsSections>
+                <UpdateOrganizationNameSection organization={getOrganization()} />
+                <SubscriptionSection organization={getOrganization()} />
+                <DeleteOrganizationSection organization={getOrganization()} />
+              </SettingsSections>
             </>
           )}
         </Show>

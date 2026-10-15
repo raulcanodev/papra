@@ -10,6 +10,7 @@ export const usersTable = pgTable(
     email: text('email').notNull().unique(),
     emailVerified: boolean('email_verified').notNull().default(false),
     name: text('name'),
+    phone: text('phone'),
     image: text('image'),
     maxOrganizationCount: integer('max_organization_count'),
     twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),

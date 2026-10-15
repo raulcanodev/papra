@@ -1,7 +1,7 @@
 import type { Component } from 'solid-js';
 import type { TaggingRule } from '../tagging-rules.types';
 import type { ClassificationRule, RuleCondition } from '@/modules/finances/finances.types';
-import { A, useParams } from '@solidjs/router';
+import { A, useNavigate, useParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
 import { createSignal, For, Index, Match, Show, Switch } from 'solid-js';
 import { useFeatureFlags } from '@/modules/feature-flags/feature-flags.provider';
@@ -17,6 +17,7 @@ import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/modules/ui/components/dialog';
 import { EmptyState } from '@/modules/ui/components/empty';
+import { RowActions } from '@/modules/ui/components/row-actions';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/modules/ui/components/select';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextField, TextFieldLabel, TextFieldRoot } from '@/modules/ui/components/textfield';
@@ -34,6 +35,7 @@ const classificationColors: Record<string, string> = {
 const DocumentRuleCard: Component<{ taggingRule: TaggingRule }> = (props) => {
   const { t } = useI18n();
   const { confirm } = useConfirmModal();
+  const navigate = useNavigate();
 
   const conditionsSummary = () => {
     const count = props.taggingRule.conditions.length;
@@ -104,27 +106,12 @@ const DocumentRuleCard: Component<{ taggingRule: TaggingRule }> = (props) => {
           <div class="i-tabler-player-play size-3.5" />
           {applyRuleMutation.isPending ? t('tagging-rules.page.applying') : t('tagging-rules.page.apply-to-docs')}
         </Button>
-        <Button as={A} href={getOrganizationRouteChildHref({ organizationId: props.taggingRule.organizationId, routeId: 'settingsAutomations', childPath: props.taggingRule.id })} variant="ghost" size="icon" class="size-7" aria-label={t('tagging-rules.page.edit')}>
-          <div class="i-tabler-edit size-3.5" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          class="size-7 text-destructive hover:text-destructive"
-          onClick={async () => {
-            const ok = await confirm({
-              title: t('tagging-rules.page.delete-document.title'),
-              message: t('tagging-rules.page.delete.message', { name: props.taggingRule.name }),
-              confirmButton: { text: t('tagging-rules.page.delete'), variant: 'destructive' },
-            });
-            if (ok) {
-              deleteTaggingRuleMutation.mutate();
-            }
-          }}
-          disabled={deleteTaggingRuleMutation.isPending}
-        >
-          <div class="i-tabler-trash size-3.5" />
-        </Button>
+        <RowActions
+          itemName={props.taggingRule.name}
+          onEdit={() => navigate(getOrganizationRouteChildHref({ organizationId: props.taggingRule.organizationId, routeId: 'settingsAutomations', childPath: props.taggingRule.id }))}
+          onDelete={() => deleteTaggingRuleMutation.mutateAsync()}
+          deleteMessage={t('tagging-rules.page.delete.message', { name: props.taggingRule.name })}
+        />
       </div>
     </div>
   );
@@ -140,7 +127,6 @@ const TransactionRuleCard: Component<{
   onPriorityChange: (newPriority: number) => void;
 }> = (props) => {
   const { t } = useI18n();
-  const { confirm } = useConfirmModal();
   const [showAllConditions, setShowAllConditions] = createSignal(false);
   const MAX_VISIBLE = 3;
 
@@ -236,27 +222,12 @@ const TransactionRuleCard: Component<{
           <div class="i-tabler-player-play size-3.5" />
           {props.isRunning ? t('tagging-rules.page.running') : t('tagging-rules.page.run')}
         </Button>
-        <Button variant="ghost" size="icon" class="size-7" aria-label={t('tagging-rules.page.edit')} onClick={() => props.onEdit(props.rule)}>
-          <div class="i-tabler-edit size-3.5" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          class="size-7 text-destructive hover:text-destructive"
-          onClick={async () => {
-            const ok = await confirm({
-              title: t('tagging-rules.page.delete-transaction.title'),
-              message: t('tagging-rules.page.delete.message', { name: props.rule.name }),
-              confirmButton: { text: t('tagging-rules.page.delete'), variant: 'destructive' },
-            });
-            if (ok) {
-              deleteMut.mutate();
-            }
-          }}
-          disabled={deleteMut.isPending}
-        >
-          <div class="i-tabler-trash size-3.5" />
-        </Button>
+        <RowActions
+          itemName={props.rule.name}
+          onEdit={() => props.onEdit(props.rule)}
+          onDelete={() => deleteMut.mutateAsync()}
+          deleteMessage={t('tagging-rules.page.delete.message', { name: props.rule.name })}
+        />
       </div>
     </div>
   );

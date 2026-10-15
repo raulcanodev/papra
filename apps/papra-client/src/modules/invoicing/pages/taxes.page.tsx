@@ -1,4 +1,4 @@
-/* eslint-disable style/indent, style/jsx-max-props-per-line, style/jsx-one-expression-per-line, style/max-statements-per-line, style/no-trailing-spaces */
+/* eslint-disable style/indent, style/max-statements-per-line, style/no-trailing-spaces */
 import type { TaxRateInput } from '../invoicing.types';
 import { useParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
@@ -6,12 +6,12 @@ import { createMemo, createSignal, For, Show } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { Badge } from '@/modules/ui/components/badge';
-import { Button } from '@/modules/ui/components/button';
 import { Checkbox, CheckboxControl } from '@/modules/ui/components/checkbox';
+import { RowActions } from '@/modules/ui/components/row-actions';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextField } from '@/modules/ui/components/textfield';
 import { CatalogCell, CatalogPage, CatalogRow, CatalogTable, FormField, SaveButton } from '../components/catalog-page';
-import { createTaxRate, fetchTaxRates, updateTaxRate } from '../invoicing.services';
+import { createTaxRate, deleteTaxRate, fetchTaxRates, updateTaxRate } from '../invoicing.services';
 
 const empty = (): TaxRateInput => ({ name: '', rateBps: 2100, isDefault: false });
 export function TaxesPage() {
@@ -28,6 +28,13 @@ export function TaxesPage() {
   const mutation = createMutation(() => ({ mutationFn: () => editingId() ? updateTaxRate({ organizationId: params.organizationId, taxRateId: editingId()!, taxRate: value() }) : createTaxRate({ organizationId: params.organizationId, taxRate: value() }), onSuccess: async () => {
     reset(); await queryClient.invalidateQueries({ queryKey: ['invoicing', params.organizationId, 'tax-rates'] }); createToast({ type: 'success', message: t('invoicing.taxes.toast.saved') });
   }, onError: () => createToast({ type: 'error', message: t('invoicing.taxes.toast.error') }) }));
+  const remove = async (tax: NonNullable<typeof query.data>['taxRates'][number]) => {
+    try {
+      await deleteTaxRate({ organizationId: params.organizationId, taxRateId: tax.id }); await queryClient.invalidateQueries({ queryKey: ['invoicing', params.organizationId, 'tax-rates'] }); createToast({ type: 'success', message: t('invoicing.taxes.toast.deleted') });
+    } catch {
+      createToast({ type: 'error', message: t('invoicing.taxes.toast.delete-error') });
+    }
+  };
   return (
     <CatalogPage
       title={t('invoicing.taxes.title')}
@@ -62,7 +69,7 @@ export function TaxesPage() {
         </form>
       )}
     >
-      <CatalogTable headers={[{ label: t('invoicing.taxes.table.tax') }, { label: t('invoicing.taxes.table.rate'), class: 'text-right' }, { label: t('invoicing.common.default'), class: 'text-center' }, { label: '', class: 'w-16' }]}>
+      <CatalogTable headers={[{ label: t('invoicing.taxes.table.tax') }, { label: t('invoicing.taxes.table.rate'), class: 'text-right' }, { label: t('invoicing.common.default'), class: 'text-center' }, { label: '', class: 'w-14' }]}>
         <For each={rows()}>
           {tax => (
             <CatalogRow onClick={() => edit(tax)}>
@@ -73,12 +80,7 @@ export function TaxesPage() {
               </CatalogCell>
               <CatalogCell class="text-center"><Show when={tax.isDefault}><Badge>{t('invoicing.common.default')}</Badge></Show></CatalogCell>
               <CatalogCell>
-                <Button
-                  variant="ghost" size="icon" aria-label={t('invoicing.taxes.edit')} onClick={(event) => {
-                    event.stopPropagation(); edit(tax);
-                  }}
-                ><div class="i-tabler-pencil size-4" />
-                </Button>
+                <RowActions itemName={tax.name} onEdit={() => edit(tax)} onDelete={() => remove(tax)} deleteMessage={t('invoicing.taxes.delete-message')} />
               </CatalogCell>
             </CatalogRow>
           )}

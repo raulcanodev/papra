@@ -23,6 +23,14 @@ export function SimpleSelect(props: {
   const options = createMemo(() => props.options.map(option => ({ ...option, value: encode(option.value) })));
   const selected = createMemo(() => options().find(option => option.value === encode(props.value)) ?? null);
 
+  // Kobalte re-emits the current value when the value and the options change together (an editor loading its data):
+  // passing that echo on would rebuild options built from the value and loop forever, so only real changes go out.
+  const onChange = (option: SimpleSelectOption | null) => {
+    if (option && decode(option.value) !== props.value) {
+      props.onChange(decode(option.value));
+    }
+  };
+
   return (
     <Select<SimpleSelectOption>
       class={props.class}
@@ -30,7 +38,7 @@ export function SimpleSelect(props: {
       optionValue="value"
       optionTextValue="label"
       value={selected()}
-      onChange={option => option && props.onChange(decode(option.value))}
+      onChange={onChange}
       disabled={props.disabled}
       placeholder={props.placeholder}
       itemComponent={itemProps => <SelectItem item={itemProps.item}>{itemProps.item.rawValue.label}</SelectItem>}

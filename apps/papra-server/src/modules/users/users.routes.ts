@@ -41,6 +41,7 @@ function setupGetCurrentUserRoute({ app, db }: RouteDefinitionContext) {
               'id',
               'email',
               'name',
+              'phone',
               'createdAt',
               'updatedAt',
               'twoFactorEnabled',
@@ -60,15 +61,16 @@ function setupUpdateUserRoute({ app, db }: RouteDefinitionContext) {
     requireAuthentication(),
     legacyValidateJsonBody(z.object({
       name: z.string().min(1).max(50),
+      phone: z.string().trim().max(30).nullable().optional(),
     })),
     async (context) => {
       const { userId } = getUser({ context });
 
-      const { name } = context.req.valid('json');
+      const { name, phone } = context.req.valid('json');
 
       const usersRepository = createUsersRepository({ db });
 
-      const { user } = await usersRepository.updateUser({ userId, name });
+      const { user } = await usersRepository.updateUser({ userId, name, phone: phone === undefined ? undefined : (phone === null || phone === '' ? null : phone) });
 
       return context.json({ user });
     },

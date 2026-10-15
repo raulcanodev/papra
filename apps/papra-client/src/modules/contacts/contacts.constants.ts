@@ -1,5 +1,6 @@
 import type { GenericCustomPropertyEntityType } from '../custom-properties/custom-properties.types';
 import type { TranslationKeys } from '../i18n/locales.types';
+import type { OrganizationRouteId } from '../ui/navigation/organization-navigation';
 import type { Contact, ContactKind, ContactRole } from './contacts.types';
 
 export const CONTACT_ROLES: ContactRole[] = ['customer', 'supplier', 'sales_representative'];
@@ -79,3 +80,10 @@ export function normalizeTaxId({ taxId }: { taxId: string | null | undefined }) 
 export function getContactFallbackIcon({ contact }: { contact: Pick<Contact, 'kind'> }) {
   return contact.kind === 'company' ? 'i-tabler-building' : 'i-tabler-user';
 }
+
+// The list page of each role: where a contact page goes back to
+export const CONTACT_ROLE_ROUTE_IDS = {
+  customer: 'customers',
+  supplier: 'suppliers',
+  sales_representative: 'salesRepresentatives',
+} as const satisfies Record<ContactRole, OrganizationRouteId>;

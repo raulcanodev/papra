@@ -20,6 +20,7 @@ function setValidParams(path: string) {
     .replaceAll(':invitationId', 'inv_101010101010101010101010')
     .replaceAll(':propertyDefinitionId', 'cpd_111111111111111111111111')
     .replaceAll(':optionId', 'cpso_222222222222222222222222')
+    .replaceAll(':captureSessionId', 'cap_333333333333333333333333')
     .replaceAll(':entryId', 'flag_333333333333333333333333')
     .replaceAll(':bankConnectionId', 'bank_333333333333333333333333')
     .replaceAll(':transactionId', 'txn_333333333333333333333333')
@@ -62,6 +63,11 @@ describe('server routes', () => {
 
       // Stripe stuff
       'POST /api/stripe/webhook',
+
+      // The phone that scanned the QR code of a capture: authorized by the secret token of the link
+      'GET /api/captures/:token',
+      'POST /api/captures/:token/files',
+      'POST /api/captures/:token/complete',
     ];
 
     // Excluding auth routes that are managed by better-auth

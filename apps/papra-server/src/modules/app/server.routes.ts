@@ -3,6 +3,7 @@ import { registerAdminRoutes } from '../admin/admin.routes';
 import { registerAiAssistantRoutes } from '../ai-assistant/ai-assistant.routes';
 import { registerApiKeysRoutes } from '../api-keys/api-keys.routes';
 import { registerCalendarRoutes } from '../calendar/calendar.routes';
+import { registerCapturesRoutes } from '../captures/captures.routes';
 import { registerConfigRoutes } from '../config/config.routes';
 import { registerContactsRoutes } from '../contacts/contacts.routes';
 import { registerCustomPropertiesRoutes } from '../custom-properties/custom-properties.routes';
@@ -48,6 +49,7 @@ export function registerRoutes(context: RouteDefinitionContext) {
   registerSearchRoutes(context);
   registerInvoicingRoutes(context);
   registerPurchasesRoutes(context);
+  registerCapturesRoutes(context);
   registerTaxesRoutes(context);
   registerDashboardRoutes(context);
   registerPreferencesRoutes(context);

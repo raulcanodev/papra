@@ -13,6 +13,7 @@ import { applyPreferencesPatch } from '../preferences/preferences.models';
 import { DEFAULT_MEMBER_PREFERENCES } from '../preferences/preferences.types';
 import { get } from '../shared/utils/get';
 import { aiHandlers } from './ai/demo-ai';
+import { capturesHandlers } from './captures/demo-captures';
 import { computeDemoDashboardMetrics } from './dashboard/demo-dashboard';
 import { defineHandler } from './demo-api-mock.models';
 import { createId, randomString } from './demo.models';
@@ -172,6 +173,14 @@ function parseDemoPreferences(stored: unknown): MemberPreferences {
   return applyPreferencesPatch({ preferences: DEFAULT_MEMBER_PREFERENCES, patch: { dashboard: value.dashboard, navigation: value.navigation } });
 }
 
+// Like the server: a past year is measured as of its last instant, the current one as of now
+function getMetricsInstant({ year, now = new Date() }: { year: number; now?: Date }) {
+  return Number.isInteger(year) && year < now.getUTCFullYear() ? new Date(Date.UTC(year, 11, 31, 23, 59, 59)) : now;
+}
+
+// Name of the demo user, changeable from the settings until the page reloads
+let demoUserName = demoUser.name;
+
 // Step of a previewed onboarding flow, kept until the page reloads
 let demoOnboardingStep: string | null = null;
 
@@ -179,6 +188,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
   ...invoicingHandlers,
   ...contactsHandlers,
   ...purchasesHandlers,
+  ...capturesHandlers,
 
   ...defineHandler({
     path: '/api/organizations/:organizationId/taxes/:year/:quarter',
@@ -273,8 +283,19 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
     path: '/api/users/me',
     method: 'GET',
     handler: () => ({
-      user: demoUser,
+      user: { ...demoUser, name: demoUserName },
     }),
+  }),
+
+  // The name can be changed for the visit; reloading brings back the demo user
+  ...defineHandler({
+    path: '/api/users/me',
+    method: 'PUT',
+    handler: ({ body }) => {
+      const { name } = (body ?? {}) as { name?: string };
+      demoUserName = name?.trim() || demoUser.name;
+      return { user: { ...demoUser, name: demoUserName } };
+    },
   }),
 
   ...defineHandler({
@@ -309,6 +330,29 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
       await new Promise(resolve => setTimeout(resolve, 500));
 
       return { document };
+    },
+  }),
+
+  // Files attached to the assistant: kept as documents like any upload, the same file again gives back its document
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/ai/attachments',
+    method: 'POST',
+    handler: async ({ params: { organizationId }, body }) => {
+      const file = (body as FormData).get('file') as File;
+      assert(file, { status: 400 });
+
+      const existing = (await getValues(documentStorage)).find(document => document?.organizationId === organizationId && !document?.deletedAt && document.name === file.name && document.originalSize === file.size);
+      if (existing) {
+        return { document: existing, isExisting: true };
+      }
+
+      const now = new Date();
+      const document = { id: createId({ prefix: 'doc' }), organizationId, name: file.name, originalName: file.name, originalSize: file.size, mimeType: file.type, content: '', createdAt: now, updatedAt: now, tags: [] };
+      const key = `${organizationId}:${document.id}`;
+      await documentFileStorage.setItem(key, await serializeFile(file));
+      await documentStorage.setItem(key, document);
+
+      return { document, isExisting: false };
     },
   }),
 
@@ -805,6 +849,13 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
     },
   }),
 
+  // Inviting needs emails: the demo organization has no pending invitations
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/members/invitations',
+    method: 'GET',
+    handler: () => ({ invitations: [] }),
+  }),
+
   ...defineHandler({
     path: '/api/organizations/:organizationId/members/invitations',
     method: 'POST',
@@ -1104,7 +1155,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
   ...defineHandler({
     path: '/api/organizations/:organizationId/dashboard/metrics',
     method: 'GET',
-    handler: async ({ params: { organizationId } }) => {
+    handler: async ({ params: { organizationId }, query }) => {
       const organization = await organizationStorage.getItem(organizationId);
 
       assert(organization, { status: 403 });
@@ -1116,7 +1167,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
         listDemoContacts({ organizationId }),
       ]);
 
-      return { metrics: computeDemoDashboardMetrics({ invoices: invoices as never, customers, documents, currency, purchaseInvoices: purchaseInvoices as never, contacts: contacts as never }) };
+      return { metrics: computeDemoDashboardMetrics({ invoices: invoices as never, customers, documents, currency, purchaseInvoices: purchaseInvoices as never, contacts: contacts as never, now: getMetricsInstant({ year: Number(get(query, ['year'])) }) }) };
     },
   }),
 

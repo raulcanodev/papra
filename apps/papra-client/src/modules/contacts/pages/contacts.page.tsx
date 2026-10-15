@@ -1,40 +1,34 @@
-import type { Contact, ContactInput, ContactRole } from '../contacts.types';
-import type { EntityCustomPropertiesInput } from '@/modules/custom-properties/custom-properties.types';
+import type { Contact, ContactRole } from '../contacts.types';
 import type { ActiveFilter, FilterField } from '@/modules/ui/components/table-filters';
-import { useParams } from '@solidjs/router';
-import { createMutation, useQuery } from '@tanstack/solid-query';
+import { useNavigate, useParams } from '@solidjs/router';
+import { useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For, Show } from 'solid-js';
-import { EntityCustomPropertiesFields, invalidateEntityCustomProperties } from '@/modules/custom-properties/components/entity-custom-properties-fields.component';
 import { useI18n } from '@/modules/i18n/i18n.provider';
-import { CatalogCell, CatalogPage, CatalogRow, CatalogTable, SaveButton } from '@/modules/invoicing/components/catalog-page';
-import { queryClient } from '@/modules/shared/query/query-client';
+import { CatalogCell, CatalogPage, CatalogRow, CatalogTable } from '@/modules/invoicing/components/catalog-page';
 import { cn } from '@/modules/shared/style/cn';
-import { Button } from '@/modules/ui/components/button';
 import { EntityIcon } from '@/modules/ui/components/entity-icon';
-import { createToast } from '@/modules/ui/components/sonner';
+import { RowActions } from '@/modules/ui/components/row-actions';
 import { matchesSelectedFilter, toDistinctFilterOptions } from '@/modules/ui/components/table-filters';
-import { ContactFormFields, emptyContact, toContactInput } from '../components/contact-form';
-import { CONTACT_KIND_LABEL_I18N_KEYS, CONTACT_KINDS, CONTACT_ROLE_BADGE_CLASSES, CONTACT_ROLE_CUSTOM_PROPERTY_ENTITY_TYPES, CONTACT_ROLE_DEFAULT_KINDS, CONTACT_ROLE_FLAGS, CONTACT_ROLE_LABEL_I18N_KEYS, CONTACT_ROLE_PAGE_I18N_KEYS, CONTACT_ROLE_PLURAL_LABEL_I18N_KEYS, getContactFallbackIcon, getContactRoles, hasContactRole, normalizeTaxId } from '../contacts.constants';
-import { createContact, fetchContacts, getContactsQueryKey, updateContact } from '../contacts.services';
+import { getOrganizationContactHref } from '@/modules/ui/navigation/organization-navigation';
+import { ContactEditor } from '../components/contact-editor';
+import { CONTACT_KIND_LABEL_I18N_KEYS, CONTACT_KINDS, CONTACT_ROLE_BADGE_CLASSES, CONTACT_ROLE_LABEL_I18N_KEYS, CONTACT_ROLE_PAGE_I18N_KEYS, CONTACT_ROLE_PLURAL_LABEL_I18N_KEYS, getContactFallbackIcon, getContactRoles, hasContactRole } from '../contacts.constants';
+import { fetchContacts, getContactsQueryKey } from '../contacts.services';
+import { useDeleteContact } from '../use-delete-contact';
 
-/** The contacts of one role (customers, suppliers or sales representatives), the role and kind of new contacts come from the page */
+/** The contacts of one role (customers, suppliers or sales representatives); a click opens the contact with its products */
 export function ContactsPage(props: { role: ContactRole }) {
   const { t } = useI18n();
   const params = useParams();
-
-  const [value, setValue] = createSignal<ContactInput>(emptyContact());
-  const [customProperties, setCustomProperties] = createSignal<EntityCustomPropertiesInput>({});
-  const [editingId, setEditingId] = createSignal<string | null>(null);
+  const navigate = useNavigate();
+  const [editing, setEditing] = createSignal<Contact | null>(null);
   const [formOpen, setFormOpen] = createSignal(false);
   const [search, setSearch] = createSignal('');
   const [filters, setFilters] = createSignal<ActiveFilter[]>([]);
-
+  const { deleteContact } = useDeleteContact();
   // One cached listing shared by the three pages, switching between them is instant
   const query = useQuery(() => ({ queryKey: getContactsQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchContacts({ organizationId: params.organizationId }) }));
-
   const contacts = () => query.data?.contacts ?? [];
   const pageI18nKeys = () => CONTACT_ROLE_PAGE_I18N_KEYS[props.role];
-
   const roleContacts = createMemo(() => contacts().filter(contact => hasContactRole({ contact, role: props.role })));
 
   const filterFields = createMemo((): FilterField[] => [
@@ -50,68 +44,15 @@ export function ContactsPage(props: { role: ContactRole }) {
       .filter(contact => `${contact.name} ${contact.email ?? ''} ${contact.taxId ?? ''} ${contact.phone ?? ''}`.toLowerCase().includes(term));
   });
 
-  const reset = () => {
-    setValue(emptyContact());
-    setCustomProperties({});
-    setEditingId(null);
+  const openForm = (contact: Contact | null) => {
+    setEditing(contact);
+    setFormOpen(true);
+  };
+
+  const close = () => {
     setFormOpen(false);
+    setEditing(null);
   };
-
-  const openNew = () => {
-    setValue(emptyContact({ kind: CONTACT_ROLE_DEFAULT_KINDS[props.role], [CONTACT_ROLE_FLAGS[props.role]]: true }));
-    setCustomProperties({});
-    setEditingId(null);
-    setFormOpen(true);
-  };
-
-  const edit = (contact: Contact) => {
-    setValue(toContactInput(contact));
-    setCustomProperties({});
-    setEditingId(contact.id);
-    setFormOpen(true);
-  };
-
-  // A new contact with the tax id of an existing one (a customer that is also a supplier) gets the role added instead of a duplicate
-  const findExistingByTaxId = (taxId: string | null) => {
-    const normalized = normalizeTaxId({ taxId });
-
-    return normalized === null ? undefined : contacts().find(contact => normalizeTaxId({ taxId: contact.taxId }) === normalized);
-  };
-
-  const mutation = createMutation(() => ({
-    mutationFn: async () => {
-      const contactId = editingId();
-
-      if (contactId !== null) {
-        await updateContact({ organizationId: params.organizationId, contactId, contact: { ...value(), customProperties: customProperties() } });
-        return { addedRoleTo: null };
-      }
-
-      const existing = findExistingByTaxId(value().taxId);
-
-      if (existing !== undefined) {
-        await updateContact({ organizationId: params.organizationId, contactId: existing.id, contact: { ...toContactInput(existing), [CONTACT_ROLE_FLAGS[props.role]]: true, customProperties: customProperties() } });
-        return { addedRoleTo: existing.name };
-      }
-
-      await createContact({ organizationId: params.organizationId, contact: { ...value(), customProperties: customProperties() } });
-      return { addedRoleTo: null };
-    },
-    onSuccess: async ({ addedRoleTo }) => {
-      reset();
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: getContactsQueryKey({ organizationId: params.organizationId }) }),
-        invalidateEntityCustomProperties({ organizationId: params.organizationId, entityType: CONTACT_ROLE_CUSTOM_PROPERTY_ENTITY_TYPES[props.role] }),
-      ]);
-      createToast({
-        type: 'success',
-        message: addedRoleTo === null
-          ? t('contacts.toast.saved')
-          : t('contacts.toast.role-added', { name: addedRoleTo, role: t(CONTACT_ROLE_LABEL_I18N_KEYS[props.role]).toLowerCase() }),
-      });
-    },
-    onError: () => createToast({ type: 'error', message: t('contacts.toast.error') }),
-  }));
 
   return (
     <CatalogPage
@@ -119,8 +60,8 @@ export function ContactsPage(props: { role: ContactRole }) {
       description={t(pageI18nKeys().description)}
       actionLabel={t(pageI18nKeys().new)}
       formOpen={formOpen()}
-      onFormOpenChange={open => (open ? openNew() : reset())}
-      editing={editingId() !== null}
+      onFormOpenChange={open => (open ? openForm(null) : close())}
+      editing={editing() !== null}
       editLabel={t(pageI18nKeys().edit)}
       search={search()}
       onSearchChange={setSearch}
@@ -129,32 +70,12 @@ export function ContactsPage(props: { role: ContactRole }) {
       onFiltersChange={setFilters}
       loading={query.isLoading}
       empty={rows().length === 0}
-      form={(
-        <form
-          class="grid gap-4 sm:grid-cols-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (value().name.trim()) {
-              mutation.mutate();
-            }
-          }}
-        >
-          <ContactFormFields value={value()} onChange={setValue} autofocus />
-          <EntityCustomPropertiesFields
-            organizationId={params.organizationId}
-            entityType={CONTACT_ROLE_CUSTOM_PROPERTY_ENTITY_TYPES[props.role]}
-            entityId={editingId()}
-            value={customProperties()}
-            onChange={setCustomProperties}
-          />
-          <SaveButton loading={mutation.isPending} editing={editingId() !== null} onCancel={reset} />
-        </form>
-      )}
+      form={<ContactEditor organizationId={params.organizationId} role={props.role} contact={editing()} contacts={contacts()} onDone={close} autofocus />}
     >
-      <CatalogTable headers={[{ label: t('contacts.table.contact') }, { label: t('invoicing.common.tax-id') }, { label: t('contacts.table.location') }, { label: '', class: 'w-16' }]}>
+      <CatalogTable headers={[{ label: t('contacts.table.contact') }, { label: t('invoicing.common.tax-id') }, { label: t('contacts.table.location') }, { label: '', class: 'w-14' }]}>
         <For each={rows()}>
           {contact => (
-            <CatalogRow onClick={() => edit(contact)}>
+            <CatalogRow onClick={() => navigate(getOrganizationContactHref({ organizationId: params.organizationId, contactId: contact.id }))}>
               <CatalogCell>
                 <div class="flex items-center gap-2.5">
                   <EntityIcon icon={contact.icon} color={contact.iconColor} fallback={getContactFallbackIcon({ contact })} />
@@ -175,17 +96,7 @@ export function ContactsPage(props: { role: ContactRole }) {
                 <Show when={contact.city || contact.country} fallback="—">{[contact.city, contact.country].filter(Boolean).join(', ')}</Show>
               </CatalogCell>
               <CatalogCell>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={t(pageI18nKeys().edit)}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    edit(contact);
-                  }}
-                >
-                  <div class="i-tabler-pencil size-4" />
-                </Button>
+                <RowActions itemName={contact.name} onEdit={() => openForm(contact)} onDelete={() => deleteContact(contact)} deleteMessage={t('contacts.delete-message')} />
               </CatalogCell>
             </CatalogRow>
           )}

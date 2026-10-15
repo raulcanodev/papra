@@ -11,7 +11,6 @@ import * as v from 'valibot';
 import { makeDocumentSearchPermalink } from '@/modules/documents/document.models';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
-import { useConfirmModal } from '@/modules/shared/confirm';
 import { createForm } from '@/modules/shared/form/form';
 import { makeReturnVoidAsync } from '@/modules/shared/functions/void';
 import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-errors';
@@ -20,6 +19,7 @@ import { Button } from '@/modules/ui/components/button';
 import { ColorSwatchPicker } from '@/modules/ui/components/color-swatch-picker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/modules/ui/components/dialog';
 import { EmptyState } from '@/modules/ui/components/empty';
+import { RowActions } from '@/modules/ui/components/row-actions';
 import { createToast } from '@/modules/ui/components/sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
@@ -205,12 +205,18 @@ export const CreateTagModal: Component<{
   );
 };
 
+// Opened from the row actions of the tags table
 const UpdateTagModal: Component<{
-  children: (props: DialogTriggerProps) => JSX.Element;
   organizationId: string;
   tag: TagType;
+  onClose: () => void;
 }> = (props) => {
-  const [getIsModalOpen, setIsModalOpen] = createSignal(false);
+  const getIsModalOpen = () => true;
+  const setIsModalOpen = (isOpen: boolean) => {
+    if (!isOpen) {
+      props.onClose();
+    }
+  };
   const { t } = useI18n();
   const { getErrorMessage } = useI18nApiErrors({ t });
 
@@ -245,7 +251,6 @@ const UpdateTagModal: Component<{
 
   return (
     <Dialog open={getIsModalOpen()} onOpenChange={setIsModalOpen}>
-      <DialogTrigger as={props.children} />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t('tags.update')}</DialogTitle>
@@ -271,7 +276,6 @@ const UpdateTagModal: Component<{
 
 export const TagsPage: Component = () => {
   const params = useParams();
-  const { confirm } = useConfirmModal();
   const { t } = useI18n();
   const { getErrorMessage } = useI18nApiErrors({ t });
 
@@ -280,24 +284,8 @@ export const TagsPage: Component = () => {
     queryFn: () => fetchTags({ organizationId: params.organizationId }),
   }));
 
+  // The row actions ask for the confirmation
   const del = async ({ tag }: { tag: TagType }) => {
-    const confirmed = await confirm({
-      title: t('tags.delete.confirm.title'),
-      message: t('tags.delete.confirm.message'),
-      cancelButton: {
-        text: t('tags.delete.confirm.cancel-button'),
-        variant: 'secondary',
-      },
-      confirmButton: {
-        text: t('tags.delete.confirm.confirm-button'),
-        variant: 'destructive',
-      },
-    });
-
-    if (!confirmed) {
-      return;
-    }
-
     const [, error] = await safely(deleteTag({
       organizationId: params.organizationId,
       tagId: tag.id,
@@ -323,6 +311,7 @@ export const TagsPage: Component = () => {
     });
   };
 
+  const [editingTag, setEditingTag] = createSignal<TagType | null>(null);
   const [search, setSearch] = createSignal('');
   const filteredTags = createMemo(() => {
     const term = search().trim().toLocaleLowerCase();
@@ -374,19 +363,7 @@ export const TagsPage: Component = () => {
         header: () => <div class="text-right">{t('tags.table.headers.actions')}</div>,
         enableSorting: false,
         cell: data => (
-          <div class="flex gap-2 justify-end">
-            <UpdateTagModal organizationId={params.organizationId} tag={data.row.original}>
-              {props => (
-                <Button size="icon" variant="outline" class="size-7" {...props}>
-                  <div class="i-tabler-edit size-4" />
-                </Button>
-              )}
-            </UpdateTagModal>
-
-            <Button size="icon" variant="outline" class="size-7 text-red" onClick={() => del({ tag: data.row.original })}>
-              <div class="i-tabler-trash size-4" />
-            </Button>
-          </div>
+          <RowActions itemName={data.row.original.name} onEdit={() => setEditingTag(data.row.original)} onDelete={() => del({ tag: data.row.original })} deleteMessage={t('tags.delete.confirm.message')} />
         ),
       },
     ],
@@ -399,6 +376,9 @@ export const TagsPage: Component = () => {
 
   return (
     <div class="page">
+      <Show when={editingTag()}>
+        {tag => <UpdateTagModal organizationId={params.organizationId} tag={tag()} onClose={() => setEditingTag(null)} />}
+      </Show>
       <div class="page-header">
         <div>
           <h1 class="page-title">{t('tags.title')}</h1>

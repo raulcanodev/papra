@@ -1,5 +1,4 @@
 import type { RouteDefinition } from '@solidjs/router';
-import type { ContactRole } from './modules/contacts/contacts.types';
 import type { OrganizationRouteId } from './modules/ui/navigation/organization-navigation';
 import type { OrganizationPlaceholderPageId } from './modules/ui/pages/organization-placeholder.page';
 import { Navigate, useParams, useSearchParams } from '@solidjs/router';
@@ -19,7 +18,9 @@ import { RegisterPage } from './modules/auth/pages/register.page';
 import { RequestPasswordResetPage } from './modules/auth/pages/request-password-reset.page';
 import { ResetPasswordPage } from './modules/auth/pages/reset-password.page';
 import { CalendarPage } from './modules/calendar/pages/calendar.page';
-import { CONTACT_ROLES } from './modules/contacts/contacts.constants';
+import { CapturePage } from './modules/captures/pages/capture.page';
+import { CONTACT_ROLE_ROUTE_IDS, CONTACT_ROLES } from './modules/contacts/contacts.constants';
+import { ContactPage } from './modules/contacts/pages/contact.page';
 import { ContactsPage } from './modules/contacts/pages/contacts.page';
 import { CreateCustomPropertyPage } from './modules/custom-properties/pages/create-custom-property.page';
 import { CustomPropertiesPage } from './modules/custom-properties/pages/custom-properties-list.page';
@@ -86,11 +87,6 @@ function OrganizationRouteRedirect(props: { routeId: OrganizationRouteId; childP
 }
 
 // Keeps the old /contacts?role= links working, each role has its own page now
-const CONTACT_ROLE_ROUTE_IDS = {
-  customer: 'customers',
-  supplier: 'suppliers',
-  sales_representative: 'salesRepresentatives',
-} as const satisfies Record<ContactRole, OrganizationRouteId>;
 
 function ContactsRedirect() {
   const [searchParams] = useSearchParams();
@@ -245,6 +241,10 @@ export const routes: RouteDefinition[] = [
                       {
                         path: getOrganizationNestedRoutePath('salesRepresentatives'),
                         component: () => <ContactsPage role="sales_representative" />,
+                      },
+                      {
+                        path: getOrganizationEntityRoutePath('contact'),
+                        component: ContactPage,
                       },
                       {
                         // Former single contacts page with a role filter, and former customers and sales representatives pages
@@ -547,6 +547,11 @@ export const routes: RouteDefinition[] = [
   {
     path: '/about',
     component: AboutPage,
+  },
+  {
+    // Opened on the phone from the QR code of the computer, with no session
+    path: '/capture/:token',
+    component: CapturePage,
   },
   {
     path: '*404',

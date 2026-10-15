@@ -65,8 +65,15 @@ export const invoicingProductsTable = pgTable('invoicing_products', {
   taxRateBps: integer('tax_rate_bps').notNull().default(2100),
   icon: text('icon'),
   iconColor: text('icon_color', { enum: ENTITY_ICON_COLORS }),
+  // The contact it belongs to: a supplier's product we buy, or a customer's own product; null is our own catalog
+  contactId: text('contact_id').references(() => contactsTable.id, { onDelete: 'set null', onUpdate: 'cascade' }),
+  // Its photo, a document of the organization (taken with the phone or uploaded)
+  imageDocumentId: text('image_document_id').references(() => documentsTable.id, { onDelete: 'set null', onUpdate: 'cascade' }),
   archivedAt: timestamp('archived_at', { mode: 'date', withTimezone: true, precision: 3 }),
-}, table => [index('invoicing_products_organization_id_index').on(table.organizationId)]);
+}, table => [
+  index('invoicing_products_organization_id_index').on(table.organizationId),
+  index('invoicing_products_organization_id_contact_id_index').on(table.organizationId, table.contactId),
+]);
 
 export const invoicingTaxRatesTable = pgTable('invoicing_tax_rates', {
   ...createPrimaryKeyField({ prefix: TAX_RATE_ID_PREFIX }),

@@ -5,11 +5,10 @@ import { useQuery } from '@tanstack/solid-query';
 import { Show, Suspense } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { fetchOrganizationUsage } from '@/modules/subscriptions/subscriptions.services';
-import { Card, CardContent } from '@/modules/ui/components/card';
 import { ProgressCircle } from '@/modules/ui/components/progress-circle';
-import { Separator } from '@/modules/ui/components/separator';
+import { SettingsSection, SettingsSections } from '@/modules/ui/components/settings-section';
 
-const UsageCardLine: Component<{
+const UsageSection: Component<{
   title: string;
   description: string;
   used: number;
@@ -29,14 +28,12 @@ const UsageCardLine: Component<{
   };
 
   return (
-    <div class="flex gap-4 items-center ">
-      <ProgressCircle value={percentage()} size="xs" class="flex-shrink-0" />
-      <div class="flex-1">
-        <div class="font-medium leading-none">{props.title}</div>
-        <div class="text-sm text-muted-foreground">{props.description}</div>
+    <SettingsSection title={props.title} description={props.description}>
+      <div class="flex items-center gap-3">
+        <ProgressCircle value={percentage()} size="xs" class="flex-shrink-0" />
+        <div class="text-sm text-muted-foreground">{ `${formatValue(props.used)} / ${props.limit === null ? t('organization.usage.unlimited') : formatValue(props.limit)}${props.limit ? ` - ${percentage().toFixed(2)}%` : ''}`}</div>
       </div>
-      <div class="text-muted-foreground leading-none">{ `${formatValue(props.used)} / ${props.limit === null ? t('organization.usage.unlimited') : formatValue(props.limit)}${props.limit ? ` - ${percentage().toFixed(2)}%` : ''}`}</div>
-    </div>
+    </SettingsSection>
   );
 };
 
@@ -55,44 +52,36 @@ export const OrganizationUsagePage: Component = () => {
         <Show when={query.data}>
           {getData => (
             <>
-              <h1 class="text-xl font-semibold mb-2">
-                {t('organization.usage.page.title')}
-              </h1>
+              <div class="page-header">
+                <div>
+                  <h1 class="page-title">{t('organization.usage.page.title')}</h1>
+                  <p class="page-description">{t('organization.usage.page.description')}</p>
+                </div>
+              </div>
 
-              <p class="text-muted-foreground mb-6">
-                {t('organization.usage.page.description')}
-              </p>
+              <SettingsSections>
+                <UsageSection
+                  title={t('organization.usage.storage.title')}
+                  description={t('organization.usage.storage.description')}
+                  used={getData().usage.documentsStorage.used}
+                  limit={getData().usage.documentsStorage.limit}
+                  formatValue={bytes => formatBytes({ bytes, base: 1000 })}
+                />
 
-              <Card>
-                <CardContent class="pt-6 flex flex-col gap-4">
-                  <UsageCardLine
-                    title={t('organization.usage.storage.title')}
-                    description={t('organization.usage.storage.description')}
-                    used={getData().usage.documentsStorage.used}
-                    limit={getData().usage.documentsStorage.limit}
-                    formatValue={bytes => formatBytes({ bytes, base: 1000 })}
-                  />
+                <UsageSection
+                  title={t('organization.usage.intake-emails.title')}
+                  description={t('organization.usage.intake-emails.description')}
+                  used={getData().usage.intakeEmailsCount.used}
+                  limit={getData().usage.intakeEmailsCount.limit}
+                />
 
-                  <Separator />
-
-                  <UsageCardLine
-                    title={t('organization.usage.intake-emails.title')}
-                    description={t('organization.usage.intake-emails.description')}
-                    used={getData().usage.intakeEmailsCount.used}
-                    limit={getData().usage.intakeEmailsCount.limit}
-                  />
-
-                  <Separator />
-
-                  <UsageCardLine
-                    title={t('organization.usage.members.title')}
-                    description={t('organization.usage.members.description')}
-                    used={getData().usage.membersCount.used}
-                    limit={getData().usage.membersCount.limit}
-                  />
-
-                </CardContent>
-              </Card>
+                <UsageSection
+                  title={t('organization.usage.members.title')}
+                  description={t('organization.usage.members.description')}
+                  used={getData().usage.membersCount.used}
+                  limit={getData().usage.membersCount.limit}
+                />
+              </SettingsSections>
             </>
           )}
         </Show>

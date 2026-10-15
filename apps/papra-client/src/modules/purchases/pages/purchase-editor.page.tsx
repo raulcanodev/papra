@@ -1,7 +1,7 @@
-import type { ExpenseCategory, PurchaseInvoiceDraftInput, PurchaseInvoiceExtraction, PurchaseInvoiceItemInput } from '../purchases.types';
+import type { ExpenseCategory, PurchaseDocumentKind, PurchaseInvoiceDraftInput, PurchaseInvoiceExtraction, PurchaseInvoiceItemInput, PurchaseMetadataEntry } from '../purchases.types';
 import { A, useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
-import { createEffect, createMemo, createSignal, Index, Show } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, Index, Show } from 'solid-js';
 import { createContact, fetchContacts, getContactsQueryKey, updateContact } from '@/modules/contacts/contacts.services';
 import { DocumentPreview } from '@/modules/documents/components/document-preview.component';
 import { fetchDocument } from '@/modules/documents/documents.services';
@@ -18,7 +18,9 @@ import { createToast } from '@/modules/ui/components/sonner';
 import { TextArea } from '@/modules/ui/components/textarea';
 import { TextField } from '@/modules/ui/components/textfield';
 import { getOrganizationRouteChildHref, getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
-import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABEL_I18N_KEYS } from '../purchases.constants';
+import { PurchaseMetadataFields } from '../components/purchase-metadata-fields';
+import { SupplierResolutionPanel } from '../components/supplier-resolution-panel';
+import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABEL_I18N_KEYS, PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS, PURCHASE_DOCUMENT_KINDS } from '../purchases.constants';
 import { calculatePurchaseInvoiceTotals, emptyPurchaseInvoiceItem } from '../purchases.models';
 import { createPurchaseInvoice, deletePurchaseInvoice, extractPurchaseInvoice, fetchPurchaseInvoice, getPurchaseInvoicesQueryKey, updatePurchaseInvoice } from '../purchases.services';
 
@@ -42,6 +44,8 @@ export function PurchaseEditorPage() {
 
   const [supplierId, setSupplierId] = createSignal('');
   const [number, setNumber] = createSignal('');
+  const [kind, setKind] = createSignal<PurchaseDocumentKind>('invoice');
+  const [metadata, setMetadata] = createSignal<PurchaseMetadataEntry[]>([]);
   const [issueDate, setIssueDate] = createSignal(today());
   const [dueDate, setDueDate] = createSignal('');
   const [currency, setCurrency] = createSignal('EUR');
@@ -86,6 +90,9 @@ export function PurchaseEditorPage() {
     loadedKey = purchaseInvoice.id;
     setSupplierId(purchaseInvoice.supplierId);
     setNumber(purchaseInvoice.number);
+    // Invoices saved before these fields existed (demo data kept in the browser) have neither
+    setKind(purchaseInvoice.kind ?? 'invoice');
+    setMetadata(purchaseInvoice.metadata ?? []);
     setIssueDate(toDateInput(purchaseInvoice.issueDate));
     setDueDate(toDateInput(purchaseInvoice.dueDate));
     setCurrency(purchaseInvoice.currency);
@@ -114,12 +121,15 @@ export function PurchaseEditorPage() {
     setExtraction(result);
     setSupplierId(result.draft.supplierId ?? '');
     setNumber(result.draft.number);
+    setKind(result.draft.kind);
+    setMetadata(result.draft.metadata);
     setIssueDate(toDateInput(result.draft.issueDate) || today());
     setDueDate(toDateInput(result.draft.dueDate));
     setCurrency(result.draft.currency);
     setCategory(result.draft.category);
     setWithholdingRateBps(result.draft.withholdingRateBps);
-    setItems(result.draft.items);
+    // A delivery note photo can come without any readable line
+    setItems(result.draft.items.length > 0 ? result.draft.items : [emptyPurchaseInvoiceItem()]);
   });
 
   const totals = createMemo(() => calculatePurchaseInvoiceTotals({ items: items(), withholdingRateBps: withholdingRateBps() }));
@@ -127,18 +137,26 @@ export function PurchaseEditorPage() {
   // The model reads the printed total too: a difference means a line was misread
   const totalMismatch = () => {
     const printedTotal = extraction()?.printedTotal;
-    return printedTotal !== undefined && printedTotal > 0 && Math.abs(printedTotal - totals().totalMinor) > items().length;
+    return printedTotal !== undefined && printedTotal !== null && printedTotal > 0 && Math.abs(printedTotal - totals().totalMinor) > items().length;
   };
 
   const updateItem = (index: number, changes: Partial<PurchaseInvoiceItemInput>) => setItems(current => current.map((item, itemIndex) => (itemIndex === index ? { ...item, ...changes } : item)));
 
-  // The counterparty read by the AI: an unknown company is created as supplier, a known contact gets the supplier role
+  // The counterparty read by the AI: an unknown company is created as supplier (with the name typed by the user when none
+  // could be read), a known contact, the recognized one or a similar one picked by the user, gets the supplier role
   const counterpartyMutation = createMutation(() => ({
-    mutationFn: async () => {
+    mutationFn: async (target: { contactId: string } | { name: string }) => {
       const counterparty = extraction()!.counterparty;
-      const existing = contactsQuery.data?.contacts.find(contact => contact.id === counterparty.contactId);
 
-      if (existing) {
+      if ('contactId' in target) {
+        const existing = contactsQuery.data?.contacts.find(contact => contact.id === target.contactId);
+        if (!existing) {
+          throw new Error('Contact not found');
+        }
+        if (existing.isSupplier) {
+          return { contact: existing };
+        }
+
         const { id: _id, organizationId: _organizationId, archivedAt: _archivedAt, createdAt: _createdAt, updatedAt: _updatedAt, ...input } = existing;
         return updateContact({ organizationId: params.organizationId, contactId: existing.id, contact: { ...input, isSupplier: true } });
       }
@@ -147,9 +165,9 @@ export function PurchaseEditorPage() {
         organizationId: params.organizationId,
         contact: {
           kind: 'company',
-          name: counterparty.name,
+          name: target.name,
           email: counterparty.email,
-          phone: null,
+          phone: counterparty.phone,
           taxId: counterparty.taxId,
           addressLine1: counterparty.addressLine1,
           addressLine2: null,
@@ -169,7 +187,7 @@ export function PurchaseEditorPage() {
     onSuccess: async ({ contact }) => {
       await queryClient.invalidateQueries({ queryKey: getContactsQueryKey({ organizationId: params.organizationId }) });
       setSupplierId(contact.id);
-      setExtraction(current => (current ? { ...current, counterparty: { ...current.counterparty, contactId: contact.id, hasSupplierRole: true } } : current));
+      setExtraction(current => (current ? { ...current, counterparty: { ...current.counterparty, status: 'matched', name: contact.name, contactId: contact.id, hasSupplierRole: true, candidates: [] } } : current));
       createToast({ type: 'success', message: t('purchases.editor.supplier.created') });
     },
     onError: (error: unknown) => createToast({ type: 'error', message: getErrorMessage({ error, defaultMessage: t('contacts.toast.error') }) }),
@@ -178,6 +196,7 @@ export function PurchaseEditorPage() {
   const draft = (): PurchaseInvoiceDraftInput => ({
     supplierId: supplierId(),
     number: number().trim(),
+    kind: kind(),
     issueDate: new Date(`${issueDate()}T00:00:00.000Z`),
     dueDate: dueDate() ? new Date(`${dueDate()}T00:00:00.000Z`) : null,
     currency: currency(),
@@ -185,6 +204,7 @@ export function PurchaseEditorPage() {
     withholdingRateBps: withholdingRateBps(),
     notes: notes().trim() || null,
     documentId: documentId(),
+    metadata: metadata().map(entry => ({ label: entry.label.trim(), value: entry.value.trim() })).filter(entry => entry.label !== '' && entry.value !== ''),
     items: items(),
   });
 
@@ -282,19 +302,25 @@ export function PurchaseEditorPage() {
                   <div class="rounded-xl border border-red-500/30 bg-red-500/8 p-4 text-sm">{t('purchases.editor.direction.issued')}</div>
                 </Show>
 
-                <Show when={!getExtraction().counterparty.hasSupplierRole}>
-                  <div class="flex flex-wrap items-center gap-3 rounded-xl border border-orange-500/30 bg-orange-500/8 p-4 text-sm">
-                    <div class="i-tabler-alert-circle size-5 shrink-0 text-orange-600" />
-                    <div class="min-w-0 flex-1">
-                      <p class="font-medium">{getExtraction().counterparty.contactId ? t('purchases.editor.supplier.not-supplier') : t('purchases.editor.supplier.not-found')}</p>
-                      <p class="truncate text-muted-foreground">{[getExtraction().counterparty.name, getExtraction().counterparty.taxId].filter(Boolean).join(' · ')}</p>
+                <Show when={getExtraction().warnings.length > 0}>
+                  <div class="flex items-start gap-3 rounded-xl border border-orange-500/30 bg-orange-500/8 p-4 text-sm">
+                    <div class="i-tabler-eye-check mt-0.5 size-5 shrink-0 text-orange-600" />
+                    <div>
+                      <p class="font-medium">{t('purchases.editor.warnings')}</p>
+                      <ul class="mt-1 list-disc pl-4 text-muted-foreground">
+                        <For each={getExtraction().warnings}>{warning => <li>{warning}</li>}</For>
+                      </ul>
                     </div>
-                    <Button size="sm" class="gap-1.5" isLoading={counterpartyMutation.isPending} onClick={() => counterpartyMutation.mutate()}>
-                      <div class="i-tabler-user-plus size-4" />
-                      {getExtraction().counterparty.contactId ? t('purchases.editor.supplier.add-role') : t('purchases.editor.supplier.create')}
-                    </Button>
                   </div>
                 </Show>
+
+                <SupplierResolutionPanel
+                  counterparty={getExtraction().counterparty}
+                  selectedSupplierId={supplierId()}
+                  isPending={counterpartyMutation.isPending}
+                  onCreate={({ name }) => counterpartyMutation.mutate({ name })}
+                  onUseContact={({ contactId }) => counterpartyMutation.mutate({ contactId })}
+                />
               </>
             )}
           </Show>
@@ -303,7 +329,13 @@ export function PurchaseEditorPage() {
             <FormField label={t('purchases.editor.supplier')} class="sm:col-span-2">
               <SimpleSelect triggerClass="h-10 w-full" value={supplierId()} onChange={setSupplierId} options={supplierOptions()} />
             </FormField>
+            <FormField label={t('purchases.editor.kind')}>
+              <SimpleSelect triggerClass="h-10 w-full" value={kind()} onChange={value => setKind(value as PurchaseDocumentKind)} options={PURCHASE_DOCUMENT_KINDS.map(value => ({ value, label: t(PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS[value]) }))} />
+            </FormField>
             <FormField label={t('purchases.editor.number')}><TextField value={number()} onInput={event => setNumber(event.currentTarget.value)} /></FormField>
+            <Show when={kind() === 'delivery_note'}>
+              <p class="rounded-lg bg-muted/60 p-3 text-sm text-muted-foreground sm:col-span-2">{t('purchases.editor.kind.delivery-note-hint')}</p>
+            </Show>
             <FormField label={t('purchases.editor.category')}>
               <SimpleSelect triggerClass="h-10 w-full" value={category()} onChange={value => setCategory(value as ExpenseCategory)} options={EXPENSE_CATEGORIES.map(value => ({ value, label: t(EXPENSE_CATEGORY_LABEL_I18N_KEYS[value]) }))} />
             </FormField>
@@ -372,13 +404,15 @@ export function PurchaseEditorPage() {
             </dl>
             <Show when={totalMismatch()}>
               <div class="rounded-lg border border-orange-500/30 bg-orange-500/8 p-3 text-sm sm:col-span-2">
-                {t('purchases.editor.total-mismatch', { printed: money(extraction()!.printedTotal), computed: money(totals().totalMinor) })}
+                {t('purchases.editor.total-mismatch', { printed: money(extraction()!.printedTotal ?? 0), computed: money(totals().totalMinor) })}
               </div>
             </Show>
             <FormField label={t('invoicing.editor.notes')} class="sm:col-span-2">
               <TextArea value={notes()} onInput={event => setNotes(event.currentTarget.value)} />
             </FormField>
           </section>
+
+          <PurchaseMetadataFields value={metadata()} onChange={setMetadata} />
         </div>
 
         <Show when={documentQuery.data?.document}>

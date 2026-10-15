@@ -199,12 +199,17 @@ export const organizationEntityRoutes = {
   editInvoice: { path: 'invoicing/invoices/:invoiceId/edit', label: 'Issued invoice editor' },
   newPurchaseInvoice: { path: 'invoicing/invoices/received/new', label: 'New received invoice' },
   editPurchaseInvoice: { path: 'invoicing/invoices/received/:purchaseInvoiceId/edit', label: 'Received invoice editor' },
+  contact: { path: 'contacts/:contactId', label: 'Contact (customer, supplier or sales representative) with its products' },
 } as const satisfies Record<string, { path: string; label: string }>;
 
 export type OrganizationEntityRouteId = keyof typeof organizationEntityRoutes;
 
 export function getOrganizationEntityRoutePath(routeId: OrganizationEntityRouteId) {
   return `/${organizationEntityRoutes[routeId].path}`;
+}
+
+export function getOrganizationContactHref({ organizationId, contactId }: { organizationId: string; contactId: string }) {
+  return `/organizations/${organizationId}/${organizationEntityRoutes.contact.path.replace(':contactId', encodeURIComponent(contactId))}`;
 }
 
 export function getOrganizationRouteHref({ organizationId, routeId }: { organizationId: string; routeId: OrganizationRouteId }) {
@@ -297,7 +302,12 @@ export function getOrganizationRouteLabelKey({ organizationId, pathname }: { org
   const relativePath = pathname.startsWith(organizationPath) ? pathname.slice(organizationPath.length) : '';
   const routeId = (Object.keys(organizationRoutes) as OrganizationRouteId[])
     .filter(id => relativePath === organizationRoutes[id].path || relativePath.startsWith(`${organizationRoutes[id].path}/`))
-    .sort((left, right) => organizationRoutes[right].path.length - organizationRoutes[left].path.length)[0] ?? 'home';
+    .sort((left, right) => organizationRoutes[right].path.length - organizationRoutes[left].path.length)[0];
 
-  return organizationRouteLabelKeys[routeId];
+  // The page of one contact is not in the menu: it belongs to the contacts section
+  if (routeId === undefined && relativePath.startsWith('contacts/')) {
+    return 'navigation.section.contacts';
+  }
+
+  return organizationRouteLabelKeys[routeId ?? 'home'];
 }

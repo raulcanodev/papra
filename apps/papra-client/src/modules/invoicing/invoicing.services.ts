@@ -30,8 +30,12 @@ export async function fetchVerifactuRecords({ organizationId }: { organizationId
 
 type WithCustomProperties<T> = T & { customProperties?: EntityCustomPropertiesInput };
 
-export async function fetchProducts({ organizationId }: { organizationId: string }) {
-  const { products } = await apiClient<{ products: AsDto<InvoicingProduct>[] }>({ path: `${basePath(organizationId)}/products`, method: 'GET' }); return { products: products.map(product => coerceDates(product) as InvoicingProduct) };
+/** Our own catalog and the products of every contact, or only the products of one contact */
+export async function fetchProducts({ organizationId, contactId }: { organizationId: string; contactId?: string }) {
+  const { products } = await apiClient<{ products: AsDto<InvoicingProduct>[] }>({ path: `${basePath(organizationId)}/products`, method: 'GET', query: { contactId } }); return { products: products.map(product => coerceDates(product) as InvoicingProduct) };
+}
+export async function deleteProduct({ organizationId, productId }: { organizationId: string; productId: string }) {
+  await apiClient({ path: `${basePath(organizationId)}/products/${productId}`, method: 'DELETE' });
 }
 export async function createProduct({ organizationId, product }: { organizationId: string; product: WithCustomProperties<ProductInput> }) {
   return apiClient<{ product: AsDto<InvoicingProduct> }>({ path: `${basePath(organizationId)}/products`, method: 'POST', body: product });
@@ -45,6 +49,9 @@ export async function fetchTaxRates({ organizationId }: { organizationId: string
 }
 export async function createTaxRate({ organizationId, taxRate }: { organizationId: string; taxRate: TaxRateInput }) {
   return apiClient<{ taxRate: AsDto<InvoicingTaxRate> }>({ path: `${basePath(organizationId)}/tax-rates`, method: 'POST', body: taxRate });
+}
+export async function deleteTaxRate({ organizationId, taxRateId }: { organizationId: string; taxRateId: string }) {
+  await apiClient({ path: `${basePath(organizationId)}/tax-rates/${taxRateId}`, method: 'DELETE' });
 }
 export async function updateTaxRate({ organizationId, taxRateId, taxRate }: { organizationId: string; taxRateId: string; taxRate: TaxRateInput }) {
   return apiClient<{ taxRate: AsDto<InvoicingTaxRate> }>({ path: `${basePath(organizationId)}/tax-rates/${taxRateId}`, method: 'PUT', body: taxRate });
@@ -65,6 +72,11 @@ export async function fetchInvoiceBranding({ organizationId }: { organizationId:
 }
 export async function saveInvoiceBranding({ organizationId, branding }: { organizationId: string; branding: InvoiceBrandingInput }) {
   return apiClient<{ branding: AsDto<InvoiceBranding> }>({ path: `${basePath(organizationId)}/branding`, method: 'PUT', body: branding });
+}
+
+/** Only drafts can be deleted: an issued invoice is a legal record */
+export async function deleteDraftInvoice({ organizationId, invoiceId }: { organizationId: string; invoiceId: string }) {
+  await apiClient({ path: `${basePath(organizationId)}/invoices/${invoiceId}`, method: 'DELETE' });
 }
 
 export async function fetchInvoices({ organizationId }: { organizationId: string }) {

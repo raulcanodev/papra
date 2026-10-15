@@ -10,11 +10,11 @@ export async function fetchCurrentUser() {
   return { user };
 }
 
-export async function updateUser({ name }: { name: string }) {
+export async function updateUser({ name, phone }: { name: string; phone?: string | null }) {
   const { user } = await apiClient<{ user: UserMe }>({
     path: '/api/users/me',
     method: 'PUT',
-    body: { name },
+    body: { name, phone },
   });
 
   return { user };

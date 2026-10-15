@@ -87,6 +87,17 @@ export const demoProducts = [
   { key: 'catering', icon: '🍽️', iconColor: 'orange' as const, name: 'Servicio de catering', description: 'Evento corporativo', unit: 'ud', unitPriceMinor: 35000, taxKey: 'iva10' },
 ];
 
+// Products that belong to a contact: what each supplier sells us, and a customer with its own agreed price.
+// Shown on the page of the contact and, with their owner, in the products catalog.
+export const demoContactProducts: Array<{ contactKey: string; icon: string; iconColor: EntityIconColor; name: string; description: string | null; unit: string; unitPriceMinor: number; taxKey: string }> = [
+  { contactKey: 'papeleria', icon: '📄', iconColor: 'gray', name: 'Folios A4 (caja de 2.500)', description: '80 g, blancos', unit: 'caja', unitPriceMinor: 2_890, taxKey: 'iva21' },
+  { contactKey: 'papeleria', icon: '🖨️', iconColor: 'gray', name: 'Tóner impresora láser', description: null, unit: 'ud', unitPriceMinor: 6_450, taxKey: 'iva21' },
+  { contactKey: 'nube', icon: 'icon:cloud', iconColor: 'blue', name: 'Plan hosting Pro', description: 'Servidor gestionado y dominio', unit: 'trimestre', unitPriceMinor: 13_500, taxKey: 'iva21' },
+  { contactKey: 'coworking', icon: '🪑', iconColor: 'orange', name: 'Puesto fijo', description: 'Escritorio dedicado con taquilla', unit: 'mes', unitPriceMinor: 17_500, taxKey: 'iva21' },
+  { contactKey: 'coworking', icon: '🗓️', iconColor: 'orange', name: 'Sala de reuniones', description: null, unit: 'h', unitPriceMinor: 2_500, taxKey: 'iva21' },
+  { contactKey: 'lumen', icon: '🎨', iconColor: 'purple', name: 'Mantenimiento web Lumen', description: 'Tarifa pactada en el contrato marco', unit: 'mes', unitPriceMinor: 3_900, taxKey: 'iva21' },
+];
+
 type DemoInvoiceFixture = {
   customerKey: string;
   repKey: string | null;

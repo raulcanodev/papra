@@ -143,6 +143,7 @@ export async function seedDemoPurchases({ organizationId, now = new Date() }: { 
       draft: {
         supplierId: supplier.id,
         number,
+        kind: 'invoice',
         issueDate,
         dueDate: daysAgoToDate(now, daysAgo - 30),
         currency: 'EUR',
@@ -150,6 +151,7 @@ export async function seedDemoPurchases({ organizationId, now = new Date() }: { 
         withholdingRateBps: expense.withholdingRateBps,
         notes: null,
         documentId: null,
+        metadata: [],
         items: [{ ...line, quantityMillis, discountRateBps: 0, deductibleRateBps }],
       },
     });
@@ -180,9 +182,11 @@ export function buildDemoExtraction({ documentId, now = new Date() }: { document
   const issueDate = daysAgoToDate(now, 3);
 
   return {
+    schemaVersion: 2,
     direction: 'received',
     draft: {
       supplierId: null,
+      kind: 'invoice',
       number: `FRA/${String(now.getTime()).slice(-6)}`,
       issueDate: issueDate.toISOString(),
       dueDate: daysAgoToDate(now, -12).toISOString(),
@@ -190,12 +194,14 @@ export function buildDemoExtraction({ documentId, now = new Date() }: { document
       category: 'goods',
       withholdingRateBps: 0,
       documentId,
+      metadata: [{ label: 'Forma de pago', value: 'Transferencia a 15 días' }, { label: 'Pedido', value: 'PED-2026-0412' }],
       items: [
         { description: 'Juegos de base con almohadas', quantityMillis: 100_000, unitPriceMinor: 1_500, taxRateBps: 2_100, discountRateBps: 0, deductibleRateBps: 10_000 },
         { description: 'Portes', quantityMillis: 1_000, unitPriceMinor: 2_250, taxRateBps: 2_100, discountRateBps: 0, deductibleRateBps: 10_000 },
       ],
     },
-    counterparty: { contactId: null, hasSupplierRole: false, name: 'Textiles Ejemplo SL', taxId: 'B00000020', email: 'facturas@textiles.example', addressLine1: 'Calle del Telar 8', postalCode: '03801', city: 'Alcoy', country: 'ES' },
+    counterparty: { status: 'create', contactId: null, matchedBy: null, hasSupplierRole: false, candidates: [], name: 'Textiles Ejemplo SL', taxId: 'B00000020', email: 'facturas@textiles.example', phone: null, addressLine1: 'Calle del Telar 8', postalCode: '03801', city: 'Alcoy', country: 'ES' },
+    warnings: [],
     printedTotal: 184_223,
   };
 }

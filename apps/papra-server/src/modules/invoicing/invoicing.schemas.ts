@@ -40,7 +40,15 @@ export const productSchema = z.object({
   unitPriceMinor: z.number().int().min(0).max(1_000_000_000),
   currency: currencySchema.default('EUR'),
   taxRateBps: z.number().int().min(0).max(10_000).default(2_100),
+  /** The supplier or customer it belongs to, null for our own catalog */
+  contactId: z.string().trim().min(1).max(64).nullable().optional(),
+  /** The document holding its photo */
+  imageDocumentId: z.string().trim().min(1).max(64).nullable().optional(),
 }).merge(entityAppearanceSchema);
+
+export const productListQuerySchema = z.object({
+  contactId: z.string().trim().min(1).max(64).optional(),
+});
 
 // Request body: the product fields plus the values of the organization custom properties for products
 export const productBodySchema = productSchema.extend({ customProperties: entityCustomPropertiesInputSchema.optional() });

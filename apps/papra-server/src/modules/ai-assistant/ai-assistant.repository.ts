@@ -149,7 +149,7 @@ async function updateChatMessageMetadata({ db, messageId, metadata }: {
 async function addChatMessages({ db, sessionId, messages }: {
   db: Database;
   sessionId: string;
-  messages: { role: string; content: string }[];
+  messages: { role: string; content: string; metadata?: string }[];
 }) {
   if (messages.length === 0) {
     return;
@@ -160,6 +160,7 @@ async function addChatMessages({ db, sessionId, messages }: {
       sessionId,
       role: m.role,
       content: m.content,
+      metadata: m.metadata,
     })),
   );
 

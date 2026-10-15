@@ -1,16 +1,16 @@
 import type { Component } from 'solid-js';
 import type { CustomPropertyEntityType, CustomPropertyType } from '../custom-properties.types';
 import type { ActiveFilter, FilterField } from '@/modules/ui/components/table-filters';
-import { A, useParams } from '@solidjs/router';
+import { A, useNavigate, useParams } from '@solidjs/router';
 import { useMutation, useQuery } from '@tanstack/solid-query';
 import { createSolidTable, flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/solid-table';
 import { createMemo, createSignal, For, Show, Suspense } from 'solid-js';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
-import { useConfirmModal } from '@/modules/shared/confirm';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { Button } from '@/modules/ui/components/button';
 import { EmptyState } from '@/modules/ui/components/empty';
+import { RowActions } from '@/modules/ui/components/row-actions';
 import { createToast } from '@/modules/ui/components/sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
 import { getActiveFilter } from '@/modules/ui/components/table-filters';
@@ -33,9 +33,9 @@ const TYPE_ICON: Record<CustomPropertyType, string> = {
   document_relation: 'i-tabler-file-symlink',
 };
 
-export const DeleteCustomPropertyButton: Component<{ organizationId: string; propertyDefinitionId: string; propertyDefinitionName: string }> = (props) => {
-  const { confirm } = useConfirmModal();
+export const CustomPropertyRowActions: Component<{ organizationId: string; propertyDefinitionId: string; propertyDefinitionName: string }> = (props) => {
   const { t } = useI18n();
+  const navigate = useNavigate();
 
   const deleteMutation = useMutation(() => ({
     mutationFn: async () => {
@@ -57,25 +57,13 @@ export const DeleteCustomPropertyButton: Component<{ organizationId: string; pro
     },
   }));
 
-  const handleDelete = async () => {
-    const isConfirmed = await confirm({
-      title: t('custom-properties.list.delete.confirm-title'),
-      message: t('custom-properties.list.delete.confirm-message', { name: props.propertyDefinitionName }),
-      confirmButton: {
-        text: t('custom-properties.list.delete.confirm-button'),
-        variant: 'destructive',
-      },
-    });
-
-    if (isConfirmed) {
-      deleteMutation.mutate();
-    }
-  };
-
   return (
-    <Button size="icon" variant="outline" class="size-7 text-red" onClick={handleDelete} disabled={deleteMutation.isPending} aria-label={`Delete custom property ${props.propertyDefinitionName}`}>
-      <div class="i-tabler-trash size-4" />
-    </Button>
+    <RowActions
+      itemName={props.propertyDefinitionName}
+      onEdit={() => navigate(getOrganizationRouteChildHref({ organizationId: props.organizationId, routeId: 'settingsCustomProperties', childPath: props.propertyDefinitionId }))}
+      onDelete={() => deleteMutation.mutateAsync()}
+      deleteMessage={t('custom-properties.list.delete.confirm-message', { name: props.propertyDefinitionName })}
+    />
   );
 };
 
@@ -168,23 +156,11 @@ export const CustomPropertiesPage: Component = () => {
         id: 'actions',
         header: () => <span class="text-right">{t('custom-properties.list.table.actions')}</span>,
         cell: data => (
-          <div class="flex gap-2 justify-end">
-            <Button
-              as={A}
-              href={getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'settingsCustomProperties', childPath: data.row.original.id })}
-              size="icon"
-              variant="outline"
-              class="size-7"
-              aria-label={`Edit custom property ${data.row.original.name}`}
-            >
-              <div class="i-tabler-pencil size-4" />
-            </Button>
-            <DeleteCustomPropertyButton
-              organizationId={params.organizationId}
-              propertyDefinitionId={data.row.original.id}
-              propertyDefinitionName={data.row.original.name}
-            />
-          </div>
+          <CustomPropertyRowActions
+            organizationId={params.organizationId}
+            propertyDefinitionId={data.row.original.id}
+            propertyDefinitionName={data.row.original.name}
+          />
         ),
       },
     ],

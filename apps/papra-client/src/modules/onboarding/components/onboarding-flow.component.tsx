@@ -12,6 +12,7 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { acceptInvitation, fetchInvitations, rejectInvitation } from '@/modules/invitations/invitations.services';
 import { createInvoiceSeries, createTaxRate, fetchFiscalProfile, fetchInvoiceBranding, fetchInvoiceSeries, fetchTaxRates, saveFiscalProfile, saveInvoiceBranding, updateInvoiceSeries, updateTaxRate } from '@/modules/invoicing/invoicing.services';
 import { createOrganization, fetchOrganization, inviteOrganizationMember, updateOrganization } from '@/modules/organizations/organizations.services';
+import { updateMemberPreferences } from '@/modules/preferences/preferences.services';
 import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-errors';
 import { isHttpErrorWithCode } from '@/modules/shared/http/http-errors';
 import { queryClient } from '@/modules/shared/query/query-client';
@@ -28,7 +29,16 @@ import { updateOrganizationOnboarding, updateUserOnboarding } from '../onboardin
 import { getFlowSteps, getResumeStepIndex } from '../onboarding.steps';
 import { ChoiceCards, ChoiceChips, OnboardingField } from './onboarding-fields';
 
-type BusinessType = 'freelancer' | 'company' | 'other';
+// 'both': a company (S.L.) whose owner also invoices on their own as an autónomo; each one is its own fiscal entity
+type BusinessType = 'freelancer' | 'company' | 'both' | 'other';
+type BusinessSector = 'restaurant' | 'factory' | 'other';
+
+// What each sector does not use, hidden from the menu and the home of whoever sets the company up (they can show it again)
+const SECTOR_HIDDEN_ITEMS: Record<BusinessSector, { navigation: string[]; widgets: string[] }> = {
+  restaurant: { navigation: ['salesRepresentatives'], widgets: ['sales-by-representative'] },
+  factory: { navigation: [], widgets: [] },
+  other: { navigation: [], widgets: [] },
+};
 type TaxRateChoice = { name: string; rateBps: number; selected: boolean };
 type Invite = { email: string; role: Exclude<OrganizationMemberRole, 'owner'> };
 
@@ -138,8 +148,10 @@ export const OnboardingFlow: Component<{
 
   const [values, setValues] = createStore({
     name: user.name ?? '',
+    phone: user.phone ?? '',
     companyName: '',
     businessType: 'company' as BusinessType,
+    sector: 'other' as BusinessSector,
     legalName: '',
     taxId: '',
     billingEmail: user.email,
@@ -260,7 +272,7 @@ export const OnboardingFlow: Component<{
     lastCorporateTaxQuotaMinor: null,
     accountantEmail: null,
     // The business type answered at the start decides the quarterly taxes models
-    legalForm: values.businessType === 'freelancer' ? 'self_employed' : values.businessType === 'company' ? 'company' : null,
+    legalForm: values.businessType === 'freelancer' ? 'self_employed' : values.businessType === 'company' || values.businessType === 'both' ? 'company' : null,
     legalName: values.legalName.trim() || values.companyName.trim(),
     taxId: nullable(values.taxId),
     email: nullable(values.billingEmail),
@@ -292,8 +304,8 @@ export const OnboardingFlow: Component<{
       if (!values.name.trim()) {
         return t('onboarding.profile.name.required');
       }
-      if (values.name.trim() !== user.name) {
-        await updateUser({ name: values.name.trim() });
+      if (values.name.trim() !== user.name || values.phone.trim() !== (user.phone ?? '')) {
+        await updateUser({ name: values.name.trim(), phone: values.phone.trim() || null });
         await refreshCurrentUser();
       }
     },
@@ -319,6 +331,14 @@ export const OnboardingFlow: Component<{
         if (props.flow === 'new-organization') {
           window.history.replaceState(null, '', `/organizations/${result.organization.id}/setup`);
         }
+      }
+
+      const hidden = SECTOR_HIDDEN_ITEMS[values.sector];
+      if (hidden.navigation.length > 0 || hidden.widgets.length > 0) {
+        await updateMemberPreferences({
+          organizationId: requireOrganizationId(),
+          patch: { navigation: { hiddenItemIds: hidden.navigation }, dashboard: { hiddenWidgetIds: hidden.widgets } },
+        });
       }
 
       // Freelancers invoice under their own name.
@@ -502,6 +522,12 @@ export const OnboardingFlow: Component<{
               <p class="mt-2 text-muted-foreground">
                 {props.flow === 'invited-user' ? t('onboarding.done.description.invited') : t('onboarding.done.description.company', { company: values.companyName })}
               </p>
+              <Show when={values.businessType === 'both'}>
+                <p class="mx-auto mt-4 max-w-md rounded-xl border bg-muted/40 p-3 text-left text-sm text-muted-foreground">
+                  <span class="i-tabler-info-circle mr-1 inline-block size-4 align-text-bottom" />
+                  {t('onboarding.done.both-hint')}
+                </p>
+              </Show>
               <Show when={props.flow !== 'invited-user'}>
                 <ul class="mt-8 grid gap-2 text-left sm:grid-cols-2">
                   <For each={[
@@ -554,6 +580,9 @@ export const OnboardingFlow: Component<{
                     <OnboardingField label={t('onboarding.profile.name.label')}>
                       <TextField value={values.name} onInput={event => setValues({ name: event.currentTarget.value })} placeholder={t('onboarding.profile.name.placeholder')} maxlength={50} autoFocus autocomplete="name" class="h-11 text-base" />
                     </OnboardingField>
+                    <OnboardingField label={t('onboarding.profile.phone.label')} hint={t('onboarding.profile.phone.hint')}>
+                      <TextField value={values.phone} onInput={event => setValues({ phone: event.currentTarget.value })} placeholder="600 123 456" maxlength={30} type="tel" autocomplete="tel" class="h-11 text-base" />
+                    </OnboardingField>
                     <p class="text-xs text-muted-foreground">{t('onboarding.profile.email', { email: user.email })}</p>
                   </Match>
 
@@ -564,13 +593,27 @@ export const OnboardingFlow: Component<{
                     <div class="grid gap-2">
                       <span class="text-sm font-medium">{t('onboarding.company.type.label')}</span>
                       <ChoiceCards
-                        columns={3}
+                        columns={2}
                         value={values.businessType}
                         onChange={businessType => setValues({ businessType })}
                         options={[
                           { id: 'freelancer', icon: 'i-tabler-user', title: t('onboarding.company.type.freelancer'), description: t('onboarding.company.type.freelancer.description') },
                           { id: 'company', icon: 'i-tabler-building', title: t('onboarding.company.type.company'), description: t('onboarding.company.type.company.description') },
+                          { id: 'both', icon: 'i-tabler-users-plus', title: t('onboarding.company.type.both'), description: t('onboarding.company.type.both.description') },
                           { id: 'other', icon: 'i-tabler-users-group', title: t('onboarding.company.type.other'), description: t('onboarding.company.type.other.description') },
+                        ]}
+                      />
+                    </div>
+                    <div class="grid gap-2">
+                      <span class="text-sm font-medium">{t('onboarding.company.sector.label')}</span>
+                      <ChoiceCards
+                        columns={3}
+                        value={values.sector}
+                        onChange={sector => setValues({ sector })}
+                        options={[
+                          { id: 'restaurant', icon: 'i-tabler-tools-kitchen-2', title: t('onboarding.company.sector.restaurant'), description: t('onboarding.company.sector.restaurant.description') },
+                          { id: 'factory', icon: 'i-tabler-building-factory-2', title: t('onboarding.company.sector.factory'), description: t('onboarding.company.sector.factory.description') },
+                          { id: 'other', icon: 'i-tabler-dots', title: t('onboarding.company.sector.other'), description: t('onboarding.company.sector.other.description') },
                         ]}
                       />
                     </div>

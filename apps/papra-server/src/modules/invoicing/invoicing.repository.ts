@@ -2,8 +2,11 @@
 import type { Database } from '../app/database/database.types';
 import type { FiscalProfileInput, InvoiceBrandingInput, InvoiceDraftInput, InvoiceSeriesInput, ProductInput, TaxRateInput } from './invoicing.models';
 import { and, asc, desc, eq, isNull } from 'drizzle-orm';
+import { createContactNotFoundError } from '../contacts/contacts.errors';
 import { createContactsRepository } from '../contacts/contacts.repository';
 import { contactsTable } from '../contacts/contacts.table';
+import { createDocumentNotFoundError } from '../documents/documents.errors';
+import { documentsTable } from '../documents/documents.table';
 import { createFiscalProfileRequiredError, createInvoiceNotEditableError, createInvoiceNotFoundError, createInvoiceNotIssuableError } from './invoicing.errors';
 import { calculateInvoiceTotals, formatInvoiceNumber } from './invoicing.models';
 import { invoiceEventsTable, invoiceItemsTable, invoiceSeriesTable, invoicesTable, invoicingBrandingTable, invoicingProductsTable, invoicingProfilesTable, invoicingTaxRatesTable } from './invoicing.tables';
@@ -16,7 +19,7 @@ export function createInvoicingRepository({ db }: { db: Database }) {
     ensureDefaultSeries: async (args: { organizationId: string }) => ensureDefaultSeries({ db, ...args }),
     createSeries: async (args: { organizationId: string; series: InvoiceSeriesInput }) => createSeries({ db, ...args }),
     updateSeries: async (args: { organizationId: string; seriesId: string; series: InvoiceSeriesInput }) => updateSeries({ db, ...args }),
-    listProducts: async (args: { organizationId: string }) => listProducts({ db, ...args }),
+    listProducts: async (args: { organizationId: string; contactId?: string }) => listProducts({ db, ...args }),
     createProduct: async (args: { organizationId: string; product: ProductInput }) => createProduct({ db, ...args }),
     updateProduct: async (args: { organizationId: string; productId: string; product: ProductInput }) => updateProduct({ db, ...args }),
     archiveProduct: async (args: { organizationId: string; productId: string }) => archiveCatalogItem({ db, table: invoicingProductsTable, organizationId: args.organizationId, id: args.productId }),
@@ -81,13 +84,56 @@ async function updateSeries({ db, organizationId, seriesId, series }: { db: Data
   return { series: saved };
 }
 
-async function listProducts({ db, organizationId }: { db: Database; organizationId: string }) {
-  return { products: await db.select().from(invoicingProductsTable).where(and(eq(invoicingProductsTable.organizationId, organizationId), isNull(invoicingProductsTable.archivedAt))).orderBy(asc(invoicingProductsTable.name)) };
+// With the name of the contact it belongs to, so a table can show whose product it is without another request
+async function listProducts({ db, organizationId, contactId }: { db: Database; organizationId: string; contactId?: string }) {
+  const rows = await db
+    .select({ product: invoicingProductsTable, contactName: contactsTable.name })
+    .from(invoicingProductsTable)
+    .leftJoin(contactsTable, eq(invoicingProductsTable.contactId, contactsTable.id))
+    .where(and(
+      eq(invoicingProductsTable.organizationId, organizationId),
+      isNull(invoicingProductsTable.archivedAt),
+      contactId === undefined ? undefined : eq(invoicingProductsTable.contactId, contactId),
+    ))
+    .orderBy(asc(invoicingProductsTable.name));
+
+  return { products: rows.map(({ product, contactName }) => ({ ...product, contactName })) };
 }
+
+// A product can only belong to a contact of the same organization
+async function ensureProductContact({ db, organizationId, contactId }: { db: Database; organizationId: string; contactId: string | null | undefined }) {
+  if (contactId === null || contactId === undefined) {
+    return;
+  }
+
+  const { contact } = await createContactsRepository({ db }).getContact({ organizationId, contactId });
+
+  if (!contact) {
+    throw createContactNotFoundError();
+  }
+}
+
+// The photo must be a document of the same organization
+async function ensureProductImage({ db, organizationId, imageDocumentId }: { db: Database; organizationId: string; imageDocumentId: string | null | undefined }) {
+  if (imageDocumentId === null || imageDocumentId === undefined) {
+    return;
+  }
+
+  const [document] = await db.select({ id: documentsTable.id }).from(documentsTable).where(and(eq(documentsTable.id, imageDocumentId), eq(documentsTable.organizationId, organizationId), eq(documentsTable.isDeleted, false))).limit(1);
+
+  if (!document) {
+    throw createDocumentNotFoundError();
+  }
+}
+
 async function createProduct({ db, organizationId, product }: { db: Database; organizationId: string; product: ProductInput }) {
+  await ensureProductContact({ db, organizationId, contactId: product.contactId });
+  await ensureProductImage({ db, organizationId, imageDocumentId: product.imageDocumentId });
   const [saved] = await db.insert(invoicingProductsTable).values({ organizationId, ...product }).returning(); return { product: saved! };
 }
 async function updateProduct({ db, organizationId, productId, product }: { db: Database; organizationId: string; productId: string; product: ProductInput }) {
+  await ensureProductContact({ db, organizationId, contactId: product.contactId });
+  await ensureProductImage({ db, organizationId, imageDocumentId: product.imageDocumentId });
   const [saved] = await db.update(invoicingProductsTable).set({ ...product, updatedAt: new Date() }).where(and(eq(invoicingProductsTable.id, productId), eq(invoicingProductsTable.organizationId, organizationId))).returning();
   if (!saved) {
     throw createInvoiceNotFoundError();

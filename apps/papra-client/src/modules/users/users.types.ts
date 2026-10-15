@@ -10,5 +10,6 @@ export type User = {
 };
 
 export type UserMe = User & {
+  phone?: string | null;
   permissions: string[];
 };

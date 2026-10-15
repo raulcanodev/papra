@@ -18,9 +18,20 @@ const purchaseLineSchema = z.object({
 
 type PurchaseLine = z.infer<typeof purchaseLineSchema>;
 
+const PURCHASE_DOCUMENT_KINDS = ['invoice', 'simplified_invoice', 'delivery_note'] as const;
+
+const metadataEntrySchema = z.object({
+  label: z.string().trim().min(1).max(200).describe('Short name of the data as printed, e.g. "Forma de pago", "Pedido", "IBAN"'),
+  value: z.string().trim().min(1).max(2_000),
+});
+
+type MetadataEntry = z.infer<typeof metadataEntrySchema>;
+
 const purchaseFields = {
   supplierId: idSchema('Contact ID of the supplier (use search_workspace or list_contacts with role supplier)'),
   number: z.string().trim().min(1).max(100).describe('Invoice number printed by the supplier'),
+  kind: z.enum(PURCHASE_DOCUMENT_KINDS).describe('invoice (factura), simplified_invoice (ticket) or delivery_note (albarán: goods received, does not count for VAT nor income tax until its invoice arrives)'),
+  metadata: z.array(metadataEntrySchema).max(50).describe('Data printed on the paper that has no field of its own (payment method, IBAN, order or delivery references, observations...)'),
   issueDate: isoDateSchema('Date on the supplier invoice'),
   dueDate: isoDateSchema('Payment due date').nullable().optional(),
   items: z.array(purchaseLineSchema).min(1).max(200),
@@ -36,6 +47,8 @@ type StoredPurchaseItem = { description: string; quantityMillis: number; unitPri
 type StoredPurchase = {
   supplierId: string;
   number: string;
+  kind?: (typeof PURCHASE_DOCUMENT_KINDS)[number];
+  metadata?: MetadataEntry[];
   issueDate: string;
   dueDate: string | null;
   currency: string;
@@ -68,12 +81,14 @@ function fromApiItem(item: StoredPurchaseItem): PurchaseLine {
   };
 }
 
-type PurchaseDraft = { supplierId: string; number: string; issueDate: string; dueDate?: string | null; items: PurchaseLine[]; currency: string; category: (typeof EXPENSE_CATEGORIES)[number]; withholdingPercent: number; notes?: string | null; documentId?: string | null };
+type PurchaseDraft = { supplierId: string; number: string; kind?: (typeof PURCHASE_DOCUMENT_KINDS)[number]; metadata?: MetadataEntry[]; issueDate: string; dueDate?: string | null; items: PurchaseLine[]; currency: string; category: (typeof EXPENSE_CATEGORIES)[number]; withholdingPercent: number; notes?: string | null; documentId?: string | null };
 
 function toPurchaseBody(draft: PurchaseDraft) {
   return {
     supplierId: draft.supplierId,
     number: draft.number,
+    kind: draft.kind,
+    metadata: draft.metadata,
     issueDate: draft.issueDate,
     dueDate: draft.dueDate,
     currency: draft.currency,
@@ -114,7 +129,7 @@ export const purchaseTools = [
   defineOrganizationTool({
     name: 'extract_purchase_from_document',
     title: 'Read a received invoice from a document',
-    description: 'Use AI to read an uploaded PDF/image of a supplier invoice and return a prefilled draft (supplier, number, dates, lines, category). Nothing is saved: review it and then call create_purchase_invoice.',
+    description: 'Use AI to read an uploaded PDF/image of a supplier invoice, ticket or delivery note and return a prefilled draft (kind, number, dates, lines, category, metadata with the extra printed data) and the supplier resolution: matched to an existing contact (by tax id or name), create (not a contact yet: create it with the data read), or ask (no name readable: ask the user). Nothing is saved: review it and then call create_purchase_invoice.',
     risk: 'read',
     permission: API_KEY_PERMISSIONS.PURCHASES.CREATE,
     input: { documentId: idSchema('Document ID of the invoice file') },
@@ -128,6 +143,8 @@ export const purchaseTools = [
     permission: API_KEY_PERMISSIONS.PURCHASES.CREATE,
     input: {
       ...purchaseFields,
+      kind: purchaseFields.kind.default('invoice'),
+      metadata: purchaseFields.metadata.default([]),
       currency: purchaseFields.currency.default('EUR'),
       category: purchaseFields.category.default('other'),
       withholdingPercent: purchaseFields.withholdingPercent.default(0),
@@ -144,6 +161,8 @@ export const purchaseTools = [
       ...purchaseIdInput,
       supplierId: purchaseFields.supplierId.optional(),
       number: purchaseFields.number.optional(),
+      kind: purchaseFields.kind.optional(),
+      metadata: purchaseFields.metadata.optional().describe('Replaces all the extra data of the invoice'),
       issueDate: purchaseFields.issueDate.optional(),
       dueDate: purchaseFields.dueDate,
       items: purchaseFields.items.optional(),
@@ -159,6 +178,8 @@ export const purchaseTools = [
       const draft: PurchaseDraft = {
         supplierId: purchaseInvoice.supplierId,
         number: purchaseInvoice.number,
+        kind: purchaseInvoice.kind,
+        metadata: purchaseInvoice.metadata,
         issueDate: purchaseInvoice.issueDate,
         dueDate: purchaseInvoice.dueDate,
         currency: purchaseInvoice.currency,

@@ -1,37 +1,48 @@
-import type { ExpenseCategory } from './purchases.constants';
+import type { Contact } from '../contacts/contacts.models';
+import type { ExpenseCategory, PurchaseDocumentKind } from './purchases.constants';
 import { z } from 'zod';
 import { normalizeTaxId } from '../contacts/contacts.models';
-import { EXPENSE_CATEGORIES } from './purchases.constants';
+import { EXPENSE_CATEGORIES, MAX_PURCHASE_METADATA_ENTRIES } from './purchases.constants';
+
+// Bumped whenever the shape below changes, so a stored or cached reading can be told apart from a newer one
+export const INVOICE_EXTRACTION_SCHEMA_VERSION = 2;
 
 const partySchema = z.object({
-  name: z.string().describe('Legal or trade name as printed on the invoice'),
+  name: z.string().nullable().describe('Legal or trade name as printed, null when no name can be read (a logo alone, a torn header...)'),
   taxId: z.string().nullable().describe('Tax identification number (NIF, CIF, VAT number), exactly as printed, null when absent'),
   email: z.string().nullable(),
+  phone: z.string().nullable(),
   addressLine1: z.string().nullable(),
   postalCode: z.string().nullable(),
   city: z.string().nullable(),
   country: z.string().nullable().describe('ISO 3166-1 alpha-2 country code, e.g. ES'),
 });
 
-// What the model is asked to read from the invoice. Amounts as decimals in the invoice currency, converted to minor
-// units by the server: models are much more reliable with "12.50" than with "1250 cents".
+// What the model is asked to read from the paper, always this exact shape. Amounts as decimals in the document
+// currency, converted to minor units by the server: models are much more reliable with "12.50" than with "1250 cents".
 export const invoiceExtractionSchema = z.object({
-  issuer: partySchema.describe('The company or person that issued (sent) the invoice'),
-  recipient: partySchema.describe('The company or person the invoice is addressed to'),
-  number: z.string().describe('Invoice number'),
-  issueDate: z.string().describe('Issue date as YYYY-MM-DD'),
+  documentKind: z.enum(['invoice', 'simplified_invoice', 'delivery_note', 'receipt', 'other']).describe('invoice: full invoice (factura). simplified_invoice: ticket or simplified invoice (factura simplificada). delivery_note: albarán, goods delivered without being an invoice. receipt: payment receipt or card voucher. other: anything else'),
+  issuer: partySchema.describe('The company or person that issued (sent) the document, usually at the top with its logo'),
+  recipient: partySchema.describe('The company or person the document is addressed to'),
+  number: z.string().nullable().describe('Document number (invoice number, delivery note number), null when not printed'),
+  issueDate: z.string().nullable().describe('Issue date as YYYY-MM-DD, null when not printed'),
   dueDate: z.string().nullable().describe('Due date as YYYY-MM-DD, null when not printed'),
   currency: z.string().describe('ISO 4217 currency code, e.g. EUR'),
   lines: z.array(z.object({
     description: z.string(),
     quantity: z.number().describe('Quantity, 1 when not printed'),
-    unitPrice: z.number().describe('Unit price before tax and before discount'),
+    unitPrice: z.number().describe('Unit price before tax and before discount, 0 when not printed (delivery notes often have no prices)'),
     taxRatePercent: z.number().describe('VAT rate in percent, e.g. 21'),
     discountPercent: z.number().describe('Line discount in percent, 0 when none'),
-  })).min(1),
+  })),
   withholdingRatePercent: z.number().describe('IRPF withholding rate in percent, 0 when none'),
-  total: z.number().describe('Invoice total, taxes included, as printed'),
+  total: z.number().nullable().describe('Total, taxes included, as printed, null when not printed'),
   category: z.enum(EXPENSE_CATEGORIES).describe('Best matching expense category for the recipient'),
+  metadata: z.array(z.object({
+    label: z.string().describe('Short name of the data, in the language of the document, e.g. "Forma de pago", "Pedido", "IBAN"'),
+    value: z.string(),
+  })).describe('Every other useful data printed that has no field above: payment method, IBAN, order or delivery references, related delivery notes, delivery address, lot numbers, observations, signature... Never repeat a field above'),
+  warnings: z.array(z.string()).describe('Short notes for the reviewer about what could be misread: blurry or cut off parts, handwritten amounts, totals that do not add up. Empty when everything is clear'),
 });
 
 export type InvoiceExtraction = z.infer<typeof invoiceExtractionSchema>;
@@ -57,8 +68,131 @@ export function getInvoiceDirection({ extraction, organizationTaxId }: { extract
   return 'unknown';
 }
 
+// Legal forms say nothing about who the company is: "Nube Hosting, S.L." and "NUBE HOSTING SL" are the same supplier
+const LEGAL_FORM_TOKENS = new Set(['sl', 'slu', 'sll', 'sa', 'sau', 'slne', 'scoop', 'coop', 'sc', 'cb', 'scp', 'sociedad', 'limitada', 'anonima', 'unipersonal', 'ltd', 'llc', 'inc', 'gmbh', 'sarl', 'sas', 'srl', 'bv', 'nv', 'plc', 'co', 'cia', 'y', 'de', 'la', 'el', 'and', 'the']);
+
+export function normalizeCompanyName({ name }: { name: string | null | undefined }) {
+  if (name === null || name === undefined) {
+    return '';
+  }
+
+  return name
+    .normalize('NFD')
+    // Combining marks: an accented letter is decomposed (NFD) as the letter and its accent
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    // "S.L." and "S. L." become "sl" before splitting on the other punctuation
+    .replace(/\b([a-z])\.\s?(?=[a-z]\.)/g, '$1')
+    .replace(/\./g, '')
+    .split(/[^a-z0-9]+/)
+    .filter(token => token !== '' && !LEGAL_FORM_TOKENS.has(token))
+    .join(' ');
+}
+
+function getBigrams(value: string) {
+  const compact = value.replace(/ /g, '');
+  return Array.from({ length: Math.max(compact.length - 1, 0) }, (_, index) => compact.slice(index, index + 2));
+}
+
+// Dice coefficient on character bigrams of the normalized names, 1 for the same name, 0 for nothing in common
+export function getCompanyNameSimilarity({ a, b }: { a: string; b: string }) {
+  const left = normalizeCompanyName({ name: a });
+  const right = normalizeCompanyName({ name: b });
+
+  if (left === '' || right === '') {
+    return 0;
+  }
+
+  if (left === right) {
+    return 1;
+  }
+
+  // A trade name inside the legal name: "Nube" and "Nube Hosting Servicios"
+  const [shorter, longer] = left.length <= right.length ? [left, right] : [right, left];
+  if (shorter.length >= 4 && ` ${longer} `.includes(` ${shorter} `)) {
+    return 0.9;
+  }
+
+  const leftBigrams = getBigrams(left);
+  const rightBigrams = getBigrams(right);
+  const remaining = [...rightBigrams];
+  const common = leftBigrams.filter((bigram) => {
+    const index = remaining.indexOf(bigram);
+    if (index === -1) {
+      return false;
+    }
+    remaining.splice(index, 1);
+    return true;
+  }).length;
+
+  return (2 * common) / (leftBigrams.length + rightBigrams.length || 1);
+}
+
+const SAME_NAME_SIMILARITY = 0.92;
+const CANDIDATE_SIMILARITY = 0.6;
+const MAX_CANDIDATES = 3;
+
+type MatchableContact = Pick<Contact, 'id' | 'name' | 'taxId' | 'isSupplier'>;
+
+// What the review screen proposes for the counterparty:
+// - matched: an existing contact, found by tax id or, without tax id conflict, by the same name
+// - create: a name was read but no contact has it, creating a supplier is suggested (with similar contacts to pick instead)
+// - ask: nothing identifies the counterparty, the user is asked to pick a supplier or type a name once the rest is reviewed
+export type SupplierResolution = {
+  status: 'matched' | 'create' | 'ask';
+  contactId: string | null;
+  matchedBy: 'tax_id' | 'name' | null;
+  hasSupplierRole: boolean;
+  candidates: { contactId: string; name: string; taxId: string | null; isSupplier: boolean; similarity: number }[];
+};
+
+export function resolveSupplier({ party, contacts }: { party: Pick<InvoiceExtraction['issuer'], 'name' | 'taxId'>; contacts: MatchableContact[] }): SupplierResolution {
+  const taxId = normalizeTaxId({ taxId: party.taxId });
+  const hasName = normalizeCompanyName({ name: party.name }) !== '';
+
+  const matched = (contact: MatchableContact, matchedBy: 'tax_id' | 'name'): SupplierResolution => ({ status: 'matched', contactId: contact.id, matchedBy, hasSupplierRole: contact.isSupplier, candidates: [] });
+
+  const byTaxId = taxId === null ? undefined : contacts.find(contact => normalizeTaxId({ taxId: contact.taxId }) === taxId);
+  if (byTaxId) {
+    return matched(byTaxId, 'tax_id');
+  }
+
+  // Two different tax ids are two different companies, whatever their names
+  const compatible = contacts.filter(contact => taxId === null || normalizeTaxId({ taxId: contact.taxId }) === null);
+  const scored = hasName
+    ? compatible
+        .map(contact => ({ contact, similarity: getCompanyNameSimilarity({ a: party.name!, b: contact.name }) }))
+        .filter(({ similarity }) => similarity >= CANDIDATE_SIMILARITY)
+        // Suppliers first on a tie: a received invoice most likely comes from one
+        .toSorted((a, b) => b.similarity - a.similarity || Number(b.contact.isSupplier) - Number(a.contact.isSupplier))
+    : [];
+
+  const [best, second] = scored;
+  if (best && best.similarity >= SAME_NAME_SIMILARITY && (second === undefined || second.similarity < SAME_NAME_SIMILARITY)) {
+    return matched(best.contact, 'name');
+  }
+
+  return {
+    status: hasName || taxId !== null ? 'create' : 'ask',
+    contactId: null,
+    matchedBy: null,
+    hasSupplierRole: false,
+    candidates: scored.slice(0, MAX_CANDIDATES).map(({ contact, similarity }) => ({ contactId: contact.id, name: contact.name, taxId: contact.taxId, isSupplier: contact.isSupplier, similarity: Math.round(similarity * 100) / 100 })),
+  };
+}
+
+const DOCUMENT_KINDS: Record<InvoiceExtraction['documentKind'], PurchaseDocumentKind> = {
+  invoice: 'invoice',
+  simplified_invoice: 'simplified_invoice',
+  // A card voucher or a payment receipt is booked like a ticket
+  receipt: 'simplified_invoice',
+  delivery_note: 'delivery_note',
+  other: 'invoice',
+};
+
 const toMinor = (amount: number) => Math.round(amount * 100);
 const toBps = (percent: number, { max = 100 }: { max?: number } = {}) => Math.round(Math.min(Math.max(percent, 0), max) * 100);
+const clean = (value: string, maxLength: number) => value.trim().replace(/\s+/g, ' ').slice(0, maxLength);
 
 function toDate(value: string | null) {
   if (value === null) {
@@ -72,18 +206,26 @@ function toDate(value: string | null) {
 
 // Converts what the model read into a purchase draft, the user reviews it before saving
 export function toPurchaseInvoiceDraft({ extraction, supplierId, documentId }: { extraction: InvoiceExtraction; supplierId: string | null; documentId: string }) {
-  const items = extraction.lines.map(line => ({
-    description: line.description.trim().slice(0, 500) || '—',
-    quantityMillis: Math.max(1, Math.round(line.quantity * 1_000)),
-    unitPriceMinor: Math.max(0, toMinor(line.unitPrice)),
-    taxRateBps: toBps(line.taxRatePercent),
-    discountRateBps: toBps(line.discountPercent),
-    deductibleRateBps: 10_000,
-  }));
+  const items = extraction.lines
+    .filter(line => line.description.trim() !== '' || line.unitPrice !== 0)
+    .map(line => ({
+      description: clean(line.description, 500) || '—',
+      quantityMillis: Math.max(1, Math.round(line.quantity * 1_000)),
+      unitPriceMinor: Math.max(0, toMinor(line.unitPrice)),
+      taxRateBps: toBps(line.taxRatePercent),
+      discountRateBps: toBps(line.discountPercent),
+      deductibleRateBps: 10_000,
+    }));
+
+  const metadata = extraction.metadata
+    .map(entry => ({ label: clean(entry.label, 200), value: clean(entry.value, 2_000) }))
+    .filter(entry => entry.label !== '' && entry.value !== '')
+    .slice(0, MAX_PURCHASE_METADATA_ENTRIES);
 
   return {
     supplierId,
-    number: extraction.number.trim().slice(0, 100),
+    kind: DOCUMENT_KINDS[extraction.documentKind],
+    number: clean(extraction.number ?? '', 100),
     issueDate: toDate(extraction.issueDate),
     dueDate: toDate(extraction.dueDate),
     currency: /^[A-Z]{3}$/i.test(extraction.currency) ? extraction.currency.toUpperCase() : 'EUR',
@@ -91,6 +233,7 @@ export function toPurchaseInvoiceDraft({ extraction, supplierId, documentId }: {
     // Same bound as the purchase draft validation
     withholdingRateBps: toBps(extraction.withholdingRatePercent, { max: 50 }),
     documentId,
+    metadata,
     items,
   };
 }

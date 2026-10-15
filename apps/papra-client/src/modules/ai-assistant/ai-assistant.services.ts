@@ -1,6 +1,7 @@
 import type { PageContext } from './page-context/build-page-context';
 import { buildTimeConfig, isDemoMode } from '../config/config';
 import { apiClient } from '../shared/http/api-client';
+import { getFormData } from '../shared/http/http-client.models';
 
 export type ToolConfirmation = {
   toolCallId: string;
@@ -22,10 +23,19 @@ export type WebSource = {
   url: string;
 };
 
+/** A file attached to a message: a document of the organization */
+export type ChatAttachment = {
+  documentId: string;
+  name: string;
+  mimeType: string;
+  size: number;
+};
+
 export type ChatMessage = {
   id?: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  attachments?: ChatAttachment[];
   thinking?: string;
   toolConfirmations?: ToolConfirmation[];
   activeToolCalls?: string[];
@@ -74,6 +84,7 @@ export async function fetchChatSession({ organizationId, sessionId }: { organiza
     metadata?: {
       webSources?: WebSource[];
       toolConfirmations?: ToolConfirmation[];
+      attachments?: ChatAttachment[];
     };
   };
   const raw = await apiClient<{ session: ChatSession; messages: RawMessage[] }>({
@@ -88,6 +99,7 @@ export async function fetchChatSession({ organizationId, sessionId }: { organiza
       content: m.content,
       webSources: m.metadata?.webSources,
       toolConfirmations: m.metadata?.toolConfirmations,
+      attachments: m.metadata?.attachments,
     })),
   };
 }
@@ -109,7 +121,18 @@ export async function renameChatSession({ organizationId, sessionId, title }: { 
   await apiClient({ path: `/api/organizations/${organizationId}/ai/sessions/${sessionId}`, method: 'PATCH', body: { title } });
 }
 
-function serializeMessages(messages: ChatMessage[]): Array<{ role: string; content: string }> {
+// The file is stored as a document of the organization; one already there (same content) is given back, not duplicated
+export async function uploadChatAttachment({ organizationId, file }: { organizationId: string; file: File }): Promise<{ attachment: ChatAttachment }> {
+  const { document } = await apiClient<{ document: { id: string; name: string; mimeType: string; originalSize: number } }>({
+    method: 'POST',
+    path: `/api/organizations/${organizationId}/ai/attachments`,
+    body: getFormData({ file }),
+  });
+
+  return { attachment: { documentId: document.id, name: document.name, mimeType: document.mimeType, size: document.originalSize } };
+}
+
+function serializeMessages(messages: ChatMessage[]): Array<{ role: string; content: string; attachments?: { documentId: string }[] }> {
   return messages.map((m) => {
     let content = m.content;
 
@@ -130,7 +153,7 @@ function serializeMessages(messages: ChatMessage[]): Array<{ role: string; conte
       }
     }
 
-    return { role: m.role, content };
+    return { role: m.role, content, ...(m.attachments?.length ? { attachments: m.attachments.map(({ documentId }) => ({ documentId })) } : {}) };
   });
 }
 

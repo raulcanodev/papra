@@ -1,8 +1,9 @@
 import type { Database } from '../app/database/database.types';
-import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, notInArray, sql } from 'drizzle-orm';
 import { contactsTable } from '../contacts/contacts.table';
 import { documentsTable } from '../documents/documents.table';
 import { invoicesTable, invoicingProfilesTable } from '../invoicing/invoicing.tables';
+import { NON_TAXABLE_PURCHASE_DOCUMENT_KINDS } from '../purchases/purchases.constants';
 import { purchaseInvoicesTable } from '../purchases/purchases.tables';
 import { buildMonthlyComparison, buildRanking, getDashboardPeriods } from './dashboard.models';
 
@@ -40,7 +41,8 @@ async function getOrganizationMetrics({ db, organizationId, now = new Date(), ye
   const issueYear = sql<number>`extract(year from ${invoicesTable.issueDate} at time zone 'UTC')::int`;
   const issueMonth = sql<number>`extract(month from ${invoicesTable.issueDate} at time zone 'UTC')::int`;
 
-  const purchasesInCurrency = and(eq(purchaseInvoicesTable.organizationId, organizationId), eq(purchaseInvoicesTable.currency, currency));
+  // Delivery notes are not expenses yet: the invoice that covers them is
+  const purchasesInCurrency = and(eq(purchaseInvoicesTable.organizationId, organizationId), eq(purchaseInvoicesTable.currency, currency), notInArray(purchaseInvoicesTable.kind, NON_TAXABLE_PURCHASE_DOCUMENT_KINDS));
   // Sales are counted without VAT (subtotal): the VAT belongs to the tax agency, not to the business
   const salesBase = sql<number>`coalesce(sum(${invoicesTable.subtotalMinor}), 0)::double precision`;
   const yearToDate = gte(invoicesTable.issueDate, periods.startOfYear);

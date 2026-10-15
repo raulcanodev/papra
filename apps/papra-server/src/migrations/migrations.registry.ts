@@ -8,6 +8,11 @@ import { purchaseInvoicesMigration } from './list/0005-purchase-invoices.migrati
 import { taxProfileMigration } from './list/0006-tax-profile.migration';
 import { memberPreferencesMigration } from './list/0007-member-preferences.migration';
 import { entityAppearanceMigration } from './list/0008-entity-appearance.migration';
+import { productContactMigration } from './list/0009-product-contact.migration';
+import { purchaseDocumentKindMigration } from './list/0010-purchase-document-kind.migration';
+import { captureSessionsMigration } from './list/0011-capture-sessions.migration';
+import { documentAiDataMigration } from './list/0012-document-ai-data.migration';
+import { userPhoneMigration } from './list/0013-user-phone.migration';
 
 export const migrations: Migration[] = [
   postgresInitialSchemaMigration,
@@ -18,4 +23,9 @@ export const migrations: Migration[] = [
   taxProfileMigration,
   memberPreferencesMigration,
   entityAppearanceMigration,
+  productContactMigration,
+  purchaseDocumentKindMigration,
+  captureSessionsMigration,
+  documentAiDataMigration,
+  userPhoneMigration,
 ];
