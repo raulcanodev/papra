@@ -6,15 +6,18 @@ import { LandingPage } from '@/modules/shared/pages/landing.page';
 import { AppLoader } from '@/modules/ui/components/app-loader';
 import { CurrentUserProvider } from '@/modules/users/composables/useCurrentUser';
 import { useSession } from '../composables/use-session.composable';
+import { readSessionHint } from '../session-hint';
 
 export const AppEntryGate: ParentComponent = (props) => {
   const { t } = useI18n();
   const location = useLocation();
   const { getIsAuthenticated, sessionQuery } = useSession();
+  // A visitor on the landing gets it instantly: no session to wait for, nothing to load
+  const isVisitorOnLanding = () => location.pathname === '/' && !readSessionHint();
 
   return (
     <Switch>
-      <Match when={sessionQuery.isLoading}>
+      <Match when={sessionQuery.isLoading && !isVisitorOnLanding()}>
         <AppLoader label={t('app.loading')} />
       </Match>
       <Match when={getIsAuthenticated()}>

@@ -5,6 +5,7 @@ import { QueryClientProvider } from '@tanstack/solid-query';
 
 import { lazy, Suspense } from 'solid-js';
 import { render } from 'solid-js/web';
+import { readSessionHint } from './modules/auth/session-hint';
 import { CommandPaletteProvider } from './modules/command-palette/command-palette.provider';
 import { applyBrandMetadata } from './modules/config/branding';
 import { isDemoMode } from './modules/config/config';
@@ -58,8 +59,8 @@ render(
         <Router
           children={routes}
           root={props => (
-            // Same loader as the static splash of index.html, so nothing blinks while the translations load
-            <Suspense fallback={<AppLoader label="Loading" />}>
+            // Members keep the beating logo of the splash while the translations load; visitors get no loader at all
+            <Suspense fallback={readSessionHint() ? <AppLoader label="Loading" /> : null}>
               <PageViewTracker />
               <IdentifyUser />
               <I18nProvider>

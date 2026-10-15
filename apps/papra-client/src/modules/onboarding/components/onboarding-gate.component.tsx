@@ -2,6 +2,8 @@ import type { ParentComponent } from 'solid-js';
 import { Navigate, useLocation } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { Match, Switch } from 'solid-js';
+import { useI18n } from '@/modules/i18n/i18n.provider';
+import { AppLoader } from '@/modules/ui/components/app-loader';
 import { fetchOnboardingStatus } from '../onboarding.services';
 
 // Pages reachable before finishing onboarding: the onboarding itself and the user's own settings.
@@ -10,6 +12,7 @@ const ALLOWED_PATHS = [/^\/onboarding/, /^\/settings/, /^\/admin/];
 /** Sends signed-in users who have not finished onboarding to it. */
 export const OnboardingGate: ParentComponent = (props) => {
   const location = useLocation();
+  const { t } = useI18n();
   const query = useQuery(() => ({
     queryKey: ['onboarding'],
     queryFn: fetchOnboardingStatus,
@@ -20,9 +23,8 @@ export const OnboardingGate: ParentComponent = (props) => {
   return (
     <Switch fallback={props.children}>
       <Match when={query.isLoading && !isAllowedPath()}>
-        <div class="min-h-screen grid place-items-center">
-          <div class="size-6 i-tabler-loader-2 animate-spin text-primary" />
-        </div>
+        {/* The same loader as the boot: one continuous loading, not a logo followed by a spinner */}
+        <AppLoader label={t('app.loading')} />
       </Match>
       <Match when={query.data?.flow && !isAllowedPath()}>
         <Navigate href="/onboarding" />

@@ -95,6 +95,15 @@
       @media (prefers-reduced-motion: reduce) { .app-splash img { animation: none; } }
     </style>
     <div id="root"><div class="app-splash" role="status" aria-label="Loading"><img src="/logo.svg" alt="" /></div></div>
+    <script>
+      // Visitors of the public pages get them instantly: the splash is only for members waiting for their workspace
+      // (same key as src/modules/auth/session-hint.ts)
+      try {
+        if (localStorage.getItem('papra.auth.has-session') !== 'true' && ['/', '/login', '/register'].includes(location.pathname)) {
+          document.querySelector('.app-splash')?.remove();
+        }
+      } catch (error) {}
+    </script>
 
     <script src="/src/index.tsx" type="module"></script>
   </body>
