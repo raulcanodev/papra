@@ -8,10 +8,11 @@ import { useAboutDialog } from '@/modules/shared/components/about-dialog';
 import { cn } from '@/modules/shared/style/cn';
 import { ThemeSwitcher } from '@/modules/theme/theme-switcher.component';
 import { Button } from '@/modules/ui/components/button';
+import { DiceBearAvatar } from '@/modules/ui/components/dicebear-avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/modules/ui/components/dropdown-menu';
 import { LanguageSwitcher } from '@/modules/ui/layouts/sidenav.layout';
 
-export const UserSettingsDropdown: Component<{ class?: string; userName?: string | null; userEmail?: string }> = (props) => {
+export const UserSettingsDropdown: Component<{ class?: string; userId?: string; userName?: string | null; userEmail?: string }> = (props) => {
   const { getPendingInvitationsCount } = usePendingInvitationsCount();
   const aboutDialog = useAboutDialog();
   const { t } = useI18n();
@@ -29,9 +30,12 @@ export const UserSettingsDropdown: Component<{ class?: string; userName?: string
         aria-label={t('user-menu.aria-label')}
       >
         <div class="relative shrink-0">
-          <span class="flex size-8 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground">
-            {(props.userName || props.userEmail || '?').trim().charAt(0).toUpperCase()}
-          </span>
+          <DiceBearAvatar
+            seed={props.userId || props.userEmail || props.userName || 'anonymous-user'}
+            type="user"
+            alt=""
+            class="size-8 rounded-full border bg-white"
+          />
           <Show when={getPendingInvitationsCount() > 0}>
             <div class="absolute -top-1 -right-1 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] font-semibold leading-4 text-primary-foreground">
               {getPendingInvitationsCount()}

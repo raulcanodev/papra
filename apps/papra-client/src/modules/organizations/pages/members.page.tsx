@@ -10,6 +10,7 @@ import { useConfirmModal } from '@/modules/shared/confirm';
 import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-errors';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { Button } from '@/modules/ui/components/button';
+import { DiceBearAvatar } from '@/modules/ui/components/dicebear-avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuGroupLabel, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/modules/ui/components/dropdown-menu';
 import { createToast } from '@/modules/ui/components/sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
@@ -104,7 +105,16 @@ const MemberList: Component = () => {
       return members();
     },
     columns: [
-      { header: t('organizations.members.table.headers.name'), accessorKey: 'user.name' },
+      {
+        header: t('organizations.members.table.headers.name'),
+        accessorKey: 'user.name',
+        cell: data => (
+          <div class="flex items-center gap-2">
+            <DiceBearAvatar seed={data.row.original.user.id} type="user" alt="" class="size-8 rounded-full border bg-white" />
+            <span>{data.getValue<string>()}</span>
+          </div>
+        ),
+      },
       { header: t('organizations.members.table.headers.email'), accessorKey: 'user.email' },
       { header: t('organizations.members.table.headers.role'), accessorKey: 'role', cell: data => t(`organizations.members.roles.${data.getValue<OrganizationMemberRole>()}`) },
       { header: t('organizations.members.table.headers.actions'), id: 'actions', cell: data => (

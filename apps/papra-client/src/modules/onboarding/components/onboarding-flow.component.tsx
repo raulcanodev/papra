@@ -487,7 +487,7 @@ export const OnboardingFlow: Component<{
   return (
     <div class="relative min-h-svh flex items-center justify-center bg-background px-4 py-16">
       <div class="absolute top-4 right-4">
-        <UserSettingsDropdown />
+        <UserSettingsDropdown userId={user.id} userName={user.name} userEmail={user.email} />
       </div>
 
       <div class="w-full max-w-lg">

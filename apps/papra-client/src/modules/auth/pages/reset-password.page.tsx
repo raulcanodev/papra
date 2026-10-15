@@ -36,7 +36,7 @@ export const ResetPasswordForm: Component<{ onSubmit: (args: { newPassword: stri
               id="newPassword"
               placeholder={t('auth.reset-password.form.new-password.placeholder')}
               {...inputProps}
-              autoFocus
+              autofocus
               value={field.value}
               aria-invalid={Boolean(field.error)}
               showPasswordLabel={t('auth.password.show')}

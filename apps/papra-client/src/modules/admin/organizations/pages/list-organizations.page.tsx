@@ -6,6 +6,7 @@ import { createSignal, For, Show } from 'solid-js';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { Button } from '@/modules/ui/components/button';
+import { DiceBearAvatar } from '@/modules/ui/components/dicebear-avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { listOrganizations } from '../organizations.services';
@@ -45,9 +46,10 @@ export const AdminListOrganizationsPage: Component = () => {
         header: t('admin.organizations.table.name'),
         accessorKey: 'name',
         cell: data => (
-          <div class="font-medium">
-            {data.getValue<string>()}
-          </div>
+          <A href={`/admin/organizations/${data.row.original.id}`} class="flex items-center gap-2 font-medium hover:text-primary">
+            <DiceBearAvatar seed={data.row.original.id} type="organization" alt="" class="size-9 rounded-md border" />
+            <span>{data.getValue<string>()}</span>
+          </A>
         ),
       },
       {

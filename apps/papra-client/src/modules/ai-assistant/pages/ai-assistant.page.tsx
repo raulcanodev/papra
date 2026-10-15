@@ -1062,9 +1062,11 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
             >
               <div class="i-tabler-layout-sidebar-left-expand size-4 text-muted-foreground" />
             </button>
-            <div class={cn(isPanel() && 'sr-only')}>
-              <h1 class="text-sm font-semibold leading-none">Paqui AI</h1>
-              <p class="text-xs text-muted-foreground mt-0.5">{t('ai-assistant.subtitle')}</p>
+            <div class={cn('flex items-center gap-2', isPanel() && 'sr-only')}>
+              <img src="/logo.svg" alt="Paqui" class="size-8 shrink-0 [image-rendering:pixelated]" />
+              <div>
+                <p class="text-xs text-muted-foreground mt-0.5">{t('ai-assistant.subtitle')}</p>
+              </div>
             </div>
           </div>
           <div class="flex items-center gap-2">
@@ -1090,7 +1092,7 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
               fallback={(
                 <div class={cn('flex flex-col items-center justify-center h-full gap-8 py-10', isPanel() ? 'min-h-[28rem]' : 'min-h-[calc(100vh-14rem)]')}>
                   <div class="text-center">
-                    <h2 class="text-2xl font-bold tracking-tight mb-2">Paqui AI</h2>
+                    <img src="/logo.svg" alt="Paqui" class="mx-auto mb-3 size-14 [image-rendering:pixelated]" />
                     <p class="text-muted-foreground text-sm max-w-md">
                       {t('ai-assistant.welcome.description')}
                     </p>

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/solid-query';
 import { createEffect, For, on } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { Button } from '@/modules/ui/components/button';
+import { DiceBearAvatar } from '@/modules/ui/components/dicebear-avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/modules/ui/components/dropdown-menu';
 import { fetchOrganizations } from '../organizations.services';
 
@@ -59,7 +60,7 @@ export const OrganizationsPage: Component = () => {
               class="border rounded-lg overflow-hidden"
             >
               <div class="bg-card border-b flex items-center justify-center p-6">
-                <div class="size-16 text-muted-foreground" />
+                <DiceBearAvatar seed={organization.id} type="organization" alt="" class="size-16 rounded-xl border" />
               </div>
 
               <div class="p-4">

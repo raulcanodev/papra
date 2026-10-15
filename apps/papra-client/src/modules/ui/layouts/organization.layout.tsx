@@ -2,6 +2,7 @@ import type { Component, ParentComponent } from 'solid-js';
 
 import type { Organization } from '@/modules/organizations/organizations.types';
 
+import type { SideNavCustomization } from '@/modules/ui/components/sidenav';
 import { useLocation, useNavigate, useParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { createEffect, createSignal, on, Show } from 'solid-js';
@@ -12,19 +13,19 @@ import { useConfig } from '@/modules/config/config.provider';
 import { DocumentUploadProvider } from '@/modules/documents/components/document-import-status.component';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { fetchOrganization, fetchOrganizations } from '@/modules/organizations/organizations.services';
+import { toggleHiddenId } from '@/modules/preferences/preferences.models';
+import { useMemberPreferences } from '@/modules/preferences/use-member-preferences';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { getErrorStatus } from '@/modules/shared/utils/errors';
 import { UpgradeDialog } from '@/modules/subscriptions/components/upgrade-dialog.component';
 import { fetchOrganizationSubscription } from '@/modules/subscriptions/subscriptions.services';
-import type { SideNavCustomization } from '@/modules/ui/components/sidenav';
 import { SideNav } from '@/modules/ui/components/sidenav';
 import { buildOrganizationWorkspaceNavigation, getOrganizationRouteHref, getOrganizationRouteLabelKey } from '@/modules/ui/navigation/organization-navigation';
 import { useNavigationCapabilities } from '@/modules/ui/navigation/use-navigation-capabilities';
-import { toggleHiddenId } from '@/modules/preferences/preferences.models';
-import { useMemberPreferences } from '@/modules/preferences/use-member-preferences';
 import { UserSettingsDropdown } from '@/modules/users/components/user-settings.component';
 import { useCurrentUser } from '@/modules/users/composables/useCurrentUser';
 import { Button } from '../components/button';
+import { DiceBearAvatar } from '../components/dicebear-avatar';
 import {
   Select,
   SelectContent,
@@ -77,10 +78,6 @@ const UpgradeCTAFooter: Component<{ organizationId: string }> = (props) => {
   );
 };
 
-function getInitial(value?: string) {
-  return value?.trim().charAt(0).toUpperCase() || '?';
-}
-
 const OrganizationLayoutSideNav: Component = () => {
   const navigate = useNavigate();
   const params = useParams();
@@ -89,7 +86,6 @@ const OrganizationLayoutSideNav: Component = () => {
   const { user, hasPermission } = useCurrentUser();
 
   const getCapabilities = useNavigationCapabilities();
-
   // A restaurant has no sales representatives: each member hides what their business does not use
   const { getPreferences, updatePreferences } = useMemberPreferences();
   const [isCustomizingMenu, setIsCustomizingMenu] = createSignal(false);
@@ -163,7 +159,7 @@ const OrganizationLayoutSideNav: Component = () => {
       customization={getMenuCustomization()}
       footerMenu={getFooterMenuItems()}
       preFooter={() => <UpgradeCTAFooter organizationId={params.organizationId} />}
-      footer={() => <UserSettingsDropdown userName={user.name} userEmail={user.email} />}
+      footer={() => <UserSettingsDropdown userId={user.id} userName={user.name} userEmail={user.email} />}
       header={() =>
         (
           <div class="flex min-w-0 max-w-full flex-col gap-2">
@@ -195,9 +191,12 @@ const OrganizationLayoutSideNav: Component = () => {
                 : (
                     <SelectItem class="cursor-pointer" item={props.item}>
                       <div class="flex min-w-0 items-center gap-2">
-                        <span class="flex size-6 shrink-0 items-center justify-center rounded-sm border text-xs font-medium">
-                          {getInitial(props.item.rawValue.name)}
-                        </span>
+                        <DiceBearAvatar
+                          seed={props.item.rawValue.id}
+                          type="organization"
+                          alt=""
+                          class="size-6 rounded-sm border"
+                        />
                         <span class="truncate">{props.item.rawValue.name}</span>
                       </div>
                     </SelectItem>
@@ -210,9 +209,12 @@ const OrganizationLayoutSideNav: Component = () => {
                 <SelectValue<Organization | undefined> class="flex min-w-0 items-center gap-2">
                   {state => (
                     <>
-                      <span class="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
-                        {getInitial(state.selectedOption()?.name)}
-                      </span>
+                      <DiceBearAvatar
+                        seed={state.selectedOption()?.id ?? 'organization'}
+                        type="organization"
+                        alt=""
+                        class="size-8 rounded-md border"
+                      />
 
                       <span class="truncate text-sm font-semibold">
                         {state.selectedOption()?.name}
@@ -276,9 +278,9 @@ const OrganizationWorkspaceHeader: Component<{ organizationName?: string }> = (p
         class="h-8 gap-1.5 -mr-2"
         onClick={handleAssistantClick}
         aria-pressed={assistantPanel.isOpen() && !isAssistantPage()}
+        aria-label={t('ai-assistant.subtitle')}
       >
-        <div class="i-tabler-sparkles size-4" />
-        <span class="hidden sm:inline">Paqui AI</span>
+        <img src="/logo.svg" alt="" class="size-5 [image-rendering:pixelated]" />
       </Button>
     </div>
   );
