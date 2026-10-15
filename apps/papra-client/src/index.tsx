@@ -17,6 +17,7 @@ import { queryClient } from './modules/shared/query/query-client';
 import { ThemeProvider } from './modules/theme/theme.provider';
 import { IdentifyUser } from './modules/tracking/components/identify-user.component';
 import { PageViewTracker } from './modules/tracking/components/pageview-tracker.component';
+import { AppLoader } from './modules/ui/components/app-loader';
 import { Toaster } from './modules/ui/components/sonner';
 import { routes } from './routes';
 import 'virtual:uno.css';
@@ -47,6 +48,9 @@ const DevTools = import.meta.env.DEV
   ? lazy(() => import('./modules/dev-tools/dev-tools.component').then(mod => ({ default: mod.DevTools })))
   : null;
 
+// The static splash of index.html covered the boot: from here the app shows its own loader
+document.querySelector('.app-splash')?.remove();
+
 render(
   () => {
     return (
@@ -54,7 +58,8 @@ render(
         <Router
           children={routes}
           root={props => (
-            <Suspense>
+            // Same loader as the static splash of index.html, so nothing blinks while the translations load
+            <Suspense fallback={<AppLoader label="Loading" />}>
               <PageViewTracker />
               <IdentifyUser />
               <I18nProvider>

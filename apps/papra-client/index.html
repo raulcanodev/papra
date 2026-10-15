@@ -87,7 +87,14 @@
     <p class="sr-only">Documents, invoices and finances in one calm workspace.</p>
 
     <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
+    <!-- Shown until the app mounts and replaces it: the same beating logo as the in app loader -->
+    <style>
+      @keyframes app-loader-heartbeat { 0%, 40%, 100% { transform: scale(1); } 10% { transform: scale(1.14); } 20% { transform: scale(1.02); } 30% { transform: scale(1.1); } }
+      .app-splash { min-height: 100vh; display: grid; place-items: center; }
+      .app-splash img { width: 3.5rem; height: 3.5rem; image-rendering: pixelated; animation: app-loader-heartbeat 1.3s ease-in-out infinite; }
+      @media (prefers-reduced-motion: reduce) { .app-splash img { animation: none; } }
+    </style>
+    <div id="root"><div class="app-splash" role="status" aria-label="Loading"><img src="/logo.svg" alt="" /></div></div>
 
     <script src="/src/index.tsx" type="module"></script>
   </body>

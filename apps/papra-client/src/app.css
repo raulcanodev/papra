@@ -169,3 +169,21 @@ select:focus,
 textarea {
   font-size: 16px;
 }
+
+/* Two quick beats and a rest, like a heart: the app loader (also inlined in index.html) */
+@keyframes app-loader-heartbeat {
+  0%, 40%, 100% { transform: scale(1); }
+  10% { transform: scale(1.14); }
+  20% { transform: scale(1.02); }
+  30% { transform: scale(1.1); }
+}
+
+.app-loader-logo {
+  animation: app-loader-heartbeat 1.3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-loader-logo {
+    animation: none;
+  }
+}
