@@ -87,7 +87,8 @@ function emptyDemoContact(): Stored {
 
 export async function seedDemoInvoicing({ organizationId, now = new Date() }: { organizationId: string; now?: Date }) {
   const { profile, branding, contacts, products, taxRates, series, invoices } = db();
-  const created = daysAgoToDate(now, 150).toISOString();
+  // Before the oldest invoice of the history, so every record is newer than its contact
+  const created = daysAgoToDate(now, 540).toISOString();
   const base = { organizationId, createdAt: created, updatedAt: created, archivedAt: null };
 
   await profile.setItem(organizationId, { organizationId, ...demoFiscalProfile, createdAt: created, updatedAt: created });
@@ -163,6 +164,7 @@ export async function seedDemoInvoicing({ organizationId, now = new Date() }: { 
   }
 
   const mainSeries = seriesRecords.get('main')!;
+  const numbersByYear = new Map<number, number>();
   // Oldest first so invoice numbers grow with time.
   const ordered = [...demoInvoices].sort((a, b) => b.daysAgo - a.daysAgo);
 
@@ -181,9 +183,15 @@ export async function seedDemoInvoicing({ organizationId, now = new Date() }: { 
       discountRateBps: (item.discountPercent ?? 0) * 100,
     }));
     const isDraft = fixture.status === 'draft';
-    const number = isDraft ? null : formatNumber({ prefix: mainSeries.prefix, nextNumber: mainSeries.nextNumber, padding: mainSeries.padding });
+    // Numbering restarts every year, like a real series: last year's invoices carry last year's prefix
+    const issueYear = issueDate.getFullYear();
+    const nextNumberOfYear = (numbersByYear.get(issueYear) ?? 0) + 1;
+    const number = isDraft ? null : formatNumber({ prefix: `ACME-${issueYear}-`, nextNumber: nextNumberOfYear, padding: mainSeries.padding });
     if (!isDraft) {
-      mainSeries.nextNumber += 1;
+      numbersByYear.set(issueYear, nextNumberOfYear);
+      if (issueYear === now.getFullYear()) {
+        mainSeries.nextNumber = nextNumberOfYear + 1;
+      }
     }
 
     const id = createId({ prefix: 'inv' });
@@ -610,6 +618,15 @@ export async function getDemoInvoicingRecords({ organizationId }: { organization
     customers: customers.filter(customer => customer.organizationId === organizationId && customer.isCustomer),
     currency: (profile?.currency as string | undefined) ?? 'EUR',
   };
+}
+
+/** Links the archived PDF of a seeded invoice, like issuing it does on the server */
+export async function attachDemoInvoiceDocument({ invoiceId, documentId }: { invoiceId: string; documentId: string }) {
+  const invoice = await db().invoices.getItem(invoiceId);
+
+  if (invoice) {
+    await db().invoices.setItem(invoiceId, { ...invoice, documentId });
+  }
 }
 
 export async function listDemoContacts({ organizationId }: { organizationId: string }) {

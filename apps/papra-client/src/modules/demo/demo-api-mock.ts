@@ -22,6 +22,7 @@ import {
   documentCustomPropertyValueStorage,
   documentFileStorage,
   documentStorage,
+  folderStorage,
   memberPreferencesStorage,
   organizationStorage,
   tagDocumentStorage,
@@ -233,6 +234,25 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
   ...aiHandlers,
   ...miscHandlers,
 
+  // No feature flags in the demo: personal finances stays hidden, like for any new account
+  ...defineHandler({ path: '/api/feature-flags', method: 'GET', handler: () => ({ featureFlags: [] }) }),
+  ...defineHandler({ path: '/api/organizations/deleted', method: 'GET', handler: () => ({ organizations: [] }) }),
+  ...defineHandler({ path: '/api/organizations/:organizationId/intake-emails', method: 'GET', handler: () => ({ intakeEmails: [] }) }),
+  ...defineHandler({ path: '/api/organizations/:organizationId/tagging-rules/:taggingRuleId/apply', method: 'POST', handler: () => ({ taskId: createId({ prefix: 'task' }) }) }),
+
+  // Things that need a real server (emails, payments, other people): explained instead of failing silently
+  ...defineHandler({ path: '/api/organizations/:organizationId/intake-emails', method: 'POST', handler: () => throwDemoNotAvailable() }),
+  ...defineHandler({ path: '/api/organizations/:organizationId/intake-emails/:intakeEmailId', method: 'PUT', handler: () => throwDemoNotAvailable() }),
+  ...defineHandler({ path: '/api/organizations/:organizationId/intake-emails/:intakeEmailId', method: 'DELETE', handler: () => throwDemoNotAvailable() }),
+  ...defineHandler({ path: '/api/organizations/:organizationId/checkout-session', method: 'POST', handler: () => throwDemoNotAvailable() }),
+  ...defineHandler({ path: '/api/organizations/:organizationId/restore', method: 'POST', handler: () => throwDemoNotAvailable() }),
+  ...defineHandler({ path: '/api/organizations/:organizationId/members/:memberId', method: 'PATCH', handler: () => throwDemoNotAvailable() }),
+  ...defineHandler({ path: '/api/organizations/:organizationId/members/:memberId', method: 'DELETE', handler: () => throwDemoNotAvailable() }),
+  ...defineHandler({ path: '/api/invitations/:invitationId/accept', method: 'POST', handler: () => throwDemoNotAvailable() }),
+  ...defineHandler({ path: '/api/invitations/:invitationId/reject', method: 'POST', handler: () => throwDemoNotAvailable() }),
+  ...defineHandler({ path: '/api/invitations/:invitationId/cancel', method: 'POST', handler: () => throwDemoNotAvailable() }),
+  ...defineHandler({ path: '/api/invitations/:invitationId/resend', method: 'POST', handler: () => throwDemoNotAvailable() }),
+
   ...defineHandler({
     path: '/api/config',
     method: 'GET',
@@ -333,12 +353,13 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
       assert(organization, { status: 403 });
 
       const searchQuery = rawSearchQuery.trim();
-      const [organizationDocuments, allTags, tagDocuments, allDefinitions, allPropertyValues] = await Promise.all([
+      const [organizationDocuments, allTags, tagDocuments, allDefinitions, allPropertyValues, folders] = await Promise.all([
         findMany(documentStorage, document => document?.organizationId === organizationId && !document?.deletedAt),
         getValues(tagStorage),
         getValues(tagDocumentStorage),
         findMany(customPropertyDefinitionStorage, def => def.organizationId === organizationId && (def.entityType ?? 'document') === 'document'),
         getValues(documentCustomPropertyValueStorage),
+        getValues(folderStorage),
       ]);
 
       const documentsWithTagsAndProperties = organizationDocuments.map((document) => {
@@ -355,6 +376,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
           ...document,
           tags,
           customProperties,
+          folder: folders.find(folder => folder.id === (document as { folderId?: string | null }).folderId) ?? null,
         };
       });
 
@@ -1004,7 +1026,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
             createdAt: document.createdAt,
             user: {
               id: 'usr_1',
-              name: 'Sherlock Holmes',
+              name: demoUser.name,
             },
           }]
         : [];

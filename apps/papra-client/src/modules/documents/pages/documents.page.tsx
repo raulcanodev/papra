@@ -180,7 +180,7 @@ export const DocumentsPage: Component = () => {
                         <div class="flex items-center gap-2">
                           <span class="truncate font-medium">{folder.name}</span>
                           <Show when={folder.kind === 'contact'}>
-                            <Badge variant="outline" class="shrink-0 bg-muted/40 px-1.5 py-0 text-[10px] text-muted-foreground">{t('documents.folders.customer-label')}</Badge>
+                            <Badge variant="outline" class="shrink-0 bg-muted/40 px-1.5 py-0 text-[10px] text-muted-foreground">{t('documents.folders.contact-label')}</Badge>
                           </Show>
                         </div>
                         <div class="mt-1 text-xs tabular-nums text-muted-foreground">{t('documents.folders.count', { count: folder.documentsCount })}</div>

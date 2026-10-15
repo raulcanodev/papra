@@ -40,9 +40,12 @@ export const demoTaxRates = [
   { key: 'exempt', name: 'Exento', rateBps: 0, isDefault: false },
 ];
 
+// Named after the year of the visit: the demo never shows last year's series as the current one
+const CURRENT_YEAR = new Date().getFullYear();
+
 export const demoSeries = [
-  { key: 'main', name: 'Facturas 2026', prefix: 'ACME-2026-', padding: 4, isDefault: true },
-  { key: 'credit', name: 'Rectificativas', prefix: 'R-2026-', padding: 3, isDefault: false },
+  { key: 'main', name: `Facturas ${CURRENT_YEAR}`, prefix: `ACME-${CURRENT_YEAR}-`, padding: 4, isDefault: true },
+  { key: 'credit', name: 'Rectificativas', prefix: `R-${CURRENT_YEAR}-`, padding: 3, isDefault: false },
 ];
 
 export const demoSalesRepresentatives = [
@@ -53,6 +56,13 @@ export const demoSalesRepresentatives = [
 export const demoSuppliers = [
   { key: 'nube', name: 'Nube Hosting SL', email: 'facturas@nube.example', phone: '+34 900 000 010', taxId: 'B00000010', addressLine1: 'Calle del Servidor 1', postalCode: '28001', city: 'Madrid', region: 'Madrid', country: 'ES' },
   { key: 'papeleria', name: 'Papelería Ejemplo', email: 'ventas@papeleria.example', phone: '+34 900 000 011', taxId: 'B00000011', addressLine1: 'Avenida de los Folios 22', postalCode: '46001', city: 'Valencia', region: 'Valencia', country: 'ES' },
+  { key: 'coworking', name: 'Espacio Coworking Malasaña SL', email: 'administracion@coworking.example', phone: '+34 900 000 012', taxId: 'B00000012', addressLine1: 'Calle del Escritorio 9', postalCode: '28004', city: 'Madrid', region: 'Madrid', country: 'ES' },
+  { key: 'gestoria', name: 'Gestoría Martínez y Asociados', email: 'clientes@gestoria.example', phone: '+34 900 000 013', taxId: 'B00000013', addressLine1: 'Calle de los Modelos 303', postalCode: '28010', city: 'Madrid', region: 'Madrid', country: 'ES' },
+  { key: 'seguros', name: 'Seguros Ejemplo SA', email: 'polizas@seguros.example', phone: '+34 900 000 014', taxId: 'A00000014', addressLine1: 'Paseo de la Cobertura 1', postalCode: '28046', city: 'Madrid', region: 'Madrid', country: 'ES' },
+  { key: 'telco', name: 'Telco Ejemplo SA', email: 'empresas@telco.example', phone: '+34 900 000 015', taxId: 'A00000015', addressLine1: 'Avenida de la Fibra 100', postalCode: '28050', city: 'Madrid', region: 'Madrid', country: 'ES' },
+  { key: 'anuncios', name: 'Anuncios Online SL', email: 'facturacion@anuncios.example', phone: '+34 900 000 016', taxId: 'B00000016', addressLine1: 'Calle del Clic 7', postalCode: '08005', city: 'Barcelona', region: 'Barcelona', country: 'ES' },
+  { key: 'banco', name: 'Banco Ejemplo SA', email: 'empresas@banco.example', phone: '+34 900 000 017', taxId: 'A00000017', addressLine1: 'Plaza del Ahorro 2', postalCode: '28014', city: 'Madrid', region: 'Madrid', country: 'ES' },
+  { key: 'viajes', name: 'Viajes Ejemplo SL', email: 'reservas@viajes.example', phone: '+34 900 000 018', taxId: 'B00000018', addressLine1: 'Calle del Andén 3', postalCode: '28007', city: 'Madrid', region: 'Madrid', country: 'ES' },
 ];
 
 export const demoCustomers: Array<{ key: string; name: string; email: string | null; taxId: string; addressLine1: string; postalCode: string; city: string; region: string; country: string; isSupplier?: boolean }> = [

@@ -2065,7 +2065,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'documents.folders.empty': 'Aún no hay carpetas. Crea una o añade un cliente para generarla automáticamente.',
   'documents.folders.count': '{{ count }} {{ count, =1:documento, documentos }}',
   'documents.folders.customer': ' · Cliente',
-  'documents.folders.customer-label': 'Cliente',
+  'documents.folders.contact-label': 'Contacto',
   'documents.folders.back': 'Volver a carpetas',
   'documents.folders.folder-empty': 'Esta carpeta está vacía.',
   'documents.menu.details': 'Detalles del documento',

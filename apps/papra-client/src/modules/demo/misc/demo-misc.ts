@@ -1,13 +1,23 @@
 import type { CalendarFeed, PublicCalendarEvent } from '../../calendar/calendar.types';
-import { prefixStorage } from 'unstorage';
+import type { DemoStoredFolder } from '../demo.storage';
 import { defineHandler } from '../demo-api-mock.models';
 import { createId } from '../demo.models';
-import { storage } from '../demo.storage';
-import { getValues } from '../demo.storage.models';
+import { documentStorage, folderStorage } from '../demo.storage';
+import { findMany, getValues } from '../demo.storage.models';
 
-type StoredFolder = { id: string; organizationId: string; parentFolderId: string | null; contactId: null; name: string; kind: 'manual'; documentsCount: number; createdAt: string; updatedAt: string };
+async function listFolderDocuments({ organizationId }: { organizationId: string }) {
+  return findMany(documentStorage, document => document?.organizationId === organizationId && !document?.deletedAt);
+}
 
-const folderStorage = prefixStorage<StoredFolder>(storage, 'documentFolders');
+// Counts computed from the documents, so moving or deleting a document is reflected right away
+async function listFoldersWithCounts({ organizationId }: { organizationId: string }) {
+  const [folders, documents] = await Promise.all([getValues(folderStorage), listFolderDocuments({ organizationId })]);
+
+  return folders
+    .filter(folder => folder.organizationId === organizationId)
+    .map(folder => ({ ...folder, documentsCount: documents.filter(document => (document as { folderId?: string | null }).folderId === folder.id).length }))
+    .toSorted((left, right) => (left.kind === right.kind ? left.name.localeCompare(right.name, 'es') : left.kind === 'manual' ? -1 : 1));
+}
 
 // Fixed Spanish public holidays and quarterly tax deadlines: enough to make the calendar look alive without any API.
 const HOLIDAYS: Array<[string, { es: string; en: string }]> = [
@@ -61,7 +71,7 @@ export const miscHandlers = {
   ...defineHandler({
     path: '/api/organizations/:organizationId/document-folders',
     method: 'GET',
-    handler: async ({ params: { organizationId } }) => ({ folders: (await getValues(folderStorage)).filter(folder => folder.organizationId === organizationId) }),
+    handler: async ({ params: { organizationId } }) => ({ folders: await listFoldersWithCounts({ organizationId }) }),
   }),
   ...defineHandler({
     path: '/api/organizations/:organizationId/document-folders',
@@ -69,7 +79,7 @@ export const miscHandlers = {
     handler: async ({ params: { organizationId }, body }) => {
       const { name, parentFolderId } = (body ?? {}) as { name?: string; parentFolderId?: string | null };
       const now = new Date().toISOString();
-      const folder: StoredFolder = { id: createId({ prefix: 'fld' }), organizationId, parentFolderId: parentFolderId ?? null, contactId: null, name: name ?? 'Folder', kind: 'manual', documentsCount: 0, createdAt: now, updatedAt: now };
+      const folder: DemoStoredFolder = { id: createId({ prefix: 'fld' }), organizationId, parentFolderId: parentFolderId ?? null, contactId: null, name: name ?? 'Folder', kind: 'manual', documentsCount: 0, createdAt: now, updatedAt: now };
       await folderStorage.setItem(folder.id, folder);
       return { folder };
     },
@@ -77,6 +87,33 @@ export const miscHandlers = {
   ...defineHandler({
     path: '/api/organizations/:organizationId/document-folders/:folderId/documents',
     method: 'GET',
-    handler: async ({ params: { folderId } }) => ({ folder: await folderStorage.getItem(folderId), documents: [], documentsCount: 0 }),
+    handler: async ({ params: { organizationId, folderId }, query }) => {
+      const { pageIndex = 0, pageSize = 25 } = (query ?? {}) as { pageIndex?: number; pageSize?: number };
+      const folder = (await listFoldersWithCounts({ organizationId })).find(candidate => candidate.id === folderId) ?? null;
+      const documents = (await listFolderDocuments({ organizationId }))
+        .filter(document => (document as { folderId?: string | null }).folderId === folderId)
+        .toSorted((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+
+      return {
+        folder,
+        documents: documents.slice(Number(pageIndex) * Number(pageSize), (Number(pageIndex) + 1) * Number(pageSize)).map(document => ({ ...document, folder })),
+        documentsCount: documents.length,
+      };
+    },
+  }),
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/documents/:documentId/folder',
+    method: 'PATCH',
+    handler: async ({ params: { organizationId, documentId }, body }) => {
+      const key = `${organizationId}:${documentId}`;
+      const document = await documentStorage.getItem(key);
+      const { folderId = null } = (body ?? {}) as { folderId?: string | null };
+
+      if (document) {
+        await documentStorage.setItem(key, { ...document, folderId } as typeof document);
+      }
+
+      return {};
+    },
   }),
 };

@@ -7,7 +7,7 @@ import { defineHandler } from '../demo-api-mock.models';
 import { createId } from '../demo.models';
 import { getValues } from '../demo.storage.models';
 import { getDemoContact, listDemoContacts } from '../invoicing/demo-invoicing';
-import { daysAgoToDate, demoSuppliers } from '../invoicing/demo-invoicing.fixtures';
+import { daysAgoToDate } from '../invoicing/demo-invoicing.fixtures';
 
 // Received invoices of the demo, in the browser localStorage like every other demo record, same rules as the server
 type Stored = Record<string, any>;
@@ -78,27 +78,99 @@ async function getOwnedPurchaseInvoice({ organizationId, purchaseInvoiceId }: { 
   return purchaseInvoice;
 }
 
+type PurchaseLine = PurchaseInvoiceDraftInput['items'][number];
+
+type RecurringExpense = {
+  supplierTaxId: string;
+  prefix: string;
+  category: PurchaseInvoiceDraftInput['category'];
+  /** Every how many months it is billed */
+  everyMonths: number;
+  dayOfMonth: number;
+  withholdingRateBps: number;
+  line: (monthIndex: number) => Omit<PurchaseLine, 'discountRateBps' | 'deductibleRateBps' | 'quantityMillis'> & { quantityMillis?: number; deductibleRateBps?: number };
+};
+
+// What a two person studio spends in a year: desk rent (with the 19% withholding of model 115), the accountant (15%,
+// model 111), hosting, phone, ads, insurance and bank fees (VAT exempt), plus the odd trip and stationery.
+// Deterministic, so every visitor sees the same figures, and dated from the visit so the current quarter is never empty.
+const RECURRING_EXPENSES: RecurringExpense[] = [
+  { supplierTaxId: 'B00000012', prefix: 'CW-', category: 'rent', everyMonths: 1, dayOfMonth: 1, withholdingRateBps: 1_900, line: () => ({ description: 'Cuota mensual de dos puestos fijos', unitPriceMinor: 35_000, taxRateBps: 2_100 }) },
+  { supplierTaxId: 'B00000013', prefix: 'GM/', category: 'professional_services', everyMonths: 1, dayOfMonth: 5, withholdingRateBps: 1_500, line: () => ({ description: 'Asesoría contable, fiscal y laboral', unitPriceMinor: 9_000, taxRateBps: 2_100 }) },
+  { supplierTaxId: 'A00000015', prefix: 'TE-', category: 'supplies', everyMonths: 1, dayOfMonth: 8, withholdingRateBps: 0, line: () => ({ description: 'Fibra y dos líneas móviles', unitPriceMinor: 4_500, taxRateBps: 2_100 }) },
+  { supplierTaxId: 'A00000017', prefix: 'BE-', category: 'bank_fees', everyMonths: 1, dayOfMonth: 28, withholdingRateBps: 0, line: () => ({ description: 'Comisión de mantenimiento de cuenta', unitPriceMinor: 800, taxRateBps: 0 }) },
+  { supplierTaxId: 'B00000010', prefix: 'NUBE-', category: 'software', everyMonths: 3, dayOfMonth: 15, withholdingRateBps: 0, line: () => ({ description: 'Hosting y dominio (trimestre)', quantityMillis: 3_000, unitPriceMinor: 4_500, taxRateBps: 2_100 }) },
+  { supplierTaxId: 'B00000016', prefix: 'AO-', category: 'marketing', everyMonths: 2, dayOfMonth: 20, withholdingRateBps: 0, line: monthIndex => ({ description: 'Campaña de anuncios en buscadores', unitPriceMinor: 12_000 + (monthIndex % 3) * 3_000, taxRateBps: 2_100 }) },
+  { supplierTaxId: 'A00000014', prefix: 'POL-', category: 'insurance', everyMonths: 12, dayOfMonth: 3, withholdingRateBps: 0, line: () => ({ description: 'Prima anual de responsabilidad civil profesional', unitPriceMinor: 42_000, taxRateBps: 0 }) },
+  { supplierTaxId: 'B00000018', prefix: 'VE-', category: 'travel', everyMonths: 4, dayOfMonth: 12, withholdingRateBps: 0, line: () => ({ description: 'Tren Madrid - Bilbao ida y vuelta (visita a cliente)', unitPriceMinor: 9_800, taxRateBps: 1_000 }) },
+  { supplierTaxId: 'B00000011', prefix: 'PAP-', category: 'supplies', everyMonths: 5, dayOfMonth: 17, withholdingRateBps: 0, line: () => ({ description: 'Material de oficina', unitPriceMinor: 8_650, taxRateBps: 2_100 }) },
+];
+
+const HISTORY_MONTHS = 15;
+
+export function buildDemoPurchaseSchedule({ now }: { now: Date }) {
+  return RECURRING_EXPENSES.flatMap(expense => Array.from({ length: HISTORY_MONTHS + 1 }, (_, index) => index)
+    .filter(monthIndex => monthIndex % expense.everyMonths === 0)
+    .map((monthIndex) => {
+      const issueDate = new Date(now.getFullYear(), now.getMonth() - monthIndex, expense.dayOfMonth, 10);
+
+      return { expense, monthIndex, issueDate };
+    })
+    // Only what was already billed: this month's later invoices have not arrived yet
+    .filter(({ issueDate }) => issueDate.getTime() <= now.getTime()));
+}
+
 export async function seedDemoPurchases({ organizationId, now = new Date() }: { organizationId: string; now?: Date }) {
   const contacts = await listDemoContacts({ organizationId });
-  const findSupplier = (taxId: string) => contacts.find(contact => contact.isSupplier && contact.taxId === taxId);
-  const hosting = findSupplier(demoSuppliers[0]!.taxId);
-  const stationery = findSupplier(demoSuppliers[1]!.taxId);
-  if (!hosting || !stationery) {
-    return;
-  }
+  const supplierByTaxId = new Map(contacts.filter(contact => contact.isSupplier).map(contact => [contact.taxId, contact]));
+  const seeded: Array<{ id: string; supplierTaxId: string; issueDate: Date }> = [];
 
-  const fixtures = [
-    { supplier: hosting, number: 'NUBE-2026-0918', daysAgo: 26, category: 'software', status: 'paid', items: [{ description: 'Hosting y dominio (trimestre)', quantityMillis: 3_000, unitPriceMinor: 4_500, taxRateBps: 2_100, discountRateBps: 0, deductibleRateBps: 10_000 }] },
-    { supplier: stationery, number: 'PAP-0457', daysAgo: 12, category: 'supplies', status: 'pending', items: [{ description: 'Material de oficina', quantityMillis: 1_000, unitPriceMinor: 8_650, taxRateBps: 2_100, discountRateBps: 0, deductibleRateBps: 10_000 }, { description: 'Libros técnicos', quantityMillis: 2_000, unitPriceMinor: 2_400, taxRateBps: 400, discountRateBps: 0, deductibleRateBps: 10_000 }] },
-  ];
+  for (const { expense, monthIndex, issueDate } of buildDemoPurchaseSchedule({ now })) {
+    const supplier = supplierByTaxId.get(expense.supplierTaxId);
 
-  for (const fixture of fixtures) {
-    const issueDate = daysAgoToDate(now, fixture.daysAgo);
+    if (!supplier) {
+      continue;
+    }
+
+    const { quantityMillis = 1_000, deductibleRateBps = 10_000, ...line } = expense.line(monthIndex);
+    const daysAgo = Math.round((now.getTime() - issueDate.getTime()) / 86_400_000);
+    // The last few weeks are still to be paid
+    const status = daysAgo < 20 ? 'pending' : 'paid';
+    const number = `${expense.prefix}${issueDate.getFullYear()}-${String(issueDate.getMonth() + 1).padStart(2, '0')}`;
+
     const purchaseInvoice = await buildPurchaseInvoice({
       organizationId,
-      draft: { supplierId: fixture.supplier.id, number: fixture.number, issueDate, dueDate: daysAgoToDate(now, fixture.daysAgo - 30), currency: 'EUR', category: fixture.category as PurchaseInvoiceDraftInput['category'], withholdingRateBps: 0, notes: null, documentId: null, items: fixture.items },
+      draft: {
+        supplierId: supplier.id,
+        number,
+        issueDate,
+        dueDate: daysAgoToDate(now, daysAgo - 30),
+        currency: 'EUR',
+        category: expense.category,
+        withholdingRateBps: expense.withholdingRateBps,
+        notes: null,
+        documentId: null,
+        items: [{ ...line, quantityMillis, discountRateBps: 0, deductibleRateBps }],
+      },
     });
-    await db().setItem(purchaseInvoice.id, { ...purchaseInvoice, status: fixture.status, paidAt: fixture.status === 'paid' ? issueDate.toISOString() : null });
+
+    await db().setItem(purchaseInvoice.id, { ...purchaseInvoice, status, paidAt: status === 'paid' ? issueDate.toISOString() : null });
+    seeded.push({ id: purchaseInvoice.id, supplierTaxId: expense.supplierTaxId, issueDate });
+  }
+
+  return { purchaseInvoices: seeded };
+}
+
+export async function getDemoPurchaseInvoice({ purchaseInvoiceId }: { purchaseInvoiceId: string }) {
+  return db().getItem(purchaseInvoiceId);
+}
+
+/** Links an archived file to a seeded received invoice, like uploading the PDF of the supplier does */
+export async function attachDemoPurchaseDocument({ purchaseInvoiceId, documentId }: { purchaseInvoiceId: string; documentId: string }) {
+  const purchaseInvoice = await db().getItem(purchaseInvoiceId);
+
+  if (purchaseInvoice) {
+    await db().setItem(purchaseInvoiceId, { ...purchaseInvoice, documentId });
   }
 }
 

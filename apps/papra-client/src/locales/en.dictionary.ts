@@ -2063,7 +2063,7 @@ export const translations = {
   'documents.folders.empty': 'No folders yet. Create one or add a customer to generate it automatically.',
   'documents.folders.count': '{{ count }} {{ count, =1:document, documents }}',
   'documents.folders.customer': ' · Customer',
-  'documents.folders.customer-label': 'Customer',
+  'documents.folders.contact-label': 'Contact',
   'documents.folders.back': 'Back to folders',
   'documents.folders.folder-empty': 'This folder is empty.',
   'documents.menu.details': 'Document details',

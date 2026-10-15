@@ -1,6 +1,7 @@
+// Fictional demo user: the person running Acme SL
 export const demoUser = {
   id: 'usr_1',
-  email: 'sherlock.holmes@papra.app',
-  name: 'Sherlock Holmes',
+  email: 'lucia@acme.example',
+  name: 'Lucía Martín',
   permissions: [],
 };
