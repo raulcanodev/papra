@@ -46,6 +46,8 @@ export function StatCard(props: {
   /** Replaces the delta pill when the metric has no comparison */
   badge?: JSX.Element;
   hint?: string;
+  /** Replaces the label, e.g. to switch what the card measures (the label stays its accessible name) */
+  labelControl?: JSX.Element;
 }) {
   const display = useCountUp(() => props.value);
 
@@ -71,7 +73,9 @@ export function StatCard(props: {
       </div>
 
       <div class="flex flex-col gap-0.5 px-2 pt-2.5 pb-3.5">
-        <p class="truncate text-sm font-medium text-muted-foreground">{props.label}</p>
+        <Show when={props.labelControl} fallback={<p class="truncate text-sm font-medium text-muted-foreground">{props.label}</p>}>
+          {props.labelControl}
+        </Show>
         <p class="whitespace-nowrap text-2xl font-semibold tracking-tight tabular-nums sm:text-[28px]">{props.format(display())}</p>
       </div>
 

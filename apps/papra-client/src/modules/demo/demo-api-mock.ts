@@ -1,6 +1,7 @@
 import type { ApiKey } from '../api-keys/api-keys.types';
 import type { CustomPropertyDefinition } from '../custom-properties/custom-properties.types';
 import type { Document } from '../documents/documents.types';
+import type { MemberPreferences, MemberPreferencesPatch } from '../preferences/preferences.types';
 import type { Webhook } from '../webhooks/webhooks.types';
 import type {
   DocumentCustomPropertyValueStorage,
@@ -8,6 +9,8 @@ import type {
 } from './demo.storage';
 import { FetchError } from 'ofetch';
 import { createRouter } from 'radix3';
+import { applyPreferencesPatch } from '../preferences/preferences.models';
+import { DEFAULT_MEMBER_PREFERENCES } from '../preferences/preferences.types';
 import { get } from '../shared/utils/get';
 import { aiHandlers } from './ai/demo-ai';
 import { computeDemoDashboardMetrics } from './dashboard/demo-dashboard';
@@ -19,6 +22,7 @@ import {
   documentCustomPropertyValueStorage,
   documentFileStorage,
   documentStorage,
+  memberPreferencesStorage,
   organizationStorage,
   tagDocumentStorage,
   taggingRuleStorage,
@@ -26,7 +30,7 @@ import {
   webhooksStorage,
 } from './demo.storage';
 import { findMany, getValues } from './demo.storage.models';
-import { contactsHandlers, getDemoContact, getDemoEntityCustomPropertyValues, getDemoFiscalProfile, getDemoInvoicingRecords, invoicingHandlers } from './invoicing/demo-invoicing';
+import { contactsHandlers, getDemoContact, getDemoEntityCustomPropertyValues, getDemoFiscalProfile, getDemoInvoicingRecords, invoicingHandlers, listDemoContacts } from './invoicing/demo-invoicing';
 import { miscHandlers } from './misc/demo-misc';
 import { buildDemoExtraction, listDemoPurchaseInvoices, purchasesHandlers } from './purchases/demo-purchases';
 import { generatePropertyKey, searchDemoDocuments } from './search/demo.search.services';
@@ -158,6 +162,13 @@ function buildCustomPropertiesResponse({
       displayOrder: def.displayOrder,
       value: hydratePropertyValue({ value: valuesByDefinitionId[def.id] ?? null, definition: def }),
     }));
+}
+
+// The demo keeps one layout per organization, completed with the defaults like the server does
+function parseDemoPreferences(stored: unknown): MemberPreferences {
+  const value = (stored ?? {}) as Partial<MemberPreferences>;
+
+  return applyPreferencesPatch({ preferences: DEFAULT_MEMBER_PREFERENCES, patch: { dashboard: value.dashboard, navigation: value.navigation } });
 }
 
 // Step of a previewed onboarding flow, kept until the page reloads
@@ -1076,12 +1087,31 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
 
       assert(organization, { status: 403 });
 
-      const [{ invoices, customers, currency }, documents] = await Promise.all([
+      const [{ invoices, customers, currency }, documents, purchaseInvoices, contacts] = await Promise.all([
         getDemoInvoicingRecords({ organizationId }),
         findMany(documentStorage, document => document?.organizationId === organizationId && !document?.deletedAt),
+        listDemoPurchaseInvoices({ organizationId }),
+        listDemoContacts({ organizationId }),
       ]);
 
-      return { metrics: computeDemoDashboardMetrics({ invoices: invoices as never, customers, documents, currency }) };
+      return { metrics: computeDemoDashboardMetrics({ invoices: invoices as never, customers, documents, currency, purchaseInvoices: purchaseInvoices as never, contacts: contacts as never }) };
+    },
+  }),
+
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/preferences',
+    method: 'GET',
+    handler: async ({ params: { organizationId } }) => ({ preferences: parseDemoPreferences(await memberPreferencesStorage.getItem(organizationId)) }),
+  }),
+
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/preferences',
+    method: 'PATCH',
+    handler: async ({ params: { organizationId }, body }) => {
+      const preferences = applyPreferencesPatch({ preferences: parseDemoPreferences(await memberPreferencesStorage.getItem(organizationId)), patch: body as MemberPreferencesPatch });
+      await memberPreferencesStorage.setItem(organizationId, preferences);
+
+      return { preferences };
     },
   }),
 

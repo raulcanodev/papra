@@ -4,7 +4,7 @@ import type { Organization } from '@/modules/organizations/organizations.types';
 
 import { useLocation, useNavigate, useParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
-import { createEffect, on, Show } from 'solid-js';
+import { createEffect, createSignal, on, Show } from 'solid-js';
 import { AiAssistantPanelProvider, useAiAssistantPanel } from '@/modules/ai-assistant/ai-assistant-panel.provider';
 import { AiAssistant } from '@/modules/ai-assistant/pages/ai-assistant.page';
 import { useCommandPalette } from '@/modules/command-palette/command-palette.provider';
@@ -16,9 +16,12 @@ import { queryClient } from '@/modules/shared/query/query-client';
 import { getErrorStatus } from '@/modules/shared/utils/errors';
 import { UpgradeDialog } from '@/modules/subscriptions/components/upgrade-dialog.component';
 import { fetchOrganizationSubscription } from '@/modules/subscriptions/subscriptions.services';
+import type { SideNavCustomization } from '@/modules/ui/components/sidenav';
 import { SideNav } from '@/modules/ui/components/sidenav';
 import { buildOrganizationWorkspaceNavigation, getOrganizationRouteHref, getOrganizationRouteLabelKey } from '@/modules/ui/navigation/organization-navigation';
 import { useNavigationCapabilities } from '@/modules/ui/navigation/use-navigation-capabilities';
+import { toggleHiddenId } from '@/modules/preferences/preferences.models';
+import { useMemberPreferences } from '@/modules/preferences/use-member-preferences';
 import { UserSettingsDropdown } from '@/modules/users/components/user-settings.component';
 import { useCurrentUser } from '@/modules/users/composables/useCurrentUser';
 import { Button } from '../components/button';
@@ -87,10 +90,30 @@ const OrganizationLayoutSideNav: Component = () => {
 
   const getCapabilities = useNavigationCapabilities();
 
+  // A restaurant has no sales representatives: each member hides what their business does not use
+  const { getPreferences, updatePreferences } = useMemberPreferences();
+  const [isCustomizingMenu, setIsCustomizingMenu] = createSignal(false);
+
   const getMainMenuSections = () => buildOrganizationWorkspaceNavigation({
     organizationId: params.organizationId,
     capabilities: getCapabilities(),
     translate: t,
+    hiddenItemIds: getPreferences().navigation.hiddenItemIds,
+    includeHidden: isCustomizingMenu(),
+  });
+
+  const getMenuCustomization = (): SideNavCustomization => ({
+    isEditing: isCustomizingMenu(),
+    onToggleEditing: () => setIsCustomizingMenu(value => !value),
+    onToggleItem: ({ id, isHidden }) => void updatePreferences({
+      navigation: { hiddenItemIds: toggleHiddenId({ hiddenIds: getPreferences().navigation.hiddenItemIds, id, isHidden }) },
+    }),
+    labels: {
+      customize: t('navigation.customize.button'),
+      done: t('navigation.customize.done'),
+      hide: label => t('navigation.customize.hide', { label }),
+      show: label => t('navigation.customize.show', { label }),
+    },
   });
 
   const getFooterMenuItems = () => [
@@ -137,6 +160,7 @@ const OrganizationLayoutSideNav: Component = () => {
   return (
     <SideNav
       mainSections={getMainMenuSections()}
+      customization={getMenuCustomization()}
       footerMenu={getFooterMenuItems()}
       preFooter={() => <UpgradeCTAFooter organizationId={params.organizationId} />}
       footer={() => <UserSettingsDropdown userName={user.name} userEmail={user.email} />}

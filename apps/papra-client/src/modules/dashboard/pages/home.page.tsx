@@ -1,16 +1,18 @@
-import type { DashboardFormatters } from '../dashboard.widgets';
+import type { DashboardMetrics } from '../dashboard.types';
+import type { DashboardFormatters, DashboardWidgetSettings } from '../dashboard.widgets';
 import type { ActiveFilter, FilterField } from '@/modules/ui/components/table-filters';
 import { useParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
-import { createEffect, createMemo, createSignal, For, Match, on, Show, Switch } from 'solid-js';
+import { createMemo, createSignal, For, Match, Show, Switch } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
+import { toggleHiddenId } from '@/modules/preferences/preferences.models';
+import { useMemberPreferences } from '@/modules/preferences/use-member-preferences';
 import { Button } from '@/modules/ui/components/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/modules/ui/components/popover';
 import { SimpleCheckbox } from '@/modules/ui/components/simple-checkbox';
 import { getActiveFilter, isDateRangeValue, resolveDatePreset } from '@/modules/ui/components/table-filters';
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { fetchDashboardMetrics } from '../dashboard.services';
-import { readHiddenWidgetIds, writeHiddenWidgetIds } from '../dashboard.storage';
 import { DASHBOARD_WIDGETS } from '../dashboard.widgets';
 
 export function HomePage() {
@@ -35,14 +37,18 @@ export function HomePage() {
     queryFn: () => fetchDashboardMetrics({ organizationId: params.organizationId, year: selectedYear() }),
   }));
 
-  const [hiddenWidgetIds, setHiddenWidgetIds] = createSignal<string[]>([]);
-  createEffect(on(() => params.organizationId, organizationId => setHiddenWidgetIds(readHiddenWidgetIds({ organizationId }))));
+  // Saved per member and organization: each kind of business keeps the cards that make sense to it
+  const { getPreferences, updatePreferences } = useMemberPreferences();
+  const hiddenWidgetIds = () => getPreferences().dashboard.hiddenWidgetIds;
 
   const toggleWidget = (widgetId: string, isVisible: boolean) => {
-    const next = isVisible ? hiddenWidgetIds().filter(id => id !== widgetId) : [...hiddenWidgetIds(), widgetId];
-    setHiddenWidgetIds(next);
-    writeHiddenWidgetIds({ organizationId: params.organizationId, hiddenWidgetIds: next });
+    void updatePreferences({ dashboard: { hiddenWidgetIds: toggleHiddenId({ hiddenIds: hiddenWidgetIds(), id: widgetId, isHidden: !isVisible }) } });
   };
+
+  const widgetSettings = (): DashboardWidgetSettings => ({
+    revenueMode: getPreferences().dashboard.revenueMode,
+    setRevenueMode: revenueMode => void updatePreferences({ dashboard: { revenueMode } }),
+  });
 
   const visibleWidgets = createMemo(() => DASHBOARD_WIDGETS.filter(widget => !hiddenWidgetIds().includes(widget.id)));
   const statWidgets = () => visibleWidgets().filter(widget => widget.size === 'stat');
@@ -55,6 +61,7 @@ export function HomePage() {
     const moneyFormat = new Intl.NumberFormat(locale, { style: 'currency', currency, maximumFractionDigits: 0, useGrouping: 'always' });
     const compactFormat = new Intl.NumberFormat(locale, { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 });
     const integerFormat = new Intl.NumberFormat(locale, { maximumFractionDigits: 0, useGrouping: 'always' });
+    const shareFormat = new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 });
     const now = new Date();
     const metricsYear = query.data?.metrics.year ?? now.getUTCFullYear();
     const monthFormats = {
@@ -68,12 +75,26 @@ export function HomePage() {
       money: minor => moneyFormat.format(minor / 100),
       compactMoney: minor => compactFormat.format(minor / 100),
       integer: value => integerFormat.format(Math.round(value)),
+      share: bps => shareFormat.format(bps / 10_000),
       elapsedMonths: metricsYear < now.getUTCFullYear() ? 12 : now.getUTCMonth() + 1,
       monthLabel: (month, style) => {
         const label = monthFormats[style].format(new Date(Date.UTC(2000, month - 1, 1)));
         return label.charAt(0).toUpperCase() + label.slice(1).replace(/\.$/, '');
       },
     };
+  });
+
+  // Getters, not values: a widget renders once and must follow the metrics and the preferences as they change
+  const widgetProps = (getMetrics: () => DashboardMetrics) => ({
+    get metrics() {
+      return getMetrics();
+    },
+    get formatters() {
+      return formatters();
+    },
+    get settings() {
+      return widgetSettings();
+    },
   });
 
   return (
@@ -132,13 +153,13 @@ export function HomePage() {
 
               <Show when={statWidgets().length > 0}>
                 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                  <For each={statWidgets()}>{widget => widget.render({ metrics: getMetrics(), formatters: formatters() })}</For>
+                  <For each={statWidgets()}>{widget => widget.render(widgetProps(getMetrics))}</For>
                 </div>
               </Show>
 
               <Show when={chartWidgets().length > 0}>
                 <div class="mt-4 grid gap-4 lg:grid-cols-2">
-                  <For each={chartWidgets()}>{widget => widget.render({ metrics: getMetrics(), formatters: formatters() })}</For>
+                  <For each={chartWidgets()}>{widget => widget.render(widgetProps(getMetrics))}</For>
                 </div>
               </Show>
             </>

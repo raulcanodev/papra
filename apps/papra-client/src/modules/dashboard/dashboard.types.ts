@@ -13,4 +13,12 @@ export type DashboardMetrics = {
   outstanding: { totalMinor: number; count: number; overdueTotalMinor: number; overdueCount: number };
   customers: { total: number; newThisMonth: number; newPreviousMonth: number };
   documents: { total: number; newThisMonth: number; newPreviousMonth: number };
+  profit: { yearToDateMinor: number; previousYearToDateMinor: number; salesYearToDateMinor: number; expensesYearToDateMinor: number };
+  topCustomers: Ranking;
+  salesByRepresentative: Ranking;
+};
+
+export type Ranking = {
+  totalMinor: number;
+  entries: Array<{ id: string; name: string; totalMinor: number; count: number; shareBps: number }>;
 };

@@ -3,6 +3,7 @@ import { createInMemoryDatabase } from '../app/database/database.test-utils';
 import { contactsTable } from '../contacts/contacts.table';
 import { documentsTable } from '../documents/documents.table';
 import { invoicesTable, invoicingProfilesTable } from '../invoicing/invoicing.tables';
+import { purchaseInvoicesTable } from '../purchases/purchases.tables';
 import { createDashboardRepository } from './dashboard.repository';
 
 const ORG_ID = 'org_111111111111111111111111';
@@ -93,5 +94,58 @@ describe('dashboard repository', () => {
     const { metrics } = await createDashboardRepository({ db }).getOrganizationMetrics({ organizationId: ORG_ID, now: NOW, year: 2025 });
 
     expect(metrics.year).to.eql(2025);
+  });
+
+  test('profit is the sales without VAT minus the expenses without VAT, and sales are ranked by customer and by sales representative', async () => {
+    const { db } = await createInMemoryDatabase({ organizations: [{ id: ORG_ID, name: 'Acme' }] });
+
+    await db.insert(contactsTable).values([
+      { id: 'cus_big', organizationId: ORG_ID, name: 'Big customer', isCustomer: true },
+      { id: 'cus_small', organizationId: ORG_ID, name: 'Small customer', isCustomer: true },
+      { id: 'rep_marta', organizationId: ORG_ID, name: 'Marta', isSalesRepresentative: true },
+      { id: 'sup_1', organizationId: ORG_ID, name: 'Supplier', isSupplier: true },
+    ]);
+
+    const invoice = (id: string, values: Partial<typeof invoicesTable.$inferInsert>) => ({
+      id,
+      organizationId: ORG_ID,
+      customerId: 'cus_big',
+      status: 'issued',
+      currency: 'EUR',
+      issueDate: new Date('2026-05-10T00:00:00.000Z'),
+      dueDate: new Date('2026-06-10T00:00:00.000Z'),
+      ...values,
+    });
+
+    await db.insert(invoicesTable).values([
+      invoice('inv_1', { subtotalMinor: 30_000, totalMinor: 36_300, salesRepresentativeId: 'rep_marta' }),
+      invoice('inv_2', { subtotalMinor: 30_000, totalMinor: 36_300 }),
+      invoice('inv_3', { customerId: 'cus_small', subtotalMinor: 20_000, totalMinor: 24_200, salesRepresentativeId: 'rep_marta' }),
+      // Not counted: a draft, and last year
+      invoice('inv_draft', { status: 'draft', subtotalMinor: 99_000, totalMinor: 99_000 }),
+      invoice('inv_old', { subtotalMinor: 50_000, totalMinor: 60_500, issueDate: new Date('2025-02-01T00:00:00.000Z') }),
+    ]);
+
+    await db.insert(purchaseInvoicesTable).values([
+      { organizationId: ORG_ID, supplierId: 'sup_1', number: 'F-1', issueDate: new Date('2026-04-01T00:00:00.000Z'), subtotalMinor: 15_000, totalMinor: 18_150 },
+      { organizationId: ORG_ID, supplierId: 'sup_1', number: 'F-0', issueDate: new Date('2025-03-01T00:00:00.000Z'), subtotalMinor: 10_000, totalMinor: 12_100 },
+    ]);
+
+    const { metrics } = await createDashboardRepository({ db }).getOrganizationMetrics({ organizationId: ORG_ID, now: NOW });
+
+    expect(metrics.profit).to.eql({ yearToDateMinor: 65_000, previousYearToDateMinor: 40_000, salesYearToDateMinor: 80_000, expensesYearToDateMinor: 15_000 });
+
+    expect(metrics.topCustomers).to.eql({
+      totalMinor: 80_000,
+      entries: [
+        { id: 'cus_big', name: 'Big customer', totalMinor: 60_000, count: 2, shareBps: 7_500 },
+        { id: 'cus_small', name: 'Small customer', totalMinor: 20_000, count: 1, shareBps: 2_500 },
+      ],
+    });
+
+    expect(metrics.salesByRepresentative).to.eql({
+      totalMinor: 50_000,
+      entries: [{ id: 'rep_marta', name: 'Marta', totalMinor: 50_000, count: 2, shareBps: 10_000 }],
+    });
   });
 });

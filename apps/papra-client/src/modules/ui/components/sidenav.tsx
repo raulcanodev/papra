@@ -13,6 +13,11 @@ export type SideNavSubMenuItem = {
 };
 
 export type SideNavMenuItem = {
+  /** Stable id, needed for the entries the member can hide */
+  id?: string;
+  /** Hidden by the member: only listed while customizing the menu */
+  isHidden?: boolean;
+  canHide?: boolean;
   label: string;
   icon: string;
   href?: string;
@@ -27,6 +32,19 @@ export type SideNavMenuSection = {
   id: string;
   label?: string;
   items: SideNavMenuItem[];
+};
+
+// Lets the member choose which entries of the main menu they see
+export type SideNavCustomization = {
+  isEditing: boolean;
+  onToggleEditing: () => void;
+  onToggleItem: (args: { id: string; isHidden: boolean }) => void;
+  labels: {
+    customize: string;
+    done: string;
+    hide: (label: string) => string;
+    show: (label: string) => string;
+  };
 };
 
 const MenuItemButton: Component<SideNavMenuItem & { indent?: boolean }> = (props) => {
@@ -71,6 +89,31 @@ const MenuItemGroup: Component<SideNavMenuItem> = (props) => {
   );
 };
 
+const CustomizableMenuItem: Component<{ item: SideNavMenuItem; customization: SideNavCustomization }> = (props) => {
+  const canToggle = () => props.customization.isEditing && props.item.canHide === true && props.item.id !== undefined;
+
+  return (
+    <div class={cn('group/row relative flex items-center', props.item.isHidden && 'opacity-45')}>
+      <div class="min-w-0 flex-1">
+        <Show when={props.item.children && props.item.children.length > 0} fallback={<MenuItemButton {...props.item} />}>
+          <MenuItemGroup {...props.item} />
+        </Show>
+      </div>
+      <Show when={canToggle()}>
+        <button
+          type="button"
+          class="absolute right-1 flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:(bg-sidebar-accent text-sidebar-foreground)"
+          aria-label={props.item.isHidden ? props.customization.labels.show(props.item.label) : props.customization.labels.hide(props.item.label)}
+          aria-pressed={!props.item.isHidden}
+          onClick={() => props.customization.onToggleItem({ id: props.item.id!, isHidden: !props.item.isHidden })}
+        >
+          <div class={cn(props.item.isHidden ? 'i-tabler-eye-off' : 'i-tabler-eye', 'size-3.5')} />
+        </button>
+      </Show>
+    </div>
+  );
+};
+
 export const SideNav: Component<{
   mainMenu?: SideNavMenuItem[];
   mainSections?: SideNavMenuSection[];
@@ -78,6 +121,7 @@ export const SideNav: Component<{
   header?: Component;
   footer?: Component;
   preFooter?: Component;
+  customization?: SideNavCustomization;
 }> = (props) => {
   const getMainSections = (): SideNavMenuSection[] => props.mainSections ?? (props.mainMenu
     ? [{ id: 'main', items: props.mainMenu }]
@@ -100,10 +144,17 @@ export const SideNav: Component<{
                     <For each={section.items}>
                       {menuItem => (
                         <Show
-                          when={menuItem.children && menuItem.children.length > 0}
-                          fallback={<MenuItemButton {...menuItem} />}
+                          when={props.customization}
+                          fallback={(
+                            <Show
+                              when={menuItem.children && menuItem.children.length > 0}
+                              fallback={<MenuItemButton {...menuItem} />}
+                            >
+                              <MenuItemGroup {...menuItem} />
+                            </Show>
+                          )}
                         >
-                          <MenuItemGroup {...menuItem} />
+                          {customization => <CustomizableMenuItem item={menuItem} customization={customization()} />}
                         </Show>
                       )}
                     </For>
@@ -112,6 +163,22 @@ export const SideNav: Component<{
               </For>
             </nav>
           )}
+
+          <Show when={props.customization}>
+            {customization => (
+              <button
+                type="button"
+                class={cn(
+                  'mx-2 flex w-fit items-center gap-1.5 rounded px-1 py-0.5 text-xs transition-colors',
+                  customization().isEditing ? 'font-medium text-foreground' : 'text-muted-foreground/70 hover:text-foreground',
+                )}
+                onClick={() => customization().onToggleEditing()}
+              >
+                <div class={cn(customization().isEditing ? 'i-tabler-check' : 'i-tabler-adjustments-horizontal', 'size-3.5')} />
+                {customization().isEditing ? customization().labels.done : customization().labels.customize}
+              </button>
+            )}
+          </Show>
 
           <div class="flex-1" />
 

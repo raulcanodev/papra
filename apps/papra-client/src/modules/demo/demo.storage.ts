@@ -43,6 +43,7 @@ export const taggingRuleStorage = prefixStorage<TaggingRule>(storage, 'taggingRu
 export const apiKeyStorage = prefixStorage<ApiKey>(storage, 'apiKeys');
 export const webhooksStorage = prefixStorage<Webhook>(storage, 'webhooks');
 export const customPropertyDefinitionStorage = prefixStorage<CustomPropertyDefinition>(storage, 'customPropertyDefinitions');
+export const memberPreferencesStorage = prefixStorage<Record<string, unknown>>(storage, 'memberPreferences');
 export const documentCustomPropertyValueStorage = prefixStorage<DocumentCustomPropertyValueStorage>(storage, 'documentCustomPropertyValues');
 
 export async function clearDemoStorage() {

@@ -1,15 +1,45 @@
-import type { DashboardMetrics, MonthlyComparisonPoint } from '../../dashboard/dashboard.types';
+import type { DashboardMetrics, MonthlyComparisonPoint, Ranking } from '../../dashboard/dashboard.types';
 import { getInvoicePayableMinor } from '../../invoicing/invoicing.models';
 
 type Dated = { createdAt?: string | Date | null };
-type DemoInvoice = { status: string; currency: string; issueDate: string | Date; dueDate: string | Date; totalMinor: number; withholdingMinor?: number };
+type DemoInvoice = { status: string; currency: string; issueDate: string | Date; dueDate: string | Date; totalMinor: number; subtotalMinor?: number; withholdingMinor?: number; customerId?: string; salesRepresentativeId?: string | null };
+type DemoPurchaseInvoice = { currency: string; issueDate: string | Date; subtotalMinor?: number };
+type DemoContact = { id: string; name: string };
+
+const TOP_CUSTOMERS_LIMIT = 5;
+const SALES_REPRESENTATIVES_LIMIT = 8;
+
+// Same as the server buildRanking: totals per key, sorted, each with its share of the whole
+function rank({ invoices, keyOf, contacts, limit }: { invoices: DemoInvoice[]; keyOf: (invoice: DemoInvoice) => string | null | undefined; contacts: DemoContact[]; limit: number }): Ranking {
+  const totals = new Map<string, { totalMinor: number; count: number }>();
+
+  for (const invoice of invoices) {
+    const key = keyOf(invoice);
+
+    if (key === null || key === undefined) {
+      continue;
+    }
+
+    const current = totals.get(key) ?? { totalMinor: 0, count: 0 };
+    totals.set(key, { totalMinor: current.totalMinor + (invoice.subtotalMinor ?? 0), count: current.count + 1 });
+  }
+
+  const entries = [...totals.entries()]
+    .map(([id, { totalMinor, count }]) => ({ id, name: contacts.find(contact => contact.id === id)?.name ?? '', totalMinor, count }))
+    .sort((left, right) => right.totalMinor - left.totalMinor);
+  const totalMinor = entries.reduce((sum, entry) => sum + entry.totalMinor, 0);
+
+  return { totalMinor, entries: entries.slice(0, limit).map(entry => ({ ...entry, shareBps: totalMinor === 0 ? 0 : Math.round(entry.totalMinor / totalMinor * 10_000) })) };
+}
 
 const BILLED_STATUSES = ['issued', 'sent', 'paid'];
 const UNPAID_STATUSES = ['issued', 'sent'];
 
 // Same rules as the server dashboard repository, computed over the demo localStorage records
-export function computeDemoDashboardMetrics({ invoices, customers, documents, currency, now = new Date() }: {
+export function computeDemoDashboardMetrics({ invoices, customers, documents, currency, purchaseInvoices = [], contacts = [], now = new Date() }: {
   invoices: DemoInvoice[];
+  purchaseInvoices?: DemoPurchaseInvoice[];
+  contacts?: DemoContact[];
   customers: (Dated & { archivedAt?: unknown })[];
   documents: Dated[];
   currency: string;
@@ -45,9 +75,25 @@ export function computeDemoDashboardMetrics({ invoices, customers, documents, cu
     newPreviousMonth: records.filter(record => time(record.createdAt) >= startOfPreviousMonth && time(record.createdAt) < startOfMonth).length,
   });
 
+  const isYearToDate = (date: string | Date) => new Date(date).getUTCFullYear() === year;
+  const isPreviousYearToDate = (date: string | Date) => time(date) >= Date.UTC(year - 1, 0, 1) && time(date) < sameInstantPreviousYear;
+  const billedThisYear = billed.filter(invoice => isYearToDate(invoice.issueDate));
+  const purchasesInCurrency = purchaseInvoices.filter(purchase => purchase.currency === currency);
+  const sumBase = (records: { subtotalMinor?: number }[]) => records.reduce((sum, record) => sum + (record.subtotalMinor ?? 0), 0);
+  const salesYearToDateMinor = sumBase(billedThisYear);
+  const expensesYearToDateMinor = sumBase(purchasesInCurrency.filter(purchase => isYearToDate(purchase.issueDate)));
+
   return {
     year,
     currency,
+    profit: {
+      yearToDateMinor: salesYearToDateMinor - expensesYearToDateMinor,
+      previousYearToDateMinor: sumBase(billed.filter(invoice => isPreviousYearToDate(invoice.issueDate))) - sumBase(purchasesInCurrency.filter(purchase => isPreviousYearToDate(purchase.issueDate))),
+      salesYearToDateMinor,
+      expensesYearToDateMinor,
+    },
+    topCustomers: rank({ invoices: billedThisYear, keyOf: invoice => invoice.customerId, contacts, limit: TOP_CUSTOMERS_LIMIT }),
+    salesByRepresentative: rank({ invoices: billedThisYear, keyOf: invoice => invoice.salesRepresentativeId, contacts, limit: SALES_REPRESENTATIVES_LIMIT }),
     revenue: {
       yearToDateMinor: revenueMonthly.reduce((sum, { current }) => sum + current, 0),
       previousYearToDateMinor: billed

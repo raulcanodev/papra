@@ -16,6 +16,7 @@ import { registerInvitationsRoutes } from '../invitations/invitations.routes';
 import { registerInvoicingRoutes } from '../invoicing/invoicing.routes';
 import { registerOnboardingRoutes } from '../onboarding/onboarding.routes';
 import { registerOrganizationsRoutes } from '../organizations/organizations.routes';
+import { registerPreferencesRoutes } from '../preferences/preferences.routes';
 import { registerPurchasesRoutes } from '../purchases/purchases.routes';
 import { registerSearchRoutes } from '../search/search.routes';
 import { registerSubscriptionsRoutes } from '../subscriptions/subscriptions.routes';
@@ -49,6 +50,7 @@ export function registerRoutes(context: RouteDefinitionContext) {
   registerPurchasesRoutes(context);
   registerTaxesRoutes(context);
   registerDashboardRoutes(context);
+  registerPreferencesRoutes(context);
   registerDocumentActivityRoutes(context);
   registerCustomPropertiesRoutes(context);
   registerAdminRoutes(context);

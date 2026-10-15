@@ -31,3 +31,26 @@ export function buildMonthlyComparison({ rows, year }: { rows: { year: number; m
     previous: valueOf(year - 1, index + 1),
   }));
 }
+
+export type RankingEntry = {
+  id: string;
+  name: string;
+  totalMinor: number;
+  count: number;
+  /** Part of the total of every row, in basis points (2500 = 25%) */
+  shareBps: number;
+};
+
+// The first rows of an already sorted aggregate, each with its share of the whole (not only of the rows shown)
+export function buildRanking({ rows, limit }: { rows: { id: string; name: string; totalMinor: number | string; count: number }[]; limit: number }) {
+  const entries = rows.map(row => ({ id: row.id, name: row.name, totalMinor: Number(row.totalMinor), count: row.count }));
+  const totalMinor = entries.reduce((sum, entry) => sum + entry.totalMinor, 0);
+
+  return {
+    totalMinor,
+    entries: entries.slice(0, limit).map((entry): RankingEntry => ({
+      ...entry,
+      shareBps: totalMinor === 0 ? 0 : Math.round(entry.totalMinor / totalMinor * 10_000),
+    })),
+  };
+}

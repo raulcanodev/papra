@@ -88,6 +88,8 @@ type NavigationItemDefinition = {
   requires?: OrganizationNavigationCapability;
   /** Also highlighted on the sub routes (invoices for the received invoices and the editors) */
   matchSubRoutes?: boolean;
+  /** Always in the menu: the member cannot hide it */
+  alwaysVisible?: boolean;
 };
 
 type NavigationSectionDefinition = {
@@ -102,7 +104,7 @@ const workspaceNavigation: readonly NavigationSectionDefinition[] = [
     id: 'workspace',
     labelKey: 'navigation.section.workspace',
     items: [
-      { routeId: 'home', icon: 'i-tabler-home' },
+      { routeId: 'home', icon: 'i-tabler-home', alwaysVisible: true },
       { routeId: 'documents', icon: 'i-tabler-file-text' },
       { routeId: 'calendar', icon: 'i-tabler-calendar-month' },
     ],
@@ -247,12 +249,20 @@ function buildNavigationSections({
   organizationId,
   capabilities,
   translate,
+  hiddenItemIds = [],
+  includeHidden = false,
 }: {
   definitions: readonly NavigationSectionDefinition[];
   organizationId: string;
   capabilities: OrganizationNavigationCapabilities;
   translate: (key: TranslationKeys) => string;
+  /** Entries the member chose to hide from their menu (route ids) */
+  hiddenItemIds?: readonly string[];
+  /** Keep the hidden entries, flagged, so the member can show them again while customizing */
+  includeHidden?: boolean;
 }): SideNavMenuSection[] {
+  const isHidden = (item: NavigationItemDefinition) => item.alwaysVisible !== true && hiddenItemIds.includes(item.routeId);
+
   return definitions
     .filter(section => hasCapability(section.requires, capabilities))
     .map(section => ({
@@ -260,7 +270,11 @@ function buildNavigationSections({
       label: translate(section.labelKey),
       items: section.items
         .filter(item => hasCapability(item.requires, capabilities))
+        .filter(item => includeHidden || !isHidden(item))
         .map(item => ({
+          id: item.routeId,
+          isHidden: isHidden(item),
+          canHide: item.alwaysVisible !== true,
           label: translate(organizationRouteLabelKeys[item.routeId]),
           icon: item.icon,
           href: getOrganizationRouteHref({ organizationId, routeId: item.routeId }),
