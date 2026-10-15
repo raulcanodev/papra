@@ -107,7 +107,10 @@ function setupGetCaptureByTokenRoute({ app, db }: RouteDefinitionContext) {
     async (context) => {
       const { token } = context.req.valid('param');
 
-      const { captureSession } = await getOpenCaptureSessionByToken({ token, capturesRepository: createCapturesRepository({ db }) });
+      const capturesRepository = createCapturesRepository({ db });
+      const { captureSession: existing } = await getOpenCaptureSessionByToken({ token, capturesRepository });
+      // The phone is here: the computer stops showing the QR code and waits for the photos
+      const { captureSession } = existing.completedAt === null ? await capturesRepository.markCaptureSessionOpened({ captureSessionId: existing.id }) : { captureSession: existing };
       const { organization } = await createOrganizationsRepository({ db }).getOrganizationById({ organizationId: captureSession.organizationId });
 
       return context.json({

@@ -13,6 +13,7 @@ import { purchaseDocumentKindMigration } from './list/0010-purchase-document-kin
 import { captureSessionsMigration } from './list/0011-capture-sessions.migration';
 import { documentAiDataMigration } from './list/0012-document-ai-data.migration';
 import { userPhoneMigration } from './list/0013-user-phone.migration';
+import { captureOpenedAtMigration } from './list/0014-capture-opened-at.migration';
 
 export const migrations: Migration[] = [
   postgresInitialSchemaMigration,
@@ -28,4 +29,5 @@ export const migrations: Migration[] = [
   captureSessionsMigration,
   documentAiDataMigration,
   userPhoneMigration,
+  captureOpenedAtMigration,
 ];

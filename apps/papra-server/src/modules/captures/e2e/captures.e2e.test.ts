@@ -11,7 +11,7 @@ const USER_ID = 'usr_111111111111111111111111';
 const ORG_ID = 'org_222222222222222222222222';
 const OTHER_USER_ID = 'usr_333333333333333333333333';
 
-type CaptureSessionDto = { id: string; purpose: string; status: string; documentIds: string[] };
+type CaptureSessionDto = { id: string; purpose: string; status: string; documentIds: string[]; openedAt: string | null };
 
 async function setupApp() {
   const { db } = await createInMemoryDatabase({
@@ -52,9 +52,14 @@ describe('captures e2e', () => {
     expect(response.status).to.eql(201);
     expect(captureSession).to.include({ purpose: 'purchase', status: 'waiting' });
     expect(token).toHaveLength(40);
+    expect(captureSession.openedAt).to.eql(null);
 
     const capture = await app.request(`/api/captures/${token}`, { method: 'GET' });
     expect(await capture.json()).to.deep.include({ capture: { purpose: 'purchase', status: 'waiting', fileCount: 0, maxFiles: 20, expiresAt: (await db.select().from(captureSessionsTable))[0]!.expiresAt.toISOString(), organizationName: 'Acme' } });
+
+    // The computer knows the phone opened the link, before any photo arrives
+    const { captureSession: opened } = await (await getCapture({ captureSessionId: captureSession.id })).json() as { captureSession: CaptureSessionDto };
+    expect(opened.openedAt).to.be.a('string');
 
     expect((await sendPhoto({ token, name: 'invoice-1.jpg' })).status).to.eql(201);
     expect((await sendPhoto({ token, name: 'invoice-2.pdf', type: 'application/pdf' })).status).to.eql(201);

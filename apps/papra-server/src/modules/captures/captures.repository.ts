@@ -11,6 +11,7 @@ export function createCapturesRepository({ db }: { db: Database }) {
     getUserCaptureSession: async (args: { organizationId: string; userId: string; captureSessionId: string }) => getUserCaptureSession({ db, ...args }),
     getCaptureSessionByTokenHash: async (args: { tokenHash: string }) => getCaptureSessionByTokenHash({ db, ...args }),
     appendDocumentToCaptureSession: async (args: { captureSessionId: string; documentId: string }) => appendDocumentToCaptureSession({ db, ...args }),
+    markCaptureSessionOpened: async (args: { captureSessionId: string; now?: Date }) => markCaptureSessionOpened({ db, ...args }),
     completeCaptureSession: async (args: { captureSessionId: string; now?: Date }) => completeCaptureSession({ db, ...args }),
   };
 }
@@ -42,6 +43,17 @@ async function appendDocumentToCaptureSession({ db, captureSessionId, documentId
   const [captureSession] = await db
     .update(captureSessionsTable)
     .set({ documentIds: sql`${captureSessionsTable.documentIds} || ${JSON.stringify([documentId])}::jsonb`, updatedAt: new Date() })
+    .where(eq(captureSessionsTable.id, captureSessionId))
+    .returning();
+
+  return { captureSession: captureSession! };
+}
+
+// Only the first opening counts: reloading the page on the phone keeps the original moment
+async function markCaptureSessionOpened({ db, captureSessionId, now = new Date() }: { db: Database; captureSessionId: string; now?: Date }) {
+  const [captureSession] = await db
+    .update(captureSessionsTable)
+    .set({ openedAt: sql`coalesce(${captureSessionsTable.openedAt}, ${now.toISOString()}::timestamptz)`, updatedAt: now })
     .where(eq(captureSessionsTable.id, captureSessionId))
     .returning();
 

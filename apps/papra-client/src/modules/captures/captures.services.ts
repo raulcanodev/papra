@@ -7,6 +7,7 @@ function toCaptureSession(dto: AsDto<CaptureSession>): CaptureSession {
   return {
     ...(dto as unknown as CaptureSession),
     expiresAt: new Date(dto.expiresAt),
+    openedAt: dto.openedAt === null ? null : new Date(dto.openedAt),
     completedAt: dto.completedAt === null ? null : new Date(dto.completedAt),
     createdAt: new Date(dto.createdAt),
   };

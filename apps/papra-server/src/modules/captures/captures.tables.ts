@@ -18,6 +18,8 @@ export const captureSessionsTable = pgTable('capture_sessions', {
   // The documents created from the captured files, in capture order
   documentIds: jsonb('document_ids').notNull().$type<string[]>().default([]),
   expiresAt: timestamp('expires_at', { mode: 'date', withTimezone: true, precision: 3 }).notNull(),
+  // Set the first time the phone opens the link: the computer then waits for the photos instead of showing the QR code
+  openedAt: timestamp('opened_at', { mode: 'date', withTimezone: true, precision: 3 }),
   // Set when the phone says it is done, or when the computer stops waiting
   completedAt: timestamp('completed_at', { mode: 'date', withTimezone: true, precision: 3 }),
 }, table => [

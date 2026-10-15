@@ -10,7 +10,7 @@ const captureSessions = new Map<string, { id: string; purpose: string; createdAt
 function toCaptureSession(session: { id: string; purpose: string; createdAt: string; expiresAt: string }) {
   const isExpired = new Date(session.expiresAt).getTime() <= Date.now();
 
-  return { ...session, status: isExpired ? 'expired' : 'waiting', documentIds: [], completedAt: null };
+  return { ...session, status: isExpired ? 'expired' : 'waiting', documentIds: [], openedAt: null, completedAt: null };
 }
 
 function throwCaptureNotFound(): never {

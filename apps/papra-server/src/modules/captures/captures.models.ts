@@ -44,6 +44,7 @@ export function formatCaptureSessionForApi({ captureSession, now = new Date() }:
     status: getCaptureSessionStatus({ captureSession, now }),
     documentIds: captureSession.documentIds,
     expiresAt: captureSession.expiresAt,
+    openedAt: captureSession.openedAt,
     completedAt: captureSession.completedAt,
     createdAt: captureSession.createdAt,
   };

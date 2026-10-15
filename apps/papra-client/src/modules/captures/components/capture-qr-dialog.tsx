@@ -45,6 +45,12 @@ export function CaptureQrDialog(props: {
 
   const captureSession = () => sessionQuery.data?.captureSession ?? openMutation.data?.captureSession;
   const documentIds = () => captureSession()?.documentIds ?? [];
+  // Once the phone opened the link the QR code has done its job: the dialog waits for the photos and can only be
+  // left with its buttons, closing it by mistake would stop the phone in the middle of the upload
+  const isWaitingForPhone = () => {
+    const session = captureSession();
+    return session !== undefined && (session.status === 'waiting' || session.status === 'receiving') && (session.openedAt !== null || session.documentIds.length > 0);
+  };
 
   const close = () => {
     const id = captureSessionId();
@@ -73,12 +79,14 @@ export function CaptureQrDialog(props: {
   });
 
   return (
-    <Dialog open={props.open} onOpenChange={open => (open ? props.onOpenChange(true) : close())}>
-      <DialogContent class="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t('captures.dialog.title')}</DialogTitle>
-          <DialogDescription>{props.purpose === 'product_image' ? t('captures.dialog.description.product') : t('captures.dialog.description.purchase')}</DialogDescription>
-        </DialogHeader>
+    <Dialog open={props.open} onOpenChange={open => (open ? props.onOpenChange(true) : !isWaitingForPhone() && close())}>
+      <DialogContent class="max-w-md" hideCloseButton={isWaitingForPhone()}>
+        <Show when={!isWaitingForPhone()}>
+          <DialogHeader>
+            <DialogTitle>{t('captures.dialog.title')}</DialogTitle>
+            <DialogDescription>{props.purpose === 'product_image' ? t('captures.dialog.description.product') : t('captures.dialog.description.purchase')}</DialogDescription>
+          </DialogHeader>
+        </Show>
 
         <Switch>
           <Match when={openMutation.isError}>
@@ -90,6 +98,22 @@ export function CaptureQrDialog(props: {
               <div class="i-tabler-clock-x size-8 text-muted-foreground" />
               <p>{t('captures.dialog.expired')}</p>
               <Button size="sm" onClick={() => openMutation.mutate()}>{t('captures.dialog.new-code')}</Button>
+            </div>
+          </Match>
+
+          <Match when={isWaitingForPhone()}>
+            <div class="flex flex-col items-center gap-5 pt-4 text-center">
+              <img src="/logo.svg" alt="" class="app-loader-logo size-14 [image-rendering:pixelated]" />
+              <div class="flex flex-col gap-1">
+                <DialogTitle>{t('captures.dialog.phone.title')}</DialogTitle>
+                <DialogDescription>
+                  {documentIds().length > 0 ? t('captures.dialog.received', { count: documentIds().length }) : t('captures.dialog.phone.description')}
+                </DialogDescription>
+              </div>
+              <div class="flex w-full gap-2">
+                <Button variant="outline" class="flex-1" onClick={close}>{t('captures.dialog.abandon')}</Button>
+                <Button variant="primary" class="flex-1" disabled={documentIds().length === 0} onClick={deliver}>{t('captures.dialog.continue')}</Button>
+              </div>
             </div>
           </Match>
 

@@ -9,6 +9,7 @@ export type CaptureSession = {
   status: CaptureSessionStatus;
   documentIds: string[];
   expiresAt: Date;
+  openedAt: Date | null;
   completedAt: Date | null;
   createdAt: Date;
 };
