@@ -93,8 +93,8 @@ const CustomizableMenuItem: Component<{ item: SideNavMenuItem; customization: Si
   const canToggle = () => props.customization.isEditing && props.item.canHide === true && props.item.id !== undefined;
 
   return (
-    <div class={cn('group/row relative flex items-center', props.item.isHidden && 'opacity-45')}>
-      <div class="min-w-0 flex-1">
+    <div class={cn('group/row relative flex flex-col', props.item.isHidden && 'opacity-45')}>
+      <div class="flex min-w-0 flex-col">
         <Show when={props.item.children && props.item.children.length > 0} fallback={<MenuItemButton {...props.item} />}>
           <MenuItemGroup {...props.item} />
         </Show>
@@ -102,7 +102,7 @@ const CustomizableMenuItem: Component<{ item: SideNavMenuItem; customization: Si
       <Show when={canToggle()}>
         <button
           type="button"
-          class="absolute right-1 flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:(bg-sidebar-accent text-sidebar-foreground)"
+          class="absolute right-1 top-1 flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:(bg-sidebar-accent text-sidebar-foreground)"
           aria-label={props.item.isHidden ? props.customization.labels.show(props.item.label) : props.customization.labels.hide(props.item.label)}
           aria-pressed={!props.item.isHidden}
           onClick={() => props.customization.onToggleItem({ id: props.item.id!, isHidden: !props.item.isHidden })}
@@ -144,7 +144,7 @@ export const SideNav: Component<{
                     <For each={section.items}>
                       {menuItem => (
                         <Show
-                          when={props.customization}
+                          when={props.customization?.isEditing === true ? props.customization : undefined}
                           fallback={(
                             <Show
                               when={menuItem.children && menuItem.children.length > 0}
