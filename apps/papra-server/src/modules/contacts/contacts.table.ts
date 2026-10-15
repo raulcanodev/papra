@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { boolean, check, index, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 import { organizationsTable } from '../organizations/organizations.table';
+import { ENTITY_ICON_COLORS } from '../shared/appearance/appearance.constants';
 import { createPrimaryKeyField, createTimestampColumns } from '../shared/db/columns.helpers';
 import { CONTACT_ID_PREFIX, CONTACT_KINDS } from './contacts.constants';
 
@@ -24,6 +25,8 @@ export const contactsTable = pgTable('contacts', {
   currency: text('currency').notNull().default('EUR'),
   paymentTermsDays: integer('payment_terms_days').notNull().default(30),
   notes: text('notes'),
+  icon: text('icon'),
+  iconColor: text('icon_color', { enum: ENTITY_ICON_COLORS }),
   isCustomer: boolean('is_customer').notNull().default(false),
   isSupplier: boolean('is_supplier').notNull().default(false),
   isSalesRepresentative: boolean('is_sales_representative').notNull().default(false),

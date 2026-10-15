@@ -134,12 +134,12 @@ async function ensureDefaultSeries({ db, organizationId }: { db: Database; organ
 }
 
 async function listInvoices({ db, organizationId, status }: { db: Database; organizationId: string; status?: string }) {
-  const invoices = await db.select({ invoice: invoicesTable, customerName: contactsTable.name, customerEmail: contactsTable.email })
+  const invoices = await db.select({ invoice: invoicesTable, customerName: contactsTable.name, customerEmail: contactsTable.email, customerIcon: contactsTable.icon, customerIconColor: contactsTable.iconColor })
     .from(invoicesTable)
     .innerJoin(contactsTable, eq(invoicesTable.customerId, contactsTable.id))
     .where(and(eq(invoicesTable.organizationId, organizationId), status !== undefined && status !== '' ? eq(invoicesTable.status, status) : undefined))
     .orderBy(desc(invoicesTable.issueDate), desc(invoicesTable.createdAt));
-  return { invoices: invoices.map(({ invoice, customerName, customerEmail }) => ({ ...invoice, customerName, customerEmail })) };
+  return { invoices: invoices.map(({ invoice, ...customer }) => ({ ...invoice, ...customer })) };
 }
 
 async function getInvoice({ db, organizationId, invoiceId }: { db: Database; organizationId: string; invoiceId: string }) {

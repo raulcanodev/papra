@@ -3,7 +3,7 @@ export const DEMO_IS_SEEDED_KEY = 'demo:is-seeded';
 // Bumped whenever the shape of the demo data changes: visitors with an older version get a fresh seed instead of
 // records the current mock no longer understands
 // Bump whenever the seed changes: every visitor gets the new data on their next visit
-export const DEMO_DATA_VERSION = '6';
+export const DEMO_DATA_VERSION = '7';
 
 export const DEMO_DEFAULT_PARENT_ORIGINS = 'https://heypaqui.com https://www.heypaqui.com http://localhost:* http://127.0.0.1:*';
 

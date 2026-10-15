@@ -1,4 +1,7 @@
+import type { EntityIconColor } from '@/modules/ui/components/entity-icon.constants';
+
 // Fictional data for the public demo. Nothing here is a real company, tax id or email.
+// Every contact and product has its emoji or icon so the tables of the demo look lived in.
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -49,13 +52,13 @@ export const demoSeries = [
 ];
 
 export const demoSalesRepresentatives = [
-  { key: 'laura', name: 'Laura Ejemplo', email: 'laura@acme.example', phone: '+34 600 000 001', taxId: null, notes: null },
-  { key: 'diego', name: 'Diego Muestra', email: 'diego@acme.example', phone: '+34 600 000 002', taxId: null, notes: null },
+  { key: 'laura', icon: '👩‍💼', iconColor: 'purple' as const, name: 'Laura Ejemplo', email: 'laura@acme.example', phone: '+34 600 000 001', taxId: null, notes: null },
+  { key: 'diego', icon: 'icon:tie', iconColor: 'blue' as const, name: 'Diego Muestra', email: 'diego@acme.example', phone: '+34 600 000 002', taxId: null, notes: null },
 ];
 
 export const demoSuppliers = [
-  { key: 'nube', name: 'Nube Hosting SL', email: 'facturas@nube.example', phone: '+34 900 000 010', taxId: 'B00000010', addressLine1: 'Calle del Servidor 1', postalCode: '28001', city: 'Madrid', region: 'Madrid', country: 'ES' },
-  { key: 'papeleria', name: 'Papelería Ejemplo', email: 'ventas@papeleria.example', phone: '+34 900 000 011', taxId: 'B00000011', addressLine1: 'Avenida de los Folios 22', postalCode: '46001', city: 'Valencia', region: 'Valencia', country: 'ES' },
+  { key: 'nube', icon: 'icon:cloud', iconColor: 'blue' as const, name: 'Nube Hosting SL', email: 'facturas@nube.example', phone: '+34 900 000 010', taxId: 'B00000010', addressLine1: 'Calle del Servidor 1', postalCode: '28001', city: 'Madrid', region: 'Madrid', country: 'ES' },
+  { key: 'papeleria', icon: '✏️', iconColor: 'orange' as const, name: 'Papelería Ejemplo', email: 'ventas@papeleria.example', phone: '+34 900 000 011', taxId: 'B00000011', addressLine1: 'Avenida de los Folios 22', postalCode: '46001', city: 'Valencia', region: 'Valencia', country: 'ES' },
   { key: 'coworking', name: 'Espacio Coworking Malasaña SL', email: 'administracion@coworking.example', phone: '+34 900 000 012', taxId: 'B00000012', addressLine1: 'Calle del Escritorio 9', postalCode: '28004', city: 'Madrid', region: 'Madrid', country: 'ES' },
   { key: 'gestoria', name: 'Gestoría Martínez y Asociados', email: 'clientes@gestoria.example', phone: '+34 900 000 013', taxId: 'B00000013', addressLine1: 'Calle de los Modelos 303', postalCode: '28010', city: 'Madrid', region: 'Madrid', country: 'ES' },
   { key: 'seguros', name: 'Seguros Ejemplo SA', email: 'polizas@seguros.example', phone: '+34 900 000 014', taxId: 'A00000014', addressLine1: 'Paseo de la Cobertura 1', postalCode: '28046', city: 'Madrid', region: 'Madrid', country: 'ES' },
@@ -65,23 +68,23 @@ export const demoSuppliers = [
   { key: 'viajes', name: 'Viajes Ejemplo SL', email: 'reservas@viajes.example', phone: '+34 900 000 018', taxId: 'B00000018', addressLine1: 'Calle del Andén 3', postalCode: '28007', city: 'Madrid', region: 'Madrid', country: 'ES' },
 ];
 
-export const demoCustomers: Array<{ key: string; name: string; email: string | null; taxId: string; addressLine1: string; postalCode: string; city: string; region: string; country: string; isSupplier?: boolean }> = [
-  { key: 'lumen', name: 'Estudio Lumen SL', email: 'admin@lumen.example', taxId: 'B00000001', addressLine1: 'Avenida de la Muestra 12', postalCode: '08010', city: 'Barcelona', region: 'Barcelona', country: 'ES' },
+export const demoCustomers: Array<{ key: string; icon: string; iconColor: EntityIconColor; name: string; email: string | null; taxId: string; addressLine1: string; postalCode: string; city: string; region: string; country: string; isSupplier?: boolean }> = [
+  { key: 'lumen', icon: '🎨', iconColor: 'purple' as const, name: 'Estudio Lumen SL', email: 'admin@lumen.example', taxId: 'B00000001', addressLine1: 'Avenida de la Muestra 12', postalCode: '08010', city: 'Barcelona', region: 'Barcelona', country: 'ES' },
   // Also a supplier: a contact can play several roles
-  { key: 'norte', name: 'Talleres del Norte SA', email: 'compras@norte.example', taxId: 'A00000002', addressLine1: 'Polígono Industrial Demo, nave 7', postalCode: '48940', city: 'Leioa', region: 'Bizkaia', country: 'ES', isSupplier: true },
-  { key: 'bruma', name: 'Bruma Café', email: 'hola@bruma.example', taxId: 'B00000003', addressLine1: 'Plaza de Prueba 3', postalCode: '41001', city: 'Sevilla', region: 'Sevilla', country: 'ES' },
-  { key: 'cima', name: 'Cima Consultores', email: 'contabilidad@cima.example', taxId: 'B00000004', addressLine1: 'Calle Ficticia 91', postalCode: '46002', city: 'Valencia', region: 'Valencia', country: 'ES' },
-  { key: 'marta', name: 'Marta Ejemplo (autónoma)', email: 'marta@ejemplo.example', taxId: '00000000T', addressLine1: 'Calle Inventada 5', postalCode: '50001', city: 'Zaragoza', region: 'Zaragoza', country: 'ES' },
-  { key: 'verde', name: 'Verde Mercado Cooperativa', email: null, taxId: 'F00000005', addressLine1: 'Camino de la Demo s/n', postalCode: '30001', city: 'Murcia', region: 'Murcia', country: 'ES' },
+  { key: 'norte', icon: 'icon:tool', iconColor: 'blue' as const, name: 'Talleres del Norte SA', email: 'compras@norte.example', taxId: 'A00000002', addressLine1: 'Polígono Industrial Demo, nave 7', postalCode: '48940', city: 'Leioa', region: 'Bizkaia', country: 'ES', isSupplier: true },
+  { key: 'bruma', icon: '☕', iconColor: 'orange' as const, name: 'Bruma Café', email: 'hola@bruma.example', taxId: 'B00000003', addressLine1: 'Plaza de Prueba 3', postalCode: '41001', city: 'Sevilla', region: 'Sevilla', country: 'ES' },
+  { key: 'cima', icon: '📈', iconColor: 'green' as const, name: 'Cima Consultores', email: 'contabilidad@cima.example', taxId: 'B00000004', addressLine1: 'Calle Ficticia 91', postalCode: '46002', city: 'Valencia', region: 'Valencia', country: 'ES' },
+  { key: 'marta', icon: '🧑‍💻', iconColor: 'red' as const, name: 'Marta Ejemplo (autónoma)', email: 'marta@ejemplo.example', taxId: '00000000T', addressLine1: 'Calle Inventada 5', postalCode: '50001', city: 'Zaragoza', region: 'Zaragoza', country: 'ES' },
+  { key: 'verde', icon: '🥑', iconColor: 'green' as const, name: 'Verde Mercado Cooperativa', email: null, taxId: 'F00000005', addressLine1: 'Camino de la Demo s/n', postalCode: '30001', city: 'Murcia', region: 'Murcia', country: 'ES' },
 ];
 
 export const demoProducts = [
-  { key: 'design', name: 'Diseño de identidad visual', description: 'Logotipo, paleta y guía de marca', unit: 'ud', unitPriceMinor: 120000, taxKey: 'iva21' },
-  { key: 'web', name: 'Desarrollo web', description: 'Sitio web a medida', unit: 'h', unitPriceMinor: 6500, taxKey: 'iva21' },
-  { key: 'consulting', name: 'Consultoría estratégica', description: 'Sesión de trabajo de 2 horas', unit: 'ud', unitPriceMinor: 18000, taxKey: 'iva21' },
-  { key: 'hosting', name: 'Hosting y mantenimiento', description: 'Cuota mensual', unit: 'mes', unitPriceMinor: 4500, taxKey: 'iva21' },
-  { key: 'book', name: 'Manual de formación (impreso)', description: null, unit: 'ud', unitPriceMinor: 2400, taxKey: 'iva4' },
-  { key: 'catering', name: 'Servicio de catering', description: 'Evento corporativo', unit: 'ud', unitPriceMinor: 35000, taxKey: 'iva10' },
+  { key: 'design', icon: '🎨', iconColor: 'purple' as const, name: 'Diseño de identidad visual', description: 'Logotipo, paleta y guía de marca', unit: 'ud', unitPriceMinor: 120000, taxKey: 'iva21' },
+  { key: 'web', icon: 'icon:code', iconColor: 'blue' as const, name: 'Desarrollo web', description: 'Sitio web a medida', unit: 'h', unitPriceMinor: 6500, taxKey: 'iva21' },
+  { key: 'consulting', icon: '💡', iconColor: 'orange' as const, name: 'Consultoría estratégica', description: 'Sesión de trabajo de 2 horas', unit: 'ud', unitPriceMinor: 18000, taxKey: 'iva21' },
+  { key: 'hosting', icon: 'icon:server', iconColor: 'green' as const, name: 'Hosting y mantenimiento', description: 'Cuota mensual', unit: 'mes', unitPriceMinor: 4500, taxKey: 'iva21' },
+  { key: 'book', icon: '📚', iconColor: 'red' as const, name: 'Manual de formación (impreso)', description: null, unit: 'ud', unitPriceMinor: 2400, taxKey: 'iva4' },
+  { key: 'catering', icon: '🍽️', iconColor: 'orange' as const, name: 'Servicio de catering', description: 'Evento corporativo', unit: 'ud', unitPriceMinor: 35000, taxKey: 'iva10' },
 ];
 
 type DemoInvoiceFixture = {

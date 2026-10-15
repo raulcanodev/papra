@@ -2,6 +2,7 @@ import { boolean, index, integer, pgTable, text, timestamp, unique } from 'drizz
 import { contactsTable } from '../contacts/contacts.table';
 import { documentsTable } from '../documents/documents.table';
 import { organizationsTable } from '../organizations/organizations.table';
+import { ENTITY_ICON_COLORS } from '../shared/appearance/appearance.constants';
 import { createPrimaryKeyField, createTimestampColumns } from '../shared/db/columns.helpers';
 import { INCOME_TAX_METHODS, LEGAL_FORMS, VAT_REGIMES } from '../taxes/taxes.constants';
 import { usersTable } from '../users/users.table';
@@ -62,6 +63,8 @@ export const invoicingProductsTable = pgTable('invoicing_products', {
   unitPriceMinor: integer('unit_price_minor').notNull().default(0),
   currency: text('currency').notNull().default('EUR'),
   taxRateBps: integer('tax_rate_bps').notNull().default(2100),
+  icon: text('icon'),
+  iconColor: text('icon_color', { enum: ENTITY_ICON_COLORS }),
   archivedAt: timestamp('archived_at', { mode: 'date', withTimezone: true, precision: 3 }),
 }, table => [index('invoicing_products_organization_id_index').on(table.organizationId)]);
 

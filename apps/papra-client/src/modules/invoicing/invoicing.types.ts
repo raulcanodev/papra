@@ -1,5 +1,6 @@
 import type { Contact } from '../contacts/contacts.types';
 import type { IncomeTaxMethod, LegalForm, VatRegime } from '../taxes/taxes.types';
+import type { EntityIconColor } from '../ui/components/entity-icon.constants';
 
 export type InvoiceStatus = 'draft' | 'issuing' | 'issued' | 'sent' | 'paid' | 'void';
 export type InvoiceTemplateId = 'minimal' | 'classic';
@@ -67,8 +68,8 @@ export type FiscalProfile = {
 export type FiscalProfileInput = Omit<FiscalProfile, 'organizationId' | 'createdAt' | 'updatedAt'>;
 
 type CatalogEntity = { id: string; organizationId: string; createdAt: Date; updatedAt: Date; archivedAt: Date | null };
-export type InvoicingProduct = CatalogEntity & { name: string; description: string | null; unit: string; unitPriceMinor: number; currency: string; taxRateBps: number };
-export type ProductInput = Omit<InvoicingProduct, keyof CatalogEntity>;
+export type InvoicingProduct = CatalogEntity & { name: string; description: string | null; unit: string; unitPriceMinor: number; currency: string; taxRateBps: number; icon: string | null; iconColor: EntityIconColor | null };
+export type ProductInput = Omit<InvoicingProduct, keyof CatalogEntity | 'icon' | 'iconColor'> & Partial<Pick<InvoicingProduct, 'icon' | 'iconColor'>>;
 export type InvoicingTaxRate = CatalogEntity & { name: string; rateBps: number; isDefault: boolean };
 export type TaxRateInput = Omit<InvoicingTaxRate, keyof CatalogEntity>;
 export type InvoiceSeries = CatalogEntity & { name: string; prefix: string; nextNumber: number; padding: number; isDefault: boolean };
@@ -105,6 +106,8 @@ export type Invoice = {
   organizationId: string;
   customerId: string;
   customerName?: string;
+  customerIcon?: string | null;
+  customerIconColor?: EntityIconColor | null;
   customerEmail?: string | null;
   customer?: Contact | null;
   seriesId: string | null;

@@ -66,7 +66,7 @@ async function buildPurchaseInvoice({ organizationId, draft, existing }: { organ
 async function withSupplier({ organizationId, purchaseInvoice }: { organizationId: string; purchaseInvoice: Stored }) {
   const supplier = await getDemoContact({ organizationId, contactId: purchaseInvoice.supplierId });
 
-  return { ...purchaseInvoice, supplier, supplierName: supplier?.name ?? '—', supplierTaxId: supplier?.taxId ?? null };
+  return { ...purchaseInvoice, supplier, supplierName: supplier?.name ?? '—', supplierTaxId: supplier?.taxId ?? null, supplierIcon: supplier?.icon ?? null, supplierIconColor: supplier?.iconColor ?? null };
 }
 
 async function getOwnedPurchaseInvoice({ organizationId, purchaseInvoiceId }: { organizationId: string; purchaseInvoiceId: string }) {

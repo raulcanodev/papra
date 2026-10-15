@@ -28,7 +28,7 @@ export function createPurchasesRepository({ db }: { db: Database }) {
 
 async function listPurchaseInvoices({ db, organizationId, status, from, to }: { db: Database; organizationId: string; status?: PurchaseInvoiceStatus; from?: Date; to?: Date }) {
   const rows = await db
-    .select({ purchaseInvoice: purchaseInvoicesTable, supplierName: contactsTable.name, supplierTaxId: contactsTable.taxId })
+    .select({ purchaseInvoice: purchaseInvoicesTable, supplierName: contactsTable.name, supplierTaxId: contactsTable.taxId, supplierIcon: contactsTable.icon, supplierIconColor: contactsTable.iconColor })
     .from(purchaseInvoicesTable)
     .innerJoin(contactsTable, eq(purchaseInvoicesTable.supplierId, contactsTable.id))
     .where(and(
@@ -39,7 +39,7 @@ async function listPurchaseInvoices({ db, organizationId, status, from, to }: { 
     ))
     .orderBy(desc(purchaseInvoicesTable.issueDate), desc(purchaseInvoicesTable.createdAt));
 
-  return { purchaseInvoices: rows.map(({ purchaseInvoice, supplierName, supplierTaxId }) => ({ ...purchaseInvoice, supplierName, supplierTaxId })) };
+  return { purchaseInvoices: rows.map(({ purchaseInvoice, ...supplier }) => ({ ...purchaseInvoice, ...supplier })) };
 }
 
 async function getPurchaseInvoice({ db, organizationId, purchaseInvoiceId }: { db: Database; organizationId: string; purchaseInvoiceId: string }) {

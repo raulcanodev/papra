@@ -1,4 +1,5 @@
 import type { Contact } from '../contacts/contacts.types';
+import type { EntityIconColor } from '../ui/components/entity-icon.constants';
 
 export type PurchaseInvoiceStatus = 'pending' | 'paid';
 
@@ -40,6 +41,8 @@ export type PurchaseInvoice = Omit<PurchaseInvoiceDraftInput, 'items'> & {
   createdAt: Date;
   updatedAt: Date;
   supplierName?: string;
+  supplierIcon?: string | null;
+  supplierIconColor?: EntityIconColor | null;
   supplierTaxId?: string | null;
   supplier?: Contact | null;
   items?: (PurchaseInvoiceItemInput & { id: string; position: number })[];

@@ -9,6 +9,7 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
+import { EntityIcon } from '@/modules/ui/components/entity-icon';
 import { createToast } from '@/modules/ui/components/sonner';
 import { dateIsInRange, getActiveFilter, isDateRangeValue } from '@/modules/ui/components/table-filters';
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
@@ -72,7 +73,12 @@ export function InvoicesPage() {
             {invoice => (
               <CatalogRow>
                 <CatalogCell class="font-medium">{invoice.number ?? t('invoicing.status.draft')}</CatalogCell>
-                <CatalogCell>{invoice.customerName}</CatalogCell>
+                <CatalogCell>
+                  <div class="flex items-center gap-2">
+                    <EntityIcon icon={invoice.customerIcon} color={invoice.customerIconColor} fallback="i-tabler-building" size="sm" />
+                    <span class="truncate">{invoice.customerName}</span>
+                  </div>
+                </CatalogCell>
                 <CatalogCell class="text-muted-foreground">{invoice.issueDate.toLocaleDateString(getLocale())}</CatalogCell>
                 <CatalogCell><Badge variant="outline">{t(invoiceStatusLabelKeys[invoice.status])}</Badge></CatalogCell>
                 <CatalogCell class="text-right font-medium tabular-nums">{money(invoice)}</CatalogCell>

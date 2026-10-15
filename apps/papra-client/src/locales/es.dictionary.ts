@@ -1265,6 +1265,27 @@ export const translations: Partial<TranslationsDictionary> = {
 
   // Color picker
 
+  'entity-icon.change': 'Cambiar icono',
+  'entity-icon.tab.emoji': 'Emoji',
+  'entity-icon.tab.icons': 'Iconos',
+  'entity-icon.remove': 'Quitar',
+  'entity-icon.search': 'Buscar...',
+  'entity-icon.no-results': 'No hay resultados',
+  'entity-icon.color': 'Color',
+  'entity-icon.color.gray': 'Gris',
+  'entity-icon.color.black': 'Negro',
+  'entity-icon.color.red': 'Rojo',
+  'entity-icon.color.orange': 'Naranja',
+  'entity-icon.color.green': 'Verde',
+  'entity-icon.color.blue': 'Azul',
+  'entity-icon.color.purple': 'Morado',
+  'entity-icon.emoji-group.business': 'Negocio',
+  'entity-icon.emoji-group.people': 'Personas',
+  'entity-icon.emoji-group.food': 'Comida y bebida',
+  'entity-icon.emoji-group.objects': 'Objetos',
+  'entity-icon.emoji-group.nature': 'Naturaleza',
+  'entity-icon.emoji-group.symbols': 'Símbolos',
+
   'color-picker.hue': 'Matiz',
   'color-picker.saturation': 'Saturación',
   'color-picker.lightness': 'Luminosidad',

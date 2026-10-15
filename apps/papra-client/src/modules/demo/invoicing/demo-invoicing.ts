@@ -78,7 +78,7 @@ const byCreatedAt = (a: Stored, b: Stored) => String(a.createdAt).localeCompare(
 const CONTACT_ROLE_FLAGS = { customer: 'isCustomer', supplier: 'isSupplier', sales_representative: 'isSalesRepresentative' } as const;
 
 function emptyDemoContact(): Stored {
-  return { kind: 'company', email: null, phone: null, taxId: null, addressLine1: null, addressLine2: null, postalCode: null, city: null, region: null, country: null, currency: 'EUR', paymentTermsDays: 30, notes: null, isCustomer: false, isSupplier: false, isSalesRepresentative: false, archivedAt: null };
+  return { kind: 'company', icon: null, iconColor: null, email: null, phone: null, taxId: null, addressLine1: null, addressLine2: null, postalCode: null, city: null, region: null, country: null, currency: 'EUR', paymentTermsDays: 30, notes: null, isCustomer: false, isSupplier: false, isSalesRepresentative: false, archivedAt: null };
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -113,7 +113,7 @@ export async function seedDemoInvoicing({ organizationId, now = new Date() }: { 
   for (const rep of demoSalesRepresentatives) {
     const id = createId({ prefix: 'rep' });
     repIds.set(rep.key, id);
-    await contacts.setItem(id, { ...emptyDemoContact(), id, ...base, kind: 'person', name: rep.name, email: rep.email, phone: rep.phone, taxId: rep.taxId, notes: rep.notes, isSalesRepresentative: true });
+    await contacts.setItem(id, { ...emptyDemoContact(), id, ...base, kind: 'person', name: rep.name, icon: rep.icon, iconColor: rep.iconColor, email: rep.email, phone: rep.phone, taxId: rep.taxId, notes: rep.notes, isSalesRepresentative: true });
   }
 
   const customerRecords = new Map<string, Stored>();
@@ -126,6 +126,8 @@ export async function seedDemoInvoicing({ organizationId, now = new Date() }: { 
       isCustomer: true,
       isSupplier: customer.isSupplier ?? false,
       name: customer.name,
+      icon: customer.icon,
+      iconColor: customer.iconColor,
       email: customer.email,
       taxId: customer.taxId,
       addressLine1: customer.addressLine1,
@@ -155,6 +157,8 @@ export async function seedDemoInvoicing({ organizationId, now = new Date() }: { 
       id,
       ...base,
       name: product.name,
+      icon: product.icon,
+      iconColor: product.iconColor,
       description: product.description,
       unit: product.unit,
       unitPriceMinor: product.unitPriceMinor,
@@ -310,7 +314,7 @@ function singleDefault(key: 'taxRates' | 'series') {
 async function hydrateInvoice(invoice: Stored): Promise<Stored> {
   const customer = invoice.customerId ? await db().contacts.getItem(invoice.customerId) : null;
 
-  return { ...invoice, customer, customerName: customer?.name ?? invoice.customerName, customerEmail: customer?.email ?? invoice.customerEmail };
+  return { ...invoice, customer, customerName: customer?.name ?? invoice.customerName, customerEmail: customer?.email ?? invoice.customerEmail, customerIcon: customer?.icon ?? null, customerIconColor: customer?.iconColor ?? null };
 }
 
 async function buildInvoiceFromDraft({ organizationId, draft, existing }: { organizationId: string; draft: InvoiceDraftInput; existing?: Stored }): Promise<Stored> {

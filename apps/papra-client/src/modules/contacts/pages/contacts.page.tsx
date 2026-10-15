@@ -10,10 +10,11 @@ import { CatalogCell, CatalogPage, CatalogRow, CatalogTable, SaveButton } from '
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
+import { EntityIcon } from '@/modules/ui/components/entity-icon';
 import { createToast } from '@/modules/ui/components/sonner';
 import { matchesSelectedFilter, toDistinctFilterOptions } from '@/modules/ui/components/table-filters';
 import { ContactFormFields, emptyContact, toContactInput } from '../components/contact-form';
-import { CONTACT_KIND_LABEL_I18N_KEYS, CONTACT_KINDS, CONTACT_ROLE_BADGE_CLASSES, CONTACT_ROLE_CUSTOM_PROPERTY_ENTITY_TYPES, CONTACT_ROLE_DEFAULT_KINDS, CONTACT_ROLE_FLAGS, CONTACT_ROLE_LABEL_I18N_KEYS, CONTACT_ROLE_PAGE_I18N_KEYS, CONTACT_ROLE_PLURAL_LABEL_I18N_KEYS, getContactRoles, hasContactRole, normalizeTaxId } from '../contacts.constants';
+import { CONTACT_KIND_LABEL_I18N_KEYS, CONTACT_KINDS, CONTACT_ROLE_BADGE_CLASSES, CONTACT_ROLE_CUSTOM_PROPERTY_ENTITY_TYPES, CONTACT_ROLE_DEFAULT_KINDS, CONTACT_ROLE_FLAGS, CONTACT_ROLE_LABEL_I18N_KEYS, CONTACT_ROLE_PAGE_I18N_KEYS, CONTACT_ROLE_PLURAL_LABEL_I18N_KEYS, getContactFallbackIcon, getContactRoles, hasContactRole, normalizeTaxId } from '../contacts.constants';
 import { createContact, fetchContacts, getContactsQueryKey, updateContact } from '../contacts.services';
 
 /** The contacts of one role (customers, suppliers or sales representatives), the role and kind of new contacts come from the page */
@@ -156,9 +157,7 @@ export function ContactsPage(props: { role: ContactRole }) {
             <CatalogRow onClick={() => edit(contact)}>
               <CatalogCell>
                 <div class="flex items-center gap-2.5">
-                  <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                    <div class={cn(contact.kind === 'company' ? 'i-tabler-building' : 'i-tabler-user', 'size-4')} />
-                  </span>
+                  <EntityIcon icon={contact.icon} color={contact.iconColor} fallback={getContactFallbackIcon({ contact })} />
                   <div class="min-w-0">
                     <div class="flex items-center gap-1.5">
                       <span class="truncate font-medium">{contact.name}</span>

@@ -72,6 +72,24 @@ describe('contacts e2e', () => {
     expect(await list('sales_representative')).to.eql(['Laura']);
   });
 
+  test('the icon and its color are saved, kept when an update leaves them out, cleared with an empty icon, and the color must be a known one', async () => {
+    const { request, createContact } = await setupApp();
+
+    const contact = await createContact({ name: 'Bruma Café', isCustomer: true, icon: '☕', iconColor: 'orange' });
+    expect({ icon: contact.icon, iconColor: contact.iconColor }).to.eql({ icon: '☕', iconColor: 'orange' });
+
+    const update = async (body: Record<string, unknown>) => {
+      const response = await request({ path: `/api/organizations/${ORG_ID}/contacts/${contact.id}`, method: 'PUT', body: { name: 'Bruma Café', isCustomer: true, ...body } });
+      return { status: response.status, contact: (await response.json() as { contact: Contact }).contact };
+    };
+
+    // An integration that does not know these fields does not wipe them
+    expect((await update({})).contact).to.include({ icon: '☕', iconColor: 'orange' });
+    expect((await update({ icon: 'icon:building-store', iconColor: 'blue' })).contact).to.include({ icon: 'icon:building-store', iconColor: 'blue' });
+    expect((await update({ icon: '', iconColor: null })).contact).to.include({ icon: null, iconColor: null });
+    expect((await update({ iconColor: 'pink' })).status).to.eql(400);
+  });
+
   test('customers and suppliers get a documents folder named after them, sales representatives do not', async () => {
     const { db, request, createContact } = await setupApp();
 

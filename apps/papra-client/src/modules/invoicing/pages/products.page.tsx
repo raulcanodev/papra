@@ -9,13 +9,15 @@ import { EntityCustomPropertiesFields, invalidateEntityCustomProperties } from '
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { Button } from '@/modules/ui/components/button';
+import { EntityIcon, EntityIconPicker } from '@/modules/ui/components/entity-icon';
 import { createToast } from '@/modules/ui/components/sonner';
 import { matchesSelectedFilter, toDistinctFilterOptions } from '@/modules/ui/components/table-filters';
 import { TextField } from '@/modules/ui/components/textfield';
 import { CatalogCell, CatalogPage, CatalogRow, CatalogTable, FormField, SaveButton } from '../components/catalog-page';
 import { createProduct, fetchProducts, updateProduct } from '../invoicing.services';
 
-const empty = (): ProductInput => ({ name: '', description: null, unit: 'unidad', unitPriceMinor: 0, currency: 'EUR', taxRateBps: 2100 });
+const empty = (): ProductInput => ({ name: '', description: null, unit: 'unidad', unitPriceMinor: 0, currency: 'EUR', taxRateBps: 2100, icon: null, iconColor: null });
+const PRODUCT_FALLBACK_ICON = 'i-tabler-package';
 export function ProductsPage() {
   const { t } = useI18n();
   const params = useParams();
@@ -38,7 +40,7 @@ export function ProductsPage() {
     setValue(empty()); setEditingId(null); setCustomProperties({}); setFormOpen(false);
   };
   const edit = (product: NonNullable<typeof query.data>['products'][number]) => {
-    setCustomProperties({}); setEditingId(product.id); setValue({ name: product.name, description: product.description, unit: product.unit, unitPriceMinor: product.unitPriceMinor, currency: product.currency, taxRateBps: product.taxRateBps }); setFormOpen(true);
+    setCustomProperties({}); setEditingId(product.id); setValue({ name: product.name, description: product.description, unit: product.unit, unitPriceMinor: product.unitPriceMinor, currency: product.currency, taxRateBps: product.taxRateBps, icon: product.icon ?? null, iconColor: product.iconColor ?? null }); setFormOpen(true);
   };
   const mutation = createMutation(() => ({ mutationFn: () => editingId() ? updateProduct({ organizationId: params.organizationId, productId: editingId()!, product: { ...value(), customProperties: customProperties() } }) : createProduct({ organizationId: params.organizationId, product: { ...value(), customProperties: customProperties() } }), onSuccess: async () => {
     reset(); await invalidateEntityCustomProperties({ organizationId: params.organizationId, entityType: 'product' }); await queryClient.invalidateQueries({ queryKey: ['invoicing', params.organizationId, 'products'] }); createToast({ type: 'success', message: t('invoicing.products.toast.saved') });
@@ -68,7 +70,11 @@ export function ProductsPage() {
             }
           }}
         >
-          <FormField label={t('invoicing.common.name')} class="sm:col-span-2"><TextField value={value().name} onInput={event => setValue(current => ({ ...current, name: event.currentTarget.value }))} /></FormField>
+          {/* The picker stays outside the label: a click on the label text must focus the name, not open the picker */}
+          <div class="flex items-end gap-3 sm:col-span-2">
+            <EntityIconPicker value={{ icon: value().icon ?? null, iconColor: value().iconColor ?? null }} onChange={appearance => setValue(current => ({ ...current, ...appearance }))} fallback={PRODUCT_FALLBACK_ICON} />
+            <FormField label={t('invoicing.common.name')} class="flex-1"><TextField value={value().name} onInput={event => setValue(current => ({ ...current, name: event.currentTarget.value }))} /></FormField>
+          </div>
           <FormField label={t('invoicing.products.form.price')}><TextField type="number" min="0" step="0.01" value={value().unitPriceMinor / 100} onInput={event => setValue(current => ({ ...current, unitPriceMinor: Math.round(Number(event.currentTarget.value) * 100) }))} /></FormField>
           <FormField label={t('invoicing.products.form.unit')}><TextField value={value().unit} onInput={event => setValue(current => ({ ...current, unit: event.currentTarget.value }))} /></FormField>
           <FormField label={t('invoicing.products.form.tax')}><TextField type="number" min="0" max="100" step="0.01" value={value().taxRateBps / 100} onInput={event => setValue(current => ({ ...current, taxRateBps: Math.round(Number(event.currentTarget.value) * 100) }))} /></FormField>
@@ -82,8 +88,13 @@ export function ProductsPage() {
           {product => (
             <CatalogRow onClick={() => edit(product)}>
               <CatalogCell>
-                <div class="font-medium">{product.name}</div>
-                <div class="text-xs text-muted-foreground truncate max-w-lg">{product.description || t('invoicing.products.no-description')}</div>
+                <div class="flex items-center gap-2.5">
+                  <EntityIcon icon={product.icon} color={product.iconColor} fallback={PRODUCT_FALLBACK_ICON} />
+                  <div class="min-w-0">
+                    <div class="truncate font-medium">{product.name}</div>
+                    <div class="text-xs text-muted-foreground truncate max-w-lg">{product.description || t('invoicing.products.no-description')}</div>
+                  </div>
+                </div>
               </CatalogCell>
               <CatalogCell class="text-muted-foreground">{product.unit}</CatalogCell>
               <CatalogCell class="text-right tabular-nums">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: product.currency }).format(product.unitPriceMinor / 100)}</CatalogCell>

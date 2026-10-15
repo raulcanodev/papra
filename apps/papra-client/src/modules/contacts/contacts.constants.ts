@@ -74,3 +74,8 @@ export function normalizeTaxId({ taxId }: { taxId: string | null | undefined }) 
 
   return normalized === '' ? null : normalized;
 }
+
+// Icon of a contact without its own emoji or icon: what it is, a company or a person
+export function getContactFallbackIcon({ contact }: { contact: Pick<Contact, 'kind'> }) {
+  return contact.kind === 'company' ? 'i-tabler-building' : 'i-tabler-user';
+}

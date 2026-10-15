@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { entityCustomPropertiesInputSchema } from '../custom-properties/entity-custom-properties.usecases';
+import { entityAppearanceSchema } from '../shared/appearance/appearance.schemas';
 import { CONTACT_KINDS, CONTACT_ROLES } from './contacts.constants';
 
 const optionalText = z.string().trim().max(500).optional().nullable();
@@ -25,7 +26,7 @@ export const contactSchema = z.object({
   isCustomer: z.boolean().default(false),
   isSupplier: z.boolean().default(false),
   isSalesRepresentative: z.boolean().default(false),
-});
+}).merge(entityAppearanceSchema);
 
 // Request body: the contact fields plus the values of the custom properties of its roles
 export const contactBodySchema = contactSchema.extend({

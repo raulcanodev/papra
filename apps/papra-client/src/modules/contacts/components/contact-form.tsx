@@ -3,7 +3,9 @@ import type { ContactInput } from '../contacts.types';
 import { Show } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { FormField } from '@/modules/invoicing/components/catalog-page';
+import { EntityIconPicker } from '@/modules/ui/components/entity-icon';
 import { TextField } from '@/modules/ui/components/textfield';
+import { getContactFallbackIcon } from '../contacts.constants';
 
 export function emptyContact(overrides: Partial<ContactInput> = {}): ContactInput {
   return {
@@ -21,6 +23,8 @@ export function emptyContact(overrides: Partial<ContactInput> = {}): ContactInpu
     currency: 'EUR',
     paymentTermsDays: 30,
     notes: null,
+    icon: null,
+    iconColor: null,
     isCustomer: false,
     isSupplier: false,
     isSalesRepresentative: false,
@@ -44,6 +48,8 @@ export function toContactInput(contact: ContactInput): ContactInput {
     currency: contact.currency,
     paymentTermsDays: contact.paymentTermsDays,
     notes: contact.notes,
+    icon: contact.icon ?? null,
+    iconColor: contact.iconColor ?? null,
     isCustomer: contact.isCustomer,
     isSupplier: contact.isSupplier,
     isSalesRepresentative: contact.isSalesRepresentative,
@@ -63,9 +69,17 @@ export function ContactFormFields(props: {
 
   return (
     <>
-      <FormField label={props.value.kind === 'company' ? t('contacts.form.name') : t('contacts.form.person-name')} class="sm:col-span-2">
-        <TextField autoFocus={props.autofocus} required value={props.value.name} onInput={event => set('name', event.currentTarget.value)} />
-      </FormField>
+      {/* The picker stays outside the label: a click on the label text must focus the name, not open the picker */}
+      <div class="flex items-end gap-3 sm:col-span-2">
+        <EntityIconPicker
+          value={{ icon: props.value.icon ?? null, iconColor: props.value.iconColor ?? null }}
+          onChange={appearance => props.onChange(current => ({ ...current, ...appearance }))}
+          fallback={getContactFallbackIcon({ contact: props.value })}
+        />
+        <FormField label={props.value.kind === 'company' ? t('contacts.form.name') : t('contacts.form.person-name')} class="flex-1">
+          <TextField autoFocus={props.autofocus} required value={props.value.name} onInput={event => set('name', event.currentTarget.value)} />
+        </FormField>
+      </div>
       <FormField label={t('invoicing.common.email')}><TextField type="email" value={props.value.email ?? ''} onInput={event => set('email', optional(event.currentTarget.value))} /></FormField>
       <FormField label={t('invoicing.common.phone')}><TextField type="tel" value={props.value.phone ?? ''} onInput={event => set('phone', optional(event.currentTarget.value))} /></FormField>
       <FormField label={t('invoicing.common.tax-id')}><TextField value={props.value.taxId ?? ''} onInput={event => set('taxId', optional(event.currentTarget.value))} /></FormField>

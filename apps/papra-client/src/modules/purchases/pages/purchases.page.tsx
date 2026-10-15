@@ -11,6 +11,7 @@ import { getInvoicePayableMinor } from '@/modules/invoicing/invoicing.models';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
+import { EntityIcon } from '@/modules/ui/components/entity-icon';
 import { createToast } from '@/modules/ui/components/sonner';
 import { dateIsInRange, getActiveFilter, isDateRangeValue } from '@/modules/ui/components/table-filters';
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
@@ -165,13 +166,18 @@ export function PurchasesPage() {
               <CatalogRow onClick={() => navigate(editorHref(`${purchaseInvoice.id}/edit`))}>
                 <CatalogCell class="whitespace-nowrap text-muted-foreground">{formatDate(purchaseInvoice.issueDate)}</CatalogCell>
                 <CatalogCell>
-                  <div class="flex items-center gap-2">
-                    <span class="font-medium">{purchaseInvoice.supplierName}</span>
-                    <Show when={purchaseInvoice.documentId}>
-                      <div class="i-tabler-paperclip size-3.5 text-muted-foreground" title={t('purchases.table.has-document')} />
-                    </Show>
+                  <div class="flex items-center gap-2.5">
+                    <EntityIcon icon={purchaseInvoice.supplierIcon} color={purchaseInvoice.supplierIconColor} fallback="i-tabler-building" />
+                    <div class="min-w-0">
+                      <div class="flex items-center gap-2">
+                        <span class="font-medium">{purchaseInvoice.supplierName}</span>
+                        <Show when={purchaseInvoice.documentId}>
+                          <div class="i-tabler-paperclip size-3.5 text-muted-foreground" title={t('purchases.table.has-document')} />
+                        </Show>
+                      </div>
+                      <div class="text-xs text-muted-foreground">{purchaseInvoice.supplierTaxId || '—'}</div>
+                    </div>
                   </div>
-                  <div class="text-xs text-muted-foreground">{purchaseInvoice.supplierTaxId || '—'}</div>
                 </CatalogCell>
                 <CatalogCell class="text-muted-foreground">{purchaseInvoice.number}</CatalogCell>
                 <CatalogCell class="text-muted-foreground">{t(EXPENSE_CATEGORY_LABEL_I18N_KEYS[purchaseInvoice.category])}</CatalogCell>

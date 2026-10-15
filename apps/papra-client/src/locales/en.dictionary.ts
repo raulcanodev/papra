@@ -1263,6 +1263,27 @@ export const translations = {
 
   // Color picker
 
+  'entity-icon.change': 'Change icon',
+  'entity-icon.tab.emoji': 'Emoji',
+  'entity-icon.tab.icons': 'Icons',
+  'entity-icon.remove': 'Remove',
+  'entity-icon.search': 'Search...',
+  'entity-icon.no-results': 'Nothing found',
+  'entity-icon.color': 'Color',
+  'entity-icon.color.gray': 'Gray',
+  'entity-icon.color.black': 'Black',
+  'entity-icon.color.red': 'Red',
+  'entity-icon.color.orange': 'Orange',
+  'entity-icon.color.green': 'Green',
+  'entity-icon.color.blue': 'Blue',
+  'entity-icon.color.purple': 'Purple',
+  'entity-icon.emoji-group.business': 'Business',
+  'entity-icon.emoji-group.people': 'People',
+  'entity-icon.emoji-group.food': 'Food and drink',
+  'entity-icon.emoji-group.objects': 'Objects',
+  'entity-icon.emoji-group.nature': 'Nature',
+  'entity-icon.emoji-group.symbols': 'Symbols',
+
   'color-picker.hue': 'Hue',
   'color-picker.saturation': 'Saturation',
   'color-picker.lightness': 'Lightness',

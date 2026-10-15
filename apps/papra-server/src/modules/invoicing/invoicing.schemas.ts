@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { entityCustomPropertiesInputSchema } from '../custom-properties/entity-custom-properties.usecases';
+import { entityAppearanceSchema } from '../shared/appearance/appearance.schemas';
 import { INCOME_TAX_METHODS, LEGAL_FORMS, VAT_REGIMES } from '../taxes/taxes.constants';
 import { INVOICE_STATUSES, INVOICE_TEMPLATE_IDS, VERIFACTU_MODES } from './invoicing.constants';
 
@@ -39,7 +40,7 @@ export const productSchema = z.object({
   unitPriceMinor: z.number().int().min(0).max(1_000_000_000),
   currency: currencySchema.default('EUR'),
   taxRateBps: z.number().int().min(0).max(10_000).default(2_100),
-});
+}).merge(entityAppearanceSchema);
 
 // Request body: the product fields plus the values of the organization custom properties for products
 export const productBodySchema = productSchema.extend({ customProperties: entityCustomPropertiesInputSchema.optional() });

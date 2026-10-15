@@ -1,4 +1,5 @@
 import type { EntityCustomPropertiesInput } from '../custom-properties/custom-properties.types';
+import type { EntityIconColor } from '../ui/components/entity-icon.constants';
 
 export type ContactKind = 'company' | 'person';
 
@@ -21,6 +22,8 @@ export type Contact = {
   currency: string;
   paymentTermsDays: number;
   notes: string | null;
+  icon: string | null;
+  iconColor: EntityIconColor | null;
   isCustomer: boolean;
   isSupplier: boolean;
   isSalesRepresentative: boolean;
@@ -29,6 +32,7 @@ export type Contact = {
   updatedAt: Date;
 };
 
-export type ContactInput = Omit<Contact, 'id' | 'organizationId' | 'archivedAt' | 'createdAt' | 'updatedAt'>;
+// The look (icon and its color) is optional: contacts created on the fly (from a purchase invoice...) keep the default one
+export type ContactInput = Omit<Contact, 'id' | 'organizationId' | 'archivedAt' | 'createdAt' | 'updatedAt' | 'icon' | 'iconColor'> & Partial<Pick<Contact, 'icon' | 'iconColor'>>;
 
 export type ContactInputWithCustomProperties = ContactInput & { customProperties?: EntityCustomPropertiesInput };
