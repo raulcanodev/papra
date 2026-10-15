@@ -25,8 +25,7 @@
     "test:watch": "vitest watch",
     "typecheck": "tsc --noEmit",
     "script:sync-i18n-key-order": "tsx src/scripts/sync-i18n-key-order.script.ts",
-    "script:generate-brand-assets": "tsx src/scripts/generate-brand-assets.script.ts",
-    "script:generate-demo-documents-fixtures": "tsx src/scripts/generate-demo-documents-fixtures.script.ts"
+    "script:generate-brand-assets": "tsx src/scripts/generate-brand-assets.script.ts"
   },
   "dependencies": {
     "@branchlet/core": "^1.0.0",

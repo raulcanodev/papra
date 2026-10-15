@@ -12,7 +12,6 @@ export default defineConfig({
   plugins: [
     unoCssPlugin(),
     solidPlugin(),
-    cleanDemoAssetsPlugin(),
     demoSecurityPlugin(),
   ],
   server: {
@@ -40,33 +39,6 @@ export default defineConfig({
   //   exclude: [...configDefaults.exclude, '**/*.e2e.test.ts'],
   // },
 });
-
-function cleanDemoAssetsPlugin(): Plugin {
-  return {
-    name: 'clean-demo-assets',
-    closeBundle() {
-      if (!isDemoMode) {
-        const startedAt = Date.now();
-        const distDir = path.resolve(__dirname, 'dist/assets');
-        if (!fs.existsSync(distDir)) {
-          return;
-        }
-        const files = fs.readdirSync(distDir);
-
-        const demoPdfPattern = /\d{3}\.demo-document\.file-.+$/;
-
-        files.forEach((file) => {
-          if (demoPdfPattern.test(file)) {
-            const filePath = path.join(distDir, file);
-            fs.unlinkSync(filePath);
-          }
-        });
-        const duration = Date.now() - startedAt;
-        console.log(`[clean-demo-assets] Removed demo documents from build output in ${duration}ms`);
-      }
-    },
-  };
-}
 
 // The public demo must never talk to a backend: the CSP below makes the browser enforce it, whatever the code does.
 // `frame-ancestors` can't be set from a meta tag, so it goes in the Cloudflare `_headers` file next to the build.
