@@ -19,10 +19,10 @@ const SHOW_LANDING_FEATURES = false;
 type LandingAudience = 'companies' | 'gestorias';
 
 // Same page for every audience: only the pitch and where the embedded demo opens change
-const LANDING_AUDIENCES: Record<LandingAudience, { titleKey: TranslationKeys; titleMutedKey: TranslationKeys; descriptionKey: TranslationKeys; demoTitleKey: TranslationKeys; demoPath: string }> = {
-  companies: { titleKey: 'landing.hero.title', titleMutedKey: 'landing.hero.title-muted', descriptionKey: 'landing.hero.description', demoTitleKey: 'landing.demo.title', demoPath: '/' },
+const LANDING_AUDIENCES: Record<LandingAudience, { titleKey: TranslationKeys; titleMutedKey: TranslationKeys; descriptionKey: TranslationKeys; demoTitleKey: TranslationKeys; demoPath: string; switchKey: TranslationKeys; switchHref: string }> = {
+  companies: { titleKey: 'landing.hero.title', titleMutedKey: 'landing.hero.title-muted', descriptionKey: 'landing.hero.description', demoTitleKey: 'landing.demo.title', demoPath: '/', switchKey: 'landing.audience.to-gestorias', switchHref: '/para-gestoria' },
   // The demo gestoría with a client company already open, on the quarter its accountant would prepare
-  gestorias: { titleKey: 'landing.gestorias.hero.title', titleMutedKey: 'landing.gestorias.hero.title-muted', descriptionKey: 'landing.gestorias.hero.description', demoTitleKey: 'landing.gestorias.demo.title', demoPath: '/gestoria/gst_demoejemplo/clients/org_DemoGestoriaEspiga000001/taxes' },
+  gestorias: { titleKey: 'landing.gestorias.hero.title', titleMutedKey: 'landing.gestorias.hero.title-muted', descriptionKey: 'landing.gestorias.hero.description', demoTitleKey: 'landing.gestorias.demo.title', demoPath: '/gestoria/gst_demoejemplo/clients/org_DemoGestoriaEspiga000001/taxes', switchKey: 'landing.audience.to-companies', switchHref: '/' },
 };
 
 const DemoFrame: Component<{ url: string; title: string }> = (props) => {
@@ -111,6 +111,11 @@ export const LandingPage: Component<{ audience?: LandingAudience }> = (props) =>
         </header>
 
         <div class="relative z-10 mx-auto max-w-4xl px-5 pt-10 text-center sm:px-8 sm:pt-14">
+          {/* The other audience is one click away: a gestoría landing on the home, or a company on the gestoría one */}
+          <A href={getAudience().switchHref} class="mb-6 inline-flex items-center gap-1.5 rounded-full bg-background/70 px-3.5 py-1.5 text-sm font-medium text-foreground/80 shadow-sm ring-1 ring-black/5 backdrop-blur transition hover:bg-background hover:text-foreground">
+            {t(getAudience().switchKey)}
+            <span class="i-tabler-arrow-right size-3.5" />
+          </A>
           <h1 class="text-balance text-4xl font-semibold leading-[1.04] tracking-[-0.04em] sm:text-6xl">
             {t(getAudience().titleKey)}
             {' '}

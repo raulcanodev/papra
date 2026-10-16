@@ -19,6 +19,8 @@ export const translations: Partial<TranslationsDictionary> = {
   'landing.footer.by': 'Por',
   'landing.demo.open': 'Abrir en una pestaña nueva',
   'landing.demo.title': 'Demo en vivo · datos ficticios, guardados solo en tu navegador',
+  'landing.audience.to-gestorias': '¿Eres gestoría? Paqui para gestorías',
+  'landing.audience.to-companies': '¿Empresa o autónomo? Paqui para ti',
   'landing.gestorias.hero.title': 'Como la Paqui de la gestoría,',
   'landing.gestorias.hero.title-muted': 'pero sin perseguir a nadie por las facturas.',
   'landing.gestorias.hero.description': 'Tus clientes facturan y apuntan sus gastos en Paqui; tú ves sus libros, el IVA y los modelos del trimestre al momento. Sin pedir papeles por WhatsApp.',

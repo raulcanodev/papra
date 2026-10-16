@@ -17,6 +17,8 @@ export const translations = {
   'landing.footer.by': 'By',
   'landing.demo.open': 'Open in a new tab',
   'landing.demo.title': 'Live demo · fictional data, saved only in your browser',
+  'landing.audience.to-gestorias': 'Accounting firm? Paqui for firms',
+  'landing.audience.to-companies': 'Business or self-employed? Paqui for you',
   'landing.gestorias.hero.title': 'Like the Paqui at the accounting firm,',
   'landing.gestorias.hero.title-muted': 'but without chasing anyone for invoices.',
   'landing.gestorias.hero.description': 'Your clients invoice and log their expenses in Paqui; you see their books, VAT and quarterly forms as they happen. No more asking for paperwork on WhatsApp.',
