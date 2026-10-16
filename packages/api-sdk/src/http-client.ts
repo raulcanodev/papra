@@ -8,7 +8,7 @@ export function createApiClient({ apiKey, apiBaseUrl }: { apiKey: string; apiBas
   const apiClient = ofetch.create({
     headers: {
       'Authorization': `Bearer ${apiKey}`,
-      'X-Papra-Source': `papra-api-sdk-javascript/${version}`,
+      'X-Paqui-Source': `paqui-api-sdk-javascript/${version}`,
     },
     baseURL: apiBaseUrl,
   });

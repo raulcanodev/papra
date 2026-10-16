@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import type { ApiKeyContext } from '@papra/mcp-server/api';
+import type { ApiKeyContext } from '@paqui/mcp-server/api';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { createPapraMcpServer } from '@papra/mcp-server';
-import { PapraApiError, RestPapraApiClient } from '@papra/mcp-server/api';
+import { createPaquiMcpServer } from '@paqui/mcp-server';
+import { PaquiApiError, RestPaquiApiClient } from '@paqui/mcp-server/api';
 import type { McpHttpConfig } from '../config.js';
 import { bearerChallenge, readBearerToken } from '../authentication/bearer.js';
 import { logger as defaultLogger } from '../observability/logger.js';
@@ -50,7 +50,7 @@ export function createHttpApp(
   app.get('/health', (_req, res) => {
     res.status(200).json({
       status: 'ok',
-      service: 'papra-mcp',
+      service: 'paqui-mcp',
       transport: 'streamable-http',
     });
   });
@@ -85,7 +85,7 @@ export function createHttpApp(
       return;
     }
 
-    const client = new RestPapraApiClient({
+    const client = new RestPaquiApiClient({
       apiUrl: config.apiUrl,
       apiKey,
       requestId: res.locals.requestId as string,
@@ -96,7 +96,7 @@ export function createHttpApp(
       res.locals.apiKey = await client.authenticate();
     }
     catch (error) {
-      const upstreamStatus = error instanceof PapraApiError ? error.status : undefined;
+      const upstreamStatus = error instanceof PaquiApiError ? error.status : undefined;
       const statusCode = upstreamStatus === 401
         ? 401
         : upstreamStatus === 403
@@ -118,9 +118,9 @@ export function createHttpApp(
 
       res.status(statusCode).json(jsonRpcError(
         statusCode === 401
-          ? 'Papra API key is invalid or expired'
+          ? 'Paqui API key is invalid or expired'
           : statusCode === 403
-            ? 'Papra API key is not allowed to access this resource'
+            ? 'Paqui API key is not allowed to access this resource'
             : 'Authentication service is unavailable',
       ));
       return;
@@ -132,8 +132,8 @@ export function createHttpApp(
 
   app.post(MCP_ENDPOINTS, async (req, res) => {
     const requestId = res.locals.requestId as string;
-    const client = res.locals.apiClient as RestPapraApiClient;
-    const server = createPapraMcpServer(client, {
+    const client = res.locals.apiClient as RestPaquiApiClient;
+    const server = createPaquiMcpServer(client, {
       enableLocalFileTools: false,
       serverName: config.serverName,
     });
@@ -174,7 +174,7 @@ export function createHttpApp(
 }
 
 function describeAuthenticationFailure(error: unknown): string {
-  if (error instanceof PapraApiError) {
+  if (error instanceof PaquiApiError) {
     if (error.status === 401) return 'credential_rejected';
     if (error.status === 429) return 'upstream_rate_limited';
     return `upstream_http_${error.status}`;

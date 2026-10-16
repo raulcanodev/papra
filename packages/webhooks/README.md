@@ -1,27 +1,23 @@
-# Papra webhooks
+# Paqui webhooks
 
-This package is used to trigger and easily consume webhooks from Papra.
+This package is used to trigger and easily consume webhooks from Paqui.
 
 ## Installation
 
 ```bash
 # using pnpm
-pnpm add @papra/webhooks
+pnpm add @paqui/webhooks
 
 # using npm
-npm install @papra/webhooks
+npm install @paqui/webhooks
 
 # using yarn
-yarn add @papra/webhooks
+yarn add @paqui/webhooks
 ```
 
 ## License
 
 This project is licensed under the AGPL-3.0 License - see the [LICENSE](./LICENSE) file for details.
-
-## Community
-
-Join the community on [Papra's Discord server](https://papra.app/discord) to discuss the project, ask questions, or get help.
 
 ## Credits
 

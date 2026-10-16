@@ -1,17 +1,17 @@
 {
-  "name": "@papra/app",
+  "name": "@paqui/app",
   "version": "26.4.0",
   "private": true,
-  "description": "Papra application package - document management system (CalVer versioned).",
+  "description": "Paqui application package - document management system (CalVer versioned).",
   "repository": {
     "type": "git",
-    "url": "https://github.com/papra-hq/papra",
+    "url": "https://github.com/raulcanodev/papra",
     "directory": "packages/app"
   },
   "scripts": {
-    "build:docker:root": "docker build -t papra-local-root -f ./Dockerfile ../..",
-    "build:docker:root:amd64": "docker buildx build --platform linux/amd64 -t papra-local-root-amd64 -f ./Dockerfile --load ../..",
-    "build:docker:root:arm64": "docker buildx build --platform linux/arm64 -t papra-local-root-arm64 -f ./Dockerfile --load ../..",
-    "build:docker:rootless": "docker build -t papra-local-rootless -f ./Dockerfile.rootless ../.."
+    "build:docker:root": "docker build -t paqui-local-root -f ./Dockerfile ../..",
+    "build:docker:root:amd64": "docker buildx build --platform linux/amd64 -t paqui-local-root-amd64 -f ./Dockerfile --load ../..",
+    "build:docker:root:arm64": "docker buildx build --platform linux/arm64 -t paqui-local-root-arm64 -f ./Dockerfile --load ../..",
+    "build:docker:rootless": "docker build -t paqui-local-rootless -f ./Dockerfile.rootless ../.."
   }
 }

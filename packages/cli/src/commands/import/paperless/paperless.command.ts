@@ -1,5 +1,5 @@
 import * as prompts from '@clack/prompts';
-import { createClient } from '@papra/api-sdk';
+import { createClient } from '@paqui/api-sdk';
 import { defineCommand } from 'citty';
 import pc from 'picocolors';
 import { fileExists } from '../../../fs';
@@ -27,7 +27,7 @@ export const paperlessCommand = defineCommand({
     const { apiKey, apiUrl } = await getConfig();
 
     if (!apiKey) {
-      exit(`API key not found. Please create an api key in your Papra account and set it using the ${pc.bold('papra config init')} command.`);
+      exit(`API key not found. Please create an api key in your Paqui account and set it using the ${pc.bold('paqui config init')} command.`);
     }
 
     if (!fileExists(args.archivePath)) {

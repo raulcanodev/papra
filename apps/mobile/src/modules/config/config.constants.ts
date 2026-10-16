@@ -1,1 +1,1 @@
-export const MANAGED_SERVER_URL = 'https://api.papra.app';
+export const MANAGED_SERVER_URL = 'https://api.heypaqui.com';

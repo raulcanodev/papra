@@ -8,7 +8,7 @@ on:
     branches:
       - main
     paths:
-      - apps/papra-client/**
+      - apps/paqui-client/**
       - packages/**
       - pnpm-lock.yaml
       - .github/workflows/deploy-demo.yaml
@@ -52,8 +52,8 @@ jobs:
 
       - name: Build the demo
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
-        run: pnpm --filter @papra/app-client build:demo
+        run: pnpm --filter @paqui/app-client build:demo
 
       - name: Deploy to Cloudflare Pages
         if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
-        run: npx wrangler@4 pages deploy apps/papra-client/dist-demo --project-name=heypaqui-demo --branch=main --commit-hash=${{ github.sha }}
+        run: npx wrangler@4 pages deploy apps/paqui-client/dist-demo --project-name=heypaqui-demo --branch=main --commit-hash=${{ github.sha }}

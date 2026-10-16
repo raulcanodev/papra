@@ -1,7 +1,6 @@
-# @papra/search-parser
+# @paqui/search-parser
 
 A search query parser library for building GitHub-style search syntax with filters, logical operators, and full-text search.
-You can play with the parser in the [demo application](https://search-parser.papra.app/).
 
 ## Features
 - **TypeScript-first**: Fully typed API and AST structures.
@@ -14,17 +13,17 @@ You can play with the parser in the [demo application](https://search-parser.pap
 ## Installation
 
 ```bash
-pnpm add @papra/search-parser
+pnpm add @paqui/search-parser
 # or
-npm install @papra/search-parser
+npm install @paqui/search-parser
 # or
-yarn add @papra/search-parser
+yarn add @paqui/search-parser
 ```
 
 ## Usage
 
 ```typescript
-import { parseSearchQuery } from '@papra/search-parser';
+import { parseSearchQuery } from '@paqui/search-parser';
 
 // Simple text search
 parseSearchQuery({ query: 'foobar' });
@@ -155,7 +154,7 @@ type ParsedQuery = {
 The parser returns issues for malformed queries while doing best-effort parsing:
 
 ```typescript
-import { ERROR_CODES } from '@papra/search-parser';
+import { ERROR_CODES } from '@paqui/search-parser';
 
 const result = parseSearchQuery({ query: '(tag:invoice' });
 // {

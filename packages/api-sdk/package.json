@@ -1,20 +1,20 @@
 {
-  "name": "@papra/api-sdk",
+  "name": "@paqui/api-sdk",
   "type": "module",
   "version": "1.2.0",
-  "description": "Api SDK for Papra, the document archiving platform.",
+  "description": "Api SDK for Paqui, the document archiving platform.",
   "author": "Corentin Thomasset <corentinth@proton.me> (https://corentin.tech)",
   "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
-    "url": "https://github.com/papra-hq/papra",
+    "url": "https://github.com/raulcanodev/papra",
     "directory": "packages/api-sdk"
   },
   "bugs": {
-    "url": "https://github.com/papra-hq/papra/issues"
+    "url": "https://github.com/raulcanodev/papra/issues"
   },
   "keywords": [
-    "papra",
+    "paqui",
     "api",
     "sdk",
     "document",

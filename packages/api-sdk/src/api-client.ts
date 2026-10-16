@@ -1,13 +1,13 @@
-import type { PapraDocument, PapraTag } from './api-client.types';
+import type { PaquiDocument, PaquiTag } from './api-client.types';
 import type { ApiClient } from './http-client';
 import { injectArguments } from '@corentinth/chisels';
 import { createApiClient } from './http-client';
 
-export const PAPRA_API_URL = 'https://api.papra.app';
+export const PAQUI_API_URL = 'https://api.heypaqui.com';
 
 export type Client = ReturnType<typeof createClient>;
 
-export function createClient({ apiKey, apiBaseUrl = PAPRA_API_URL }: { apiKey: string; apiBaseUrl?: string }) {
+export function createClient({ apiKey, apiBaseUrl = PAQUI_API_URL }: { apiKey: string; apiBaseUrl?: string }) {
   const { apiClient } = createApiClient({ apiKey, apiBaseUrl });
 
   const methods = injectArguments(
@@ -36,7 +36,7 @@ async function uploadDocument({
   const formData = new FormData();
   formData.append('file', file);
 
-  return await apiClient<{ document: PapraDocument }>(`/api/organizations/${organizationId}/documents`, {
+  return await apiClient<{ document: PaquiDocument }>(`/api/organizations/${organizationId}/documents`, {
     method: 'POST',
     body: formData,
   });
@@ -52,7 +52,7 @@ async function listTags({
   organizationId,
   apiClient,
 }: { organizationId: string; apiClient: ApiClient }) {
-  return await apiClient<{ tags: PapraTag[] }>(`/api/organizations/${organizationId}/tags`, {
+  return await apiClient<{ tags: PaquiTag[] }>(`/api/organizations/${organizationId}/tags`, {
     method: 'GET',
   });
 }
@@ -70,7 +70,7 @@ async function createTag({
   description?: string;
   apiClient: ApiClient;
 }) {
-  return await apiClient<{ tag: PapraTag }>(`/api/organizations/${organizationId}/tags`, {
+  return await apiClient<{ tag: PaquiTag }>(`/api/organizations/${organizationId}/tags`, {
     method: 'POST',
     body: { name, color, description },
   });

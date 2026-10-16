@@ -37,5 +37,5 @@ export function getConfigDir({ platform = getPlatform() }: { platform?: NodeJS.P
 }
 
 export function getConfigFilePath() {
-  return join(getConfigDir(), 'papra', 'cli', 'papra.cli-config.json');
+  return join(getConfigDir(), 'paqui', 'cli', 'paqui.cli-config.json');
 }

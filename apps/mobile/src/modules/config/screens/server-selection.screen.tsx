@@ -80,7 +80,7 @@ export function ServerSelectionScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Welcome to Papra</Text>
+          <Text style={styles.title}>Welcome to Paqui</Text>
           <Text style={styles.subtitle}>Choose your server</Text>
         </View>
 
@@ -95,7 +95,7 @@ export function ServerSelectionScreen() {
           >
             <Text style={styles.optionTitle}>Managed Cloud</Text>
             <Text style={styles.optionDescription}>
-              Use the official Papra cloud service
+              Use the official Paqui cloud service
             </Text>
           </TouchableOpacity>
 
@@ -109,7 +109,7 @@ export function ServerSelectionScreen() {
           >
             <Text style={styles.optionTitle}>Self-Hosted</Text>
             <Text style={styles.optionDescription}>
-              Connect to your own Papra server
+              Connect to your own Paqui server
             </Text>
           </TouchableOpacity>
         </View>

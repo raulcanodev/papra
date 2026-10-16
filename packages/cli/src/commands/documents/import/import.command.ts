@@ -3,7 +3,7 @@ import { basename } from 'node:path';
 import process from 'node:process';
 import * as prompts from '@clack/prompts';
 import { safely } from '@corentinth/chisels';
-import { createClient } from '@papra/api-sdk';
+import { createClient } from '@paqui/api-sdk';
 import { defineCommand } from 'citty';
 import mime from 'mime-types';
 import { reportClientError } from '../../../client.models';
@@ -14,7 +14,7 @@ import { organizationIdArgument } from '../documents.arguments';
 export const importCommand = defineCommand({
   meta: {
     name: 'import',
-    description: 'Import a document to Papra',
+    description: 'Import a document to Paqui',
   },
   args: {
     path: {

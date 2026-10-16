@@ -1,5 +1,5 @@
 {
-  "name": "@papra/lecture",
+  "name": "@paqui/lecture",
   "type": "module",
   "version": "0.5.0",
   "description": "A simple library to extract text from files",
@@ -7,11 +7,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/papra-hq/papra",
+    "url": "https://github.com/raulcanodev/papra",
     "directory": "packages/lecture"
   },
   "bugs": {
-    "url": "https://github.com/papra-hq/papra/issues"
+    "url": "https://github.com/raulcanodev/papra/issues"
   },
   "keywords": [
     "file",

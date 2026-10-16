@@ -18,7 +18,7 @@ function write(level: 'info' | 'error', event: string, fields: LogFields): void 
   const entry = JSON.stringify({
     timestamp: new Date().toISOString(),
     level,
-    service: 'papra-mcp',
+    service: 'paqui-mcp',
     event,
     ...fields,
   });

@@ -1,18 +1,18 @@
-import type { PapraApiClient } from './api.js';
+import type { PaquiApiClient } from './api.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerTools } from './tools/index.js';
 
-export interface PapraMcpServerOptions {
+export interface PaquiMcpServerOptions {
   enableLocalFileTools?: boolean;
   serverName?: string;
 }
 
-export function createPapraMcpServer(
-  client: PapraApiClient,
-  options: PapraMcpServerOptions = {},
+export function createPaquiMcpServer(
+  client: PaquiApiClient,
+  options: PaquiMcpServerOptions = {},
 ): McpServer {
   const server = new McpServer({
-    name: options.serverName ?? 'papra',
+    name: options.serverName ?? 'paqui',
     version: '0.1.0',
   }, {
     instructions: [

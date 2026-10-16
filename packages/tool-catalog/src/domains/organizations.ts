@@ -6,7 +6,7 @@ export const organizationTools = [
   defineGlobalTool({
     name: 'list_organizations',
     title: 'List organizations',
-    description: 'List the Papra organizations (workspaces) accessible to the current user or API key.',
+    description: 'List the Paqui organizations (workspaces) accessible to the current user or API key.',
     risk: 'read',
     permission: API_KEY_PERMISSIONS.ORGANIZATIONS.READ,
     run: (_input, { api }) => api.request('GET', '/api/organizations'),

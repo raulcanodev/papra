@@ -1,9 +1,9 @@
 {
-  "name": "@papra/mcp",
+  "name": "@paqui/mcp",
   "private": true,
   "type": "module",
   "version": "0.1.0",
-  "description": "Papra remote MCP service.",
+  "description": "Paqui remote MCP service.",
   "license": "AGPL-3.0-or-later",
   "scripts": {
     "build": "tsc",
@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",
-    "@papra/mcp-server": "workspace:*",
+    "@paqui/mcp-server": "workspace:*",
     "zod": "^3.25.67"
   },
   "devDependencies": {

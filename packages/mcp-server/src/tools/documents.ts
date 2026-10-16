@@ -13,11 +13,11 @@ export const registerLocalFileTools: ToolRegistrar = ({ server, client, options 
 
   server.registerTool('upload_document', {
     title: 'Upload local document',
-    description: 'Upload a file from the local machine to a Papra organization. Confirm the file and organization first.',
+    description: 'Upload a file from the local machine to a Paqui organization. Confirm the file and organization first.',
     inputSchema: {
       organizationId: z.string().min(1),
       filePath: z.string().min(1).describe('Absolute or working-directory-relative local file path'),
-      fileName: z.string().min(1).optional().describe('Optional name sent to Papra'),
+      fileName: z.string().min(1).optional().describe('Optional name sent to Paqui'),
       mimeType: z.string().min(1).optional(),
     },
     annotations: {

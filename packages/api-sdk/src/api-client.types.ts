@@ -1,4 +1,4 @@
-export type PapraDocument = {
+export type PaquiDocument = {
   id: string;
   name: string;
   mimeType: string;
@@ -16,7 +16,7 @@ export type PapraDocument = {
   content: string;
 };
 
-export type PapraTag = {
+export type PaquiTag = {
   id: string;
   name: string;
   color: string;

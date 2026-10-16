@@ -1,11 +1,11 @@
-import type { Client } from '@papra/api-sdk';
+import type { Client } from '@paqui/api-sdk';
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
 import { exit, exitOnCancel, exitOnError } from '../prompts/utils';
 
 export async function promptForOrganization({ organizations }: { apiClient: Client; organizations: { id: string; name: string }[] }) {
   if (organizations.length === 0) {
-    exit('No organizations found. Please create one in the Papra dashboard first.');
+    exit('No organizations found. Please create one in the Paqui dashboard first.');
   }
 
   if (organizations.length === 1) {

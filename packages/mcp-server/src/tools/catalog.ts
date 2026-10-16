@@ -1,6 +1,6 @@
-import type { ToolDefinition, ToolRisk } from '@papra/tool-catalog';
+import type { ToolDefinition, ToolRisk } from '@paqui/tool-catalog';
 import type { ToolRegistrar } from './types.js';
-import { toolCatalog } from '@papra/tool-catalog';
+import { toolCatalog } from '@paqui/tool-catalog';
 import { z } from 'zod';
 import { runTool } from './shared.js';
 
@@ -11,7 +11,7 @@ const ANNOTATIONS_BY_RISK: Record<ToolRisk, Record<string, boolean>> = {
 };
 
 const organizationIdShape = {
-  organizationId: z.string().min(1).describe('Papra organization ID. Use list_organizations when it is not known.'),
+  organizationId: z.string().min(1).describe('Paqui organization ID. Use list_organizations when it is not known.'),
 };
 
 function getInputShape(tool: ToolDefinition) {
@@ -19,7 +19,7 @@ function getInputShape(tool: ToolDefinition) {
 }
 
 // The catalog is shared with the in-app assistant: this adapter only turns a definition into an MCP tool,
-// talking to Papra through the API key client.
+// talking to Paqui through the API key client.
 export const registerCatalogTools: ToolRegistrar = ({ server, client }) => {
   for (const tool of toolCatalog) {
     server.registerTool(tool.name, {

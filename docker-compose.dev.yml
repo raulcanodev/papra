@@ -1,6 +1,6 @@
 # Local development database (production runs on Supabase)
 # Usage: docker compose -f docker-compose.dev.yml up -d
-# Then in apps/papra-server/.env: DATABASE_URL=postgresql://papra:papra@localhost:5435/papra_dev
+# Then in apps/paqui-server/.env: DATABASE_URL=postgresql://papra:papra@localhost:5435/papra_dev
 services:
   postgres:
     container_name: papra-postgres-dev

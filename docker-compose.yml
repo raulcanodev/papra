@@ -1,6 +1,6 @@
 services:
-  papra:
-    container_name: papra
+  paqui:
+    container_name: paqui
     build:
       context: .
       dockerfile: packages/app/Dockerfile

@@ -12,8 +12,8 @@ WORKDIR /app
 
 COPY pnpm-lock.yaml ./
 COPY pnpm-workspace.yaml ./
-COPY apps/papra-client/package.json apps/papra-client/package.json
-COPY apps/papra-server/package.json apps/papra-server/package.json
+COPY apps/paqui-client/package.json apps/paqui-client/package.json
+COPY apps/paqui-server/package.json apps/paqui-server/package.json
 COPY packages/webhooks/package.json packages/webhooks/package.json
 COPY packages/lecture/package.json packages/lecture/package.json
 COPY packages/search-parser/package.json packages/search-parser/package.json
@@ -23,10 +23,10 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 
 COPY . .
 
-RUN pnpm --filter "@papra/app-client..." run build && \
-    pnpm --filter "@papra/app-server..." run build
+RUN pnpm --filter "@paqui/app-client..." run build && \
+    pnpm --filter "@paqui/app-server..." run build
 
-RUN pnpm deploy --filter=@papra/app-server --legacy --prod /prod/papra-server
+RUN pnpm deploy --filter=@paqui/app-server --legacy --prod /prod/paqui-server
 
 FROM base
 
@@ -37,8 +37,8 @@ ARG BUILD_DATE=unknown
 
 WORKDIR /app
 
-COPY --from=build /prod/papra-server ./
-COPY --from=build /app/apps/papra-client/dist ./public
+COPY --from=build /prod/paqui-server ./
+COPY --from=build /app/apps/paqui-client/dist ./public
 
 EXPOSE 1221
 

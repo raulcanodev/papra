@@ -1,5 +1,5 @@
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { PapraApiError } from '../api.js';
+import { PaquiApiError } from '../api.js';
 
 export function toolResult(data: unknown): CallToolResult {
   return {
@@ -13,11 +13,11 @@ export async function runTool(operation: () => Promise<unknown>): Promise<CallTo
     return toolResult(await operation());
   }
   catch (error) {
-    const message = error instanceof PapraApiError
-      ? `Papra API error (${error.status}): ${error.message}`
+    const message = error instanceof PaquiApiError
+      ? `Paqui API error (${error.status}): ${error.message}`
       : error instanceof Error
         ? error.message
-        : 'Unknown Papra MCP error';
+        : 'Unknown Paqui MCP error';
 
     return {
       isError: true,

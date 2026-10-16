@@ -1,20 +1,20 @@
 {
-  "name": "@papra/cli",
+  "name": "@paqui/cli",
   "type": "module",
   "version": "0.2.3",
-  "description": "Command line interface for Papra, the document archiving platform.",
+  "description": "Command line interface for Paqui, the document archiving platform.",
   "author": "Corentin Thomasset <corentinth@proton.me> (https://corentin.tech)",
   "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
-    "url": "https://github.com/papra-hq/papra",
+    "url": "https://github.com/raulcanodev/papra",
     "directory": "packages/cli"
   },
   "bugs": {
-    "url": "https://github.com/papra-hq/papra/issues"
+    "url": "https://github.com/raulcanodev/papra/issues"
   },
   "keywords": [
-    "papra",
+    "paqui",
     "cli",
     "document",
     "archiving",
@@ -28,7 +28,7 @@
   "module": "./dist/cli.js",
   "types": "./dist/cli.d.ts",
   "bin": {
-    "papra": "./bin/papra.mjs"
+    "paqui": "./bin/paqui.mjs"
   },
   "files": [
     "bin",
@@ -48,7 +48,7 @@
   "dependencies": {
     "@clack/prompts": "^1.0.0-alpha.6",
     "@corentinth/chisels": "catalog:",
-    "@papra/api-sdk": "workspace:*",
+    "@paqui/api-sdk": "workspace:*",
     "citty": "^0.1.6",
     "conf": "^13.1.0",
     "jszip": "^3.10.1",

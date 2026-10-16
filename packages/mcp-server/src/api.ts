@@ -4,13 +4,13 @@ export interface ApiKeyContext {
   permissions: string[];
 }
 
-export interface PapraApiClient {
+export interface PaquiApiClient {
   authenticate: () => Promise<ApiKeyContext>;
   request: <T = unknown>(method: string, path: string, body?: unknown) => Promise<T>;
   requestForm: <T = unknown>(method: string, path: string, body: FormData) => Promise<T>;
 }
 
-export interface RestPapraApiClientOptions {
+export interface RestPaquiApiClientOptions {
   apiUrl: string;
   apiKey: string;
   requestId?: string;
@@ -18,25 +18,25 @@ export interface RestPapraApiClientOptions {
   fetchFn?: typeof fetch;
 }
 
-export class PapraApiError extends Error {
+export class PaquiApiError extends Error {
   public constructor(
     message: string,
     public readonly status: number,
     public readonly details?: unknown,
   ) {
     super(message);
-    this.name = 'PapraApiError';
+    this.name = 'PaquiApiError';
   }
 }
 
-export class RestPapraApiClient implements PapraApiClient {
+export class RestPaquiApiClient implements PaquiApiClient {
   private readonly apiUrl: string;
   private readonly apiKey: string;
   private readonly requestId?: string;
   private readonly timeoutMs: number;
   private readonly fetchFn: typeof fetch;
 
-  public constructor(options: RestPapraApiClientOptions) {
+  public constructor(options: RestPaquiApiClientOptions) {
     this.apiUrl = options.apiUrl.replace(/\/$/, '');
     this.apiKey = options.apiKey;
     this.requestId = options.requestId;
@@ -72,7 +72,7 @@ export class RestPapraApiClient implements PapraApiClient {
       method,
       headers: {
         authorization: `Bearer ${this.apiKey}`,
-        'x-papra-source': 'mcp',
+        'x-paqui-source': 'mcp',
         ...(this.requestId ? { 'x-request-id': this.requestId } : {}),
         ...options?.headers,
       },
@@ -88,8 +88,8 @@ export class RestPapraApiClient implements PapraApiClient {
         : await response.text();
 
     if (!response.ok) {
-      throw new PapraApiError(
-        extractErrorMessage(responseBody) ?? `Papra API request failed with status ${response.status}`,
+      throw new PaquiApiError(
+        extractErrorMessage(responseBody) ?? `Paqui API request failed with status ${response.status}`,
         response.status,
         responseBody,
       );
@@ -101,7 +101,7 @@ export class RestPapraApiClient implements PapraApiClient {
 
 export function safePath(path: string): string {
   if (!path.startsWith('/') || path.startsWith('//') || path.includes('://')) {
-    throw new Error(`Invalid Papra API path: ${path}`);
+    throw new Error(`Invalid Paqui API path: ${path}`);
   }
 
   return path;

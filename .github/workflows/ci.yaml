@@ -15,13 +15,13 @@ jobs:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_USER: papra
-          POSTGRES_PASSWORD: papra
-          POSTGRES_DB: papra_ci
+          POSTGRES_USER: paqui
+          POSTGRES_PASSWORD: paqui
+          POSTGRES_DB: paqui_ci
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U papra -d papra_ci"
+          --health-cmd "pg_isready -U paqui -d paqui_ci"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -48,7 +48,7 @@ jobs:
 
       - name: Type check
         # Exclude docs as their are some typing issues we are ok with for now
-        run: pnpm -r --parallel -F "!@papra/docs" typecheck
+        run: pnpm -r --parallel -F "!@paqui/docs" typecheck
 
       # Production uses the same command before starting the HTTP server. Running
       # it twice here verifies both a clean install and migration idempotency.
@@ -56,15 +56,15 @@ jobs:
         env:
           DATABASE_URL: postgresql://papra:papra@localhost:5432/papra_ci
         run: |
-          pnpm --filter @papra/app-server migrate:up:prod
-          pnpm --filter @papra/app-server migrate:up:prod
+          pnpm --filter @paqui/app-server migrate:up:prod
+          pnpm --filter @paqui/app-server migrate:up:prod
 
       # Tests are run using vitest projects
       - name: Run tests
         run: |
           pnpm test
-          pnpm --filter @papra/mcp-server test
-          pnpm --filter @papra/mcp test
+          pnpm --filter @paqui/mcp-server test
+          pnpm --filter @paqui/mcp test
 
       # Now build the apps, the longer step, so we do it last as they are more unlikely to fail if the previous steps works
       - name: Build the apps

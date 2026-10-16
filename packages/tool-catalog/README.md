@@ -1,9 +1,9 @@
-# @papra/tool-catalog
+# @paqui/tool-catalog
 
-The single source of truth of the tools Papra exposes to AI clients. A tool is defined once here (name, description for the model, zod input, risk level, API key permission, and what it does through the Papra REST API) and consumed by two transports:
+The single source of truth of the tools Paqui exposes to AI clients. A tool is defined once here (name, description for the model, zod input, risk level, API key permission, and what it does through the Paqui REST API) and consumed by two transports:
 
-- **MCP server** (`@papra/mcp-server`): registers every tool, runs it over HTTP with an API key. The risk becomes MCP annotations.
-- **In-app assistant** (`apps/papra-server`, `ai-assistant/tools/catalog-tools.ts`): runs it in-process with the user's own session. `read` tools run immediately, `write` and `destructive` tools become approval cards.
+- **MCP server** (`@paqui/mcp-server`): registers every tool, runs it over HTTP with an API key. The risk becomes MCP annotations.
+- **In-app assistant** (`apps/paqui-server`, `ai-assistant/tools/catalog-tools.ts`): runs it in-process with the user's own session. `read` tools run immediately, `write` and `destructive` tools become approval cards.
 
 Because both go through the REST API, every rule (membership, validation, numbering, Verifactu) lives in one place, and a tool added here shows up in both.
 
@@ -21,7 +21,7 @@ Because both go through the REST API, every rule (membership, validation, number
 
 | Tool | Risk | API key permission | What it does |
 | --- | --- | --- | --- |
-| `list_organizations` | read | `organizations:read` | List the Papra organizations (workspaces) accessible to the current user or API key. |
+| `list_organizations` | read | `organizations:read` | List the Paqui organizations (workspaces) accessible to the current user or API key. |
 | `get_organization` | read | `organizations:read` | Get the current organization: name and metadata. |
 | `search_workspace` | read | `organizations:read` | Deep search across the whole workspace at once: contacts (by name, tax ID, email, city, notes), issued invoices (number, customer, notes, line descriptions), received invoices (number, supplier, line descriptions), products (name, description) and documents (name, content). |
 | `list_documents` | read | `documents:read` | Search and page through the documents of the organization by name or extracted content. |

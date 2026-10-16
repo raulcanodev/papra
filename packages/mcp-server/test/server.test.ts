@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import type { PapraApiClient } from '../src/api.js';
-import { createPapraMcpServer } from '../src/server.js';
+import type { PaquiApiClient } from '../src/api.js';
+import { createPaquiMcpServer } from '../src/server.js';
 
-const fakeClient: PapraApiClient = {
+const fakeClient: PaquiApiClient = {
   async authenticate() {
     return { id: 'key-1', name: 'Test', permissions: [] };
   },
@@ -19,7 +19,7 @@ const fakeClient: PapraApiClient = {
 
 test('local and remote factories expose the correct tool surface', async (t) => {
   const [localClientTransport, localServerTransport] = InMemoryTransport.createLinkedPair();
-  const localServer = createPapraMcpServer(fakeClient, { enableLocalFileTools: true });
+  const localServer = createPaquiMcpServer(fakeClient, { enableLocalFileTools: true });
   const localClient = new Client({ name: 'local-test', version: '1.0.0' });
   t.after(() => Promise.all([localClient.close(), localServer.close()]));
   await localServer.connect(localServerTransport);
@@ -29,7 +29,7 @@ test('local and remote factories expose the correct tool surface', async (t) => 
   assert.ok(localTools.tools.some(tool => tool.name === 'upload_document'));
 
   const [remoteClientTransport, remoteServerTransport] = InMemoryTransport.createLinkedPair();
-  const remoteServer = createPapraMcpServer(fakeClient, { enableLocalFileTools: false });
+  const remoteServer = createPaquiMcpServer(fakeClient, { enableLocalFileTools: false });
   const remoteClient = new Client({ name: 'remote-test', version: '1.0.0' });
   t.after(() => Promise.all([remoteClient.close(), remoteServer.close()]));
   await remoteServer.connect(remoteServerTransport);
@@ -43,7 +43,7 @@ test('local and remote factories expose the correct tool surface', async (t) => 
 test('catalog tools are exposed with the organization argument, risk annotations and permissions', async (t) => {
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const calls: Array<{ method: string; path: string }> = [];
-  const server = createPapraMcpServer({
+  const server = createPaquiMcpServer({
     ...fakeClient,
     async request(method, path) {
       calls.push({ method, path });

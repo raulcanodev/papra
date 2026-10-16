@@ -1,8 +1,8 @@
 {
-  "name": "@papra/mcp-server",
+  "name": "@paqui/mcp-server",
   "type": "module",
   "version": "0.1.0",
-  "description": "Model Context Protocol server for Papra.",
+  "description": "Model Context Protocol server for Paqui.",
   "license": "AGPL-3.0-or-later",
   "exports": {
     ".": "./dist/server.js",
@@ -12,7 +12,7 @@
   "main": "./dist/server.js",
   "types": "./dist/server.d.ts",
   "bin": {
-    "papra-mcp": "./bin/papra-mcp.js"
+    "paqui-mcp": "./bin/paqui-mcp.js"
   },
   "files": [
     "bin",
@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",
-    "@papra/tool-catalog": "workspace:*",
+    "@paqui/tool-catalog": "workspace:*",
     "zod": "^3.25.67"
   },
   "devDependencies": {

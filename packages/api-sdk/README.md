@@ -1,7 +1,7 @@
-# Papra API SDK
+# Paqui API SDK
 
-This is a JS/TS SDK for the Papra API.
-[Papra](https://papra.app) is an open-source self-hostable document archiving platform.
+This is a JS/TS SDK for the Paqui API.
+[Paqui](https://heypaqui.com) is an open-source self-hostable document archiving platform.
 
 # Prerequisites
 
@@ -10,17 +10,17 @@ To use the SDK, you need to have an API key. You can create one in your user set
 ## Installation
 
 ```bash
-pnpm install @papra/api-sdk
+pnpm install @paqui/api-sdk
 # or
-npm install @papra/api-sdk
+npm install @paqui/api-sdk
 # or
-yarn add @papra/api-sdk
+yarn add @paqui/api-sdk
 ```
 
 ## Usage
 
 ```ts
-import { createClient } from '@papra/api-sdk';
+import { createClient } from '@paqui/api-sdk';
 
 const client = createClient({
   // The API key can be found in your user settings (under /api-keys)
@@ -28,7 +28,7 @@ const client = createClient({
   apiKey: 'ppapi_...',
 
   // Optional: base URL of the API
-  apiBaseUrl: 'http://papra.your-instance.tld',
+  apiBaseUrl: 'http://paqui.your-instance.tld',
 });
 
 const myFile = new File(['test'], 'test.txt', { type: 'text/plain' });
@@ -50,10 +50,6 @@ await client.uploadDocument({ file });
 ## License
 
 This project is licensed under the AGPL-3.0 License - see the [LICENSE](./LICENSE) file for details.
-
-## Community
-
-Join the community on [Papra's Discord server](https://papra.app/discord) to discuss the project, ask questions, or get help.
 
 ## Credits
 

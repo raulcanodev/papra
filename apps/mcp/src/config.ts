@@ -12,9 +12,9 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): McpHtt
   return {
     host: environment.HOST?.trim() || '0.0.0.0',
     port: parsePositiveInteger(environment.PORT, 3100, 'PORT'),
-    apiUrl: environment.PAPRA_API_URL?.trim() || 'https://api.papra.app',
+    apiUrl: environment.PAPRA_API_URL?.trim() || 'https://api.heypaqui.com',
     apiTimeoutMs: parsePositiveInteger(environment.PAPRA_API_TIMEOUT_MS, 30_000, 'PAPRA_API_TIMEOUT_MS'),
-    serverName: environment.MCP_SERVER_NAME?.trim() || 'papra',
+    serverName: environment.MCP_SERVER_NAME?.trim() || 'paqui',
     allowedHosts: parseList(environment.MCP_ALLOWED_HOSTS),
     allowedOrigins: new Set(parseList(environment.MCP_ALLOWED_ORIGINS) ?? []),
   };

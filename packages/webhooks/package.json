@@ -1,20 +1,20 @@
 {
-  "name": "@papra/webhooks",
+  "name": "@paqui/webhooks",
   "type": "module",
   "version": "0.3.2",
-  "description": "Webhooks helper library for Papra, the document archiving platform.",
+  "description": "Webhooks helper library for Paqui, the document archiving platform.",
   "author": "Corentin Thomasset <corentinth@proton.me> (https://corentin.tech)",
   "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
-    "url": "https://github.com/papra-hq/papra",
+    "url": "https://github.com/raulcanodev/papra",
     "directory": "packages/webhooks"
   },
   "bugs": {
-    "url": "https://github.com/papra-hq/papra/issues"
+    "url": "https://github.com/raulcanodev/papra/issues"
   },
   "keywords": [
-    "papra",
+    "paqui",
     "webhooks",
     "document",
     "archiving",

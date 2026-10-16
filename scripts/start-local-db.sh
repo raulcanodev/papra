@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# libsql-server in Docker for local Papra development
+# libsql-server in Docker for local Paqui development
 # Uses port 8090 (HTTP) and 5001 (gRPC) to avoid conflicts with common services
 # Data is persisted in ./app-data/libsql-data
 
-CONTAINER_NAME="papra-libsql"
+CONTAINER_NAME="paqui-libsql"
 HTTP_PORT="${LIBSQL_PORT:-8090}"
 GRPC_PORT="${LIBSQL_GRPC_PORT:-5001}"
 DATA_DIR="$(cd "$(dirname "$0")/.." && pwd)/app-data/libsql-data"

@@ -1,5 +1,5 @@
 {
-  "name": "@papra/r2-daily-backup",
+  "name": "@paqui/r2-daily-backup",
   "version": "1.0.0",
   "private": true,
   "type": "module",

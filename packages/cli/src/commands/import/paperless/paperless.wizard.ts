@@ -1,4 +1,4 @@
-import type { Client } from '@papra/api-sdk';
+import type { Client } from '@paqui/api-sdk';
 import type JSZip from 'jszip';
 import type { PaperlessDocumentItem, PaperlessTagItem } from './paperless.types';
 import * as prompts from '@clack/prompts';
@@ -92,7 +92,7 @@ export async function analyzeAndHandleTags({
       ? 'No tags found in export'
       : [
           `${pluralize(preview.tags.length, 'tag')} found in export`,
-          ` - ${pluralize(existingTags.length, 'tag')} have the same name in the Papra organization`,
+          ` - ${pluralize(existingTags.length, 'tag')} have the same name in the Paqui organization`,
           ` - ${pluralize(missingTags.length, 'tag')} need to be created`,
         ].join('\n'),
     'Tags analysis',

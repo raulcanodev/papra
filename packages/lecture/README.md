@@ -1,8 +1,8 @@
-# @papra/lecture
+# @paqui/lecture
 
-`@papra/lecture` is a robust and lightweight library for extracting text content from various file formats. Whether you're processing Document for indexing or for LLM readability, this library simplifies the task of reading text content programmatically.
+`@paqui/lecture` is a robust and lightweight library for extracting text content from various file formats. Whether you're processing Document for indexing or for LLM readability, this library simplifies the task of reading text content programmatically.
 
-This lib is used in the [Papra](https://papra.app) project to extract text from various file formats.
+This lib is used in the [Paqui](https://heypaqui.com) project to extract text from various file formats.
 
 ## Features
 
@@ -13,7 +13,7 @@ This lib is used in the [Papra](https://papra.app) project to extract text from 
 
 ## Supported File Formats
 
-Currently, `@papra/lecture` supports the following file formats:
+Currently, `@paqui/lecture` supports the following file formats:
 
 - **PDF**
 - **Plain Text** (e.g., `.txt`)
@@ -32,11 +32,11 @@ We are actively working on adding support for more file formats. Stay tuned for 
 To install the package, use npm or yarn:
 
 ```bash
-pnpm install @papra/lecture
+pnpm install @paqui/lecture
 
-npm install @papra/lecture
+npm install @paqui/lecture
 
-yarn add @papra/lecture
+yarn add @paqui/lecture
 ```
 
 ## Usage
@@ -47,9 +47,9 @@ You can import the library using ES Modules or CommonJS syntax:
 
 ```javascript
 // ES Modules
-import { extractText } from '@papra/lecture';
+import { extractText } from '@paqui/lecture';
 // or CommonJS
-const { extractText } = require('@papra/lecture');
+const { extractText } = require('@paqui/lecture');
 
 const { textContent } = await extractText({arrayBuffer: file, mimeType: 'application/pdf'});
 
@@ -99,7 +99,7 @@ console.log('Extracted Text:', textContent);
 
 ## Contributing
 
-Contributions are welcome! Feel free to open issues or submit pull requests. Let's make `@papra/lecture` better together.
+Contributions are welcome! Feel free to open issues or submit pull requests. Let's make `@paqui/lecture` better together.
 
 ## Testing
 

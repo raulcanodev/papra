@@ -7,7 +7,7 @@ export type ToolRisk = 'read' | 'write' | 'destructive';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
-// The only door a tool has to the application: the same Papra REST API whatever the transport
+// The only door a tool has to the application: the same Paqui REST API whatever the transport
 // (HTTP with an API key for the MCP server, in-process with the user session for the assistant)
 export type ApiRequester = {
   request: <T = unknown>(method: HttpMethod, path: string, body?: unknown) => Promise<T>;

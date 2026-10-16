@@ -44,7 +44,7 @@ export async function triggerWebhook<T extends WebhookPayloads>({
   const timestamp = Math.floor(now.getTime() / 1000).toString();
 
   const headers: Record<string, string> = {
-    'user-agent': 'papra-webhook-client',
+    'user-agent': 'paqui-webhook-client',
     'content-type': 'application/json',
     'webhook-id': webhookId,
     'webhook-timestamp': timestamp,

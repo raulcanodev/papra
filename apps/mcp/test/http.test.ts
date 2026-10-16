@@ -22,7 +22,7 @@ test('health is public while MCP requires Bearer authentication', async (t) => {
   assert.equal(health.status, 200);
   assert.deepEqual(await health.json(), {
     status: 'ok',
-    service: 'papra-mcp',
+    service: 'paqui-mcp',
     transport: 'streamable-http',
   });
 
@@ -87,7 +87,7 @@ test('serves the modular tools over stateless HTTP with request-scoped auth', as
   const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
     requestInit: { headers: { authorization: 'Bearer ppapi_test' } },
   });
-  const client = new Client({ name: 'papra-test', version: '1.0.0' });
+  const client = new Client({ name: 'paqui-test', version: '1.0.0' });
   t.after(() => client.close());
 
   await client.connect(transport);
@@ -111,9 +111,9 @@ function baseConfig(): McpHttpConfig {
   return {
     host: '127.0.0.1',
     port: 0,
-    apiUrl: 'https://papra.invalid',
+    apiUrl: 'https://paqui.invalid',
     apiTimeoutMs: 1_000,
-    serverName: 'papra-test',
+    serverName: 'paqui-test',
     allowedHosts: ['127.0.0.1'],
     allowedOrigins: new Set(),
   };

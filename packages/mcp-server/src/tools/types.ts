@@ -1,6 +1,6 @@
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import type { PapraApiClient } from '../api.js';
-import type { PapraMcpServerOptions } from '../server.js';
+import type { PaquiApiClient } from '../api.js';
+import type { PaquiMcpServerOptions } from '../server.js';
 
 export interface ToolServer {
   registerTool: (
@@ -12,8 +12,8 @@ export interface ToolServer {
 
 export interface ToolRegistrationContext {
   server: ToolServer;
-  client: PapraApiClient;
-  options: PapraMcpServerOptions;
+  client: PaquiApiClient;
+  options: PaquiMcpServerOptions;
 }
 
 export type ToolRegistrar = (context: ToolRegistrationContext) => void;

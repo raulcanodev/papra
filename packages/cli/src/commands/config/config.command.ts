@@ -63,7 +63,7 @@ function defineConfigSetter({
 export const configCommand = defineCommand({
   meta: {
     name: 'config',
-    description: 'Manage Papra CLI configuration',
+    description: 'Manage Paqui CLI configuration',
   },
   subCommands: {
     init: defineCommand({
@@ -75,7 +75,7 @@ export const configCommand = defineCommand({
         const group = await prompts.group(
           {
             apiUrl: () => prompts.text({
-              message: 'Enter your instance URL (e.g. https://api.papra.app)',
+              message: 'Enter your instance URL (e.g. https://api.heypaqui.com)',
               validate: (value) => {
                 const result = v.safeParser(apiUrlSchema)(value);
 
@@ -160,7 +160,7 @@ export const configCommand = defineCommand({
           configKey: 'apiUrl',
           argument: {
             description: 'The API URL',
-            valueHint: 'https://api.papra.app',
+            valueHint: 'https://api.heypaqui.com',
             promptLabel: 'Enter the API URL',
           },
         }),

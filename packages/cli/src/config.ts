@@ -1,1 +1,1 @@
-export const cliName = 'papra';
+export const cliName = 'paqui';

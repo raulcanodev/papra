@@ -1,8 +1,8 @@
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { RestPapraApiClient } from './api.js';
-import { createPapraMcpServer } from './server.js';
+import { RestPaquiApiClient } from './api.js';
+import { createPaquiMcpServer } from './server.js';
 
-const apiUrl = process.env.PAPRA_API_URL ?? 'https://api.papra.app';
+const apiUrl = process.env.PAPRA_API_URL ?? 'https://api.heypaqui.com';
 const apiKey = process.env.PAPRA_API_KEY;
 
 if (!apiKey) {
@@ -10,8 +10,8 @@ if (!apiKey) {
   process.exit(1);
 }
 
-const client = new RestPapraApiClient({ apiUrl, apiKey });
-const server = createPapraMcpServer(client, {
+const client = new RestPaquiApiClient({ apiUrl, apiKey });
+const server = createPaquiMcpServer(client, {
   enableLocalFileTools: true,
   serverName: process.env.MCP_SERVER_NAME,
 });

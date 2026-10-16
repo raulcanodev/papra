@@ -1,6 +1,6 @@
-# Papra Application Package
+# Paqui Application Package
 
-This package contains the Papra application, distributed as Docker images.
+This package contains the Paqui application, distributed as Docker images.
 
 ## Versioning
 

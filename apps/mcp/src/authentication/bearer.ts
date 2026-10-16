@@ -15,7 +15,7 @@ export function readBearerToken(authorizationHeader: string | undefined): string
 }
 
 export function bearerChallenge(error?: 'invalid_token'): string {
-  const parameters = ['realm="papra-mcp"'];
+  const parameters = ['realm="paqui-mcp"'];
   if (error) {
     parameters.push(`error="${error}"`);
   }
