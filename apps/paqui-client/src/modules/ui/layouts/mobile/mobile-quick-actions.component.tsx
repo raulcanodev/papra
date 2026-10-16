@@ -31,7 +31,7 @@ export const MobileQuickActions: Component<{ open: boolean; onOpenChange: (open:
 
   const getEntityHref = (routeId: 'newInvoice' | 'newPurchaseInvoice') => `/organizations/${params.organizationId}/${organizationEntityRoutes[routeId].path}`;
 
-  const getLinkActions = () => [
+  const getLinkActions = (): { icon?: string; image?: string; label: string; description: string; href: string; isHighlighted?: boolean }[] => [
     ...(getCapabilities().invoicing
       ? [
           { icon: 'i-tabler-receipt', label: t('layout.mobile.quick-actions.new-invoice'), description: t('layout.mobile.quick-actions.new-invoice.description'), href: getEntityHref('newInvoice') },
@@ -39,7 +39,8 @@ export const MobileQuickActions: Component<{ open: boolean; onOpenChange: (open:
         ]
       : []),
     {
-      icon: 'i-tabler-sparkles',
+      // Talking to Paqui is talking to the mascot, not to a generic AI
+      image: '/logo.svg',
       label: t('layout.mobile.quick-actions.ask-paqui'),
       description: t('layout.mobile.quick-actions.ask-paqui.description'),
       href: getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'assistant' }),
@@ -115,7 +116,9 @@ export const MobileQuickActions: Component<{ open: boolean; onOpenChange: (open:
               {action => (
                 <A href={action.href} onClick={close} class="flex min-h-15 items-center gap-3.5 px-1 py-3">
                   <span class={cn('flex size-10.5 shrink-0 items-center justify-center rounded-xl', action.isHighlighted ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground')}>
-                    <div class={cn(action.icon, 'size-5')} />
+                    <Show when={action.image} fallback={<div class={cn(action.icon, 'size-5')} />}>
+                      {image => <img src={image()} alt="" width="28" height="28" class="size-7 [image-rendering:pixelated]" />}
+                    </Show>
                   </span>
                   <span class="min-w-0 flex-1">
                     <span class="block text-[15px] font-medium">{action.label}</span>
