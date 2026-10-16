@@ -187,3 +187,86 @@ textarea {
     animation: none;
   }
 }
+
+/*
+ * Tables on phones: each row becomes a card, each cell a "column title · value" line (labels from stacked-table.ts).
+ * The first cell, or the one marked data-stack-primary, is the title of the card; a cell without a column title
+ * or holding only icon buttons (the row actions) sits in its top right corner. Nothing is wider than the screen.
+ */
+@media (max-width: 767.98px) {
+  table.stacked-table,
+  .stacked-table > tbody,
+  .stacked-table > tbody > tr,
+  .stacked-table > tbody > tr > td {
+    display: block;
+  }
+
+  table.stacked-table {
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .stacked-table > thead {
+    display: none;
+  }
+
+  .stacked-table > tbody > tr {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .stacked-table > tbody > tr > td {
+    display: flex;
+    min-width: 0;
+    height: auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0;
+    text-align: right;
+  }
+
+  .stacked-table > tbody > tr > td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    text-align: left;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .stacked-table > tbody > tr > td:empty {
+    display: none;
+  }
+
+  /* The title of the card: first, without its column title, with room for the actions */
+  .stacked-table > tbody > tr:not(:has(> td[data-stack-primary])) > td:first-child,
+  .stacked-table > tbody > tr > td[data-stack-primary] {
+    order: -1;
+    justify-content: flex-start;
+    padding: 0 2.5rem 0.25rem 0;
+    text-align: left;
+    font-weight: 500;
+    color: hsl(var(--foreground));
+  }
+
+  .stacked-table > tbody > tr:not(:has(> td[data-stack-primary])) > td:first-child::before,
+  .stacked-table > tbody > tr > td[data-stack-primary]::before {
+    content: none;
+  }
+
+  .stacked-table > tbody > tr > td[data-label=""],
+  .stacked-table > tbody > tr > td[data-stack-actions] {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: auto;
+  }
+
+  .stacked-table > tbody > tr > td[data-label=""]::before,
+  .stacked-table > tbody > tr > td[data-stack-actions]::before {
+    content: none;
+  }
+}

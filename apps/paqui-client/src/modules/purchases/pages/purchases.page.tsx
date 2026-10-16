@@ -1,11 +1,11 @@
 import type { PurchaseInvoice, PurchaseInvoiceStatus } from '../purchases.types';
 import type { ActiveFilter, FilterField } from '@/modules/ui/components/table-filters';
-import { A, useNavigate, useParams, useSearchParams } from '@solidjs/router';
+import { useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
 import pLimit from 'p-limit';
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { uploadChatAttachment } from '@/modules/ai-assistant/ai-assistant.services';
-import { PhotoCaptureButton } from '@/modules/captures/components/photo-capture-button';
+import { createPhotoCapture } from '@/modules/captures/components/photo-capture-button';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { CatalogCell, CatalogRow, CatalogTable } from '@/modules/invoicing/components/catalog-page';
 import { getInvoicePayableMinor } from '@/modules/invoicing/invoicing.models';
@@ -18,6 +18,7 @@ import { createToast } from '@/modules/ui/components/sonner';
 import { dateIsInRange, getActiveFilter, isDateRangeValue } from '@/modules/ui/components/table-filters';
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
+import { AddPurchaseDialog } from '../components/add-purchase-dialog';
 import { EXPENSE_CATEGORY_LABEL_I18N_KEYS, EXTRACTABLE_FILE_ACCEPT, PURCHASE_DOCUMENT_KIND_BADGE_CLASSES, PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS, PURCHASE_DOCUMENT_KINDS, PURCHASE_STATUS_BADGE_CLASSES, PURCHASE_STATUS_LABEL_I18N_KEYS } from '../purchases.constants';
 import { createPurchaseReadings, deletePurchaseInvoice, fetchPurchaseInvoices, getPurchaseInvoicesQueryKey, setPurchaseInvoiceStatus } from '../purchases.services';
 
@@ -32,6 +33,7 @@ export function PurchasesPage() {
   const initialStatus = STATUS_FILTERS.find(status => status !== undefined && status === searchParams.status);
   const [filters, setFilters] = createSignal<ActiveFilter[]>(initialStatus ? [{ fieldId: 'status', value: [initialStatus] }] : []);
   const [isUploading, setIsUploading] = createSignal(false);
+  const [isAddOpen, setIsAddOpen] = createSignal(false);
   let fileInput: HTMLInputElement | undefined;
 
   const query = useQuery(() => ({ queryKey: getPurchaseInvoicesQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchPurchaseInvoices({ organizationId: params.organizationId }) }));
@@ -125,6 +127,8 @@ export function PurchasesPage() {
     }
   };
 
+  const photoCapture = createPhotoCapture({ organizationId: params.organizationId, purpose: 'purchase', onFiles: files => void uploadFiles(files), onDocuments: reviewDocuments });
+
   const statusMutation = createMutation(() => ({
     mutationFn: ({ purchaseInvoiceId, status }: { purchaseInvoiceId: string; status: PurchaseInvoiceStatus }) => setPurchaseInvoiceStatus({ organizationId: params.organizationId, purchaseInvoiceId, status }),
     onSuccess: async () => queryClient.invalidateQueries({ queryKey: getPurchaseInvoicesQueryKey({ organizationId: params.organizationId }) }),
@@ -147,19 +151,13 @@ export function PurchasesPage() {
           <h1 class="page-title">{t('purchases.title')}</h1>
           <p class="page-description">{t('purchases.description')}</p>
         </div>
-        <div class="flex items-center gap-2">
-          <Button as={A} variant="outline" size="sm" href={editorHref('new')} class="gap-1.5">
-            <div class="i-tabler-pencil-plus size-4" />
-            {t('purchases.new-manual')}
+        <div>
+          <Button size="sm" class="gap-1.5 max-sm:w-full" isLoading={isUploading() || photoCapture.isPreparing()} onClick={() => setIsAddOpen(true)}>
+            <div class="i-tabler-plus size-4" />
+            {t('purchases.add.button')}
           </Button>
-          <PhotoCaptureButton organizationId={params.organizationId} purpose="purchase" variant="outline" size="sm" class="gap-1.5" isLoading={isUploading()} onFiles={files => void uploadFiles(files)} onDocuments={reviewDocuments}>
-            <div class="i-tabler-camera size-4" />
-            {t('purchases.upload.photo')}
-          </PhotoCaptureButton>
-          <Button size="sm" class="gap-1.5" isLoading={isUploading()} onClick={() => fileInput?.click()}>
-            <div class="i-tabler-sparkles size-4" />
-            {t('purchases.upload.button')}
-          </Button>
+          <AddPurchaseDialog open={isAddOpen()} onOpenChange={setIsAddOpen} onUpload={() => fileInput?.click()} onPhoto={() => photoCapture.open()} manualHref={editorHref('new')} />
+          {photoCapture.elements}
           <input
             ref={fileInput}
             type="file"
@@ -184,9 +182,9 @@ export function PurchasesPage() {
             <div class="i-tabler-file-invoice mx-auto mb-3 size-9 text-muted-foreground/50" />
             <p class="font-medium">{t('purchases.empty.title')}</p>
             <p class="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{t('purchases.empty.description')}</p>
-            <Button size="sm" class="mt-4 gap-1.5" isLoading={isUploading()} onClick={() => fileInput?.click()}>
-              <div class="i-tabler-sparkles size-4" />
-              {t('purchases.upload.button')}
+            <Button size="sm" class="mt-4 gap-1.5" isLoading={isUploading()} onClick={() => setIsAddOpen(true)}>
+              <div class="i-tabler-plus size-4" />
+              {t('purchases.add.button')}
             </Button>
           </div>
         )}
@@ -212,8 +210,8 @@ export function PurchasesPage() {
                     {t(PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS[purchaseInvoice.kind])}
                   </span>
                 </CatalogCell>
-                <CatalogCell>
-                  <div class="flex items-center gap-2.5">
+                <CatalogCell primary>
+                  <div class="flex min-w-0 items-center gap-2.5">
                     <EntityIcon icon={purchaseInvoice.supplierIcon} color={purchaseInvoice.supplierIconColor} fallback="i-tabler-building" />
                     <div class="min-w-0">
                       <div class="flex items-center gap-2">

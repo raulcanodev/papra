@@ -5,6 +5,7 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/modules/ui/components/dialog';
+import { STACKED_TABLE_CLASS, useStackedTableLabels } from '@/modules/ui/components/stacked-table';
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 
 export function FormField(props: ParentProps<{ label: string; class?: string }>) {
@@ -57,9 +58,12 @@ export function CatalogPage(props: ParentProps<{ title: string; description: str
 }
 
 export function CatalogTable(props: ParentProps<{ headers: Array<{ label: string; class?: string }> }>) {
+  let table: HTMLTableElement | undefined;
+  useStackedTableLabels(() => table);
+
   return (
-    <div class="overflow-x-auto rounded-xl border border-border/80 bg-card shadow-xs dark:shadow-none">
-      <table class="w-full min-w-[720px] text-sm">
+    <div class="rounded-xl border border-border/80 bg-card shadow-xs md:overflow-x-auto dark:shadow-none">
+      <table ref={table} class={cn('w-full text-sm md:min-w-[720px]', STACKED_TABLE_CLASS)}>
         <thead class="border-b bg-muted/30 text-xs text-muted-foreground"><tr><For each={props.headers}>{header => <th class={cn('h-10 px-4 text-left font-medium', header.class)}>{header.label}</th>}</For></tr></thead>
         <tbody class="divide-y">{props.children}</tbody>
       </table>
@@ -71,8 +75,9 @@ export function CatalogRow(props: ParentProps<{ onClick?: () => void; class?: st
   return <tr class={cn('transition-colors hover:bg-muted/25', props.onClick && 'cursor-pointer', props.class)} onClick={() => props.onClick?.()}>{props.children}</tr>;
 }
 
-export function CatalogCell(props: ParentProps<{ class?: string }>) {
-  return <td class={cn('h-12 px-4 align-middle', props.class)}>{props.children}</td>;
+/** `primary`: the title of the row when the table is shown as cards on phones (the first cell otherwise) */
+export function CatalogCell(props: ParentProps<{ class?: string; primary?: boolean }>) {
+  return <td class={cn('h-12 px-4 align-middle', props.class)} data-stack-primary={props.primary ? '' : undefined}>{props.children}</td>;
 }
 
 /** Dialog footer for catalog forms: spans the whole form grid. */

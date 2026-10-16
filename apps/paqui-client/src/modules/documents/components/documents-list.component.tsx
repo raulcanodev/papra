@@ -147,7 +147,7 @@ export const DocumentsPaginatedList: Component<{
       <Switch>
         <Match when={props.documentsCount > 0}>
           <div class="overflow-hidden rounded-xl border border-border/80 bg-card shadow-[0_1px_2px_rgb(0_0_0/0.04)] dark:shadow-none">
-            <Table class="[&_tbody_tr:last-child]:border-b-0">
+            <Table stacked={false} class="max-sm:table-fixed [&_tbody_tr:last-child]:border-b-0">
               <TableHeader class="bg-muted/35">
                 <For each={table.getHeaderGroups()}>
                   {headerGroup => (

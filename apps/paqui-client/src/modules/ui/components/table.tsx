@@ -2,17 +2,25 @@ import type { ComponentProps } from 'solid-js';
 import type { TableToolbarProps } from './table-toolbar';
 import { splitProps } from 'solid-js';
 import { cn } from '@/modules/shared/style/cn';
+import { STACKED_TABLE_CLASS, useStackedTableLabels } from './stacked-table';
 import { TableToolbar } from './table-toolbar';
 
-export function Table(props: ComponentProps<'table'> & { toolbar?: TableToolbarProps }) {
-  const [local, rest] = splitProps(props, ['class', 'toolbar']);
+/** `stacked`: rows become cards on phones instead of a table wider than the screen (on by default) */
+export function Table(props: ComponentProps<'table'> & { toolbar?: TableToolbarProps; stacked?: boolean }) {
+  const [local, rest] = splitProps(props, ['class', 'toolbar', 'stacked', 'ref']);
+  let table: HTMLTableElement | undefined;
+  useStackedTableLabels(() => (local.stacked === false ? undefined : table));
 
   return (
     <>
       {local.toolbar && <TableToolbar {...local.toolbar} />}
-      <div class="w-full overflow-auto">
+      <div class={cn('w-full', local.stacked === false ? 'overflow-auto' : 'md:overflow-auto')}>
         <table
-          class={cn('w-full caption-bottom text-sm text-nowrap', local.class)}
+          ref={(element) => {
+            table = element;
+            (local.ref as ((element: HTMLTableElement) => void) | undefined)?.(element);
+          }}
+          class={cn('w-full caption-bottom text-sm text-nowrap', local.stacked !== false && STACKED_TABLE_CLASS, local.class)}
           {...rest}
         />
       </div>

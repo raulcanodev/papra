@@ -44,7 +44,7 @@ const KeyValues: Component<{ data?: KeyValueItem[] }> = (props) => {
             {item.icon && <div class={item.icon} />}
             {item.label}
           </div>
-          <div class="py-1 pl-2 text-sm">{item.value}</div>
+          <div class="min-w-0 py-1 pl-2 text-sm break-words">{item.value}</div>
         </>
       )}
     </For>
@@ -210,29 +210,30 @@ export const DocumentPage: Component = () => {
   return (
     <div class="page-full gap-6 md:flex-row">
       <Suspense>
-        <div class="md:flex-1 md:border-r">
+        <div class="min-w-0 md:flex-1 md:border-r">
           <Show when={documentQuery.data?.document}>
             {getDocument => (
               <div class="flex gap-4 md:pr-6">
-                <div class="flex-1">
+                <div class="min-w-0 flex-1">
                   <Button
                     variant="ghost"
-                    class="flex items-center gap-2 group bg-transparent! px-0 text-left h-auto"
+                    class="flex max-w-full items-center gap-2 group bg-transparent! px-0 text-left h-auto whitespace-normal"
                     onClick={() => openRenameDialog({
                       documentId: getDocument().id,
                       organizationId: params.organizationId,
                       documentName: getDocument().name,
                     })}
                   >
-                    <h1 class="text-xl font-semibold lh-tight" title={getDocument().name}>
+                    <h1 class="min-w-0 text-xl font-semibold lh-tight break-words" title={getDocument().name}>
                       {getDocument().name}
                     </h1>
 
                     <div class="i-tabler-pencil size-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
                   </Button>
-                  <p class="text-sm text-muted-foreground mb-6">{getDocument().id}</p>
+                  <p class="text-sm text-muted-foreground mb-6 break-all">{getDocument().id}</p>
 
-                  <div class="flex gap-2 mb-2">
+                  {/* Two columns of full width buttons on phones, a single row on wider screens */}
+                  <div class="mb-2 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap [&>*]:w-full sm:[&>*]:w-auto">
                     <Button
                       onClick={() => downloadFile({ fileName: getDocument().name, url: getDataUrl()! })}
                       variant="outline"
@@ -321,7 +322,7 @@ export const DocumentPage: Component = () => {
                             value: (
                               <Button
                                 variant="ghost"
-                                class="flex items-center gap-2 group bg-transparent! p-0 h-auto text-left"
+                                class="flex max-w-full items-center gap-2 group bg-transparent! p-0 h-auto text-left whitespace-normal break-words"
                                 onClick={() => openRenameDialog({
                                   documentId: getDocument().id,
                                   organizationId: params.organizationId,
@@ -424,7 +425,7 @@ export const DocumentPage: Component = () => {
           </Show>
         </div>
 
-        <div class="flex-1 min-h-50vh">
+        <div class="min-w-0 flex-1 min-h-50vh">
           <Show when={documentQuery.data?.document}>
             {getDocument => (
               <DocumentPreview document={getDocument()} />
