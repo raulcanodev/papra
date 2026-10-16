@@ -44,6 +44,8 @@ export const LanguageSwitcher: Component = () => {
 /**
  * Dashboard shell: a sidebar on the app canvas and the workspace as an inset, rounded panel.
  * Pages choose their own width with the `page`, `page-narrow` or `page-full` shortcuts.
+ * Below `md`, a shell given `mobileHeader` and `mobileNav` swaps the side menu for a phone layout (header on top,
+ * bottom bar); the others keep the side menu in a drawer.
  */
 export const AppShell: ParentComponent<{
   sideNav: Component;
@@ -52,13 +54,15 @@ export const AppShell: ParentComponent<{
   aside?: Component;
   isSidebarOpen?: () => boolean;
   onToggleSidebar?: () => void;
+  mobileHeader?: Component;
+  mobileNav?: Component;
 }> = (props) => {
   const { t } = useI18n();
   const [isMobileNavOpen, setIsMobileNavOpen] = createSignal(false);
   const isSidebarOpen = () => props.isSidebarOpen?.() ?? true;
 
   return (
-    <div class="flex h-dvh min-h-0 w-full bg-sidebar text-sidebar-foreground">
+    <div class="flex h-dvh min-h-0 w-full bg-sidebar pt-[env(safe-area-inset-top)] text-sidebar-foreground">
       <div class={cn('hidden shrink-0 overflow-hidden transition-[width] duration-200 ease-linear md:block', isSidebarOpen() ? 'w-64' : 'w-0')}>
         <div class="h-full w-64">
           <props.sideNav />
@@ -70,7 +74,13 @@ export const AppShell: ParentComponent<{
           <div class="flex min-w-0 flex-1 flex-col">
             {props.banner && <props.banner />}
 
-            <header class="flex h-12 shrink-0 items-center gap-2 border-b border-border/80 px-4 lg:px-6">
+            {props.mobileHeader && (
+              <header class="flex h-14 shrink-0 items-center gap-1 border-b border-border/80 pl-2 pr-3 md:hidden">
+                <props.mobileHeader />
+              </header>
+            )}
+
+            <header class={cn('flex h-12 shrink-0 items-center gap-2 border-b border-border/80 px-4 lg:px-6', props.mobileHeader && 'hidden md:flex')}>
               <Show when={props.onToggleSidebar}>
                 <Button
                   variant="ghost"
@@ -98,7 +108,8 @@ export const AppShell: ParentComponent<{
               {props.header && <props.header />}
             </header>
 
-            <main class="relative min-h-0 flex-1 overflow-y-auto">
+            {/* Room for the bottom bar, so the end of every page stays reachable above it */}
+            <main class={cn('relative min-h-0 flex-1 overflow-y-auto', props.mobileNav && 'pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0')}>
               <Suspense>
                 {props.children}
               </Suspense>
@@ -108,6 +119,8 @@ export const AppShell: ParentComponent<{
           {props.aside && <props.aside />}
         </div>
       </div>
+
+      {props.mobileNav && <props.mobileNav />}
     </div>
   );
 };
@@ -131,6 +144,8 @@ export const SidenavLayout: ParentComponent<{
   header?: Component;
   rightPanel?: Component;
   isRightPanelOpen?: () => boolean;
+  mobileHeader?: Component;
+  mobileNav?: Component;
 }> = (props) => {
   const params = useParams();
   const { uploadDocuments } = useDocumentUpload();
@@ -178,6 +193,8 @@ export const SidenavLayout: ParentComponent<{
       header={props.header}
       isSidebarOpen={isSidebarOpen}
       onToggleSidebar={() => setIsSidebarOpen(value => !value)}
+      mobileHeader={props.mobileHeader}
+      mobileNav={props.mobileNav}
       banner={() => <UsageWarningCard organizationId={params.organizationId} />}
       aside={() => (
         <Show when={props.rightPanel && (props.isRightPanelOpen?.() ?? true)}>

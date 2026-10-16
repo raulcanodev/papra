@@ -30,6 +30,8 @@ export const organizationRoutes = {
   financeSubscriptions: { path: 'finances/subscriptions', surface: 'workspace' },
   financeGoals: { path: 'finances/goals', surface: 'workspace' },
   deletedDocuments: { path: 'documents/deleted', surface: 'workspace' },
+  // Phones only: what does not fit in the bottom bar
+  more: { path: 'more', surface: 'workspace' },
 
   settingsGeneral: { path: 'settings', surface: 'settings' },
   settingsMembers: { path: 'settings/members', surface: 'settings' },
@@ -45,6 +47,7 @@ export const organizationRoutes = {
   settingsInvoiceBranding: { path: 'settings/invoicing/branding', surface: 'settings' },
   settingsWebhooks: { path: 'settings/integrations/webhooks', surface: 'settings' },
   settingsUsage: { path: 'settings/account/usage', surface: 'settings' },
+  settingsApp: { path: 'settings/account/app', surface: 'settings' },
 } as const satisfies Record<string, OrganizationRouteDefinition>;
 
 export type OrganizationRouteId = keyof typeof organizationRoutes;
@@ -66,6 +69,7 @@ export const organizationRouteLabelKeys = {
   financeSubscriptions: 'navigation.item.subscriptions',
   financeGoals: 'navigation.item.goals',
   deletedDocuments: 'layout.menu.deleted-documents',
+  more: 'navigation.item.more',
   settingsGeneral: 'navigation.item.general',
   settingsMembers: 'navigation.item.members',
   settingsModules: 'navigation.item.modules',
@@ -80,6 +84,7 @@ export const organizationRouteLabelKeys = {
   settingsInvoiceBranding: 'navigation.item.invoice-branding',
   settingsWebhooks: 'navigation.item.webhooks',
   settingsUsage: 'navigation.item.usage',
+  settingsApp: 'navigation.item.app',
 } as const satisfies Record<OrganizationRouteId, TranslationKeys>;
 
 type NavigationItemDefinition = {
@@ -187,6 +192,7 @@ const settingsNavigation: readonly NavigationSectionDefinition[] = [
     labelKey: 'navigation.section.account',
     items: [
       { routeId: 'settingsUsage', icon: 'i-tabler-chart-bar' },
+      { routeId: 'settingsApp', icon: 'i-tabler-device-mobile' },
     ],
   },
 ];

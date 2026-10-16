@@ -56,11 +56,13 @@ import { DeletedOrganizationsPage } from './modules/organizations/pages/deleted-
 import { InvitationsListPage } from './modules/organizations/pages/invitations-list.page';
 import { InviteMemberPage } from './modules/organizations/pages/invite-member.page';
 import { MembersPage } from './modules/organizations/pages/members.page';
+import { OrganizationMorePage } from './modules/organizations/pages/organization-more.page';
 import { OrganizationUsagePage } from './modules/organizations/pages/organization-usage.page';
 import { OrganizationsSettingsPage } from './modules/organizations/pages/organizations-settings.page';
 import { OrganizationsPage } from './modules/organizations/pages/organizations.page';
 import { PurchaseEditorPage } from './modules/purchases/pages/purchase-editor.page';
 import { PurchasesPage } from './modules/purchases/pages/purchases.page';
+import { InstallAppPage } from './modules/pwa/pages/install-app.page';
 import { AboutPage } from './modules/shared/pages/about.page';
 import { LandingPage } from './modules/shared/pages/landing.page';
 import { NotFoundPage } from './modules/shared/pages/not-found.page';
@@ -356,6 +358,10 @@ export const routes: RouteDefinition[] = [
                         component: AiAssistantPage,
                       },
                       {
+                        path: getOrganizationNestedRoutePath('more'),
+                        component: OrganizationMorePage,
+                      },
+                      {
                         path: '/invite',
                         component: () => <OrganizationRouteRedirect routeId="settingsMembers" childPath="invite" />,
                       },
@@ -451,6 +457,10 @@ export const routes: RouteDefinition[] = [
                   {
                     path: getOrganizationNestedRoutePath('settingsUsage'),
                     component: OrganizationUsagePage,
+                  },
+                  {
+                    path: getOrganizationNestedRoutePath('settingsApp'),
+                    component: InstallAppPage,
                   },
                   {
                     path: '/integrations/webhooks/create',

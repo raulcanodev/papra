@@ -32,7 +32,7 @@ export const DemoIndicator: Component = () => {
     <Portal>
       <Switch>
         <Match when={getPopupState() === 'minified'}>
-          <div class="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-xl max-w-280px">
+          <div class="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-1/2 z-50 md:bottom-4 -translate-x-1/2 rounded-xl max-w-280px">
             <Button onClick={switchToStateUnlessCtrl('expanded')} size="icon">
               <div class="i-tabler-info-circle size-5.5" />
             </Button>
@@ -40,7 +40,7 @@ export const DemoIndicator: Component = () => {
         </Match>
 
         <Match when={getPopupState() === 'expanded'}>
-          <div class="fixed bottom-4 right-4 z-50 border bg-popover text-popover-foreground p-5 py-4 rounded-xl shadow-lg shadow-black/10 max-w-300px">
+          <div class="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-50 md:bottom-4 border bg-popover text-popover-foreground p-5 py-4 rounded-xl shadow-lg shadow-black/10 max-w-300px">
             <p class="text-sm">
               {t('demo.popup.description')}
             </p>

@@ -1,7 +1,5 @@
 import type { Component, ParentComponent } from 'solid-js';
 
-import type { Organization } from '@/modules/organizations/organizations.types';
-
 import type { SideNavCustomization } from '@/modules/ui/components/sidenav';
 import { useLocation, useNavigate, useParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
@@ -11,30 +9,24 @@ import { AiAssistant } from '@/modules/ai-assistant/pages/ai-assistant.page';
 import { useCommandPalette } from '@/modules/command-palette/command-palette.provider';
 import { useConfig } from '@/modules/config/config.provider';
 import { DocumentUploadProvider } from '@/modules/documents/components/document-import-status.component';
-import { getGestoriaHomeHref } from '@/modules/gestorias/gestorias.navigation';
-import { fetchUserGestorias } from '@/modules/gestorias/gestorias.services';
 import { useI18n } from '@/modules/i18n/i18n.provider';
-import { fetchOrganization, fetchOrganizations } from '@/modules/organizations/organizations.services';
+import { OrganizationSwitcher } from '@/modules/organizations/components/organization-switcher.component';
+import { fetchOrganization } from '@/modules/organizations/organizations.services';
 import { toggleHiddenId } from '@/modules/preferences/preferences.models';
 import { useMemberPreferences } from '@/modules/preferences/use-member-preferences';
 import { queryClient } from '@/modules/shared/query/query-client';
+import { cn } from '@/modules/shared/style/cn';
 import { getErrorStatus } from '@/modules/shared/utils/errors';
 import { UpgradeDialog } from '@/modules/subscriptions/components/upgrade-dialog.component';
 import { fetchOrganizationSubscription } from '@/modules/subscriptions/subscriptions.services';
 import { SideNav } from '@/modules/ui/components/sidenav';
 import { buildOrganizationWorkspaceNavigation, getOrganizationRouteHref, getOrganizationRouteLabelKey } from '@/modules/ui/navigation/organization-navigation';
 import { useNavigationCapabilities } from '@/modules/ui/navigation/use-navigation-capabilities';
+import { useOrganizationFooterMenu } from '@/modules/ui/navigation/use-organization-footer-menu';
 import { UserSettingsDropdown } from '@/modules/users/components/user-settings.component';
 import { useCurrentUser } from '@/modules/users/composables/useCurrentUser';
 import { Button } from '../components/button';
-import { DiceBearAvatar } from '../components/dicebear-avatar';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/select';
+import { MobileTabBar } from './mobile/mobile-tab-bar.component';
 import { ShellBreadcrumb, SidenavLayout } from './sidenav.layout';
 
 const UpgradeCTAFooter: Component<{ organizationId: string }> = (props) => {
@@ -85,7 +77,7 @@ const OrganizationLayoutSideNav: Component = () => {
   const params = useParams();
   const { t } = useI18n();
   const { openCommandPalette } = useCommandPalette();
-  const { user, hasPermission } = useCurrentUser();
+  const { user } = useCurrentUser();
 
   const getCapabilities = useNavigationCapabilities();
   // A restaurant has no sales representatives: each member hides what their business does not use
@@ -116,33 +108,7 @@ const OrganizationLayoutSideNav: Component = () => {
     },
   });
 
-  // People who also work at a gestoría switch to its workspace from here
-  const gestoriasQuery = useQuery(() => ({ queryKey: ['gestorias'], queryFn: fetchUserGestorias }));
-
-  const getFooterMenuItems = () => [
-    ...(gestoriasQuery.data?.gestorias ?? []).map((gestoria, _, gestorias) => ({
-      label: gestorias.length > 1 ? gestoria.name : t('layout.menu.gestoria-view'),
-      icon: 'i-tabler-briefcase',
-      href: getGestoriaHomeHref({ gestoriaId: gestoria.id }),
-    })),
-    {
-      label: t('layout.menu.organization-settings'),
-      icon: 'i-tabler-settings',
-      href: getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'settingsGeneral' }),
-    },
-    ...(hasPermission('bo:access')
-      ? [{
-          label: t('layout.menu.admin'),
-          icon: 'i-tabler-shield-lock',
-          href: '/admin',
-        }]
-      : []),
-  ];
-
-  const organizationsQuery = useQuery(() => ({
-    queryKey: ['organizations'],
-    queryFn: fetchOrganizations,
-  }));
+  const getFooterMenuItems = useOrganizationFooterMenu();
 
   const organizationQuery = useQuery(() => ({
     queryKey: ['organizations', params.organizationId],
@@ -175,69 +141,7 @@ const OrganizationLayoutSideNav: Component = () => {
       header={() =>
         (
           <div class="flex min-w-0 max-w-full flex-col gap-2">
-            <Select
-              class="w-full"
-              options={[...organizationsQuery.data?.organizations ?? [], { id: 'create' }]}
-              optionValue="id"
-              optionTextValue="name"
-              value={organizationsQuery.data?.organizations.find(organization => organization.id === params.organizationId)}
-              onChange={(value) => {
-                if (!value || value.id === params.organizationId) {
-                  return;
-                }
-
-                return value && (
-                  value.id === 'create'
-                    ? navigate('/organizations/create')
-                    : navigate(`/organizations/${value.id}`));
-              }}
-              itemComponent={props => props.item.rawValue.id === 'create'
-                ? (
-                    <SelectItem class="cursor-pointer" item={props.item}>
-                      <div class="flex items-center gap-2 text-muted-foreground">
-                        <div class="i-tabler-plus size-4" />
-                        <div>{t('layout.organization.create')}</div>
-                      </div>
-                    </SelectItem>
-                  )
-                : (
-                    <SelectItem class="cursor-pointer" item={props.item}>
-                      <div class="flex min-w-0 items-center gap-2">
-                        <DiceBearAvatar
-                          seed={props.item.rawValue.id}
-                          type="organization"
-                          alt=""
-                          class="size-6 rounded-sm border"
-                        />
-                        <span class="truncate">{props.item.rawValue.name}</span>
-                      </div>
-                    </SelectItem>
-                  )}
-            >
-              <SelectTrigger
-                class="h-12 rounded-md border-0 bg-transparent px-2 shadow-none transition-colors hover:bg-sidebar-accent focus:ring-0 data-[expanded]:bg-sidebar-accent"
-                caretIcon={<div class="i-tabler-selector size-4 shrink-0 text-muted-foreground" />}
-              >
-                <SelectValue<Organization | undefined> class="flex min-w-0 items-center gap-2">
-                  {state => (
-                    <>
-                      <DiceBearAvatar
-                        seed={state.selectedOption()?.id ?? 'organization'}
-                        type="organization"
-                        alt=""
-                        class="size-8 rounded-md border"
-                      />
-
-                      <span class="truncate text-sm font-semibold">
-                        {state.selectedOption()?.name}
-                      </span>
-                    </>
-                  )}
-                </SelectValue>
-              </SelectTrigger>
-
-              <SelectContent />
-            </Select>
+            <OrganizationSwitcher class="w-full" />
 
             <button
               type="button"
@@ -258,7 +162,8 @@ const OrganizationLayoutSideNav: Component = () => {
   );
 };
 
-const OrganizationWorkspaceHeader: Component<{ organizationName?: string }> = (props) => {
+// The Paqui button: opens the assistant next to the page (over it on a phone), or leaves its full page for that
+const AssistantToggleButton: Component<{ class?: string }> = (props) => {
   const params = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -278,22 +183,53 @@ const OrganizationWorkspaceHeader: Component<{ organizationName?: string }> = (p
   };
 
   return (
+    <Button
+      variant={assistantPanel.isOpen() && !isAssistantPage() ? 'secondary' : 'ghost'}
+      size="sm"
+      class={cn('h-8 gap-1.5', props.class)}
+      onClick={handleAssistantClick}
+      aria-pressed={assistantPanel.isOpen() && !isAssistantPage()}
+      aria-label={t('ai-assistant.subtitle')}
+    >
+      <img src="/logo.svg" alt="" class="size-5 [image-rendering:pixelated]" />
+    </Button>
+  );
+};
+
+const OrganizationWorkspaceHeader: Component<{ organizationName?: string }> = (props) => {
+  const params = useParams();
+  const location = useLocation();
+  const { t } = useI18n();
+
+  return (
     <div class="flex min-w-0 flex-1 items-center justify-between gap-3">
       <ShellBreadcrumb
         parent={props.organizationName}
         title={t(getOrganizationRouteLabelKey({ organizationId: params.organizationId, pathname: location.pathname }))}
       />
 
-      <Button
-        variant={assistantPanel.isOpen() && !isAssistantPage() ? 'secondary' : 'ghost'}
-        size="sm"
-        class="h-8 gap-1.5 -mr-2"
-        onClick={handleAssistantClick}
-        aria-pressed={assistantPanel.isOpen() && !isAssistantPage()}
-        aria-label={t('ai-assistant.subtitle')}
-      >
-        <img src="/logo.svg" alt="" class="size-5 [image-rendering:pixelated]" />
-      </Button>
+      <AssistantToggleButton class="-mr-2" />
+    </div>
+  );
+};
+
+// The phone has no side menu: the organization, the search, the assistant and the account sit in the header
+const OrganizationMobileHeader: Component = () => {
+  const { t } = useI18n();
+  const { openCommandPalette } = useCommandPalette();
+  const { user } = useCurrentUser();
+
+  return (
+    <div class="flex min-w-0 flex-1 items-center justify-between gap-1">
+      <OrganizationSwitcher class="min-w-0" triggerClass="h-11 max-w-full gap-1 px-1.5 hover:bg-accent data-[expanded]:bg-accent" />
+
+      <div class="flex shrink-0 items-center gap-0.5">
+        <Button variant="ghost" size="icon" class="size-10 rounded-full text-muted-foreground" onClick={openCommandPalette} aria-label={t('layout.mobile.search')}>
+          <div class="i-tabler-search size-5" />
+        </Button>
+        <AssistantToggleButton class="size-10 rounded-full p-0" />
+        <UserSettingsDropdown compact userId={user.id} userName={user.name} userEmail={user.email} class="ml-0.5" />
+      </div>
     </div>
   );
 };
@@ -329,6 +265,8 @@ const OrganizationWorkspaceShell: ParentComponent<{ organizationName?: string }>
     <SidenavLayout
       sideNav={OrganizationLayoutSideNav}
       header={() => <OrganizationWorkspaceHeader organizationName={props.organizationName} />}
+      mobileHeader={OrganizationMobileHeader}
+      mobileNav={MobileTabBar}
       rightPanel={OrganizationAiAssistantPanel}
       isRightPanelOpen={isAssistantPanelOpen}
     >

@@ -12,7 +12,14 @@ import { DiceBearAvatar } from '@/modules/ui/components/dicebear-avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/modules/ui/components/dropdown-menu';
 import { LanguageSwitcher } from '@/modules/ui/layouts/sidenav.layout';
 
-export const UserSettingsDropdown: Component<{ class?: string; userId?: string; userName?: string | null; userEmail?: string }> = (props) => {
+export const UserSettingsDropdown: Component<{
+  class?: string;
+  userId?: string;
+  userName?: string | null;
+  userEmail?: string;
+  /** Only the avatar, for the header of the phone */
+  compact?: boolean;
+}> = (props) => {
   const { getPendingInvitationsCount } = usePendingInvitationsCount();
   const aboutDialog = useAboutDialog();
   const { t } = useI18n();
@@ -23,7 +30,9 @@ export const UserSettingsDropdown: Component<{ class?: string; userId?: string; 
       <DropdownMenuTrigger
         as={Button}
         class={cn(
-          'relative h-12 w-full justify-start items-center gap-2 px-2 font-normal truncate hover:bg-sidebar-accent data-[expanded]:bg-sidebar-accent',
+          props.compact
+            ? 'relative size-10 shrink-0 rounded-full p-0'
+            : 'relative h-12 w-full justify-start items-center gap-2 px-2 font-normal truncate hover:bg-sidebar-accent data-[expanded]:bg-sidebar-accent',
           props.class,
         )}
         variant="ghost"
@@ -42,13 +51,15 @@ export const UserSettingsDropdown: Component<{ class?: string; userId?: string; 
             </div>
           </Show>
         </div>
-        <div class="grid min-w-0 flex-1 text-left leading-tight">
-          <span class="truncate text-sm font-medium text-foreground">{props.userName || props.userEmail?.split('@')[0]}</span>
-          <Show when={props.userEmail}>
-            <span class="truncate text-xs text-muted-foreground">{props.userEmail}</span>
-          </Show>
-        </div>
-        <div class="i-tabler-selector size-4 shrink-0 text-muted-foreground" />
+        <Show when={!props.compact}>
+          <div class="grid min-w-0 flex-1 text-left leading-tight">
+            <span class="truncate text-sm font-medium text-foreground">{props.userName || props.userEmail?.split('@')[0]}</span>
+            <Show when={props.userEmail}>
+              <span class="truncate text-xs text-muted-foreground">{props.userEmail}</span>
+            </Show>
+          </div>
+          <div class="i-tabler-selector size-4 shrink-0 text-muted-foreground" />
+        </Show>
       </DropdownMenuTrigger>
       <DropdownMenuContent class="min-w-56">
         <DropdownMenuItem class="flex items-center gap-2 cursor-pointer" as={A} href="/settings">

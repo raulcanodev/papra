@@ -12,6 +12,9 @@ import { isDemoMode } from './modules/config/config';
 import { ConfigProvider } from './modules/config/config.provider';
 import { RenameDocumentDialogProvider } from './modules/documents/components/rename-document-button.component';
 import { I18nProvider } from './modules/i18n/i18n.provider';
+import { PwaUpdateToast } from './modules/pwa/components/pwa-update-toast.component';
+import { listenForInstallPrompt } from './modules/pwa/pwa.install';
+import { registerServiceWorker } from './modules/pwa/pwa.service-worker';
 import { AboutDialogProvider } from './modules/shared/components/about-dialog';
 import { ConfirmModalProvider } from './modules/shared/confirm';
 import { queryClient } from './modules/shared/query/query-client';
@@ -25,6 +28,13 @@ import 'virtual:uno.css';
 import './app.css';
 
 applyBrandMetadata();
+
+// Installable app: the browser offers the installation once, early, so it is caught from the start.
+// No service worker in development (it would serve stale modules) nor in the public demo.
+listenForInstallPrompt();
+if (import.meta.env.PROD && !isDemoMode) {
+  registerServiceWorker();
+}
 
 // After a deploy, a tab still running the previous build asks for chunks that no longer exist.
 // Reload once to pick up the new build instead of leaving a broken page (guarded to never loop).
@@ -80,6 +90,7 @@ render(
                       </ConfigProvider>
 
                       <Toaster />
+                      <PwaUpdateToast />
                     </CommandPaletteProvider>
                   </ThemeProvider>
 
