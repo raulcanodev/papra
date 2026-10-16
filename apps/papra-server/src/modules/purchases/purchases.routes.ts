@@ -7,21 +7,26 @@ import { createOrganizationsRepository } from '../organizations/organizations.re
 import { ensureUserIsInOrganization } from '../organizations/organizations.usecases';
 import { legacyValidateJsonBody, legacyValidateParams, legacyValidateQuery } from '../shared/validation/validation.legacy';
 import { createPurchaseInvoiceNotFoundError } from './purchases.errors';
-import { extractPurchaseInvoiceFromDocument } from './purchases.extraction.usecases';
 import { createPurchasesRepository } from './purchases.repository';
-import { purchaseInvoiceDraftSchema, purchaseInvoiceExtractionBodySchema, purchaseInvoiceIdSchema, purchaseInvoiceListQuerySchema, purchaseInvoiceStatusBodySchema } from './purchases.schemas';
+import { purchaseInvoiceDraftSchema, purchaseInvoiceExtractionBodySchema, purchaseInvoiceIdSchema, purchaseInvoiceListQuerySchema, purchaseInvoiceStatusBodySchema, purchaseReadingsBodySchema, purchaseReadingsQuerySchema } from './purchases.schemas';
+import { createDocumentReadingsRepository } from './readings/document-readings.repository';
+import { wakeDocumentReadings } from './readings/document-readings.task';
+import { filterOrganizationDocumentIds, formatReadingsForApi, getOrReadPurchaseDocument } from './readings/document-readings.usecases';
 
 const organizationParamsSchema = z.object({ organizationId: organizationIdSchema });
 const purchaseInvoiceParamsSchema = z.object({ organizationId: organizationIdSchema, purchaseInvoiceId: purchaseInvoiceIdSchema });
 
 export function registerPurchasesRoutes(context: RouteDefinitionContext) {
   setupListPurchaseInvoicesRoute(context);
+  // Before the invoice route: "readings" is not an invoice id
+  setupGetPurchaseReadingsRoute(context);
   setupGetPurchaseInvoiceRoute(context);
   setupCreatePurchaseInvoiceRoute(context);
   setupUpdatePurchaseInvoiceRoute(context);
   setupSetPurchaseInvoiceStatusRoute(context);
   setupDeletePurchaseInvoiceRoute(context);
   setupExtractPurchaseInvoiceRoute(context);
+  setupEnqueuePurchaseReadingsRoute(context);
 }
 
 function setupListPurchaseInvoicesRoute({ app, db }: RouteDefinitionContext) {
@@ -157,9 +162,55 @@ function setupExtractPurchaseInvoiceRoute({ app, db, config, documentsStorageSer
 
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository: createOrganizationsRepository({ db }) });
 
-      const extraction = await extractPurchaseInvoiceFromDocument({ organizationId, documentId, db, config, documentsStorageService });
+      // A document read before (queued at upload) is answered at once, without calling the AI again
+      const { extraction, status, checks } = await getOrReadPurchaseDocument({ organizationId, documentId, db, config, documentsStorageService });
 
-      return context.json(extraction);
+      return context.json({ ...extraction, status, checks });
+    },
+  );
+}
+
+// Several documents uploaded at once are queued right away: by the time the user opens the first one, it is read
+function setupEnqueuePurchaseReadingsRoute({ app, db, config, documentsStorageService, taskServices }: RouteDefinitionContext) {
+  app.post(
+    '/api/organizations/:organizationId/purchases/readings',
+    requireAuthentication({ apiKeyPermissions: ['purchases:create'] }),
+    legacyValidateParams(organizationParamsSchema),
+    legacyValidateJsonBody(purchaseReadingsBodySchema),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId } = context.req.valid('param');
+      const { documentIds: requestedIds, force } = context.req.valid('json');
+
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository: createOrganizationsRepository({ db }) });
+
+      const { documentIds } = await filterOrganizationDocumentIds({ db, organizationId, documentIds: requestedIds });
+      const { readings } = await createDocumentReadingsRepository({ db }).enqueueReadings({ organizationId, documentIds, kind: 'purchase', force });
+
+      await wakeDocumentReadings({ taskServices, db, config, documentsStorageService });
+
+      return context.json(await formatReadingsForApi({ db, organizationId, readings }), 202);
+    },
+  );
+}
+
+// Polled by the review screen while a document is being read
+function setupGetPurchaseReadingsRoute({ app, db }: RouteDefinitionContext) {
+  app.get(
+    '/api/organizations/:organizationId/purchases/readings',
+    requireAuthentication({ apiKeyPermissions: ['purchases:read'] }),
+    legacyValidateParams(organizationParamsSchema),
+    legacyValidateQuery(purchaseReadingsQuerySchema),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId } = context.req.valid('param');
+      const { documentIds } = context.req.valid('query');
+
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository: createOrganizationsRepository({ db }) });
+
+      const { readings } = await createDocumentReadingsRepository({ db }).getReadings({ organizationId, documentIds, kind: 'purchase' });
+
+      return context.json(await formatReadingsForApi({ db, organizationId, readings }));
     },
   );
 }

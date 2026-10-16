@@ -7,17 +7,20 @@ export type OnboardingFlow = 'new-user' | 'invited-user';
  * Which onboarding a user who has not finished it gets:
  * - invited-user: someone who joined (or was invited to) an existing organization; only sets up their profile.
  * - new-user: someone who signed up on their own; sets up their profile and their company.
+ * People working at a gestoría get none: an admin set up their access, they have no company of their own to create.
  */
 export function getUserOnboardingFlow({
   onboardingCompletedAt,
   memberships,
   pendingInvitationsCount,
+  isGestoriaMember = false,
 }: {
   onboardingCompletedAt: Date | null;
   memberships: { role: OrganizationRole }[];
   pendingInvitationsCount: number;
+  isGestoriaMember?: boolean;
 }): OnboardingFlow | null {
-  if (onboardingCompletedAt) {
+  if (onboardingCompletedAt || isGestoriaMember) {
     return null;
   }
 

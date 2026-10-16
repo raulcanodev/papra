@@ -19,6 +19,7 @@ import { RequestPasswordResetPage } from './modules/auth/pages/request-password-
 import { ResetPasswordPage } from './modules/auth/pages/reset-password.page';
 import { CalendarPage } from './modules/calendar/pages/calendar.page';
 import { CapturePage } from './modules/captures/pages/capture.page';
+import { isDemoMode } from './modules/config/config';
 import { CONTACT_ROLE_ROUTE_IDS, CONTACT_ROLES } from './modules/contacts/contacts.constants';
 import { ContactPage } from './modules/contacts/pages/contact.page';
 import { ContactsPage } from './modules/contacts/pages/contacts.page';
@@ -35,6 +36,8 @@ import { FinanceGoalsPage } from './modules/finances/pages/goals.page';
 import { OverviewPage } from './modules/finances/pages/overview.page';
 import { SubscriptionsPage } from './modules/finances/pages/subscriptions.page';
 import { TransactionsPage } from './modules/finances/pages/transactions.page';
+import { gestoriaRoutes } from './modules/gestorias/gestorias.routes';
+import { fetchUserGestorias } from './modules/gestorias/gestorias.services';
 import { IntakeEmailsPage } from './modules/intake-emails/pages/intake-emails.page';
 import { InvitationsPage } from './modules/invitations/pages/invitations.page';
 import { CreateInvoicePage } from './modules/invoicing/pages/create-invoice.page';
@@ -122,14 +125,28 @@ export const routes: RouteDefinition[] = [
                 queryFn: fetchOrganizations,
               }));
 
+              // People working at a gestoría land on it, unless they were last in a company of their own
+              const gestoriasQuery = useQuery(() => ({
+                queryKey: ['gestorias'],
+                queryFn: fetchUserGestorias,
+              }));
+              // Never blocks the entry: on an error the user is not a gestor
+              const isGestoriasQuerySettled = () => gestoriasQuery.isSuccess || gestoriasQuery.isError;
+              // The demo visitor starts as the company, the gestoría view is one click away in the menu
+              const getFirstGestoriaId = () => (isDemoMode ? undefined : gestoriasQuery.data?.gestorias?.at(0)?.id);
+
               return (
                 <>
                   <Suspense>
-                    <Show when={query.data?.organizations}>
+                    <Show when={isGestoriasQuerySettled() && query.data?.organizations}>
                       {getOrgs => (
                         <Switch>
                           <Match when={getLatestOrganizationId() && getOrgs().some(org => org.id === getLatestOrganizationId())}>
                             <Navigate href={`/organizations/${getLatestOrganizationId()}`} />
+                          </Match>
+
+                          <Match when={getFirstGestoriaId()}>
+                            {getGestoriaId => <Navigate href={`/gestoria/${getGestoriaId()}/home`} />}
                           </Match>
 
                           <Match when={getOrgs().length === 1}>
@@ -486,6 +503,7 @@ export const routes: RouteDefinition[] = [
             ],
           },
           adminRoutes,
+          gestoriaRoutes,
           {
             path: '/',
             component: SettingsLayout,

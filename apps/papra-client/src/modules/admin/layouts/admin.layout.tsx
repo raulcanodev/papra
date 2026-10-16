@@ -26,6 +26,11 @@ const AdminLayout: ParentComponent = (props) => {
       icon: 'i-tabler-building-community',
     },
     {
+      label: t('admin.layout.menu.gestorias'),
+      href: '/admin/gestorias',
+      icon: 'i-tabler-briefcase',
+    },
+    {
       label: t('admin.layout.menu.feature-flags'),
       href: '/admin/feature-flags',
       icon: 'i-tabler-flag',

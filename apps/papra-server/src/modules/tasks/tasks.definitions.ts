@@ -4,6 +4,7 @@ import { registerHardDeleteExpiredDocumentsTask } from '../documents/tasks/hard-
 import { registerSyncBankConnectionsTask } from '../finances/tasks/sync-bank-connections.task';
 import { registerExpireInvitationsTask } from '../organizations/tasks/expire-invitations.task';
 import { registerPurgeExpiredOrganizationsTask } from '../organizations/tasks/purge-expired-organizations.task';
+import { registerProcessDocumentReadingsTask } from '../purchases/readings/document-readings.task';
 import { registerApplyTaggingRuleToDocumentsTask } from '../tagging-rules/tasks/apply-tagging-rule-to-documents.task';
 
 export async function registerTaskDefinitions(deps: GlobalDependencies) {
@@ -13,4 +14,5 @@ export async function registerTaskDefinitions(deps: GlobalDependencies) {
   await registerExtractDocumentFileContentTask(deps);
   await registerApplyTaggingRuleToDocumentsTask(deps);
   await registerSyncBankConnectionsTask(deps);
+  await registerProcessDocumentReadingsTask(deps);
 }

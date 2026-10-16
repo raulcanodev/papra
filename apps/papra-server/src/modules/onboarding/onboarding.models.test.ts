@@ -23,6 +23,10 @@ describe('onboarding models', () => {
     test('a user who owns an organization keeps setting up their company, even with invitations', () => {
       expect(getUserOnboardingFlow({ onboardingCompletedAt: null, memberships: [{ role: 'owner' }, { role: 'member' }], pendingInvitationsCount: 2 })).to.eql('new-user');
     });
+
+    test('someone working at a gestoría has no onboarding, an admin already set up their access', () => {
+      expect(getUserOnboardingFlow({ onboardingCompletedAt: null, memberships: [], pendingInvitationsCount: 0, isGestoriaMember: true })).to.eql(null);
+    });
   });
 
   describe('canManageOrganizationOnboarding', () => {

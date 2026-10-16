@@ -6,8 +6,9 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { AppLoader } from '@/modules/ui/components/app-loader';
 import { fetchOnboardingStatus } from '../onboarding.services';
 
-// Pages reachable before finishing onboarding: the onboarding itself and the user's own settings.
-const ALLOWED_PATHS = [/^\/onboarding/, /^\/settings/, /^\/admin/];
+// Pages reachable before finishing onboarding: the onboarding itself, the user's own settings and the gestoría
+// workspace (its members have no onboarding, the server never asks them for one).
+const ALLOWED_PATHS = [/^\/onboarding/, /^\/settings/, /^\/admin/, /^\/gestoria\//];
 
 /** Sends signed-in users who have not finished onboarding to it. */
 export const OnboardingGate: ParentComponent = (props) => {

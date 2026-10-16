@@ -6,6 +6,7 @@ export const PERMISSIONS = {
   BO_ACCESS: 'bo:access',
   VIEW_USERS: 'users:view',
   VIEW_ANALYTICS: 'analytics:view',
+  MANAGE_GESTORIAS: 'gestorias:manage',
 } as const;
 
 export const PERMISSIONS_BY_ROLE = {
@@ -13,6 +14,7 @@ export const PERMISSIONS_BY_ROLE = {
     PERMISSIONS.VIEW_USERS,
     PERMISSIONS.BO_ACCESS,
     PERMISSIONS.VIEW_ANALYTICS,
+    PERMISSIONS.MANAGE_GESTORIAS,
   ],
 } as const;
 

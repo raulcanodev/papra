@@ -1,4 +1,4 @@
-import type { Quarter, QuarterlyTaxReport, SimulatedPurchase, TaxModel } from '../taxes.types';
+import type { Quarter, SimulatedPurchase } from '../taxes.types';
 import type { ExpenseCategory } from '@/modules/purchases/purchases.types';
 import { A, useParams, useSearchParams } from '@solidjs/router';
 import { createMutation, keepPreviousData, useQuery } from '@tanstack/solid-query';
@@ -16,14 +16,14 @@ import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextField } from '@/modules/ui/components/textfield';
 import { getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
-import { TaxModelCard } from '../components/tax-model-card.component';
-import { getDaysUntil, getDefaultTaxPeriod } from '../taxes.models';
+import { QuarterlyTaxModels } from '../components/quarterly-tax-models.component';
+import { getDefaultTaxPeriod } from '../taxes.models';
 import { downloadAccountantPack, fetchQuarterlyTaxReport, sendAccountantPack } from '../taxes.services';
 
 const QUARTERS: Quarter[] = [1, 2, 3, 4];
 
 export function QuarterlyTaxesPage() {
-  const { t, getLocale, formatDate } = useI18n();
+  const { t, getLocale } = useI18n();
   const { getErrorMessage } = useI18nApiErrors();
   const params = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -51,19 +51,6 @@ export function QuarterlyTaxesPage() {
   const report = () => query.data?.report;
   const money = (minor: number) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency: report()?.currency ?? 'EUR', useGrouping: 'always' }).format(minor / 100);
   const percent = (bps: number) => `${bps / 100} %`;
-
-  const deadlineLabel = (model: Exclude<TaxModel, '202'>) => {
-    const deadline = report()?.deadlines.find(item => item.model === model);
-    if (!deadline) {
-      return undefined;
-    }
-    const days = getDaysUntil({ date: deadline.dueDate });
-    return days < 0
-      ? t('taxes.deadline.past', { date: formatDate(deadline.dueDate) })
-      : t('taxes.deadline.upcoming', { date: formatDate(deadline.dueDate), days });
-  };
-
-  const vatOutcomeCaption = (outcome: QuarterlyTaxReport['vat303']['outcome']) => t(`taxes.vat.outcome.${outcome}` as const);
 
   const downloadMutation = createMutation(() => ({
     mutationFn: async () => downloadAccountantPack({ organizationId: params.organizationId, year: year(), quarter: quarter() }),
@@ -138,98 +125,7 @@ export function QuarterlyTaxesPage() {
 
             <p class="mb-3 text-sm text-muted-foreground">{t('taxes.counts', { issued: getReport().counts.issuedInvoices, received: getReport().counts.purchaseInvoices })}</p>
 
-            <div class="grid gap-4 lg:grid-cols-2">
-              <Show when={getReport().applicable[303]}>
-                <TaxModelCard
-                  tone="blue"
-                  model="303"
-                  title={t('taxes.vat.title')}
-                  description={t('taxes.vat.description')}
-                  result={money(Math.abs(getReport().vat303.resultMinor))}
-                  resultCaption={vatOutcomeCaption(getReport().vat303.outcome)}
-                  rows={[
-                    ...getReport().vat303.output.map(({ rateBps, baseMinor, taxMinor }) => ({ label: t('taxes.vat.output-at', { rate: percent(rateBps), base: money(baseMinor) }), value: money(taxMinor) })),
-                    { label: t('taxes.vat.output-total'), value: money(getReport().vat303.outputTaxMinor), strong: true },
-                    { label: t('taxes.vat.input-deductible', { base: money(getReport().vat303.inputBaseMinor) }), value: `-${money(getReport().vat303.deductibleTaxMinor)}` },
-                  ]}
-                  deadline={deadlineLabel('303')}
-                />
-              </Show>
-
-              <Show when={getReport().applicable[130]}>
-                <TaxModelCard
-                  tone="purple"
-                  model="130"
-                  title={t('taxes.income-tax.title')}
-                  description={t('taxes.income-tax.description')}
-                  result={money(getReport().incomeTax130.resultMinor)}
-                  resultCaption={getReport().incomeTax130.resultMinor > 0 ? t('taxes.to-pay') : t('taxes.nothing-to-pay')}
-                  rows={[
-                    { label: t('taxes.income-tax.income'), value: money(getReport().incomeTax130.incomeMinor) },
-                    { label: t('taxes.income-tax.expenses'), value: `-${money(getReport().incomeTax130.expensesMinor)}` },
-                    ...(getReport().incomeTax130.difficultExpensesMinor > 0 ? [{ label: t('taxes.income-tax.difficult-expenses'), value: `-${money(getReport().incomeTax130.difficultExpensesMinor)}` }] : []),
-                    { label: t('taxes.income-tax.net-income'), value: money(getReport().incomeTax130.netIncomeMinor), strong: true },
-                    { label: t('taxes.income-tax.gross', { rate: percent(getReport().incomeTax130.rateBps) }), value: money(getReport().incomeTax130.grossInstalmentMinor) },
-                    { label: t('taxes.income-tax.withholdings'), value: `-${money(getReport().incomeTax130.withholdingsMinor)}` },
-                    { label: t('taxes.income-tax.previous'), value: `-${money(getReport().incomeTax130.previousInstalmentsMinor)}` },
-                  ]}
-                  deadline={deadlineLabel('130')}
-                  footer={<p class="mt-2 text-xs text-muted-foreground">{t('taxes.income-tax.notice')}</p>}
-                />
-              </Show>
-
-              <Show when={getReport().applicable[202]}>
-                <TaxModelCard
-                  tone="emerald"
-                  model="202"
-                  title={t('taxes.corporate-tax.title')}
-                  description={t('taxes.corporate-tax.description')}
-                  result={getReport().corporateTax202[0]?.amountMinor === null ? '—' : money(getReport().corporateTax202[0]?.amountMinor ?? 0)}
-                  resultCaption={t('taxes.corporate-tax.per-instalment')}
-                  rows={getReport().corporateTax202.map(instalment => ({
-                    label: t('taxes.corporate-tax.instalment', { period: instalment.period, date: formatDate(instalment.dueDate) }),
-                    value: instalment.amountMinor === null ? '—' : money(instalment.amountMinor),
-                  }))}
-                  footer={(
-                    <Show when={getReport().profile.lastCorporateTaxQuotaMinor === null}>
-                      <A href={fiscalProfileHref()} class="mt-2 block text-xs text-muted-foreground underline">{t('taxes.corporate-tax.missing-quota')}</A>
-                    </Show>
-                  )}
-                />
-              </Show>
-
-              <Show when={getReport().applicable[111]}>
-                <TaxModelCard
-                  tone="orange"
-                  model="111"
-                  title={t('taxes.withholdings.title')}
-                  description={t('taxes.withholdings.description')}
-                  result={money(getReport().professionals111.amountMinor)}
-                  resultCaption={t('taxes.to-pay')}
-                  rows={[
-                    { label: t('taxes.withholdings.payees'), value: String(getReport().professionals111.payeesCount) },
-                    { label: t('taxes.withholdings.base'), value: money(getReport().professionals111.baseMinor) },
-                  ]}
-                  deadline={deadlineLabel('111')}
-                />
-              </Show>
-
-              <Show when={getReport().applicable[115]}>
-                <TaxModelCard
-                  tone="pink"
-                  model="115"
-                  title={t('taxes.rents.title')}
-                  description={t('taxes.rents.description')}
-                  result={money(getReport().rents115.amountMinor)}
-                  resultCaption={t('taxes.to-pay')}
-                  rows={[
-                    { label: t('taxes.withholdings.payees'), value: String(getReport().rents115.payeesCount) },
-                    { label: t('taxes.withholdings.base'), value: money(getReport().rents115.baseMinor) },
-                  ]}
-                  deadline={deadlineLabel('115')}
-                />
-              </Show>
-            </div>
+            <QuarterlyTaxModels report={getReport()} fiscalProfileHref={fiscalProfileHref()} />
 
             <div class="mt-4 grid gap-4 lg:grid-cols-2">
               {/* "If I buy now, how much do I save?" */}

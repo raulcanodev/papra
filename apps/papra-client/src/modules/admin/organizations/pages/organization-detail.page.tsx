@@ -16,6 +16,7 @@ import { createToast } from '@/modules/ui/components/sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
 import { TextArea } from '@/modules/ui/components/textarea';
 import { TextField } from '@/modules/ui/components/textfield';
+import { OrganizationGestoriasCard } from '../../gestorias/components/organization-gestorias-card.component';
 import { UserListDetail } from '../../users/components/user-list-detail.component';
 import {
   getOrganizationBasicInfo,
@@ -385,6 +386,8 @@ export const AdminOrganizationDetailPage: Component = () => {
         </div>
 
         <OrganizationVerifactu organizationId={params.organizationId} />
+
+        <OrganizationGestoriasCard organizationId={params.organizationId} />
 
         <div class="grid gap-6 md:grid-cols-2">
           <Suspense fallback={<div class="text-center py-4 text-muted-foreground">{t('admin.organization-detail.loading.intake-emails')}</div>}>

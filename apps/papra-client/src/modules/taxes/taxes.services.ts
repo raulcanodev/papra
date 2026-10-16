@@ -4,7 +4,7 @@ import { apiClient } from '../shared/http/api-client';
 
 const basePath = ({ organizationId, year, quarter }: { organizationId: string; year: number; quarter: Quarter }) => `/api/organizations/${organizationId}/taxes/${year}/${quarter}`;
 
-function toReport(dto: AsDto<QuarterlyTaxReport>): QuarterlyTaxReport {
+export function toReport(dto: AsDto<QuarterlyTaxReport>): QuarterlyTaxReport {
   const report = dto as unknown as QuarterlyTaxReport;
 
   return {

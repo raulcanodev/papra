@@ -63,6 +63,34 @@ export type SupplierResolutionStatus = 'matched' | 'create' | 'ask';
 
 export type SupplierCandidate = { contactId: string; name: string; taxId: string | null; isSupplier: boolean; similarity: number };
 
+export type ReadingCheckCode
+  = | 'total_mismatch'
+    | 'missing_number'
+    | 'missing_issue_date'
+    | 'issue_date_in_future'
+    | 'issue_date_too_old'
+    | 'due_date_before_issue_date'
+    | 'invalid_tax_id'
+    | 'unusual_vat_rate'
+    | 'no_lines'
+    | 'lines_without_price'
+    | 'supplier_not_identified'
+    | 'issued_by_organization';
+
+/** A problem the server found on what the AI read: an error must be looked at before saving */
+export type ReadingCheck = { code: ReadingCheckCode; severity: 'error' | 'warning'; params?: Record<string, string | number> };
+
+export type PurchaseReadingStatus = 'pending' | 'reading' | 'ready' | 'needs_review' | 'failed';
+
+/** The AI reading of an uploaded document, queued at upload and polled by the review screen */
+export type PurchaseReading = {
+  documentId: string;
+  status: PurchaseReadingStatus;
+  errorCode: string | null;
+  checks: ReadingCheck[];
+  extraction: PurchaseInvoiceExtraction | null;
+};
+
 export type PurchaseInvoiceExtraction = {
   schemaVersion: number;
   direction: InvoiceDirection;

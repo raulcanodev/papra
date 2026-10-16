@@ -1,7 +1,7 @@
 import type { ExpenseCategory, PurchaseDocumentKind, PurchaseInvoiceDraftInput, PurchaseInvoiceExtraction, PurchaseInvoiceItemInput, PurchaseMetadataEntry } from '../purchases.types';
 import { A, useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
-import { createEffect, createMemo, createSignal, For, Index, Show } from 'solid-js';
+import { createEffect, createMemo, createSignal, Index, Show } from 'solid-js';
 import { createContact, fetchContacts, getContactsQueryKey, updateContact } from '@/modules/contacts/contacts.services';
 import { DocumentPreview } from '@/modules/documents/components/document-preview.component';
 import { fetchDocument } from '@/modules/documents/documents.services';
@@ -19,10 +19,11 @@ import { TextArea } from '@/modules/ui/components/textarea';
 import { TextField } from '@/modules/ui/components/textfield';
 import { getOrganizationRouteChildHref, getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
 import { PurchaseMetadataFields } from '../components/purchase-metadata-fields';
+import { ReadingChecks } from '../components/reading-checks';
 import { SupplierResolutionPanel } from '../components/supplier-resolution-panel';
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABEL_I18N_KEYS, PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS, PURCHASE_DOCUMENT_KINDS } from '../purchases.constants';
 import { calculatePurchaseInvoiceTotals, emptyPurchaseInvoiceItem } from '../purchases.models';
-import { createPurchaseInvoice, deletePurchaseInvoice, extractPurchaseInvoice, fetchPurchaseInvoice, getPurchaseInvoicesQueryKey, updatePurchaseInvoice } from '../purchases.services';
+import { createPurchaseInvoice, createPurchaseReadings, deletePurchaseInvoice, fetchPurchaseInvoice, fetchPurchaseReadings, getPurchaseInvoicesQueryKey, getPurchaseReadingsQueryKey, updatePurchaseInvoice } from '../purchases.services';
 
 const TAX_RATES_BPS = [0, 400, 1_000, 2_100];
 const DEDUCTIBLE_RATES_BPS = [10_000, 5_000, 0];
@@ -65,13 +66,51 @@ export function PurchaseEditorPage() {
     enabled: isEditing(),
   }));
 
-  // A new invoice opened with a document is read by the AI, the user only reviews it
-  const extractionQuery = useQuery(() => ({
-    queryKey: [...getPurchaseInvoicesQueryKey({ organizationId: params.organizationId }), 'extraction', documentIdParam()],
-    queryFn: () => extractPurchaseInvoice({ organizationId: params.organizationId, documentId: documentIdParam()! }),
+  // The AI reading of the document, queued at upload: usually ready when the screen opens, polled while it is not.
+  // A document opened directly (not uploaded from here) is queued now.
+  const getReading = async ({ documentId: id }: { documentId: string }) => {
+    const { readings: [reading] } = await fetchPurchaseReadings({ organizationId: params.organizationId, documentIds: [id] });
+    if (reading) {
+      return { reading };
+    }
+
+    const { readings: [queued] } = await createPurchaseReadings({ organizationId: params.organizationId, documentIds: [id] });
+    return { reading: queued ?? null };
+  };
+  const isInProgress = (status: string | undefined) => status === 'pending' || status === 'reading';
+
+  const readingQuery = useQuery(() => ({
+    queryKey: getPurchaseReadingsQueryKey({ organizationId: params.organizationId, documentId: documentIdParam() ?? '' }),
+    queryFn: () => getReading({ documentId: documentIdParam()! }),
     enabled: !isEditing() && documentIdParam() !== undefined,
-    retry: false,
-    staleTime: Number.POSITIVE_INFINITY,
+    refetchInterval: query => (isInProgress(query.state.data?.reading?.status) ? 1_500 : false),
+    retry: 1,
+  }));
+  const reading = () => readingQuery.data?.reading ?? null;
+  const isReading = () => readingQuery.isLoading || isInProgress(reading()?.status);
+  const readingFailedMessage = () => {
+    if (!readingQuery.isError && reading()?.status !== 'failed') {
+      return undefined;
+    }
+    const errorCode = reading()?.errorCode;
+    return errorCode === 'ai_assistant.not_configured'
+      ? t('purchases.editor.reading-failed.not-configured')
+      : errorCode === 'purchase_invoice.document_not_extractable'
+        ? t('purchases.editor.reading-failed.not-extractable')
+        : t('purchases.editor.reading-failed');
+  };
+
+  // The next document of the queue is fetched while this one is reviewed: "save and next" opens it ready
+  createEffect(() => {
+    const [next] = queue();
+    if (next !== undefined && reading() !== null && !isInProgress(reading()?.status)) {
+      void queryClient.prefetchQuery({ queryKey: getPurchaseReadingsQueryKey({ organizationId: params.organizationId, documentId: next }), queryFn: () => getReading({ documentId: next }) });
+    }
+  });
+
+  const retryReadingMutation = createMutation(() => ({
+    mutationFn: () => createPurchaseReadings({ organizationId: params.organizationId, documentIds: [documentIdParam()!], force: true }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: getPurchaseReadingsQueryKey({ organizationId: params.organizationId, documentId: documentIdParam()! }) }),
   }));
 
   const documentQuery = useQuery(() => ({
@@ -112,7 +151,7 @@ export function PurchaseEditorPage() {
     // The document is attached even when the AI cannot read it, the user then fills in the form manually
     setDocumentId(documentIdToLoad);
 
-    const result = extractionQuery.data?.extraction;
+    const result = reading()?.extraction;
     if (!result) {
       return;
     }
@@ -280,14 +319,24 @@ export function PurchaseEditorPage() {
 
       <div class={cn('grid gap-6', documentId() && 'lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]')}>
         <div class="flex min-w-0 flex-col gap-4">
-          <Show when={extractionQuery.isLoading}>
+          <Show when={isReading()}>
             <div class="flex items-center gap-3 rounded-xl border bg-muted/40 p-4 text-sm">
               <div class="i-tabler-loader-2 size-5 animate-spin text-muted-foreground" />
-              {t('purchases.editor.reading')}
+              {reading()?.status === 'pending' ? t('purchases.editor.reading.queued') : t('purchases.editor.reading')}
             </div>
           </Show>
-          <Show when={extractionQuery.isError}>
-            <div class="rounded-xl border border-orange-500/30 bg-orange-500/8 p-4 text-sm">{t('purchases.editor.reading-failed')}</div>
+          <Show when={readingFailedMessage()}>
+            {getMessage => (
+              <div class="flex flex-wrap items-center gap-3 rounded-xl border border-orange-500/30 bg-orange-500/8 p-4 text-sm">
+                <p class="min-w-0 flex-1">{getMessage()}</p>
+                <Show when={reading()?.errorCode !== 'ai_assistant.not_configured' && reading()?.errorCode !== 'purchase_invoice.document_not_extractable'}>
+                  <Button size="sm" variant="outline" class="gap-1.5" isLoading={retryReadingMutation.isPending} onClick={() => retryReadingMutation.mutate()}>
+                    <div class="i-tabler-refresh size-4" />
+                    {t('purchases.editor.reading.retry')}
+                  </Button>
+                </Show>
+              </div>
+            )}
           </Show>
 
           <Show when={extraction()}>
@@ -302,17 +351,7 @@ export function PurchaseEditorPage() {
                   <div class="rounded-xl border border-red-500/30 bg-red-500/8 p-4 text-sm">{t('purchases.editor.direction.issued')}</div>
                 </Show>
 
-                <Show when={getExtraction().warnings.length > 0}>
-                  <div class="flex items-start gap-3 rounded-xl border border-orange-500/30 bg-orange-500/8 p-4 text-sm">
-                    <div class="i-tabler-eye-check mt-0.5 size-5 shrink-0 text-orange-600" />
-                    <div>
-                      <p class="font-medium">{t('purchases.editor.warnings')}</p>
-                      <ul class="mt-1 list-disc pl-4 text-muted-foreground">
-                        <For each={getExtraction().warnings}>{warning => <li>{warning}</li>}</For>
-                      </ul>
-                    </div>
-                  </div>
-                </Show>
+                <ReadingChecks checks={reading()?.checks ?? []} warnings={getExtraction().warnings} />
 
                 <SupplierResolutionPanel
                   counterparty={getExtraction().counterparty}

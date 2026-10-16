@@ -1,5 +1,5 @@
 import type { AsDto } from '../shared/http/http-client.types';
-import type { PurchaseInvoice, PurchaseInvoiceDraftInput, PurchaseInvoiceExtraction, PurchaseInvoiceStatus } from './purchases.types';
+import type { PurchaseInvoice, PurchaseInvoiceDraftInput, PurchaseInvoiceExtraction, PurchaseInvoiceStatus, PurchaseReading } from './purchases.types';
 import { apiClient } from '../shared/http/api-client';
 
 const basePath = (organizationId: string) => `/api/organizations/${organizationId}/purchases`;
@@ -56,13 +56,28 @@ export async function deletePurchaseInvoice({ organizationId, purchaseInvoiceId 
   await apiClient({ path: `${basePath(organizationId)}/${purchaseInvoiceId}`, method: 'DELETE' });
 }
 
-export async function extractPurchaseInvoice({ organizationId, documentId }: { organizationId: string; documentId: string }) {
-  const extraction = await apiClient<AsDto<PurchaseInvoiceExtraction>>({ path: `${basePath(organizationId)}/extract`, method: 'POST', body: { documentId } });
-
+function toExtraction(extraction: AsDto<PurchaseInvoiceExtraction>): PurchaseInvoiceExtraction {
   return {
-    extraction: {
-      ...(extraction as unknown as PurchaseInvoiceExtraction),
-      draft: { ...(extraction.draft as unknown as PurchaseInvoiceExtraction['draft']), issueDate: toNullableDate(extraction.draft.issueDate), dueDate: toNullableDate(extraction.draft.dueDate) },
-    },
+    ...(extraction as unknown as PurchaseInvoiceExtraction),
+    draft: { ...(extraction.draft as unknown as PurchaseInvoiceExtraction['draft']), issueDate: toNullableDate(extraction.draft.issueDate), dueDate: toNullableDate(extraction.draft.dueDate) },
   };
+}
+
+const toReading = (reading: AsDto<PurchaseReading>): PurchaseReading => ({ ...(reading as unknown as PurchaseReading), extraction: reading.extraction === null ? null : toExtraction(reading.extraction) });
+
+export function getPurchaseReadingsQueryKey({ organizationId, documentId }: { organizationId: string; documentId: string }) {
+  return [...getPurchaseInvoicesQueryKey({ organizationId }), 'readings', documentId];
+}
+
+// Queued right after the upload: the AI reads them in the background, several at a time
+export async function createPurchaseReadings({ organizationId, documentIds, force = false }: { organizationId: string; documentIds: string[]; force?: boolean }) {
+  const { readings } = await apiClient<{ readings: AsDto<PurchaseReading>[] }>({ path: `${basePath(organizationId)}/readings`, method: 'POST', body: { documentIds, force } });
+
+  return { readings: readings.map(toReading) };
+}
+
+export async function fetchPurchaseReadings({ organizationId, documentIds }: { organizationId: string; documentIds: string[] }) {
+  const { readings } = await apiClient<{ readings: AsDto<PurchaseReading>[] }>({ path: `${basePath(organizationId)}/readings`, method: 'GET', query: { documentIds: documentIds.join(',') } });
+
+  return { readings: readings.map(toReading) };
 }

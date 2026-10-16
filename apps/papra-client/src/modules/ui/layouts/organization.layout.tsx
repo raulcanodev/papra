@@ -11,6 +11,8 @@ import { AiAssistant } from '@/modules/ai-assistant/pages/ai-assistant.page';
 import { useCommandPalette } from '@/modules/command-palette/command-palette.provider';
 import { useConfig } from '@/modules/config/config.provider';
 import { DocumentUploadProvider } from '@/modules/documents/components/document-import-status.component';
+import { getGestoriaHomeHref } from '@/modules/gestorias/gestorias.navigation';
+import { fetchUserGestorias } from '@/modules/gestorias/gestorias.services';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { fetchOrganization, fetchOrganizations } from '@/modules/organizations/organizations.services';
 import { toggleHiddenId } from '@/modules/preferences/preferences.models';
@@ -114,7 +116,15 @@ const OrganizationLayoutSideNav: Component = () => {
     },
   });
 
+  // People who also work at a gestoría switch to its workspace from here
+  const gestoriasQuery = useQuery(() => ({ queryKey: ['gestorias'], queryFn: fetchUserGestorias }));
+
   const getFooterMenuItems = () => [
+    ...(gestoriasQuery.data?.gestorias ?? []).map((gestoria, _, gestorias) => ({
+      label: gestorias.length > 1 ? gestoria.name : t('layout.menu.gestoria-view'),
+      icon: 'i-tabler-briefcase',
+      href: getGestoriaHomeHref({ gestoriaId: gestoria.id }),
+    })),
     {
       label: t('layout.menu.organization-settings'),
       icon: 'i-tabler-settings',

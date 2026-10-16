@@ -128,7 +128,7 @@ export function getInvoiceDocumentUrl({ organizationId, documentId }: { organiza
   return `${buildTimeConfig.baseUrl}/organizations/${organizationId}/documents/${documentId}`;
 }
 
-function coerceInvoice(invoice: AsDto<Invoice>): Invoice {
+export function coerceInvoice(invoice: AsDto<Invoice>): Invoice {
   return {
     ...invoice,
     issueDate: new Date(invoice.issueDate),

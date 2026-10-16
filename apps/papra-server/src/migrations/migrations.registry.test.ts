@@ -42,7 +42,8 @@ describe('migrations registry', () => {
         await runMigrations({ db, migrations: migrationCombination, logger: createNoopLogger() });
         await client.close();
       }
-    });
+    // Runs the migrations once per prefix: quadratic in the number of migrations, slow when the whole suite runs in parallel
+    }, 90_000);
 
     test('after running all migrations, every table and column declared in the drizzle schema exists in the database', async () => {
       const { db, client } = setupInMemoryDatabase();

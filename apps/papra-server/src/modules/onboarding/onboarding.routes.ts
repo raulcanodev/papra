@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { createForbiddenError } from '../app/auth/auth.errors';
 import { requireAuthentication } from '../app/auth/auth.middleware';
 import { getUser } from '../app/auth/auth.models';
+import { createGestoriasRepository } from '../gestorias/gestorias.repository';
+import { acceptPendingGestoriaInvitationsOfUser } from '../gestorias/gestorias.usecases';
 import { organizationIdSchema } from '../organizations/organization.schemas.legacy';
 import { createOrganizationsRepository } from '../organizations/organizations.repository';
 import { legacyValidateJsonBody, legacyValidateParams } from '../shared/validation/validation.legacy';
@@ -34,21 +36,28 @@ function setupGetOnboardingRoute({ app, db }: RouteDefinitionContext) {
       const usersRepository = createUsersRepository({ db });
 
       const { user } = await usersRepository.getUserByIdOrThrow({ userId });
+      const gestoriasRepository = createGestoriasRepository({ db });
+
+      // Someone invited to a gestoría by email joins it before the flow is picked, so they get no onboarding
+      await acceptPendingGestoriaInvitationsOfUser({ userId, gestoriasRepository, usersRepository });
 
       const [
         { onboarding },
         { memberships },
         { pendingInvitationsCount },
+        { gestorias },
       ] = await Promise.all([
         onboardingRepository.getUserOnboarding({ userId }),
         onboardingRepository.getUserMemberships({ userId }),
         organizationsRepository.getPendingInvitationsCount({ email: user.email.toLowerCase() }),
+        gestoriasRepository.getUserGestorias({ userId }),
       ]);
 
       const flow = getUserOnboardingFlow({
         onboardingCompletedAt: onboarding?.completedAt ?? null,
         memberships,
         pendingInvitationsCount,
+        isGestoriaMember: gestorias.length > 0,
       });
 
       return context.json({

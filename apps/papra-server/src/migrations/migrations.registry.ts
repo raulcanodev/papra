@@ -14,6 +14,9 @@ import { captureSessionsMigration } from './list/0011-capture-sessions.migration
 import { documentAiDataMigration } from './list/0012-document-ai-data.migration';
 import { userPhoneMigration } from './list/0013-user-phone.migration';
 import { captureOpenedAtMigration } from './list/0014-capture-opened-at.migration';
+import { documentReadingsMigration } from './list/0015-document-readings.migration';
+import { gestoriasMigration } from './list/0016-gestorias.migration';
+import { gestoriaInvitationsMigration } from './list/0017-gestoria-invitations.migration';
 
 export const migrations: Migration[] = [
   postgresInitialSchemaMigration,
@@ -30,4 +33,7 @@ export const migrations: Migration[] = [
   documentAiDataMigration,
   userPhoneMigration,
   captureOpenedAtMigration,
+  documentReadingsMigration,
+  gestoriasMigration,
+  gestoriaInvitationsMigration,
 ];

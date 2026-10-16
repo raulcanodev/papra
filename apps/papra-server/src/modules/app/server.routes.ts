@@ -12,6 +12,7 @@ import { registerDocumentActivityRoutes } from '../documents/document-activity/d
 import { registerDocumentsRoutes } from '../documents/documents.routes';
 import { registerFeatureFlagsRoutes } from '../feature-flags/feature-flags.routes';
 import { registerFinancesRoutes } from '../finances/finances.routes';
+import { registerGestoriasRoutes } from '../gestorias/gestorias.routes';
 import { registerIntakeEmailsRoutes } from '../intake-emails/intake-emails.routes';
 import { registerInvitationsRoutes } from '../invitations/invitations.routes';
 import { registerInvoicingRoutes } from '../invoicing/invoicing.routes';
@@ -56,6 +57,7 @@ export function registerRoutes(context: RouteDefinitionContext) {
   registerDocumentActivityRoutes(context);
   registerCustomPropertiesRoutes(context);
   registerAdminRoutes(context);
+  registerGestoriasRoutes(context);
   registerFeatureFlagsRoutes(context);
   registerFinancesRoutes(context);
   registerAiAssistantRoutes(context);

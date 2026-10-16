@@ -32,6 +32,7 @@ import {
   webhooksStorage,
 } from './demo.storage';
 import { findMany, getValues } from './demo.storage.models';
+import { gestoriasHandlers } from './gestorias/demo-gestorias';
 import { contactsHandlers, getDemoContact, getDemoEntityCustomPropertyValues, getDemoFiscalProfile, getDemoInvoicingRecords, invoicingHandlers, listDemoContacts } from './invoicing/demo-invoicing';
 import { miscHandlers } from './misc/demo-misc';
 import { buildDemoExtraction, listDemoPurchaseInvoices, purchasesHandlers } from './purchases/demo-purchases';
@@ -79,6 +80,20 @@ async function deserializeFile(storageInfo: DocumentFile): Promise<File> {
   const { name, type, base64Content } = storageInfo;
 
   return new File([await fromBase64(base64Content)], name, { type });
+}
+
+const demoReadings = new Map<string, ReturnType<typeof buildDemoExtraction>>();
+
+async function getDemoReadings({ organizationId, documentIds }: { organizationId: string; documentIds: string[] }) {
+  const documents = await Promise.all(documentIds.map(async documentId => documentStorage.getItem(`${organizationId}:${documentId}`)));
+
+  return documentIds
+    .filter((_, index) => documents[index])
+    .map((documentId) => {
+      const extraction = demoReadings.get(documentId) ?? buildDemoExtraction({ documentId });
+      demoReadings.set(documentId, extraction);
+      return { documentId, status: 'ready', errorCode: null, checks: [], extraction };
+    });
 }
 
 function throwDemoNotAvailable(): never {
@@ -189,6 +204,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
   ...contactsHandlers,
   ...purchasesHandlers,
   ...capturesHandlers,
+  ...gestoriasHandlers,
 
   ...defineHandler({
     path: '/api/organizations/:organizationId/taxes/:year/:quarter',
@@ -238,8 +254,19 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
 
       assert(document, { status: 404 });
 
-      return buildDemoExtraction({ documentId });
+      return { ...buildDemoExtraction({ documentId }), status: 'ready', checks: [] };
     },
+  }),
+  // The demo has no AI nor queue: a document is "read" at once, the same reading every time it is opened
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/purchases/readings',
+    method: 'POST',
+    handler: async ({ params: { organizationId }, body }) => ({ readings: await getDemoReadings({ organizationId, documentIds: (get(body, ['documentIds']) as string[] | undefined) ?? [] }) }),
+  }),
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/purchases/readings',
+    method: 'GET',
+    handler: async ({ params: { organizationId }, query }) => ({ readings: await getDemoReadings({ organizationId, documentIds: String(get(query, ['documentIds']) ?? '').split(',').filter(Boolean) }) }),
   }),
   ...aiHandlers,
   ...miscHandlers,

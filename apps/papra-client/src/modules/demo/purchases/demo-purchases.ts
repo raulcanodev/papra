@@ -271,3 +271,8 @@ export const purchasesHandlers = {
 export async function listDemoPurchaseInvoices({ organizationId }: { organizationId: string }) {
   return (await getValues(db())).filter(purchaseInvoice => purchaseInvoice.organizationId === organizationId);
 }
+
+/** Received invoices with their supplier, as the list route returns them */
+export async function listDemoPurchaseInvoicesWithSupplier({ organizationId }: { organizationId: string }) {
+  return Promise.all((await listDemoPurchaseInvoices({ organizationId })).map(async purchaseInvoice => withSupplier({ organizationId, purchaseInvoice })));
+}

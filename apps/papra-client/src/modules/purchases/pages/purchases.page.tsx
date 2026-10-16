@@ -2,9 +2,10 @@ import type { PurchaseInvoice, PurchaseInvoiceStatus } from '../purchases.types'
 import type { ActiveFilter, FilterField } from '@/modules/ui/components/table-filters';
 import { A, useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
+import pLimit from 'p-limit';
 import { createMemo, createSignal, For, Show } from 'solid-js';
+import { uploadChatAttachment } from '@/modules/ai-assistant/ai-assistant.services';
 import { PhotoCaptureButton } from '@/modules/captures/components/photo-capture-button';
-import { uploadDocument } from '@/modules/documents/documents.services';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { CatalogCell, CatalogRow, CatalogTable } from '@/modules/invoicing/components/catalog-page';
 import { InvoicesTabs } from '@/modules/invoicing/components/invoices-tabs';
@@ -19,7 +20,7 @@ import { dateIsInRange, getActiveFilter, isDateRangeValue } from '@/modules/ui/c
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
 import { EXPENSE_CATEGORY_LABEL_I18N_KEYS, EXTRACTABLE_FILE_ACCEPT, PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS, PURCHASE_STATUS_BADGE_CLASSES, PURCHASE_STATUS_LABEL_I18N_KEYS } from '../purchases.constants';
-import { deletePurchaseInvoice, fetchPurchaseInvoices, getPurchaseInvoicesQueryKey, setPurchaseInvoiceStatus } from '../purchases.services';
+import { createPurchaseReadings, deletePurchaseInvoice, fetchPurchaseInvoices, getPurchaseInvoicesQueryKey, setPurchaseInvoiceStatus } from '../purchases.services';
 
 const STATUS_FILTERS: (PurchaseInvoiceStatus | undefined)[] = [undefined, 'pending', 'paid'];
 
@@ -70,12 +71,19 @@ export function PurchasesPage() {
   const money = (purchaseInvoice: PurchaseInvoice, minor: number) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency: purchaseInvoice.currency }).format(minor / 100);
   const editorHref = (childPath: string) => getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath });
 
+  // Queued for the AI as soon as each one is there: it reads in the background while the rest uploads
+  const queueReadings = async (documentIds: string[]) => createPurchaseReadings({ organizationId: params.organizationId, documentIds }).catch(() => {
+    // The review screen queues it again if needed
+  });
+
   // The documents are reviewed one after the other in the editor prefilled by the AI
   const reviewDocuments = (documentIds: string[]) => {
     const [first, ...queue] = documentIds;
     if (first === undefined) {
       return;
     }
+
+    void queueReadings(documentIds);
 
     const search = new URLSearchParams({ documentId: first });
     if (queue.length > 0) {
@@ -93,13 +101,15 @@ export function PurchasesPage() {
     setIsUploading(true);
 
     try {
-      const documentIds: string[] = [];
-      for (const file of files) {
-        const { document } = await uploadDocument({ file, organizationId: params.organizationId });
-        documentIds.push(document.id);
-      }
+      // A few at a time, in the order chosen; a file already uploaded gives back its document instead of failing
+      const limit = pLimit(3);
+      const documentIds = await Promise.all(files.map(async file => limit(async () => {
+        const { attachment } = await uploadChatAttachment({ organizationId: params.organizationId, file });
+        void queueReadings([attachment.documentId]);
+        return attachment.documentId;
+      })));
 
-      reviewDocuments(documentIds);
+      reviewDocuments([...new Set(documentIds)]);
     } catch {
       createToast({ type: 'error', message: t('purchases.upload.error') });
     } finally {
