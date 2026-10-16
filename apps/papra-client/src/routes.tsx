@@ -62,6 +62,7 @@ import { OrganizationsPage } from './modules/organizations/pages/organizations.p
 import { PurchaseEditorPage } from './modules/purchases/pages/purchase-editor.page';
 import { PurchasesPage } from './modules/purchases/pages/purchases.page';
 import { AboutPage } from './modules/shared/pages/about.page';
+import { LandingPage } from './modules/shared/pages/landing.page';
 import { NotFoundPage } from './modules/shared/pages/not-found.page';
 import { CheckoutCancelPage } from './modules/subscriptions/pages/checkout-cancel.page';
 import { CheckoutSuccessPage } from './modules/subscriptions/pages/checkout-success.page';
@@ -529,6 +530,11 @@ export const routes: RouteDefinition[] = [
         ],
       },
     ],
+  },
+  {
+    // Landing for gestorías: public for everyone, signed in or not, like any marketing page
+    path: '/para-gestoria',
+    component: () => <LandingPage audience="gestorias" />,
   },
   {
     path: '/login',

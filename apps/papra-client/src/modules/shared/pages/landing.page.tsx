@@ -1,4 +1,5 @@
 import type { Component } from 'solid-js';
+import type { TranslationKeys } from '@/modules/i18n/locales.types';
 import { A } from '@solidjs/router';
 import { createEffect, For, Show, untrack } from 'solid-js';
 import { appAgency, appBrand } from '@/modules/config/branding';
@@ -15,7 +16,16 @@ import { ShaderGradient } from '@/modules/ui/components/shader-gradient';
 
 const SHOW_LANDING_FEATURES = false;
 
-const DemoFrame: Component<{ url: string }> = (props) => {
+type LandingAudience = 'companies' | 'gestorias';
+
+// Same page for every audience: only the pitch and where the embedded demo opens change
+const LANDING_AUDIENCES: Record<LandingAudience, { titleKey: TranslationKeys; titleMutedKey: TranslationKeys; descriptionKey: TranslationKeys; demoTitleKey: TranslationKeys; demoPath: string }> = {
+  companies: { titleKey: 'landing.hero.title', titleMutedKey: 'landing.hero.title-muted', descriptionKey: 'landing.hero.description', demoTitleKey: 'landing.demo.title', demoPath: '/' },
+  // The demo gestoría with a client company already open, on the quarter its accountant would prepare
+  gestorias: { titleKey: 'landing.gestorias.hero.title', titleMutedKey: 'landing.gestorias.hero.title-muted', descriptionKey: 'landing.gestorias.hero.description', demoTitleKey: 'landing.gestorias.demo.title', demoPath: '/gestoria/gst_demoejemplo/clients/org_DemoGestoriaEspiga000001/taxes' },
+};
+
+const DemoFrame: Component<{ url: string; title: string }> = (props) => {
   const { t, getLocale } = useI18n();
   let frame: HTMLIFrameElement | undefined;
 
@@ -42,7 +52,7 @@ const DemoFrame: Component<{ url: string }> = (props) => {
             <span class="size-2.5 rounded-full bg-muted-foreground/25" />
             <span class="size-2.5 rounded-full bg-muted-foreground/25" />
           </div>
-          <p class="min-w-0 flex-1 truncate text-center text-xs text-muted-foreground">{t('landing.demo.title')}</p>
+          <p class="min-w-0 flex-1 truncate text-center text-xs text-muted-foreground">{props.title}</p>
           <a href={props.url} target="_blank" rel="noopener noreferrer" class="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground" aria-label={t('landing.demo.open')}>
             <span class="hidden sm:inline">{t('landing.demo.open')}</span>
             <span class="i-tabler-arrow-up-right size-3.5" />
@@ -54,11 +64,12 @@ const DemoFrame: Component<{ url: string }> = (props) => {
   );
 };
 
-export const LandingPage: Component = () => {
+export const LandingPage: Component<{ audience?: LandingAudience }> = (props) => {
   useForcedLightTheme();
 
   const { t } = useI18n();
   const { config } = useConfig();
+  const getAudience = () => LANDING_AUDIENCES[props.audience ?? 'companies'];
 
   const features = [
     { icon: 'i-tabler-file-invoice', title: t('landing.features.invoices.title'), description: t('landing.features.invoices.description') },
@@ -101,12 +112,12 @@ export const LandingPage: Component = () => {
 
         <div class="relative z-10 mx-auto max-w-4xl px-5 pt-10 text-center sm:px-8 sm:pt-14">
           <h1 class="text-balance text-4xl font-semibold leading-[1.04] tracking-[-0.04em] sm:text-6xl">
-            {t('landing.hero.title')}
+            {t(getAudience().titleKey)}
             {' '}
-            <span class="text-foreground/55">{t('landing.hero.title-muted')}</span>
+            <span class="text-foreground/55">{t(getAudience().titleMutedKey)}</span>
           </h1>
           <p class="mx-auto mt-5 max-w-xl text-balance text-base leading-7 text-foreground/65 sm:text-lg">
-            {t('landing.hero.description')}
+            {t(getAudience().descriptionKey)}
           </p>
           <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <PrimaryCta />
@@ -118,7 +129,7 @@ export const LandingPage: Component = () => {
         </div>
 
         <div class="relative z-10 mt-10 pb-12 sm:mt-12 sm:pb-20">
-          <DemoFrame url={buildTimeConfig.demo.url} />
+          <DemoFrame url={new URL(getAudience().demoPath, buildTimeConfig.demo.url).toString()} title={t(getAudience().demoTitleKey)} />
         </div>
       </section>
 
