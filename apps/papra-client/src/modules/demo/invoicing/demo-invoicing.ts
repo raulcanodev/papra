@@ -694,3 +694,11 @@ export async function listDemoContacts({ organizationId }: { organizationId: str
 export async function getDemoFiscalProfile({ organizationId }: { organizationId: string }) {
   return db().profile.getItem(organizationId);
 }
+
+export async function listDemoContactProducts({ organizationId, contactId }: { organizationId: string; contactId: string }) {
+  return (await getValues(db().products)).filter(product => product.organizationId === organizationId && product.contactId === contactId && !product.archivedAt);
+}
+
+export async function saveDemoProduct({ product }: { product: Stored }) {
+  await db().products.setItem(product.id, product);
+}

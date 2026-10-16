@@ -35,6 +35,7 @@ import { findMany, getValues } from './demo.storage.models';
 import { gestoriasHandlers } from './gestorias/demo-gestorias';
 import { contactsHandlers, getDemoContact, getDemoEntityCustomPropertyValues, getDemoFiscalProfile, getDemoInvoicingRecords, invoicingHandlers, listDemoContacts } from './invoicing/demo-invoicing';
 import { miscHandlers } from './misc/demo-misc';
+import { productScannerHandlers } from './product-scanner/demo-product-scanner';
 import { buildDemoExtraction, listDemoPurchaseInvoices, purchasesHandlers } from './purchases/demo-purchases';
 import { generatePropertyKey, searchDemoDocuments } from './search/demo.search.services';
 import { demoUser } from './seed/users.fixtures';
@@ -203,6 +204,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
   ...invoicingHandlers,
   ...contactsHandlers,
   ...purchasesHandlers,
+  ...productScannerHandlers,
   ...capturesHandlers,
   ...gestoriasHandlers,
 

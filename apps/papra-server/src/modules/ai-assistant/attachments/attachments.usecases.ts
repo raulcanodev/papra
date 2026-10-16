@@ -40,7 +40,7 @@ export async function getOrganizationDocuments({ db, organizationId, documentIds
   return { documents: documentIds.map(id => documents.find(document => document.id === id)).filter(document => document !== undefined) };
 }
 
-async function loadDocumentFile({ document, documentsStorageService }: { document: Document; documentsStorageService: DocumentStorageService }) {
+export async function loadDocumentFile({ document, documentsStorageService }: { document: Document; documentsStorageService: DocumentStorageService }) {
   const { fileStream } = await documentsStorageService.getFileStream({
     storageKey: document.originalStorageKey,
     fileEncryptionAlgorithm: document.fileEncryptionAlgorithm,

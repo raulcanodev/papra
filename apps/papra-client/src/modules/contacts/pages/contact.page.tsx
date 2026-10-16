@@ -6,6 +6,7 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { getProductsQueryKey, ProductForm } from '@/modules/invoicing/components/product-form';
 import { ProductsTable } from '@/modules/invoicing/components/products-table';
 import { deleteProduct, fetchProducts } from '@/modules/invoicing/invoicing.services';
+import { ProductScannerDialog } from '@/modules/product-scanner/components/product-scanner-dialog';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
@@ -27,6 +28,7 @@ export function ContactPage() {
   const { deleteContact } = useDeleteContact();
   const [contactFormOpen, setContactFormOpen] = createSignal(false);
   const [productFormOpen, setProductFormOpen] = createSignal(false);
+  const [scannerOpen, setScannerOpen] = createSignal(false);
   const [editingProduct, setEditingProduct] = createSignal<InvoicingProduct | null>(null);
 
   const contactsQuery = useQuery(() => ({ queryKey: getContactsQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchContacts({ organizationId: params.organizationId }) }));
@@ -105,10 +107,16 @@ export function ContactPage() {
                 <h2 class="text-base font-semibold">{t('contacts.detail.products.title')}</h2>
                 <p class="text-sm text-muted-foreground">{t(getContact().isSupplier ? 'contacts.detail.products.supplier' : 'contacts.detail.products.customer', { name: getContact().name })}</p>
               </div>
-              <Button size="sm" class="gap-1.5" onClick={() => openProductForm(null)}>
-                <div class="i-tabler-plus size-4" />
-                {t('invoicing.products.new')}
-              </Button>
+              <div class="flex shrink-0 gap-2">
+                <Button size="sm" variant="outline" class="gap-1.5" onClick={() => setScannerOpen(true)} aria-label={t('contacts.detail.products.scan')}>
+                  <div class="i-tabler-scan size-4" />
+                  <span class="hidden sm:inline">{t('contacts.detail.products.scan')}</span>
+                </Button>
+                <Button size="sm" class="gap-1.5" onClick={() => openProductForm(null)}>
+                  <div class="i-tabler-plus size-4" />
+                  {t('invoicing.products.new')}
+                </Button>
+              </div>
             </div>
 
             <Show when={(productsQuery.data?.products.length ?? 0) > 0} fallback={<Show when={!productsQuery.isLoading}><div class="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground">{t('contacts.detail.products.empty')}</div></Show>}>
@@ -121,6 +129,8 @@ export function ContactPage() {
                 <ProductForm organizationId={params.organizationId} product={editingProduct()} lockedContactId={getContact().id} onDone={() => setProductFormOpen(false)} />
               </DialogContent>
             </Dialog>
+
+            <ProductScannerDialog organizationId={params.organizationId} contactId={getContact().id} contactName={getContact().name} open={scannerOpen()} onOpenChange={setScannerOpen} />
 
             <Dialog open={contactFormOpen()} onOpenChange={setContactFormOpen}>
               <DialogContent class="max-w-xl">
