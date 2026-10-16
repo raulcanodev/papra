@@ -8,7 +8,6 @@ import { uploadChatAttachment } from '@/modules/ai-assistant/ai-assistant.servic
 import { PhotoCaptureButton } from '@/modules/captures/components/photo-capture-button';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { CatalogCell, CatalogRow, CatalogTable } from '@/modules/invoicing/components/catalog-page';
-import { InvoicesTabs } from '@/modules/invoicing/components/invoices-tabs';
 import { getInvoicePayableMinor } from '@/modules/invoicing/invoicing.models';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
@@ -19,7 +18,7 @@ import { createToast } from '@/modules/ui/components/sonner';
 import { dateIsInRange, getActiveFilter, isDateRangeValue } from '@/modules/ui/components/table-filters';
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
-import { EXPENSE_CATEGORY_LABEL_I18N_KEYS, EXTRACTABLE_FILE_ACCEPT, PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS, PURCHASE_STATUS_BADGE_CLASSES, PURCHASE_STATUS_LABEL_I18N_KEYS } from '../purchases.constants';
+import { EXPENSE_CATEGORY_LABEL_I18N_KEYS, EXTRACTABLE_FILE_ACCEPT, PURCHASE_DOCUMENT_KIND_BADGE_CLASSES, PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS, PURCHASE_DOCUMENT_KINDS, PURCHASE_STATUS_BADGE_CLASSES, PURCHASE_STATUS_LABEL_I18N_KEYS } from '../purchases.constants';
 import { createPurchaseReadings, deletePurchaseInvoice, fetchPurchaseInvoices, getPurchaseInvoicesQueryKey, setPurchaseInvoiceStatus } from '../purchases.services';
 
 const STATUS_FILTERS: (PurchaseInvoiceStatus | undefined)[] = [undefined, 'pending', 'paid'];
@@ -39,6 +38,13 @@ export function PurchasesPage() {
 
   const filterFields = createMemo((): FilterField[] => [
     {
+      id: 'kind',
+      type: 'multi-select',
+      label: t('purchases.table.kind'),
+      icon: 'i-tabler-file-description',
+      options: PURCHASE_DOCUMENT_KINDS.map(kind => ({ value: kind, label: t(PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS[kind]) })),
+    },
+    {
       id: 'status',
       type: 'multi-select',
       label: t('purchases.filter.label'),
@@ -57,11 +63,13 @@ export function PurchasesPage() {
   const purchaseInvoices = () => query.data?.purchaseInvoices ?? [];
   const rows = createMemo(() => {
     const term = search().trim().toLowerCase();
+    const kinds = getActiveFilter(filters(), 'kind')?.value;
     const statuses = getActiveFilter(filters(), 'status')?.value;
     const categories = getActiveFilter(filters(), 'category')?.value;
     const dateRange = getActiveFilter(filters(), 'date')?.value;
 
     return purchaseInvoices()
+      .filter(purchaseInvoice => !Array.isArray(kinds) || kinds.length === 0 || kinds.includes(purchaseInvoice.kind))
       .filter(purchaseInvoice => !Array.isArray(statuses) || statuses.length === 0 || statuses.includes(purchaseInvoice.status))
       .filter(purchaseInvoice => !Array.isArray(categories) || categories.length === 0 || categories.includes(purchaseInvoice.category))
       .filter(purchaseInvoice => !isDateRangeValue(dateRange) || dateIsInRange(purchaseInvoice.issueDate, dateRange))
@@ -136,7 +144,7 @@ export function PurchasesPage() {
     <main class="page">
       <div class="page-header">
         <div>
-          <h1 class="page-title">{t('invoicing.invoices.title')}</h1>
+          <h1 class="page-title">{t('purchases.title')}</h1>
           <p class="page-description">{t('purchases.description')}</p>
         </div>
         <div class="flex items-center gap-2">
@@ -167,8 +175,6 @@ export function PurchasesPage() {
         </div>
       </div>
 
-      <InvoicesTabs />
-
       <TableToolbar search={search()} onSearchChange={setSearch} searchPlaceholder={t('invoicing.common.search')} fields={filterFields()} filters={filters()} onFiltersChange={setFilters} />
 
       <Show
@@ -187,6 +193,7 @@ export function PurchasesPage() {
       >
         <CatalogTable headers={[
           { label: t('purchases.table.date') },
+          { label: t('purchases.table.kind') },
           { label: t('purchases.table.supplier') },
           { label: t('purchases.table.number') },
           { label: t('purchases.table.category') },
@@ -201,6 +208,11 @@ export function PurchasesPage() {
               <CatalogRow onClick={() => navigate(editorHref(`${purchaseInvoice.id}/edit`))}>
                 <CatalogCell class="whitespace-nowrap text-muted-foreground">{formatDate(purchaseInvoice.issueDate)}</CatalogCell>
                 <CatalogCell>
+                  <span class={cn('rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap', PURCHASE_DOCUMENT_KIND_BADGE_CLASSES[purchaseInvoice.kind])}>
+                    {t(PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS[purchaseInvoice.kind])}
+                  </span>
+                </CatalogCell>
+                <CatalogCell>
                   <div class="flex items-center gap-2.5">
                     <EntityIcon icon={purchaseInvoice.supplierIcon} color={purchaseInvoice.supplierIconColor} fallback="i-tabler-building" />
                     <div class="min-w-0">
@@ -214,14 +226,7 @@ export function PurchasesPage() {
                     </div>
                   </div>
                 </CatalogCell>
-                <CatalogCell class="text-muted-foreground">
-                  <div class="flex items-center gap-2">
-                    <span>{purchaseInvoice.number}</span>
-                    <Show when={purchaseInvoice.kind !== 'invoice'}>
-                      <span class="rounded-full bg-muted px-2 py-0.5 text-xs whitespace-nowrap">{t(PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS[purchaseInvoice.kind])}</span>
-                    </Show>
-                  </div>
-                </CatalogCell>
+                <CatalogCell class="text-muted-foreground">{purchaseInvoice.number}</CatalogCell>
                 <CatalogCell class="text-muted-foreground">{t(EXPENSE_CATEGORY_LABEL_I18N_KEYS[purchaseInvoice.category])}</CatalogCell>
                 <CatalogCell class="text-right tabular-nums text-muted-foreground">{money(purchaseInvoice, purchaseInvoice.taxMinor)}</CatalogCell>
                 <CatalogCell class="text-right font-medium tabular-nums">{money(purchaseInvoice, getInvoicePayableMinor(purchaseInvoice))}</CatalogCell>

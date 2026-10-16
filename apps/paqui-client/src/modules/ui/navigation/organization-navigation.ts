@@ -17,9 +17,9 @@ export const organizationRoutes = {
   documents: { path: 'documents', surface: 'workspace' },
   assistant: { path: 'ai-assistant', surface: 'workspace' },
   calendar: { path: 'calendar', surface: 'workspace' },
-  invoices: { path: 'invoicing/invoices', surface: 'workspace' },
-  // Received invoices live under the invoices entry of the menu, as a tab
-  purchases: { path: 'invoicing/invoices/received', surface: 'workspace' },
+  // Sales: what the organization issues; purchases: what its suppliers send (invoices, tickets, delivery notes)
+  invoices: { path: 'sales', surface: 'workspace' },
+  purchases: { path: 'purchases', surface: 'workspace' },
   customers: { path: 'contacts/customers', surface: 'workspace' },
   suppliers: { path: 'contacts/suppliers', surface: 'workspace' },
   salesRepresentatives: { path: 'contacts/sales-representatives', surface: 'workspace' },
@@ -57,8 +57,8 @@ export const organizationRouteLabelKeys = {
   documents: 'navigation.item.documents',
   assistant: 'navigation.item.assistant',
   calendar: 'navigation.item.calendar',
-  invoices: 'navigation.item.invoices',
-  purchases: 'navigation.item.received-invoices',
+  invoices: 'navigation.item.sales',
+  purchases: 'navigation.item.purchases',
   customers: 'contacts.roles.customers',
   suppliers: 'contacts.roles.suppliers',
   salesRepresentatives: 'contacts.roles.sales_representatives',
@@ -91,7 +91,7 @@ type NavigationItemDefinition = {
   routeId: OrganizationRouteId;
   icon: string;
   requires?: OrganizationNavigationCapability;
-  /** Also highlighted on the sub routes (invoices for the received invoices and the editors) */
+  /** Also highlighted on the sub routes (sales and purchases for their editors) */
   matchSubRoutes?: boolean;
   /** Always in the menu: the member cannot hide it */
   alwaysVisible?: boolean;
@@ -119,7 +119,8 @@ const workspaceNavigation: readonly NavigationSectionDefinition[] = [
     labelKey: 'navigation.section.invoicing',
     requires: 'invoicing',
     items: [
-      { routeId: 'invoices', icon: 'i-tabler-receipt', matchSubRoutes: true },
+      { routeId: 'invoices', icon: 'i-tabler-file-arrow-right', matchSubRoutes: true },
+      { routeId: 'purchases', icon: 'i-tabler-file-arrow-left', matchSubRoutes: true },
       { routeId: 'products', icon: 'i-tabler-package' },
       { routeId: 'taxes', icon: 'i-tabler-receipt-tax' },
     ],
@@ -201,10 +202,10 @@ const settingsNavigation: readonly NavigationSectionDefinition[] = [
 // and the assistant is told about them. Declared once, the router and the assistant both read this.
 export const organizationEntityRoutes = {
   document: { path: 'documents/:documentId', label: 'Document viewer' },
-  newInvoice: { path: 'invoicing/invoices/new', label: 'New issued invoice' },
-  editInvoice: { path: 'invoicing/invoices/:invoiceId/edit', label: 'Issued invoice editor' },
-  newPurchaseInvoice: { path: 'invoicing/invoices/received/new', label: 'New received invoice' },
-  editPurchaseInvoice: { path: 'invoicing/invoices/received/:purchaseInvoiceId/edit', label: 'Received invoice editor' },
+  newInvoice: { path: 'sales/new', label: 'New issued invoice' },
+  editInvoice: { path: 'sales/:invoiceId/edit', label: 'Issued invoice editor' },
+  newPurchaseInvoice: { path: 'purchases/new', label: 'New purchase (received invoice, ticket or delivery note)' },
+  editPurchaseInvoice: { path: 'purchases/:purchaseInvoiceId/edit', label: 'Purchase editor (received invoice, ticket or delivery note)' },
   contact: { path: 'contacts/:contactId', label: 'Contact (customer, supplier or sales representative) with its products' },
 } as const satisfies Record<string, { path: string; label: string }>;
 

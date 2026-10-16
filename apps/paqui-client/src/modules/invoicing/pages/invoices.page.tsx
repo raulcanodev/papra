@@ -16,7 +16,6 @@ import { dateIsInRange, getActiveFilter, isDateRangeValue } from '@/modules/ui/c
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { getOrganizationRouteChildHref, getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
 import { CatalogCell, CatalogRow, CatalogTable } from '../components/catalog-page';
-import { InvoicesTabs } from '../components/invoices-tabs';
 import { getInvoicePayableMinor } from '../invoicing.models';
 import { deleteDraftInvoice, downloadInvoicePdf, fetchInvoices, markInvoicePaid, sendInvoice } from '../invoicing.services';
 
@@ -62,7 +61,6 @@ export function InvoicesPage() {
         </Button>
       </div>
 
-      <InvoicesTabs />
       <TableToolbar search={search()} onSearchChange={setSearch} searchPlaceholder={t('invoicing.invoices.search')} fields={filterFields()} filters={filters()} onFiltersChange={setFilters} />
       <Show when={!query.isLoading && invoices().length === 0}>
         <div class="rounded-xl border border-dashed py-16 text-center">

@@ -24,14 +24,15 @@ describe('mobile navigation', () => {
       expect(getActive('home')).toBe('home');
       expect(getActive('documents')).toBe('documents');
       expect(getActive('documents/doc_1')).toBe('documents');
-      expect(getActive('invoicing/invoices/received')).toBe('invoices');
-      expect(getActive('invoicing/invoices/new')).toBe('invoices');
+      expect(getActive('sales')).toBe('invoices');
+      expect(getActive('sales/new')).toBe('invoices');
     });
 
     test('the pages without a tab belong to "more"', () => {
       expect(getActive('more')).toBe('more');
       expect(getActive('contacts/customers')).toBe('more');
       expect(getActive('taxes')).toBe('more');
+      expect(getActive('purchases')).toBe('more');
       expect(getActive('ai-assistant')).toBe('more');
     });
 

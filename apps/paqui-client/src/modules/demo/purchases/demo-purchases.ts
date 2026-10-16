@@ -84,6 +84,8 @@ type RecurringExpense = {
   supplierTaxId: string;
   prefix: string;
   category: PurchaseInvoiceDraftInput['category'];
+  /** An invoice unless said otherwise: the train and the stationery shop give a ticket */
+  kind?: PurchaseInvoiceDraftInput['kind'];
   /** Every how many months it is billed */
   everyMonths: number;
   dayOfMonth: number;
@@ -102,8 +104,8 @@ const RECURRING_EXPENSES: RecurringExpense[] = [
   { supplierTaxId: 'B00000010', prefix: 'NUBE-', category: 'software', everyMonths: 3, dayOfMonth: 15, withholdingRateBps: 0, line: () => ({ description: 'Hosting y dominio (trimestre)', quantityMillis: 3_000, unitPriceMinor: 4_500, taxRateBps: 2_100 }) },
   { supplierTaxId: 'B00000016', prefix: 'AO-', category: 'marketing', everyMonths: 2, dayOfMonth: 20, withholdingRateBps: 0, line: monthIndex => ({ description: 'Campaña de anuncios en buscadores', unitPriceMinor: 12_000 + (monthIndex % 3) * 3_000, taxRateBps: 2_100 }) },
   { supplierTaxId: 'A00000014', prefix: 'POL-', category: 'insurance', everyMonths: 12, dayOfMonth: 3, withholdingRateBps: 0, line: () => ({ description: 'Prima anual de responsabilidad civil profesional', unitPriceMinor: 42_000, taxRateBps: 0 }) },
-  { supplierTaxId: 'B00000018', prefix: 'VE-', category: 'travel', everyMonths: 4, dayOfMonth: 12, withholdingRateBps: 0, line: () => ({ description: 'Tren Madrid - Bilbao ida y vuelta (visita a cliente)', unitPriceMinor: 9_800, taxRateBps: 1_000 }) },
-  { supplierTaxId: 'B00000011', prefix: 'PAP-', category: 'supplies', everyMonths: 5, dayOfMonth: 17, withholdingRateBps: 0, line: () => ({ description: 'Material de oficina', unitPriceMinor: 8_650, taxRateBps: 2_100 }) },
+  { supplierTaxId: 'B00000018', prefix: 'VE-', category: 'travel', kind: 'simplified_invoice', everyMonths: 4, dayOfMonth: 12, withholdingRateBps: 0, line: () => ({ description: 'Tren Madrid - Bilbao ida y vuelta (visita a cliente)', unitPriceMinor: 9_800, taxRateBps: 1_000 }) },
+  { supplierTaxId: 'B00000011', prefix: 'PAP-', category: 'supplies', kind: 'simplified_invoice', everyMonths: 5, dayOfMonth: 17, withholdingRateBps: 0, line: () => ({ description: 'Material de oficina', unitPriceMinor: 8_650, taxRateBps: 2_100 }) },
 ];
 
 const HISTORY_MONTHS = 15;
@@ -143,7 +145,7 @@ export async function seedDemoPurchases({ organizationId, now = new Date() }: { 
       draft: {
         supplierId: supplier.id,
         number,
-        kind: 'invoice',
+        kind: expense.kind ?? 'invoice',
         issueDate,
         dueDate: daysAgoToDate(now, daysAgo - 30),
         currency: 'EUR',

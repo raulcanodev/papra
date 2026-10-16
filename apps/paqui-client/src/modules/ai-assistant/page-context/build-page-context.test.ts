@@ -29,7 +29,7 @@ describe('buildPageContext', () => {
   });
 
   test('knows the record on screen from the URL', () => {
-    const context = buildPageContext({ organizationId: 'org_1', pathname: '/organizations/org_1/invoicing/invoices/inv_7/edit', menuSections });
+    const context = buildPageContext({ organizationId: 'org_1', pathname: '/organizations/org_1/sales/inv_7/edit', menuSections });
 
     expect(context.params).to.eql({ invoiceId: 'inv_7' });
   });
@@ -37,7 +37,7 @@ describe('buildPageContext', () => {
   test('offers the pages that open one record with the organization already in the path', () => {
     const context = buildPageContext({ organizationId: 'org_1', pathname: '/organizations/org_1/home', menuSections });
 
-    expect(context.entityPages).to.deep.include({ path: '/organizations/org_1/invoicing/invoices/:invoiceId/edit', label: 'Issued invoice editor' });
+    expect(context.entityPages).to.deep.include({ path: '/organizations/org_1/sales/:invoiceId/edit', label: 'Issued invoice editor' });
     expect(context.params).to.eql({});
   });
 

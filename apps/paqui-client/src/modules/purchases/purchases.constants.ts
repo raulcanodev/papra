@@ -26,6 +26,13 @@ export const PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS = {
   delivery_note: 'purchases.kinds.delivery_note',
 } as const satisfies Record<PurchaseDocumentKind, TranslationKeys>;
 
+// Each kind keeps its own colour so the list of purchases reads at a glance
+export const PURCHASE_DOCUMENT_KIND_BADGE_CLASSES = {
+  invoice: 'bg-sky-500/12 text-sky-700 dark:text-sky-300',
+  simplified_invoice: 'bg-violet-500/12 text-violet-700 dark:text-violet-300',
+  delivery_note: 'bg-amber-500/12 text-amber-700 dark:text-amber-300',
+} as const satisfies Record<PurchaseDocumentKind, string>;
+
 export const PURCHASE_STATUS_LABEL_I18N_KEYS = {
   pending: 'purchases.status.pending',
   paid: 'purchases.status.paid',

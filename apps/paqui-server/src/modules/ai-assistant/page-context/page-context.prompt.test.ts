@@ -17,23 +17,23 @@ describe('page context prompt', () => {
     const prompt = buildPageContextPrompt({
       organizationId: ORG,
       pageContext: parse({
-        path: '/organizations/org_1/invoicing/invoices/inv_9/edit',
+        path: '/organizations/org_1/sales/inv_9/edit',
         params: { organizationId: ORG, invoiceId: 'inv_9' },
-        pages: [{ path: '/organizations/org_1/invoicing/invoices', label: 'Invoices', section: 'Invoicing' }],
+        pages: [{ path: '/organizations/org_1/sales', label: 'Invoices', section: 'Invoicing' }],
       }),
     });
 
-    expect(prompt).to.include('/organizations/org_1/invoicing/invoices/inv_9/edit');
+    expect(prompt).to.include('/organizations/org_1/sales/inv_9/edit');
     expect(prompt).to.include('invoiceId=inv_9');
     expect(prompt).not.to.include('organizationId=');
-    expect(prompt).to.include('Issued invoices');
+    expect(prompt).to.include('the invoices the organization issues');
   });
 
   test('renders what is on screen: tables, tabs and controls with their state', () => {
     const prompt = buildPageContextPrompt({
       organizationId: ORG,
       pageContext: parse({
-        path: '/organizations/org_1/invoicing/invoices',
+        path: '/organizations/org_1/sales',
         snapshot: {
           headings: ['Invoices'],
           tabs: [{ label: 'Issued', active: true }, { label: 'Received', active: false }],

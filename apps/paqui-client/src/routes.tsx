@@ -1,7 +1,7 @@
 import type { RouteDefinition } from '@solidjs/router';
 import type { OrganizationRouteId } from './modules/ui/navigation/organization-navigation';
 import type { OrganizationPlaceholderPageId } from './modules/ui/pages/organization-placeholder.page';
-import { Navigate, useParams, useSearchParams } from '@solidjs/router';
+import { Navigate, useLocation, useParams, useSearchParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { Match, Show, Suspense, Switch } from 'solid-js';
 import { adminRoutes } from './modules/admin/admin.routes';
@@ -98,6 +98,17 @@ function ContactsRedirect() {
   const role = () => CONTACT_ROLES.find(contactRole => contactRole === searchParams.role) ?? 'customer';
 
   return <OrganizationRouteRedirect routeId={CONTACT_ROLE_ROUTE_IDS[role()]} />;
+}
+
+// Keeps the old invoicing/invoices links working: issued invoices are under sales now, received ones under purchases
+function LegacyInvoicesRedirect() {
+  const params = useParams();
+  const location = useLocation();
+  const rest = () => (params.rest ?? '').replace(/^\/+/, '');
+  const isReceived = () => rest() === 'received' || rest().startsWith('received/');
+  const childPath = () => (isReceived() ? rest().slice('received'.length).replace(/^\/+/, '') : rest());
+
+  return <OrganizationRouteRedirect routeId={isReceived() ? 'purchases' : 'invoices'} childPath={childPath() || undefined} search={location.search} />;
 }
 
 function OrganizationPlaceholder(props: { pageId: OrganizationPlaceholderPageId }) {
@@ -286,6 +297,10 @@ export const routes: RouteDefinition[] = [
                       {
                         path: '/invoicing/calendar',
                         component: () => <OrganizationRouteRedirect routeId="calendar" />,
+                      },
+                      {
+                        path: '/invoicing/invoices/*rest',
+                        component: LegacyInvoicesRedirect,
                       },
                       {
                         path: '/invoicing',

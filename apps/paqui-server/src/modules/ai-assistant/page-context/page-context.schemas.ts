@@ -33,7 +33,7 @@ export const pageSnapshotSchema = z.object({
 });
 
 export const pageContextSchema = z.object({
-  /** Location path without query string, e.g. /organizations/org_x/invoicing/invoices */
+  /** Location path without query string, e.g. /organizations/org_x/sales */
   path: z.string().max(500),
   search: z.string().max(500).optional(),
   title: label.optional(),
