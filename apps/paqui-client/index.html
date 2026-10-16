@@ -78,6 +78,12 @@
     <script>
       (function () {
         try{
+          // Embedded in the landing: its theme wins from the first paint (the app redirects before reading the URL)
+          const embeddedTheme = window.parent !== window ? new URLSearchParams(window.location.search).get('theme') : null;
+          if (embeddedTheme === 'light' || embeddedTheme === 'dark') {
+            localStorage?.setItem('paqui_color_mode', embeddedTheme);
+          }
+
           const stored = localStorage?.getItem('paqui_color_mode');
           const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
           const followsSystem = stored !== 'light' && stored !== 'dark';

@@ -9,3 +9,6 @@ export const DEMO_DEFAULT_PARENT_ORIGINS = 'https://heypaqui.com https://www.hey
 
 // Sent by the landing page to the embedded demo so it follows the visitor's theme and language
 export const DEMO_PREFERENCES_MESSAGE_SOURCE = 'paqui-landing';
+
+// Sent by the embedded demo once it listens: the landing answers with its preferences, which it may have sent too early
+export const DEMO_READY_MESSAGE_SOURCE = 'paqui-demo-ready';

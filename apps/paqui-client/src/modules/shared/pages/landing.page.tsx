@@ -1,11 +1,11 @@
 import type { Component } from 'solid-js';
 import type { TranslationKeys } from '@/modules/i18n/locales.types';
 import { A } from '@solidjs/router';
-import { createEffect, For, Show, untrack } from 'solid-js';
+import { createEffect, For, onCleanup, onMount, Show, untrack } from 'solid-js';
 import { appAgency, appBrand } from '@/modules/config/branding';
 import { buildTimeConfig } from '@/modules/config/config';
 import { useConfig } from '@/modules/config/config.provider';
-import { DEMO_PREFERENCES_MESSAGE_SOURCE } from '@/modules/demo/demo.constants';
+import { DEMO_PREFERENCES_MESSAGE_SOURCE, DEMO_READY_MESSAGE_SOURCE } from '@/modules/demo/demo.constants';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { LanguageToggleButton } from '@/modules/i18n/language-toggle-button.component';
 import { createVitrineUrl } from '@/modules/shared/utils/urls';
@@ -43,22 +43,36 @@ const DemoFrame: Component<{ url: string; title: string }> = (props) => {
 
   createEffect(sendPreferences);
 
+  // The demo asks again once it listens: the load event alone can come before that
+  onMount(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.source === frame?.contentWindow && event.data?.source === DEMO_READY_MESSAGE_SOURCE) {
+        sendPreferences();
+      }
+    };
+
+    window.addEventListener('message', onMessage);
+    onCleanup(() => window.removeEventListener('message', onMessage));
+  });
+
   return (
     <div id="demo" class="mx-auto w-full max-w-[1500px] scroll-mt-24 px-3 sm:px-6">
-      <div class="overflow-hidden rounded-2xl bg-card shadow-2xl shadow-black/15 ring-1 ring-black/5 dark:ring-white/10">
+      {/* On a phone the demo is a phone: its own mobile UI, framed tall like a screen instead of a desktop window */}
+      <div class="mx-auto max-w-[440px] overflow-hidden rounded-[2rem] bg-card sm:max-w-none sm:rounded-2xl shadow-2xl shadow-black/15 ring-1 ring-black/5 dark:ring-white/10">
         <div class="flex items-center gap-3 bg-muted/60 px-4 py-2.5">
-          <div class="flex gap-1.5" aria-hidden="true">
+          <div class="hidden gap-1.5 sm:flex" aria-hidden="true">
             <span class="size-2.5 rounded-full bg-muted-foreground/25" />
             <span class="size-2.5 rounded-full bg-muted-foreground/25" />
             <span class="size-2.5 rounded-full bg-muted-foreground/25" />
           </div>
-          <p class="min-w-0 flex-1 truncate text-center text-xs text-muted-foreground">{props.title}</p>
+          <p class="min-w-0 flex-1 truncate text-left text-xs sm:text-center text-muted-foreground">{props.title}</p>
           <a href={props.url} target="_blank" rel="noopener noreferrer" class="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground" aria-label={t('landing.demo.open')}>
             <span class="hidden sm:inline">{t('landing.demo.open')}</span>
             <span class="i-tabler-arrow-up-right size-3.5" />
           </a>
         </div>
-        <iframe ref={frame} src={initialUrl} onLoad={sendPreferences} title={t('landing.cta.demo')} loading="lazy" class="block h-[560px] w-full bg-background sm:aspect-video sm:h-auto" />
+        {/* No loading="lazy": Safari on iOS never loads a lazy iframe here and the demo stays an empty box */}
+        <iframe ref={frame} src={initialUrl} onLoad={sendPreferences} title={t('landing.cta.demo')} class="block h-[min(80svh,760px)] min-h-[560px] w-full bg-background sm:aspect-video sm:h-auto sm:min-h-0" />
       </div>
     </div>
   );

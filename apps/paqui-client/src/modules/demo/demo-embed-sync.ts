@@ -2,7 +2,7 @@ import type { Locale } from '../i18n/i18n.provider';
 import { onCleanup, onMount } from 'solid-js';
 import { useI18n } from '../i18n/i18n.provider';
 import { useTheme } from '../theme/theme.provider';
-import { DEMO_DEFAULT_PARENT_ORIGINS, DEMO_PREFERENCES_MESSAGE_SOURCE } from './demo.constants';
+import { DEMO_DEFAULT_PARENT_ORIGINS, DEMO_PREFERENCES_MESSAGE_SOURCE, DEMO_READY_MESSAGE_SOURCE } from './demo.constants';
 
 const allowedParentOrigins = (import.meta.env.VITE_DEMO_FRAME_ANCESTORS ?? DEMO_DEFAULT_PARENT_ORIGINS).split(/\s+/).filter(Boolean);
 
@@ -52,5 +52,9 @@ export function useDemoEmbedSync() {
 
     window.addEventListener('message', onMessage);
     onCleanup(() => window.removeEventListener('message', onMessage));
+
+    // The landing's load message can arrive before this listener exists: ask for the preferences again.
+    // Carries no data, so any parent may receive it
+    window.parent.postMessage({ source: DEMO_READY_MESSAGE_SOURCE }, '*');
   });
 }
