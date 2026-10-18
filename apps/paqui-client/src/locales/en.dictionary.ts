@@ -296,6 +296,7 @@ export const translations = {
   'organizations.details.latest-documents': 'Latest imported documents',
 
   'organization.settings.title': 'Organization Settings',
+  'organization.settings.short-title': 'Settings',
   'organization.settings.page.title': 'Organization settings',
   'organization.settings.page.description': 'Manage your organization settings here.',
   'organization.settings.name.title': 'Organization name',

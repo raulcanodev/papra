@@ -298,6 +298,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'organizations.details.latest-documents': 'Últimos documentos importados',
 
   'organization.settings.title': 'Configuración de la organización',
+  'organization.settings.short-title': 'Configuración',
   'organization.settings.page.title': 'Configuración de la organización',
   'organization.settings.page.description': 'Administra la configuración de tu organización aquí.',
   'organization.settings.name.title': 'Nombre de la organización',

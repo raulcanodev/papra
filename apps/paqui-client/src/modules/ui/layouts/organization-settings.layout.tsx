@@ -1,10 +1,11 @@
 import type { ParentComponent } from 'solid-js';
 import { A, useLocation, useParams } from '@solidjs/router';
+import { useQuery } from '@tanstack/solid-query';
 import { useFeatureFlags } from '@/modules/feature-flags/feature-flags.provider';
 import { useI18n } from '@/modules/i18n/i18n.provider';
+import { fetchOrganization } from '@/modules/organizations/organizations.services';
 import { SideNav } from '@/modules/ui/components/sidenav';
 import { buildOrganizationSettingsNavigation, getOrganizationRouteHref, getOrganizationRouteLabelKey } from '@/modules/ui/navigation/organization-navigation';
-import { Button } from '../components/button';
 import { AppShell, ShellBreadcrumb } from './sidenav.layout';
 
 export const OrganizationSettingsLayout: ParentComponent = (props) => {
@@ -22,17 +23,31 @@ export const OrganizationSettingsLayout: ParentComponent = (props) => {
     translate: t,
   });
 
+  const organizationQuery = useQuery(() => ({
+    queryKey: ['organizations', params.organizationId],
+    queryFn: () => fetchOrganization({ organizationId: params.organizationId }),
+  }));
+
   const sideNav = () => (
     <SideNav
       mainSections={getNavigationSections()}
       header={() => (
-        <div class="flex h-12 items-center gap-1 px-1">
-          <Button variant="ghost" size="icon-sm" class="text-muted-foreground" as={A} href={getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'home' })} aria-label={t('layout.back')}>
-            <div class="i-tabler-arrow-left size-4" />
-          </Button>
-          <h1 class="text-sm font-semibold">
-            {t('organization.settings.title')}
-          </h1>
+        <div class="flex min-h-12 items-center px-1 py-1.5">
+          <A
+            href={getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'home' })}
+            aria-label={t('layout.back')}
+            class="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/50"
+          >
+            <div class="i-tabler-arrow-left size-4 shrink-0 text-muted-foreground" />
+            <div class="min-w-0 flex-1">
+              <div class="text-xs leading-tight text-muted-foreground">
+                {t('organization.settings.short-title')}
+              </div>
+              <h1 class="line-clamp-2 break-words text-sm font-semibold leading-tight">
+                {organizationQuery.data?.organization.name ?? t('organization.settings.title')}
+              </h1>
+            </div>
+          </A>
         </div>
       )}
     />
