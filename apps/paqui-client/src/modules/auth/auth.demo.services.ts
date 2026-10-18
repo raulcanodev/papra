@@ -28,6 +28,13 @@ export function createDemoAuthClient() {
       viewBackupCodes: () => Promise.resolve({ data: null, error: null }),
       verifyBackupCode: () => Promise.resolve({ data: null, error: null }),
     },
+    changePassword: () => Promise.resolve({ data: null, error: null }),
+    listAccounts: () => Promise.resolve({ data: [{ providerId: 'credential' }], error: null }),
+    linkSocial: () => Promise.resolve({ data: null, error: null }),
+    unlinkAccount: () => Promise.resolve({ data: null, error: null }),
+    oauth2: {
+      link: () => Promise.resolve({ data: null, error: null }),
+    },
   };
 
   return new Proxy(baseClient, {

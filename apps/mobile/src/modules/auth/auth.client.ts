@@ -1,4 +1,5 @@
 import { expoClient } from '@better-auth/expo/client';
+import { twoFactorClient } from 'better-auth/client/plugins';
 import { createAuthClient as createBetterAuthClient } from 'better-auth/react';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
@@ -17,6 +18,7 @@ export function createAuthClient({ baseUrl}: { baseUrl: string }) {
           ? localStorage
           : SecureStore,
       }),
+      twoFactorClient(),
     ],
   });
 }

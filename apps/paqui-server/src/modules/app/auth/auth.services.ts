@@ -5,13 +5,14 @@ import type { AuthEmailsServices } from './auth.emails.services';
 import { expo } from '@better-auth/expo';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { genericOAuth, twoFactor } from 'better-auth/plugins';
-import { getServerBaseUrl } from '../../config/config.models';
+import { genericOAuth } from 'better-auth/plugins';
+import { getClientBaseUrl, getServerBaseUrl } from '../../config/config.models';
 import { createLogger } from '../../shared/logger/logger';
 import { usersTable } from '../../users/users.table';
 import { createForbiddenEmailDomainError } from './auth.errors';
 import { getTrustedOrigins, isEmailDomainAllowed } from './auth.models';
 import { accountsTable, sessionsTable, twoFactorTable, verificationsTable } from './auth.tables';
+import { twoFactorPlugin } from './auth.two-factor';
 
 export type Auth = ReturnType<typeof getAuth>['auth'];
 
@@ -32,6 +33,7 @@ export function getAuth({
 
   const { trustedOrigins } = getTrustedOrigins({ config });
   const { serverBaseUrl } = getServerBaseUrl({ config });
+  const { clientBaseUrl } = getClientBaseUrl({ config });
 
   const auth = betterAuth({
     secret,
@@ -127,8 +129,10 @@ export function getAuth({
       deleteUser: { enabled: false },
     },
     plugins: [
+      twoFactorPlugin({ clientBaseUrl }),
+      // Keep Expo after two-factor so its OAuth callback bridge forwards the
+      // challenge cookie, never the short-lived session that was just revoked.
       expo(),
-      twoFactor(),
 
       ...(config.auth.providers.customs.length > 0
         ? [genericOAuth({ config: config.auth.providers.customs })]

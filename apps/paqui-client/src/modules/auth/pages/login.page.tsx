@@ -1,7 +1,7 @@
 import type { Component } from 'solid-js';
 import type { SsoProviderConfig } from '../auth.types';
 import { buildUrl } from '@corentinth/chisels';
-import { A, useNavigate } from '@solidjs/router';
+import { A, useNavigate, useSearchParams } from '@solidjs/router';
 import { useMutation } from '@tanstack/solid-query';
 import { createSignal, For, Show } from 'solid-js';
 import * as v from 'valibot';
@@ -302,7 +302,14 @@ export const LoginPage: Component = () => {
   const { config } = useConfig();
   const { t } = useI18n();
 
-  const [showTwoFactorForm, setShowTwoFactorForm] = createSignal(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  // A sign in through an OAuth provider on an account with 2FA comes back here to ask for the code
+  const [showTwoFactorForm, setShowTwoFactorForm] = createSignal(searchParams['two-factor'] === 'required');
+
+  const leaveTwoFactorForm = () => {
+    setShowTwoFactorForm(false);
+    setSearchParams({ 'two-factor': undefined }, { replace: true });
+  };
 
   const loginWithProvider = async (provider: SsoProviderConfig) => {
     await authWithProvider({ provider, config });
@@ -324,7 +331,7 @@ export const LoginPage: Component = () => {
                   <span class="i-tabler-shield-lock size-5" />
                 </div>
                 <h1 class="text-2xl font-semibold tracking-tight">{t('auth.login.two-factor.title')}</h1>
-                <TwoFactorVerificationForm onBack={() => setShowTwoFactorForm(false)} />
+                <TwoFactorVerificationForm onBack={leaveTwoFactorForm} />
               </>
             )}
           >

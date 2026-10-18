@@ -12,6 +12,7 @@ import { Button } from '@/modules/ui/components/button';
 import { SettingsSection, SettingsSections } from '@/modules/ui/components/settings-section';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextField, TextFieldLabel, TextFieldRoot } from '@/modules/ui/components/textfield';
+import { LinkedAccountsSection, PasswordSection, useUserAccounts } from '../components/account-security';
 import { TwoFactorSection } from '../components/two-factor-card';
 import { useUpdateCurrentUser } from '../users.composables';
 import { nameSchema } from '../users.schemas';
@@ -246,6 +247,7 @@ export const UserSettingsPage: Component = () => {
     queryKey: ['users', 'me'],
     queryFn: fetchCurrentUser,
   }));
+  const { query: accountsQuery, getAccounts, getHasPassword } = useUserAccounts();
 
   return (
     <div class="page-narrow">
@@ -263,7 +265,11 @@ export const UserSettingsPage: Component = () => {
               <SettingsSections>
                 <UserEmailSection email={getUser().email} />
                 <UpdateFullNameSection name={getUser().name} />
-                <TwoFactorSection twoFactorEnabled={getUser().twoFactorEnabled} onUpdate={() => query.refetch()} />
+                <Show when={accountsQuery.data}>
+                  <PasswordSection hasPassword={getHasPassword()} onUpdate={() => accountsQuery.refetch()} />
+                  <TwoFactorSection twoFactorEnabled={getUser().twoFactorEnabled} hasPassword={getHasPassword()} onUpdate={() => query.refetch()} />
+                  <LinkedAccountsSection accounts={getAccounts()} hasPassword={getHasPassword()} onUpdate={() => accountsQuery.refetch()} />
+                </Show>
                 <AiMemorySection />
                 <LogoutSection />
               </SettingsSections>

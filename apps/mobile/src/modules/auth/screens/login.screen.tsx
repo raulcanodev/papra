@@ -8,6 +8,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -27,6 +28,13 @@ const loginSchema = v.object({
   password: v.pipe(v.string(), v.minLength(8, 'Password must be at least 8 characters')),
 });
 
+function isTwoFactorRedirect(data: unknown): boolean {
+  return typeof data === 'object'
+    && data !== null
+    && 'twoFactorRedirect' in data
+    && data.twoFactorRedirect === true;
+}
+
 export function LoginScreen() {
   const router = useRouter();
   const themeColors = useThemeColor();
@@ -35,6 +43,10 @@ export function LoginScreen() {
   const insets = useSafeAreaInsets();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTwoFactorRequired, setIsTwoFactorRequired] = useState(false);
+  const [useBackupCode, setUseBackupCode] = useState(false);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [trustDevice, setTrustDevice] = useState(false);
   const { serverConfig, isLoading: isConfigLoading } = useServerConfig();
 
   const form = useForm({
@@ -55,6 +67,11 @@ export function LoginScreen() {
           throw new Error(response.error.message);
         }
 
+        if (isTwoFactorRedirect(response.data)) {
+          setIsTwoFactorRequired(true);
+          return;
+        }
+
         router.replace('/(app)/(with-organizations)/(tabs)/list');
       } catch (error) {
         showAlert({
@@ -73,6 +90,10 @@ export function LoginScreen() {
       if (response.error) {
         throw Object.assign(new Error(response.error.message), response.error);
       }
+
+      if (authClient.getCookie().includes('two_factor=')) {
+        setIsTwoFactorRequired(true);
+      }
     } catch (error) {
       showAlert({
         title: 'Sign In Failed',
@@ -88,11 +109,108 @@ export function LoginScreen() {
 
   const styles = createStyles({ themeColors });
 
+  const handleTwoFactorVerification = async () => {
+    setIsSubmitting(true);
+    try {
+      const response = useBackupCode
+        ? await authClient.twoFactor.verifyBackupCode({ code: twoFactorCode.trim(), trustDevice })
+        : await authClient.twoFactor.verifyTotp({ code: twoFactorCode.trim(), trustDevice });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      router.replace('/(app)/(with-organizations)/(tabs)/list');
+    } catch (error) {
+      showAlert({
+        title: 'Verification Failed',
+        message: error instanceof Error ? error.message : 'The code could not be verified',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (isConfigLoading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color={themeColors.primary} />
       </View>
+    );
+  }
+
+  if (isTwoFactorRequired) {
+    return (
+      <KeyboardAvoidingView
+        style={{ ...styles.container, paddingTop: insets.top }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <View style={styles.header}>
+            <Text style={styles.title}>Two-factor authentication</Text>
+            <Text style={styles.subtitle}>
+              {useBackupCode
+                ? 'Enter one of your recovery codes.'
+                : 'Enter the 6-digit code from your authenticator app.'}
+            </Text>
+          </View>
+
+          <View style={styles.formContainer}>
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>{useBackupCode ? 'Recovery code' : 'Authentication code'}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={useBackupCode ? 'XXXXX-XXXXX' : '123456'}
+                placeholderTextColor={themeColors.mutedForeground}
+                value={twoFactorCode}
+                onChangeText={setTwoFactorCode}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                keyboardType={useBackupCode ? 'default' : 'number-pad'}
+                maxLength={useBackupCode ? undefined : 6}
+                editable={!isSubmitting}
+              />
+            </View>
+
+            <View style={styles.switchRow}>
+              <Text style={styles.label}>Trust this device</Text>
+              <Switch value={trustDevice} onValueChange={setTrustDevice} disabled={isSubmitting} />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.button, (isSubmitting || twoFactorCode.trim().length === 0) && styles.buttonDisabled]}
+              onPress={handleTwoFactorVerification}
+              disabled={isSubmitting || twoFactorCode.trim().length === 0}
+            >
+              {isSubmitting
+                ? <ActivityIndicator color={themeColors.primaryForeground} />
+                : <Text style={styles.buttonText}>Verify</Text>}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.linkButton}
+              onPress={() => {
+                setUseBackupCode(value => !value);
+                setTwoFactorCode('');
+              }}
+              disabled={isSubmitting}
+            >
+              <Text style={styles.linkText}>{useBackupCode ? 'Use authenticator app' : 'Use a recovery code'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.secondaryLinkButton}
+              onPress={() => {
+                setIsTwoFactorRequired(false);
+                setTwoFactorCode('');
+              }}
+              disabled={isSubmitting}
+            >
+              <Text style={styles.mutedLinkText}>Back to sign in</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
   }
 
@@ -312,9 +430,23 @@ function createStyles({ themeColors }: { themeColors: ThemeColors }) {
       marginTop: 24,
       alignItems: 'center',
     },
+    secondaryLinkButton: {
+      marginTop: 4,
+      alignItems: 'center',
+    },
     linkText: {
       color: themeColors.primary,
       fontSize: 14,
+    },
+    mutedLinkText: {
+      color: themeColors.mutedForeground,
+      fontSize: 14,
+    },
+    switchRow: {
+      minHeight: 44,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
     },
     backToServerButton: {
       marginBottom: 16,

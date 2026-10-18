@@ -11,6 +11,7 @@ import { createUsersRepository } from './users.repository';
 export function registerUsersRoutes(context: RouteDefinitionContext) {
   setupGetCurrentUserRoute(context);
   setupUpdateUserRoute(context);
+  setupSetPasswordRoute(context);
 }
 
 function setupGetCurrentUserRoute({ app, db }: RouteDefinitionContext) {
@@ -73,6 +74,27 @@ function setupUpdateUserRoute({ app, db }: RouteDefinitionContext) {
       const { user } = await usersRepository.updateUser({ userId, name, phone: phone === undefined ? undefined : (phone === null || phone === '' ? null : phone) });
 
       return context.json({ user });
+    },
+  );
+}
+
+// Accounts created through an OAuth provider have no password, better-auth only lets the
+// server set the first one
+function setupSetPasswordRoute({ app, auth }: RouteDefinitionContext) {
+  app.post(
+    '/api/users/me/password',
+    requireAuthentication(),
+    legacyValidateJsonBody(z.object({
+      newPassword: z.string().min(8).max(128),
+    })),
+    async (context) => {
+      const { newPassword } = context.req.valid('json');
+
+      return auth.api.setPassword({
+        body: { newPassword },
+        headers: context.req.raw.headers,
+        asResponse: true,
+      });
     },
   );
 }

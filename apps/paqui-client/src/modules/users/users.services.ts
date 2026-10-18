@@ -19,3 +19,11 @@ export async function updateUser({ name, phone }: { name: string; phone?: string
 
   return { user };
 }
+
+export async function setPassword({ newPassword }: { newPassword: string }) {
+  await apiClient({
+    path: '/api/users/me/password',
+    method: 'POST',
+    body: { newPassword },
+  });
+}

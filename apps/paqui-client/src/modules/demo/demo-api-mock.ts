@@ -317,6 +317,8 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
   ...defineHandler({ path: '/api/invitations/:invitationId/reject', method: 'POST', handler: () => throwDemoNotAvailable() }),
   ...defineHandler({ path: '/api/invitations/:invitationId/cancel', method: 'POST', handler: () => throwDemoNotAvailable() }),
   ...defineHandler({ path: '/api/invitations/:invitationId/resend', method: 'POST', handler: () => throwDemoNotAvailable() }),
+  // The demo identity already has a password; creating its first one is not a valid demo operation.
+  ...defineHandler({ path: '/api/users/me/password', method: 'POST', handler: () => throwDemoNotAvailable() }),
 
   ...defineHandler({
     path: '/api/config',

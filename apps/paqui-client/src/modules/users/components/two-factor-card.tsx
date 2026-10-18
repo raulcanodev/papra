@@ -364,7 +364,7 @@ const RegenerateBackupCodesDialog: Component<{
 
 type DialogState = 'none' | 'enable-password' | 'setup-qr' | 'backup-codes' | 'disable-password' | 'regenerate-codes';
 
-export const TwoFactorSection: Component<{ twoFactorEnabled: boolean; onUpdate: () => void }> = (props) => {
+export const TwoFactorSection: Component<{ twoFactorEnabled: boolean; hasPassword: boolean; onUpdate: () => void }> = (props) => {
   const { t } = useI18n();
   const [dialogState, setDialogState] = createSignal<DialogState>('none');
   const [totpUri, setTotpUri] = createSignal<string>('');
@@ -415,9 +415,21 @@ export const TwoFactorSection: Component<{ twoFactorEnabled: boolean; onUpdate: 
           <Show
             when={props.twoFactorEnabled}
             fallback={(
-              <Button onClick={() => setDialogState('enable-password')}>
-                {t('user.settings.two-factor.enable-button')}
-              </Button>
+              <Show
+                when={props.hasPassword}
+                fallback={(
+                  <div class="flex flex-col gap-2">
+                    <p class="text-sm text-muted-foreground">{t('user.settings.two-factor.password-required')}</p>
+                    <div>
+                      <Button disabled>{t('user.settings.two-factor.enable-button')}</Button>
+                    </div>
+                  </div>
+                )}
+              >
+                <Button onClick={() => setDialogState('enable-password')}>
+                  {t('user.settings.two-factor.enable-button')}
+                </Button>
+              </Show>
             )}
           >
             <Button variant="outline" onClick={() => setDialogState('regenerate-codes')}>
