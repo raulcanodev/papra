@@ -5,6 +5,7 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { Button } from '@/modules/ui/components/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/modules/ui/components/dialog';
 import { QrCode } from '@/modules/ui/components/qr-code';
+import { CAPTURE_TEXT_I18N_KEYS } from '../captures.constants';
 import { getCaptureUrl, isUnreachableFromPhone } from '../captures.models';
 import { completeCaptureSession, fetchCaptureSession, openCaptureSession } from '../captures.services';
 
@@ -84,7 +85,7 @@ export function CaptureQrDialog(props: {
         <Show when={!isWaitingForPhone()}>
           <DialogHeader>
             <DialogTitle>{t('captures.dialog.title')}</DialogTitle>
-            <DialogDescription>{props.purpose === 'product_image' ? t('captures.dialog.description.product') : t('captures.dialog.description.purchase')}</DialogDescription>
+            <DialogDescription>{t(CAPTURE_TEXT_I18N_KEYS[props.purpose].dialog)}</DialogDescription>
           </DialogHeader>
         </Show>
 

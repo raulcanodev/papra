@@ -27,6 +27,8 @@ import { CreateCustomPropertyPage } from './modules/custom-properties/pages/crea
 import { CustomPropertiesPage } from './modules/custom-properties/pages/custom-properties-list.page';
 import { UpdateCustomPropertyPage } from './modules/custom-properties/pages/update-custom-property.page';
 import { HomePage } from './modules/dashboard/pages/home.page';
+import { DeliveryNoteEditorPage } from './modules/delivery-notes/pages/delivery-note-editor.page';
+import { DeliveryNotesPage } from './modules/delivery-notes/pages/delivery-notes.page';
 import { DeletedDocumentsPage } from './modules/documents/pages/deleted-documents.page';
 import { DocumentPdfViewerPage } from './modules/documents/pages/document-pdf-viewer.page';
 import { DocumentPage } from './modules/documents/pages/document.page';
@@ -260,6 +262,14 @@ export const routes: RouteDefinition[] = [
                       {
                         path: getOrganizationNestedRoutePath('purchases'),
                         component: PurchasesPage,
+                      },
+                      {
+                        path: getOrganizationNestedRoutePath('deliveryNotes'),
+                        component: DeliveryNotesPage,
+                      },
+                      {
+                        path: [getOrganizationEntityRoutePath('newDeliveryNote'), getOrganizationEntityRoutePath('editDeliveryNote')],
+                        component: DeliveryNoteEditorPage,
                       },
                       {
                         path: getOrganizationNestedRoutePath('dueDates'),

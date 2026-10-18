@@ -20,6 +20,8 @@ export const organizationRoutes = {
   // Sales: what the organization issues; purchases: what its suppliers send (invoices, tickets, delivery notes)
   invoices: { path: 'sales', surface: 'workspace' },
   purchases: { path: 'purchases', surface: 'workspace' },
+  // Handed to customers with the goods, before the invoice that covers several of them
+  deliveryNotes: { path: 'delivery-notes', surface: 'workspace' },
   // What is due, to pay and to collect, from the received and the issued invoices
   dueDates: { path: 'due-dates', surface: 'workspace' },
   customers: { path: 'contacts/customers', surface: 'workspace' },
@@ -62,6 +64,7 @@ export const organizationRouteLabelKeys = {
   calendar: 'navigation.item.calendar',
   invoices: 'navigation.item.sales',
   purchases: 'navigation.item.purchases',
+  deliveryNotes: 'navigation.item.delivery-notes',
   dueDates: 'navigation.item.due-dates',
   customers: 'contacts.roles.customers',
   suppliers: 'contacts.roles.suppliers',
@@ -125,6 +128,7 @@ const workspaceNavigation: readonly NavigationSectionDefinition[] = [
     requires: 'invoicing',
     items: [
       { routeId: 'invoices', icon: 'i-tabler-file-arrow-right', matchSubRoutes: true },
+      { routeId: 'deliveryNotes', icon: 'i-tabler-truck-delivery', matchSubRoutes: true },
       { routeId: 'purchases', icon: 'i-tabler-file-arrow-left', matchSubRoutes: true },
       { routeId: 'dueDates', icon: 'i-tabler-calendar-due' },
       { routeId: 'products', icon: 'i-tabler-package' },
@@ -213,6 +217,8 @@ export const organizationEntityRoutes = {
   editInvoice: { path: 'sales/:invoiceId/edit', label: 'Issued invoice editor' },
   newPurchaseInvoice: { path: 'purchases/new', label: 'New purchase (received invoice, ticket or delivery note)' },
   editPurchaseInvoice: { path: 'purchases/:purchaseInvoiceId/edit', label: 'Purchase editor (received invoice, ticket or delivery note)' },
+  newDeliveryNote: { path: 'delivery-notes/new', label: 'New delivery note handed to a customer (from a photo of the paper copy, or typed)' },
+  editDeliveryNote: { path: 'delivery-notes/:deliveryNoteId/edit', label: 'Delivery note handed to a customer' },
   contact: { path: 'contacts/:contactId', label: 'Contact (customer, supplier or sales representative) with its invoices, products and price list' },
   priceList: { path: 'pricing/price-lists/:priceListId', label: 'Price list editor: its products with their prices, costs and margins, and its contacts' },
 } as const satisfies Record<string, { path: string; label: string }>;

@@ -5,6 +5,7 @@ export const AI_USAGE_ID_PREFIX = 'aiu';
 export const AI_FEATURES = {
   ASSISTANT_CHAT: 'assistant_chat',
   PURCHASE_READING: 'purchase_reading',
+  DELIVERY_NOTE_READING: 'delivery_note_reading',
   PRODUCT_CATALOG_SCAN: 'product_catalog_scan',
   PRICING_IMPORT: 'pricing_import',
   FINANCE_RULE_SUGGESTIONS: 'finance_rule_suggestions',

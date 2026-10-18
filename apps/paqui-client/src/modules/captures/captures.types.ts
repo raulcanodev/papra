@@ -1,4 +1,4 @@
-export type CapturePurpose = 'purchase' | 'product_image';
+export type CapturePurpose = 'purchase' | 'product_image' | 'delivery_note';
 
 export type CaptureSessionStatus = 'waiting' | 'receiving' | 'completed' | 'expired';
 

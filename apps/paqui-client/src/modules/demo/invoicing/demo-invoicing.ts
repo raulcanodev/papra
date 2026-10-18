@@ -719,3 +719,19 @@ export async function setDemoInvoicePaidState({ invoiceId, isPaid }: { invoiceId
     await db().invoices.setItem(invoiceId, { ...invoice, status, paidAt: isPaid ? now : null, updatedAt: now });
   }
 }
+
+export async function getDemoInvoice({ invoiceId }: { invoiceId: string }) {
+  return db().invoices.getItem(invoiceId);
+}
+
+/** A draft invoice made from other records (the delivery notes of a customer), same rules as the invoices endpoint */
+export async function createDemoDraftInvoice({ organizationId, draft }: { organizationId: string; draft: InvoiceDraftInput }) {
+  const invoice = await buildInvoiceFromDraft({ organizationId, draft });
+  await db().invoices.setItem(invoice.id, invoice);
+
+  return hydrateInvoice(invoice);
+}
+
+export async function listDemoProducts({ organizationId }: { organizationId: string }) {
+  return (await getValues(db().products)).filter(product => product.organizationId === organizationId && !product.archivedAt);
+}

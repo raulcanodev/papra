@@ -4,6 +4,7 @@ import { createSignal, For, Match, onCleanup, Show, Switch } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { AppLogo } from '@/modules/ui/components/app-logo';
 import { Button } from '@/modules/ui/components/button';
+import { CAPTURE_TEXT_I18N_KEYS } from '../captures.constants';
 import { preparePhotoForUpload } from '../captures.models';
 import { completePublicCapture, fetchPublicCapture, uploadCaptureFile } from '../captures.services';
 
@@ -99,8 +100,8 @@ export function CapturePage() {
               <div class="flex flex-1 flex-col gap-5">
                 <div>
                   <p class="text-sm text-muted-foreground">{getCapture().organizationName}</p>
-                  <h1 class="text-xl font-semibold">{isProduct() ? t('captures.page.title.product') : t('captures.page.title.purchase')}</h1>
-                  <p class="mt-1 text-sm text-muted-foreground">{isProduct() ? t('captures.page.tip.product') : t('captures.page.tip.purchase')}</p>
+                  <h1 class="text-xl font-semibold">{t(CAPTURE_TEXT_I18N_KEYS[capture()?.purpose ?? 'purchase'].title)}</h1>
+                  <p class="mt-1 text-sm text-muted-foreground">{t(CAPTURE_TEXT_I18N_KEYS[capture()?.purpose ?? 'purchase'].tip)}</p>
                 </div>
 
                 <Show when={photos().length > 0}>

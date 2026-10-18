@@ -148,7 +148,7 @@ export async function savePriceList(priceList: Stored) {
   return priceList;
 }
 
-async function getContactPrices({ organizationId, contactId }: { organizationId: string; contactId: string }) {
+export async function getDemoContactPrices({ organizationId, contactId }: { organizationId: string; contactId: string }) {
   const assignment = await db().contactPriceLists.getItem(contactId);
   const assigned = assignment ? await db().priceLists.getItem(assignment.priceListId) : null;
   const isAssigned = Boolean(assigned && !assigned.archivedAt);
@@ -364,7 +364,7 @@ export const pricingHandlers = {
     handler: async ({ params: { priceListId } }) => buildCsv(await getPriceListOrFail(priceListId), await getValues(db().products)),
   }),
 
-  ...defineHandler({ path: `${base}/contacts/:contactId/prices`, method: 'GET', handler: async ({ params: { organizationId, contactId } }) => getContactPrices({ organizationId, contactId }) }),
+  ...defineHandler({ path: `${base}/contacts/:contactId/prices`, method: 'GET', handler: async ({ params: { organizationId, contactId } }) => getDemoContactPrices({ organizationId, contactId }) }),
   ...defineHandler({
     path: `${base}/contacts/:contactId/price-list`,
     method: 'PUT',
@@ -375,7 +375,7 @@ export const pricingHandlers = {
         await getPriceListOrFail(body.priceListId);
         await db().contactPriceLists.setItem(contactId, { contactId, organizationId, priceListId: body.priceListId });
       }
-      return getContactPrices({ organizationId, contactId });
+      return getDemoContactPrices({ organizationId, contactId });
     },
   }),
 };

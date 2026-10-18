@@ -239,7 +239,7 @@ function parseBrandingSnapshot(value: string | null): BrandingSnapshot {
   }
 }
 
-function formatDate(date: Date, locale = 'en') {
+export function formatDate(date: Date, locale = 'en') {
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(date);
 }
 
@@ -247,6 +247,6 @@ function formatMoney(valueMinor: number, currency: string, locale: string) {
   return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(valueMinor / 100);
 }
 
-function formatQuantity(valueMillis: number, locale: string) {
+export function formatQuantity(valueMillis: number, locale: string) {
   return new Intl.NumberFormat(locale, { maximumFractionDigits: 3 }).format(valueMillis / 1_000);
 }

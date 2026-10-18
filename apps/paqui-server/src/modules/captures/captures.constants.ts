@@ -1,7 +1,7 @@
 export const CAPTURE_SESSION_ID_PREFIX = 'cap';
 
 // What the photos are for: the desktop that opened the session knows what to do with them once they arrive
-export const CAPTURE_PURPOSES = ['purchase', 'product_image'] as const;
+export const CAPTURE_PURPOSES = ['purchase', 'product_image', 'delivery_note'] as const;
 export type CapturePurpose = typeof CAPTURE_PURPOSES[number];
 
 // The phone gets a link with a secret token instead of a session: it only allows adding files to this capture, for a short time
@@ -14,10 +14,12 @@ export const MAX_CAPTURE_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 export const CAPTURE_MIME_TYPES: Record<CapturePurpose, readonly string[]> = {
   purchase: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
   product_image: ['image/jpeg', 'image/png', 'image/webp'],
+  delivery_note: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
 };
 
-// One per purpose: a product image is a single photo, a purchase capture can bring several papers
+// One per purpose: a product image is a single photo, a purchase or delivery note capture can bring several papers
 export const MAX_CAPTURE_FILES_BY_PURPOSE: Record<CapturePurpose, number> = {
   purchase: MAX_CAPTURE_FILES,
   product_image: 1,
+  delivery_note: MAX_CAPTURE_FILES,
 };

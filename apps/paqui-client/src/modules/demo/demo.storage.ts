@@ -8,6 +8,7 @@ import type { Webhook } from '../webhooks/webhooks.types';
 import { createStorage, prefixStorage } from 'unstorage';
 import localStorageDriver from 'unstorage/drivers/localstorage';
 import { trackingServices } from '../tracking/tracking.services';
+import { bindDeliveryNotesStorage } from './delivery-notes/demo-delivery-notes';
 import { DEMO_DATA_VERSION, DEMO_IS_SEEDED_KEY } from './demo.constants';
 import { createId } from './demo.models';
 import { bindDueDatesStorage } from './due-dates/demo-due-dates';
@@ -27,6 +28,7 @@ export const storage = createStorage<any>({
 
 bindInvoicingStorage(storage);
 bindPurchasesStorage(storage);
+bindDeliveryNotesStorage(storage);
 bindPricingStorage(storage);
 bindDueDatesStorage(storage);
 
