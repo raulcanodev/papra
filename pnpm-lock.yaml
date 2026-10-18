@@ -405,7 +405,7 @@ importers:
         specifier: ^3.0.53
         version: 3.0.53(zod@3.25.76)
       '@ai-sdk/provider':
-        specifier: 3.0.8
+        specifier: ^3.0.8
         version: 3.0.8
       '@ai-sdk/xai':
         specifier: ^3.0.83
