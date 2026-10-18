@@ -119,6 +119,21 @@ describe('pricing e2e', () => {
     expect(csv).not.to.include('Secret');
   });
 
+  test('without a discount the export for a contact has no discount columns, and the public data has no internal figures', async () => {
+    const { request, json, createProduct, createPriceList } = await setupApp();
+    const product = await createProduct({ name: 'Chair', unitPriceMinor: 9_000 });
+    await json({ path: `/pricing/products/${product.id}/costs`, method: 'PUT', body: { lines: [{ conceptName: 'Secret material', amountMinor: 6_655 }] } });
+    const priceList = await createPriceList({ name: 'Standard' });
+    await json({ path: `/pricing/price-lists/${priceList.id}/items`, method: 'PUT', body: { items: [{ productId: product.id, priceMinor: 9_180 }] } });
+
+    const csv = new TextDecoder().decode(new Uint8Array(await (await request({ path: `/pricing/price-lists/${priceList.id}/export.csv` })).arrayBuffer()));
+    expect(csv).to.eql('Producto;Descripción;Unidad;Precio (sin IVA);IVA %;Moneda\r\nChair;;unit;91,80;21,00;EUR\r\n');
+
+    const { priceList: shared } = await json<{ priceList: Record<string, unknown> & { items: Array<Record<string, unknown>> } }>({ path: `/pricing/price-lists/${priceList.id}/public` });
+    expect(Object.keys(shared).sort()).to.eql(['companyName', 'discountRateBps', 'items', 'name']);
+    expect(Object.keys(shared.items[0]!).sort()).to.eql(['currency', 'description', 'name', 'netPriceMinor', 'priceMinor', 'taxRateBps', 'unit']);
+  });
+
   test('a duplicated price list keeps the products and prices but neither the contacts nor the default flag', async () => {
     const { json, createContact, createProduct, createPriceList, getPriceList } = await setupApp();
     const product = await createProduct({ name: 'Chair', unitPriceMinor: 9_000 });
@@ -131,6 +146,23 @@ describe('pricing e2e', () => {
     const duplicated = await getPriceList(copy.id);
 
     expect([duplicated.name, duplicated.isDefault, duplicated.contacts, duplicated.items.map(({ priceMinor }) => priceMinor)]).to.eql(['Standard 2027', false, [], [9_180]]);
+  });
+
+  test('every price of a price list is raised or cut by a percentage at once, and the history says who did it', async () => {
+    const { json, request, createProduct, createPriceList } = await setupApp();
+    const chair = await createProduct({ name: 'Chair', unitPriceMinor: 9_000 });
+    const stool = await createProduct({ name: 'Stool', unitPriceMinor: 5_000 });
+    const priceList = await createPriceList({ name: 'Standard' });
+    await json({ path: `/pricing/price-lists/${priceList.id}/items`, method: 'PUT', body: { items: [{ productId: chair.id, priceMinor: 9_180 }, { productId: stool.id, priceMinor: 5_000 }] } });
+
+    await json({ path: `/pricing/price-lists/${priceList.id}/adjust`, method: 'POST', body: { direction: 'increase', rateBps: 500 } });
+    const { priceList: adjusted } = await json<{ priceList: PriceList & { adjustments: Array<{ rateBps: number; productCount: number }> } }>({ path: `/pricing/price-lists/${priceList.id}/adjust`, method: 'POST', body: { direction: 'decrease', rateBps: 1_000 } });
+
+    // 91.80 + 5% = 96.39, - 10% = 86.75; 50.00 + 5% = 52.50, - 10% = 47.25
+    expect(adjusted.items.map(({ priceMinor }) => priceMinor)).to.eql([8_675, 4_725]);
+    expect(adjusted.adjustments.map(({ rateBps, productCount }) => [rateBps, productCount])).to.eql([[-1_000, 2], [500, 2]]);
+
+    expect((await request({ path: `/pricing/price-lists/${priceList.id}/adjust`, method: 'POST', body: { direction: 'decrease', rateBps: 10_000 } })).status).to.eql(400);
   });
 
   test('price lists, products, shipping rates and contacts of another organization cannot be used', async () => {

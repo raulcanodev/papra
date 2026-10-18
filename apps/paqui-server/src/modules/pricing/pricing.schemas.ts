@@ -46,3 +46,10 @@ export const contactPriceListSchema = z.object({
 export const duplicatePriceListSchema = z.object({
   name: z.string().trim().min(1).max(200),
 });
+
+// A raise or a cut of every price of the list, always typed as a positive percentage
+export const adjustPriceListSchema = z.object({
+  direction: z.enum(['increase', 'decrease']),
+  // Hundredths of a percent: 500 is 5%. A cut stays under 100%
+  rateBps: z.number().int().min(1).max(100_000),
+}).refine(({ direction, rateBps }) => direction === 'increase' || rateBps < 10_000, { message: 'A price cut must be under 100%', path: ['rateBps'] });

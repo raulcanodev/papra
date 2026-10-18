@@ -10,16 +10,19 @@ import { fetchProducts } from '@/modules/invoicing/invoicing.services';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/modules/ui/components/dropdown-menu';
 import { RowActions } from '@/modules/ui/components/row-actions';
 import { SimpleCheckbox } from '@/modules/ui/components/simple-checkbox';
 import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextField } from '@/modules/ui/components/textfield';
 import { getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
+import { AdjustPricesDialog } from '../components/adjust-prices-dialog';
 import { MultiPickerDialog } from '../components/multi-picker-dialog';
+import { usePriceListDownloads } from '../components/price-list-downloads';
 import { getShippingRatesQueryKey } from '../components/shipping-rates-section';
-import { adjustPriceMinor, formatMoney, formatRate, getNetPriceMinor, parseAmountToMinor } from '../pricing.models';
-import { deletePriceList, downloadPriceListCsv, fetchPriceList, fetchProductCostTotals, fetchShippingRates, getPricingQueryKey, savePriceListContacts, savePriceListItems, updatePriceList } from '../pricing.services';
+import { formatMoney, formatRate, getNetPriceMinor, parseAmountToMinor } from '../pricing.models';
+import { deletePriceList, fetchPriceList, fetchProductCostTotals, fetchShippingRates, getPricingQueryKey, savePriceListContacts, savePriceListItems, updatePriceList } from '../pricing.services';
 
 // Shipping choice of a line: the one of the price list, none, or a given rate id
 const LIST_SHIPPING = '';
@@ -45,7 +48,8 @@ export function PriceListPage() {
 }
 
 function PriceListEditor(props: { organizationId: string; priceList: PriceList }) {
-  const { t } = useI18n();
+  const { t, getLocale } = useI18n();
+  const { downloadImage, downloadSpreadsheet } = usePriceListDownloads({ organizationId: () => props.organizationId });
   const navigate = useNavigate();
   const listsHref = () => getOrganizationRouteHref({ organizationId: props.organizationId, routeId: 'priceLists' });
 
@@ -68,7 +72,7 @@ function PriceListEditor(props: { organizationId: string; priceList: PriceList }
   const [settings, setSettings] = createSignal<Settings>(initialSettings);
   const [rows, setRows] = createSignal<Row[]>(initialRows);
   const [contacts, setContacts] = createSignal(initialContacts);
-  const [adjustText, setAdjustText] = createSignal('');
+  const [adjustOpen, setAdjustOpen] = createSignal(false);
   const [productPickerOpen, setProductPickerOpen] = createSignal(false);
   const [contactPickerOpen, setContactPickerOpen] = createSignal(false);
 
@@ -108,16 +112,6 @@ function PriceListEditor(props: { organizationId: string; priceList: PriceList }
         return { productId, productName: product.name, productUnit: product.unit, priceText: toAmountText(product.unitPriceMinor), shipping: LIST_SHIPPING };
       }),
     ]);
-  };
-
-  const applyAdjustment = () => {
-    const text = adjustText().trim().replace(',', '.').replace('%', '');
-    const rate = Number(text);
-    if (text === '' || !Number.isFinite(rate)) {
-      return;
-    }
-    setRows(current => current.map(row => ({ ...row, priceText: toAmountText(adjustPriceMinor({ priceMinor: parseAmountToMinor(row.priceText) ?? 0, rateBps: Math.round(rate * 100) })) })));
-    setAdjustText('');
   };
 
   const save = createMutation(() => ({
@@ -171,10 +165,24 @@ function PriceListEditor(props: { organizationId: string; priceList: PriceList }
           <p class="page-description">{t('pricing.list.description')}</p>
         </div>
         <div class="flex shrink-0 items-center gap-2">
-          <Button size="sm" variant="outline" class="gap-1.5" disabled={isDirty()} title={isDirty() ? t('pricing.list.download-save-first') : undefined} onClick={() => downloadPriceListCsv({ organizationId: props.organizationId, priceListId: props.priceList.id, name: props.priceList.name, lang: 'es' })}>
-            <div class="i-tabler-download size-4" />
-            <span class="hidden sm:inline">{t('pricing.lists.download')}</span>
-          </Button>
+          {/* What is downloaded is what is saved: the unsaved changes would not be in it */}
+          <DropdownMenu>
+            <DropdownMenuTrigger as={Button} size="sm" variant="outline" class="gap-1.5" disabled={isDirty()} title={isDirty() ? t('pricing.list.download-save-first') : undefined}>
+              <div class="i-tabler-download size-4" />
+              <span class="hidden sm:inline">{t('pricing.lists.download')}</span>
+              <div class="i-tabler-chevron-down size-3.5 opacity-60" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent class="min-w-56">
+              <DropdownMenuItem class="flex cursor-pointer items-center gap-2" onSelect={() => void downloadImage({ priceListId: props.priceList.id, name: props.priceList.name })}>
+                <div class="i-tabler-photo size-4" />
+                {t('pricing.download.image')}
+              </DropdownMenuItem>
+              <DropdownMenuItem class="flex cursor-pointer items-center gap-2" onSelect={() => void downloadSpreadsheet({ priceListId: props.priceList.id, name: props.priceList.name })}>
+                <div class="i-tabler-table size-4" />
+                {t('pricing.download.spreadsheet')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <RowActions itemName={props.priceList.name} onDelete={remove} deleteMessage={t('pricing.lists.delete-message')} />
         </div>
       </div>
@@ -198,16 +206,11 @@ function PriceListEditor(props: { organizationId: string; priceList: PriceList }
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <Show when={rows().length > 0}>
-            <form
-              class="flex items-center gap-1.5"
-              onSubmit={(event) => {
-                event.preventDefault();
-                applyAdjustment();
-              }}
-            >
-              <input class={cn(numberInputClass, 'w-20')} inputMode="decimal" placeholder="+5 %" aria-label={t('pricing.list.adjust')} value={adjustText()} onInput={event => setAdjustText(event.currentTarget.value)} />
-              <Button type="submit" size="sm" variant="outline">{t('pricing.list.adjust')}</Button>
-            </form>
+            {/* Applied and saved at once, on the saved prices: pending edits would be lost, they are saved first */}
+            <Button size="sm" variant="outline" class="gap-1.5" disabled={isDirty()} title={isDirty() ? t('pricing.adjust.save-first') : undefined} onClick={() => setAdjustOpen(true)}>
+              <div class="i-tabler-percentage size-4" />
+              {t('pricing.list.adjust')}
+            </Button>
           </Show>
           <Button size="sm" class="gap-1.5" onClick={() => setProductPickerOpen(true)}>
             <div class="i-tabler-plus size-4" />
@@ -267,6 +270,35 @@ function PriceListEditor(props: { organizationId: string; priceList: PriceList }
           </table>
         </div>
       </Show>
+
+      <Show when={props.priceList.adjustments.length > 0}>
+        <details class="mt-4 rounded-xl border bg-card px-4 py-3 text-sm">
+          <summary class="cursor-pointer select-none font-medium">{t('pricing.adjust.history.title', { count: props.priceList.adjustments.length })}</summary>
+          <ul class="mt-2 divide-y">
+            <For each={props.priceList.adjustments}>
+              {adjustment => (
+                <li class="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <span class={cn('font-medium', adjustment.rateBps > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400')}>
+                    {t(adjustment.rateBps > 0 ? 'pricing.adjust.history.increase' : 'pricing.adjust.history.decrease', { rate: formatRate(Math.abs(adjustment.rateBps)), count: adjustment.productCount })}
+                  </span>
+                  <span class="text-muted-foreground">
+                    {new Intl.DateTimeFormat(getLocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(adjustment.createdAt))}
+                    {adjustment.userName ? ` · ${adjustment.userName}` : ''}
+                  </span>
+                </li>
+              )}
+            </For>
+          </ul>
+        </details>
+      </Show>
+
+      <AdjustPricesDialog
+        open={adjustOpen()}
+        onOpenChange={setAdjustOpen}
+        organizationId={props.organizationId}
+        priceListId={props.priceList.id}
+        items={props.priceList.items.map(({ productId, productName, priceMinor }) => ({ productId, productName, priceMinor }))}
+      />
 
       <div class="mb-3 mt-10 flex items-end justify-between gap-3">
         <div>

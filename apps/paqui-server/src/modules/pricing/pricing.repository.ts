@@ -3,10 +3,12 @@ import type { PriceListInput, PriceListItemsInput, ProductCostsInput, ShippingRa
 import { and, asc, count, desc, eq, inArray, isNull, sql, sum } from 'drizzle-orm';
 import { createContactNotFoundError } from '../contacts/contacts.errors';
 import { contactsTable } from '../contacts/contacts.table';
-import { invoicingProductsTable } from '../invoicing/invoicing.tables';
+import { invoicingProductsTable, invoicingProfilesTable } from '../invoicing/invoicing.tables';
+import { organizationsTable } from '../organizations/organizations.table';
+import { usersTable } from '../users/users.table';
 import { createPriceListNotFoundError, createPricingProductNotFoundError, createShippingRateNotFoundError } from './pricing.errors';
 import { getItemMargin, getItemShippingRateId } from './pricing.models';
-import { costConceptsTable, priceListContactsTable, priceListItemsTable, priceListsTable, productCostLinesTable, shippingRatesTable } from './pricing.tables';
+import { costConceptsTable, priceListAdjustmentsTable, priceListContactsTable, priceListItemsTable, priceListsTable, productCostLinesTable, shippingRatesTable } from './pricing.tables';
 
 export function createPricingRepository({ db }: { db: Database }) {
   return {
@@ -24,6 +26,7 @@ export function createPricingRepository({ db }: { db: Database }) {
     updatePriceList: async (args: { organizationId: string; priceListId: string; priceList: PriceListInput }) => updatePriceList({ db, ...args }),
     archivePriceList: async (args: { organizationId: string; priceListId: string }) => archivePriceList({ db, ...args }),
     duplicatePriceList: async (args: { organizationId: string; priceListId: string; name: string }) => duplicatePriceList({ db, ...args }),
+    adjustPriceListPrices: async (args: { organizationId: string; priceListId: string; rateBps: number; userId: string | null }) => adjustPriceListPrices({ db, ...args }),
     savePriceListItems: async (args: { organizationId: string; priceListId: string; items: PriceListItemsInput['items'] }) => savePriceListItems({ db, ...args }),
     setPriceListContacts: async (args: { organizationId: string; priceListId: string; contactIds: string[] }) => setPriceListContacts({ db, ...args }),
     setContactPriceList: async (args: { organizationId: string; contactId: string; priceListId: string | null }) => setContactPriceList({ db, ...args }),
@@ -193,7 +196,7 @@ async function listPriceLists({ db, organizationId }: { db: Database; organizati
 async function getPriceList({ db, organizationId, priceListId }: { db: Database; organizationId: string; priceListId: string }) {
   const { priceList } = await getActivePriceList({ db, organizationId, priceListId });
 
-  const [itemRows, { costs }, { shippingRates }, contacts] = await Promise.all([
+  const [itemRows, { costs }, { shippingRates }, contacts, adjustments] = await Promise.all([
     db.select({ item: priceListItemsTable, productName: invoicingProductsTable.name, productUnit: invoicingProductsTable.unit, productBasePriceMinor: invoicingProductsTable.unitPriceMinor, productArchivedAt: invoicingProductsTable.archivedAt })
       .from(priceListItemsTable)
       .innerJoin(invoicingProductsTable, eq(priceListItemsTable.productId, invoicingProductsTable.id))
@@ -206,6 +209,12 @@ async function getPriceList({ db, organizationId, priceListId }: { db: Database;
       .innerJoin(contactsTable, eq(priceListContactsTable.contactId, contactsTable.id))
       .where(and(eq(priceListContactsTable.priceListId, priceListId), isNull(contactsTable.archivedAt)))
       .orderBy(asc(contactsTable.name)),
+    db.select({ id: priceListAdjustmentsTable.id, createdAt: priceListAdjustmentsTable.createdAt, rateBps: priceListAdjustmentsTable.rateBps, productCount: priceListAdjustmentsTable.productCount, userName: usersTable.name })
+      .from(priceListAdjustmentsTable)
+      .leftJoin(usersTable, eq(priceListAdjustmentsTable.userId, usersTable.id))
+      .where(eq(priceListAdjustmentsTable.priceListId, priceListId))
+      .orderBy(desc(priceListAdjustmentsTable.createdAt))
+      .limit(20),
   ]);
 
   const costByProductId = new Map(costs.map(cost => [cost.productId, cost.totalMinor]));
@@ -232,7 +241,7 @@ async function getPriceList({ db, organizationId, priceListId }: { db: Database;
     };
   });
 
-  return { priceList: { ...priceList, items, contacts } };
+  return { priceList: { ...priceList, items, contacts, adjustments } };
 }
 
 async function unsetOtherDefaults({ db, organizationId, priceListId }: { db: Database; organizationId: string; priceListId?: string }) {
@@ -289,6 +298,23 @@ async function duplicatePriceList({ db, organizationId, priceListId, name }: { d
     return created!;
   });
   return { priceList: copy };
+}
+
+// Raises (positive rate) or cuts (negative) every price of the list at once, rounded to the cent and never below zero,
+// and keeps it in the history of the list
+async function adjustPriceListPrices({ db, organizationId, priceListId, rateBps, userId }: { db: Database; organizationId: string; priceListId: string; rateBps: number; userId: string | null }) {
+  await getActivePriceList({ db, organizationId, priceListId });
+
+  await db.transaction(async (tx) => {
+    const updated = await tx.update(priceListItemsTable)
+      .set({ priceMinor: sql`greatest(0, round(${priceListItemsTable.priceMinor}::numeric * ${10_000 + rateBps} / 10000))::int`, updatedAt: new Date() })
+      .where(eq(priceListItemsTable.priceListId, priceListId))
+      .returning({ id: priceListItemsTable.id });
+    await tx.insert(priceListAdjustmentsTable).values({ organizationId, priceListId, userId, rateBps, productCount: updated.length });
+    await tx.update(priceListsTable).set({ updatedAt: new Date() }).where(eq(priceListsTable.id, priceListId));
+  });
+
+  return getPriceList({ db, organizationId, priceListId });
 }
 
 async function savePriceListItems({ db, organizationId, priceListId, items }: { db: Database; organizationId: string; priceListId: string; items: PriceListItemsInput['items'] }) {
@@ -395,8 +421,17 @@ async function getPublicPriceList({ db, organizationId, priceListId }: { db: Dat
     .where(and(eq(priceListItemsTable.priceListId, priceListId), isNull(invoicingProductsTable.archivedAt)))
     .orderBy(asc(priceListItemsTable.position), asc(invoicingProductsTable.name));
 
+  // Who the price list is from: the legal name of the fiscal profile, else the workspace name
+  const [company] = await db
+    .select({ legalName: invoicingProfilesTable.legalName, organizationName: organizationsTable.name })
+    .from(organizationsTable)
+    .leftJoin(invoicingProfilesTable, eq(invoicingProfilesTable.organizationId, organizationsTable.id))
+    .where(eq(organizationsTable.id, organizationId))
+    .limit(1);
+
   return {
     priceList: {
+      companyName: company?.legalName ?? company?.organizationName ?? '',
       name: priceList.name,
       discountRateBps: priceList.discountRateBps,
       items: rows.map(row => ({ ...row, netPriceMinor: row.priceMinor - Math.round(row.priceMinor * priceList.discountRateBps / 10_000) })),

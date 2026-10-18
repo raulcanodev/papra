@@ -1,3 +1,4 @@
+import type { PublicPriceList } from './price-list-image';
 import type { ContactPrices, CostConcept, PriceList, PriceListInput, PriceListItemInput, PriceListSummary, ProductCostLine, ProductCosts, ShippingRate, ShippingRateInput } from './pricing.types';
 import { apiClient } from '../shared/http/api-client';
 
@@ -68,6 +69,10 @@ export async function savePriceListItems({ organizationId, priceListId, items }:
   return apiClient<{ priceList: PriceList }>({ path: `${basePath(organizationId)}/price-lists/${priceListId}/items`, method: 'PUT', body: { items } });
 }
 
+export async function adjustPriceListPrices({ organizationId, priceListId, direction, rateBps }: { organizationId: string; priceListId: string; direction: 'increase' | 'decrease'; rateBps: number }) {
+  return apiClient<{ priceList: PriceList }>({ path: `${basePath(organizationId)}/price-lists/${priceListId}/adjust`, method: 'POST', body: { direction, rateBps } });
+}
+
 export async function savePriceListContacts({ organizationId, priceListId, contactIds }: { organizationId: string; priceListId: string; contactIds: string[] }) {
   return apiClient<{ priceList: PriceList }>({ path: `${basePath(organizationId)}/price-lists/${priceListId}/contacts`, method: 'PUT', body: { contactIds } });
 }
@@ -87,6 +92,20 @@ export async function downloadPriceListCsv({ organizationId, priceListId, name, 
   const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = `${name.replace(/[^\w.-]+/g, '-')}.csv`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+/** Products and prices only, what a contact may see: the data of the image sent to a customer */
+export async function fetchPublicPriceList({ organizationId, priceListId }: { organizationId: string; priceListId: string }) {
+  return apiClient<{ priceList: PublicPriceList }>({ path: `${basePath(organizationId)}/price-lists/${priceListId}/public`, method: 'GET' });
+}
+
+export function saveBlob({ blob, fileName }: { blob: Blob; fileName: string }) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
   anchor.click();
   URL.revokeObjectURL(url);
 }

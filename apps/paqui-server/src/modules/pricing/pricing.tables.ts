@@ -3,7 +3,8 @@ import { contactsTable } from '../contacts/contacts.table';
 import { invoicingProductsTable } from '../invoicing/invoicing.tables';
 import { organizationsTable } from '../organizations/organizations.table';
 import { createPrimaryKeyField, createTimestampColumns } from '../shared/db/columns.helpers';
-import { COST_CONCEPT_ID_PREFIX, PRICE_LIST_ID_PREFIX, PRICE_LIST_ITEM_ID_PREFIX, PRODUCT_COST_LINE_ID_PREFIX, SHIPPING_RATE_ID_PREFIX } from './pricing.constants';
+import { usersTable } from '../users/users.table';
+import { COST_CONCEPT_ID_PREFIX, PRICE_LIST_ADJUSTMENT_ID_PREFIX, PRICE_LIST_ID_PREFIX, PRICE_LIST_ITEM_ID_PREFIX, PRODUCT_COST_LINE_ID_PREFIX, SHIPPING_RATE_ID_PREFIX } from './pricing.constants';
 
 // The names of the lines of a cost breakdown, defined by each organization (materials, labour, packaging...)
 export const costConceptsTable = pgTable('cost_concepts', {
@@ -82,4 +83,18 @@ export const priceListContactsTable = pgTable('price_list_contacts', {
   priceListId: text('price_list_id').notNull().references(() => priceListsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
 }, table => [
   index('price_list_contacts_price_list_id_index').on(table.priceListId),
+]);
+
+// Every raise or cut of all the prices of a price list, so its history can be read on the price list
+export const priceListAdjustmentsTable = pgTable('price_list_adjustments', {
+  ...createPrimaryKeyField({ prefix: PRICE_LIST_ADJUSTMENT_ID_PREFIX }),
+  ...createTimestampColumns(),
+  organizationId: text('organization_id').notNull().references(() => organizationsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+  priceListId: text('price_list_id').notNull().references(() => priceListsTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+  userId: text('user_id').references(() => usersTable.id, { onDelete: 'set null', onUpdate: 'cascade' }),
+  // Positive for a raise, negative for a cut, in hundredths of a percent
+  rateBps: integer('rate_bps').notNull(),
+  productCount: integer('product_count').notNull(),
+}, table => [
+  index('price_list_adjustments_price_list_id_index').on(table.priceListId, table.createdAt),
 ]);

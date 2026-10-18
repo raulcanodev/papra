@@ -17,18 +17,20 @@ export function buildPriceListCsv({ priceList, lang }: { priceList: PublicPriceL
   const number = (value: number) => (lang === 'es' ? value.toFixed(2).replace('.', ',') : value.toFixed(2));
   const cell = (value: string) => (value.includes(separator) || /["\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
 
+  // Without a discount its columns are left out: showing a 0% discount invites the customer to ask for one
+  const hasDiscount = priceList.discountRateBps > 0;
+  const headers = HEADERS[lang].filter((_, index) => hasDiscount || (index !== 4 && index !== 5));
   const rows = priceList.items.map(item => [
     item.name,
     item.description ?? '',
     item.unit,
     number(item.priceMinor / 100),
-    number(priceList.discountRateBps / 100),
-    number(item.netPriceMinor / 100),
+    ...(hasDiscount ? [number(priceList.discountRateBps / 100), number(item.netPriceMinor / 100)] : []),
     number(item.taxRateBps / 100),
     item.currency,
   ]);
 
-  const text = `${[HEADERS[lang], ...rows].map(row => row.map(value => cell(String(value))).join(separator)).join('\r\n')}\r\n`;
+  const text = `${[headers, ...rows].map(row => row.map(value => cell(String(value))).join(separator)).join('\r\n')}\r\n`;
 
   return new Uint8Array([...UTF8_BOM, ...new TextEncoder().encode(text)]);
 }

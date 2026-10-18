@@ -53,6 +53,8 @@ export type PriceListItemInput = Pick<PriceListItem, 'productId' | 'priceMinor' 
 export type PriceList = Omit<PriceListSummary, 'itemCount' | 'contactCount'> & {
   items: PriceListItem[];
   contacts: Array<{ id: string; name: string; isCustomer: boolean; isSupplier: boolean }>;
+  /** Raises (positive rate) and cuts (negative) of all the prices, newest first */
+  adjustments: Array<{ id: string; createdAt: string; rateBps: number; productCount: number; userName: string | null }>;
 };
 
 export type ContactPrices = {

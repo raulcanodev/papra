@@ -11,7 +11,7 @@ import { legacyValidateJsonBody, legacyValidateParams, legacyValidateQuery } fro
 import { registerPricingImportRoutes } from './import/pricing-import.routes';
 import { buildPriceListCsv } from './pricing.export';
 import { createPricingRepository } from './pricing.repository';
-import { contactPriceListSchema, duplicatePriceListSchema, priceListContactsSchema, priceListItemsSchema, priceListSchema, productCostsSchema, shippingRateSchema } from './pricing.schemas';
+import { adjustPriceListSchema, contactPriceListSchema, duplicatePriceListSchema, priceListContactsSchema, priceListItemsSchema, priceListSchema, productCostsSchema, shippingRateSchema } from './pricing.schemas';
 
 const organizationParams = z.object({ organizationId: organizationIdSchema });
 const resourceParams = z.object({ organizationId: organizationIdSchema, resourceId: z.string().trim().min(1).max(64) });
@@ -103,6 +103,13 @@ function setupPriceListRoutes({ app, db }: RouteDefinitionContext) {
     return context.json(await createPricingRepository({ db }).duplicatePriceList({ organizationId, priceListId, name: context.req.valid('json').name }), 201);
   });
 
+  app.post(`${basePath}/price-lists/:resourceId/adjust`, requireAuthentication({ apiKeyPermissions: ['products:update'] }), legacyValidateParams(resourceParams), legacyValidateJsonBody(adjustPriceListSchema), async (context) => {
+    const { organizationId, resourceId: priceListId } = context.req.valid('param'); await authorizeMember({ context, db, organizationId });
+    const { direction, rateBps } = context.req.valid('json');
+    const userId = context.get('userId');
+    return context.json(await createPricingRepository({ db }).adjustPriceListPrices({ organizationId, priceListId, rateBps: direction === 'increase' ? rateBps : -rateBps, userId: typeof userId === 'string' ? userId : null }));
+  });
+
   app.put(`${basePath}/price-lists/:resourceId/items`, requireAuthentication({ apiKeyPermissions: ['products:update'] }), legacyValidateParams(resourceParams), legacyValidateJsonBody(priceListItemsSchema), async (context) => {
     const { organizationId, resourceId: priceListId } = context.req.valid('param'); await authorizeMember({ context, db, organizationId });
     return context.json(await createPricingRepository({ db }).savePriceListItems({ organizationId, priceListId, items: context.req.valid('json').items }));
@@ -111,6 +118,12 @@ function setupPriceListRoutes({ app, db }: RouteDefinitionContext) {
   app.put(`${basePath}/price-lists/:resourceId/contacts`, requireAuthentication({ apiKeyPermissions: ['products:update'] }), legacyValidateParams(resourceParams), legacyValidateJsonBody(priceListContactsSchema), async (context) => {
     const { organizationId, resourceId: priceListId } = context.req.valid('param'); await authorizeMember({ context, db, organizationId });
     return context.json(await createPricingRepository({ db }).setPriceListContacts({ organizationId, priceListId, contactIds: context.req.valid('json').contactIds }));
+  });
+
+  // What a contact may see, for the image made in the browser: products and prices, never costs nor margins
+  app.get(`${basePath}/price-lists/:resourceId/public`, requireAuthentication({ apiKeyPermissions: ['products:read'] }), legacyValidateParams(resourceParams), async (context) => {
+    const { organizationId, resourceId: priceListId } = context.req.valid('param'); await authorizeMember({ context, db, organizationId });
+    return context.json(await createPricingRepository({ db }).getPublicPriceList({ organizationId, priceListId }));
   });
 
   // The document sent to a contact: products and prices, never costs nor margins

@@ -20,6 +20,7 @@ import { gestoriaInvitationsMigration } from './list/0017-gestoria-invitations.m
 import { pricingMigration } from './list/0018-pricing.migration';
 import { dueDatesMigration } from './list/0019-due-dates.migration';
 import { aiUsageMigration } from './list/0020-ai-usage.migration';
+import { priceListAdjustmentsMigration } from './list/0021-price-list-adjustments.migration';
 
 export const migrations: Migration[] = [
   postgresInitialSchemaMigration,
@@ -42,4 +43,5 @@ export const migrations: Migration[] = [
   pricingMigration,
   dueDatesMigration,
   aiUsageMigration,
+  priceListAdjustmentsMigration,
 ];

@@ -1,7 +1,7 @@
 import type { Storage } from 'unstorage';
 import { FetchError } from 'ofetch';
 import { prefixStorage } from 'unstorage';
-import { getNetPriceMinor } from '../../pricing/pricing.models';
+import { adjustPriceMinor, getNetPriceMinor } from '../../pricing/pricing.models';
 import { defineHandler } from '../demo-api-mock.models';
 import { createId } from '../demo.models';
 import { getValues } from '../demo.storage.models';
@@ -21,6 +21,8 @@ function createPricingStorages(storage: Storage<any>) {
     contactPriceLists: prefixStorage<Stored>(storage, 'pricing:contactPriceLists'),
     products: prefixStorage<Stored>(storage, 'invoicing:products'),
     contacts: prefixStorage<Stored>(storage, 'invoicing:contacts'),
+    profile: prefixStorage<Stored>(storage, 'invoicing:profile'),
+    organizations: prefixStorage<Stored>(storage, 'organizations'),
   };
 }
 
@@ -130,6 +132,7 @@ async function hydratePriceList(priceList: Stored) {
     ...rest,
     items,
     contacts: assigned.map(contact => ({ id: contact.id, name: contact.name, isCustomer: contact.isCustomer, isSupplier: contact.isSupplier })).sort((a, b) => a.name.localeCompare(b.name)),
+    adjustments: priceList.adjustments ?? [],
   };
 }
 
@@ -156,14 +159,32 @@ async function getContactPrices({ organizationId, contactId }: { organizationId:
     : { priceList: null, isAssigned: false, prices: [] };
 }
 
+// The products and prices a contact may see, never costs nor margins
+async function getPublicPriceList(priceList: Stored) {
+  const products = await getValues(db().products);
+  const profile = await db().profile.getItem(priceList.organizationId);
+  const organization = await db().organizations.getItem(priceList.organizationId);
+  return {
+    companyName: profile?.legalName ?? organization?.name ?? '',
+    name: priceList.name,
+    discountRateBps: priceList.discountRateBps,
+    items: (priceList.items as Stored[]).flatMap((item) => {
+      const product = products.find(candidate => candidate.id === item.productId && !candidate.archivedAt);
+      return product ? [{ name: product.name, description: product.description ?? null, unit: product.unit, currency: product.currency, taxRateBps: product.taxRateBps, priceMinor: item.priceMinor, netPriceMinor: getNetPriceMinor({ priceMinor: item.priceMinor, discountRateBps: priceList.discountRateBps }) }] : [];
+    }),
+  };
+}
+
 function buildCsv(priceList: Stored, products: Stored[]) {
   const amount = (value: number) => (value / 100).toFixed(2).replace('.', ',');
   const cell = (value: string) => (/[;"\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
+  // Without a discount its columns are left out, like the server export
+  const hasDiscount = priceList.discountRateBps > 0;
   const rows = (priceList.items as Stored[]).flatMap((item) => {
     const product = products.find(candidate => candidate.id === item.productId && !candidate.archivedAt);
-    return product ? [[product.name, product.description ?? '', product.unit, amount(item.priceMinor), amount(priceList.discountRateBps), amount(getNetPriceMinor({ priceMinor: item.priceMinor, discountRateBps: priceList.discountRateBps })), amount(product.taxRateBps), product.currency]] : [];
+    return product ? [[product.name, product.description ?? '', product.unit, amount(item.priceMinor), ...(hasDiscount ? [amount(priceList.discountRateBps), amount(getNetPriceMinor({ priceMinor: item.priceMinor, discountRateBps: priceList.discountRateBps }))] : []), amount(product.taxRateBps), product.currency]] : [];
   });
-  const text = [['Producto', 'Descripción', 'Unidad', 'Precio (sin IVA)', 'Descuento %', 'Precio neto (sin IVA)', 'IVA %', 'Moneda'], ...rows].map(row => row.map(value => cell(String(value))).join(';')).join('\r\n');
+  const text = [['Producto', 'Descripción', 'Unidad', 'Precio (sin IVA)', ...(hasDiscount ? ['Descuento %', 'Precio neto (sin IVA)'] : []), 'IVA %', 'Moneda'], ...rows].map(row => row.map(value => cell(String(value))).join(';')).join('\r\n');
   return new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), `${text}\r\n`], { type: 'text/csv' });
 }
 
@@ -306,6 +327,17 @@ export const pricingHandlers = {
     },
   }),
   ...defineHandler({
+    path: `${base}/price-lists/:priceListId/adjust`,
+    method: 'POST',
+    handler: async ({ params: { priceListId }, body }: any) => {
+      const priceList = await getPriceListOrFail(priceListId);
+      const rateBps = body.direction === 'increase' ? body.rateBps : -body.rateBps;
+      const items = priceList.items.map((item: Stored) => ({ ...item, priceMinor: adjustPriceMinor({ priceMinor: item.priceMinor, rateBps }) }));
+      const adjustment = { id: createId({ prefix: 'pla' }), createdAt: now(), rateBps, productCount: items.length, userName: 'Lucía Martín' };
+      return { priceList: await hydratePriceList(await savePriceList({ ...priceList, items, adjustments: [adjustment, ...(priceList.adjustments ?? [])], updatedAt: now() })) };
+    },
+  }),
+  ...defineHandler({
     path: `${base}/price-lists/:priceListId/contacts`,
     method: 'PUT',
     handler: async ({ params: { organizationId, priceListId }, body }: any) => {
@@ -320,6 +352,11 @@ export const pricingHandlers = {
       }
       return { priceList: await hydratePriceList(priceList) };
     },
+  }),
+  ...defineHandler({
+    path: `${base}/price-lists/:priceListId/public`,
+    method: 'GET',
+    handler: async ({ params: { priceListId } }) => ({ priceList: await getPublicPriceList(await getPriceListOrFail(priceListId)) }),
   }),
   ...defineHandler({
     path: `${base}/price-lists/:priceListId/export.csv`,
