@@ -25,7 +25,7 @@ export function getPriceListsQueryKey({ organizationId }: { organizationId: stri
 export function PriceListsPage() {
   const { t } = useI18n();
   const params = useParams();
-  const { downloadImage, downloadSpreadsheet } = usePriceListDownloads({ organizationId: () => params.organizationId });
+  const { downloadImage, downloadPdf, downloadSpreadsheet } = usePriceListDownloads({ organizationId: () => params.organizationId });
   const navigate = useNavigate();
   // Creating and duplicating both only ask for a name
   const [naming, setNaming] = createSignal<{ source: PriceListSummary | null } | null>(null);
@@ -104,6 +104,7 @@ export function PriceListsPage() {
                     deleteMessage={t('pricing.lists.delete-message')}
                     actions={[
                       { label: t('pricing.lists.duplicate'), icon: 'i-tabler-copy', onSelect: () => openNaming(priceList) },
+                      { label: t('pricing.download.pdf'), icon: 'i-tabler-file-type-pdf', onSelect: () => void downloadPdf({ priceListId: priceList.id, name: priceList.name }) },
                       { label: t('pricing.download.image'), icon: 'i-tabler-photo', onSelect: () => void downloadImage({ priceListId: priceList.id, name: priceList.name }) },
                       { label: t('pricing.download.spreadsheet'), icon: 'i-tabler-table', onSelect: () => void downloadSpreadsheet({ priceListId: priceList.id, name: priceList.name }) },
                     ]}

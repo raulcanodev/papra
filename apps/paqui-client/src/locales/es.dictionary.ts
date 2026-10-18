@@ -1796,6 +1796,8 @@ export const translations: Partial<TranslationsDictionary> = {
   'pricing.lists.default': 'Por defecto',
   'pricing.lists.download': 'Descargar para el cliente',
   'pricing.download.image': 'Descargar imagen (PNG)',
+  'pricing.download.pdf': 'Descargar PDF',
+  'pricing.share': 'Compartir',
   'pricing.download.spreadsheet': 'Descargar Excel (CSV)',
   'pricing.download.error': 'No se ha podido descargar la tarifa',
   'pricing.image.product': 'Producto',

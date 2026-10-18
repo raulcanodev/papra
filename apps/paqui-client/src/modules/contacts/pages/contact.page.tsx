@@ -1,6 +1,6 @@
 import type { TranslationKeys } from '@/modules/i18n/locales.types';
 import type { InvoiceStatus, InvoicingProduct } from '@/modules/invoicing/invoicing.types';
-import { A, useNavigate, useParams } from '@solidjs/router';
+import { A, useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
@@ -10,6 +10,7 @@ import { ProductsTable } from '@/modules/invoicing/components/products-table';
 import { getInvoicePayableMinor } from '@/modules/invoicing/invoicing.models';
 import { deleteProduct, fetchInvoices, fetchProducts } from '@/modules/invoicing/invoicing.services';
 import { ContactPriceListField, getContactPricesQueryKey } from '@/modules/pricing/components/contact-price-list-field';
+import { PriceListShareMenu } from '@/modules/pricing/components/price-list-share-menu';
 import { fetchContactPrices } from '@/modules/pricing/pricing.services';
 import { ProductScannerDialog } from '@/modules/product-scanner/components/product-scanner-dialog';
 import { queryClient } from '@/modules/shared/query/query-client';
@@ -27,6 +28,8 @@ import { CONTACT_ROLE_BADGE_CLASSES, CONTACT_ROLE_LABEL_I18N_KEYS, CONTACT_ROLE_
 import { fetchContacts, getContactsQueryKey } from '../contacts.services';
 import { useDeleteContact } from '../use-delete-contact';
 
+const CONTACT_TABS = ['invoices', 'products', 'price-lists'] as const;
+
 const invoiceStatusLabelKeys = { draft: 'invoicing.status.draft', issuing: 'invoicing.status.issuing', issued: 'invoicing.status.issued', sent: 'invoicing.status.sent', paid: 'invoicing.status.paid', void: 'invoicing.status.void' } as const satisfies Record<InvoiceStatus, TranslationKeys>;
 
 /** One contact with its details, invoices, products and price list. */
@@ -34,6 +37,9 @@ export function ContactPage() {
   const { t, getLocale } = useI18n();
   const params = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // The open tab lives in the URL so a link (or going back) lands on it
+  const activeTab = () => CONTACT_TABS.find(tab => tab === searchParams.tab) ?? 'invoices';
   const { deleteContact } = useDeleteContact();
   const [contactFormOpen, setContactFormOpen] = createSignal(false);
   const [productFormOpen, setProductFormOpen] = createSignal(false);
@@ -122,7 +128,7 @@ export function ContactPage() {
               </For>
             </dl>
 
-            <Tabs defaultValue="invoices">
+            <Tabs value={activeTab()} onChange={tab => setSearchParams({ tab: tab === 'invoices' ? undefined : tab }, { replace: true })}>
               <TabsList class="mb-4 h-11 w-full p-1 sm:w-fit">
                 <TabsTrigger value="invoices" class="h-9 gap-2 px-4">
                   <div class="i-tabler-receipt size-4" />
@@ -178,12 +184,13 @@ export function ContactPage() {
 
               <TabsContent value="price-lists" class="mt-0">
                 <Show when={getContact().isCustomer || getContact().isSupplier} fallback={<div class="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground">{t('contacts.detail.price-list.unavailable')}</div>}>
-                  <div class="mb-4 grid gap-2 rounded-xl border bg-card p-4 sm:grid-cols-[1fr_18rem] sm:items-center">
+                  <div class="mb-4 grid gap-2 rounded-xl border bg-card p-4 sm:grid-cols-[1fr_18rem_auto] sm:items-center">
                     <div>
                       <div class="font-medium">{t('contacts.detail.price-list.title')}</div>
                       <div class="text-sm text-muted-foreground">{t('contacts.detail.price-list.description')}</div>
                     </div>
                     <ContactPriceListField organizationId={params.organizationId} contactId={getContact().id} />
+                    <PriceListShareMenu organizationId={params.organizationId} priceList={pricesQuery.data?.priceList ?? undefined} disabled={priceRows().length === 0} />
                   </div>
                   <Show when={priceRows().length > 0} fallback={<Show when={!pricesQuery.isLoading}><div class="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground">{t('contacts.detail.price-list.empty')}</div></Show>}>
                     <CatalogTable headers={[{ label: t('invoicing.products.table.product') }, { label: t('invoicing.products.form.unit') }, { label: t('invoicing.products.form.price'), class: 'text-right' }]}>

@@ -49,7 +49,7 @@ export function PriceListPage() {
 
 function PriceListEditor(props: { organizationId: string; priceList: PriceList }) {
   const { t, getLocale } = useI18n();
-  const { downloadImage, downloadSpreadsheet } = usePriceListDownloads({ organizationId: () => props.organizationId });
+  const { downloadImage, downloadPdf, downloadSpreadsheet } = usePriceListDownloads({ organizationId: () => props.organizationId });
   const navigate = useNavigate();
   const listsHref = () => getOrganizationRouteHref({ organizationId: props.organizationId, routeId: 'priceLists' });
 
@@ -173,6 +173,10 @@ function PriceListEditor(props: { organizationId: string; priceList: PriceList }
               <div class="i-tabler-chevron-down size-3.5 opacity-60" />
             </DropdownMenuTrigger>
             <DropdownMenuContent class="min-w-56">
+              <DropdownMenuItem class="flex cursor-pointer items-center gap-2" onSelect={() => void downloadPdf({ priceListId: props.priceList.id, name: props.priceList.name })}>
+                <div class="i-tabler-file-type-pdf size-4" />
+                {t('pricing.download.pdf')}
+              </DropdownMenuItem>
               <DropdownMenuItem class="flex cursor-pointer items-center gap-2" onSelect={() => void downloadImage({ priceListId: props.priceList.id, name: props.priceList.name })}>
                 <div class="i-tabler-photo size-4" />
                 {t('pricing.download.image')}

@@ -1794,6 +1794,8 @@ export const translations = {
   'pricing.lists.default': 'Default',
   'pricing.lists.download': 'Download for the customer',
   'pricing.download.image': 'Download image (PNG)',
+  'pricing.download.pdf': 'Download PDF',
+  'pricing.share': 'Share',
   'pricing.download.spreadsheet': 'Download Excel (CSV)',
   'pricing.download.error': 'The price list could not be downloaded',
   'pricing.image.product': 'Product',
