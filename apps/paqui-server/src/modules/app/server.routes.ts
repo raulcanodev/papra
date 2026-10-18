@@ -10,6 +10,7 @@ import { registerCustomPropertiesRoutes } from '../custom-properties/custom-prop
 import { registerDashboardRoutes } from '../dashboard/dashboard.routes';
 import { registerDocumentActivityRoutes } from '../documents/document-activity/document-activity.routes';
 import { registerDocumentsRoutes } from '../documents/documents.routes';
+import { registerDueDatesRoutes } from '../due-dates/due-dates.routes';
 import { registerFeatureFlagsRoutes } from '../feature-flags/feature-flags.routes';
 import { registerFinancesRoutes } from '../finances/finances.routes';
 import { registerGestoriasRoutes } from '../gestorias/gestorias.routes';
@@ -19,6 +20,7 @@ import { registerInvoicingRoutes } from '../invoicing/invoicing.routes';
 import { registerOnboardingRoutes } from '../onboarding/onboarding.routes';
 import { registerOrganizationsRoutes } from '../organizations/organizations.routes';
 import { registerPreferencesRoutes } from '../preferences/preferences.routes';
+import { registerPricingRoutes } from '../pricing/pricing.routes';
 import { registerProductScannerRoutes } from '../product-scanner/product-scanner.routes';
 import { registerPurchasesRoutes } from '../purchases/purchases.routes';
 import { registerSearchRoutes } from '../search/search.routes';
@@ -51,6 +53,8 @@ export function registerRoutes(context: RouteDefinitionContext) {
   registerSearchRoutes(context);
   registerInvoicingRoutes(context);
   registerPurchasesRoutes(context);
+  registerDueDatesRoutes(context);
+  registerPricingRoutes(context);
   registerProductScannerRoutes(context);
   registerCapturesRoutes(context);
   registerTaxesRoutes(context);

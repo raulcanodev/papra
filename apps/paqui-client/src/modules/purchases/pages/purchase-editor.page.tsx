@@ -1,10 +1,14 @@
 import type { ExpenseCategory, PurchaseDocumentKind, PurchaseInvoiceDraftInput, PurchaseInvoiceExtraction, PurchaseInvoiceItemInput, PurchaseMetadataEntry } from '../purchases.types';
+import type { ScheduleRow } from '@/modules/due-dates/components/payment-schedule-fields';
+import type { InstalmentsSource, PaymentMethod } from '@/modules/due-dates/due-dates.types';
 import { A, useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
 import { createEffect, createMemo, createSignal, Index, Show } from 'solid-js';
 import { createContact, fetchContacts, getContactsQueryKey, updateContact } from '@/modules/contacts/contacts.services';
 import { DocumentPreview } from '@/modules/documents/components/document-preview.component';
 import { fetchDocument } from '@/modules/documents/documents.services';
+import { fromScheduleRows, PaymentScheduleFields, toScheduleRows } from '@/modules/due-dates/components/payment-schedule-fields';
+import { getDueDatesQueryKey } from '@/modules/due-dates/due-dates.services';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { FormField } from '@/modules/invoicing/components/catalog-page';
 import { WITHHOLDING_RATES_BPS } from '@/modules/invoicing/invoicing.constants';
@@ -48,7 +52,9 @@ export function PurchaseEditorPage() {
   const [kind, setKind] = createSignal<PurchaseDocumentKind>('invoice');
   const [metadata, setMetadata] = createSignal<PurchaseMetadataEntry[]>([]);
   const [issueDate, setIssueDate] = createSignal(today());
-  const [dueDate, setDueDate] = createSignal('');
+  const [paymentMethod, setPaymentMethod] = createSignal<PaymentMethod | null>(null);
+  const [scheduleRows, setScheduleRows] = createSignal<ScheduleRow[]>([]);
+  const [instalmentsSource, setInstalmentsSource] = createSignal<InstalmentsSource | undefined>(undefined);
   const [currency, setCurrency] = createSignal('EUR');
   const [category, setCategory] = createSignal<ExpenseCategory>('other');
   const [withholdingRateBps, setWithholdingRateBps] = createSignal(0);
@@ -133,7 +139,8 @@ export function PurchaseEditorPage() {
     setKind(purchaseInvoice.kind ?? 'invoice');
     setMetadata(purchaseInvoice.metadata ?? []);
     setIssueDate(toDateInput(purchaseInvoice.issueDate));
-    setDueDate(toDateInput(purchaseInvoice.dueDate));
+    setPaymentMethod(purchaseInvoice.paymentMethod ?? null);
+    setScheduleRows(toScheduleRows(purchaseInvoice.instalments));
     setCurrency(purchaseInvoice.currency);
     setCategory(purchaseInvoice.category);
     setWithholdingRateBps(purchaseInvoice.withholdingRateBps);
@@ -163,7 +170,10 @@ export function PurchaseEditorPage() {
     setKind(result.draft.kind);
     setMetadata(result.draft.metadata);
     setIssueDate(toDateInput(result.draft.issueDate) || today());
-    setDueDate(toDateInput(result.draft.dueDate));
+    setPaymentMethod(result.draft.paymentMethod ?? null);
+    // Readings made before the due dates were read only have the printed due date
+    setScheduleRows(result.draft.instalments ? toScheduleRows(result.draft.instalments) : toScheduleRows(result.draft.dueDate ? [{ dueDate: result.draft.dueDate, amountMinor: 0 }] : []));
+    setInstalmentsSource(result.draft.instalmentsSource);
     setCurrency(result.draft.currency);
     setCategory(result.draft.category);
     setWithholdingRateBps(result.draft.withholdingRateBps);
@@ -172,6 +182,16 @@ export function PurchaseEditorPage() {
   });
 
   const totals = createMemo(() => calculatePurchaseInvoiceTotals({ items: items(), withholdingRateBps: withholdingRateBps() }));
+  // A single due date still to pay is the whole invoice: it follows the lines as they are corrected
+  createEffect(() => {
+    const payableMinor = totals().payableMinor;
+    const rows = scheduleRows();
+    const [only] = rows;
+    if (rows.length === 1 && only && (only.status ?? 'pending') === 'pending' && only.amountMinor !== payableMinor) {
+      setScheduleRows([{ ...only, amountMinor: payableMinor }]);
+    }
+  });
+  const supplierTermsDays = () => suppliers().find(contact => contact.id === supplierId())?.paymentTermsDays ?? null;
   const money = (minor: number) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency: currency() }).format(minor / 100);
   // The model reads the printed total too: a difference means a line was misread
   const totalMismatch = () => {
@@ -237,7 +257,9 @@ export function PurchaseEditorPage() {
     number: number().trim(),
     kind: kind(),
     issueDate: new Date(`${issueDate()}T00:00:00.000Z`),
-    dueDate: dueDate() ? new Date(`${dueDate()}T00:00:00.000Z`) : null,
+    dueDate: fromScheduleRows(scheduleRows()).map(({ dueDate }) => dueDate).toSorted((a, b) => a.getTime() - b.getTime())[0] ?? null,
+    paymentMethod: paymentMethod(),
+    instalments: kind() === 'delivery_note' ? [] : fromScheduleRows(scheduleRows()),
     currency: currency(),
     category: category(),
     withholdingRateBps: withholdingRateBps(),
@@ -254,7 +276,11 @@ export function PurchaseEditorPage() {
       ? updatePurchaseInvoice({ organizationId: params.organizationId, purchaseInvoiceId: params.purchaseInvoiceId!, purchaseInvoice: draft() })
       : createPurchaseInvoice({ organizationId: params.organizationId, purchaseInvoice: draft() })),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: getPurchaseInvoicesQueryKey({ organizationId: params.organizationId }) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: getPurchaseInvoicesQueryKey({ organizationId: params.organizationId }) }),
+        queryClient.invalidateQueries({ queryKey: getDueDatesQueryKey({ organizationId: params.organizationId }) }),
+        queryClient.invalidateQueries({ queryKey: ['calendar', params.organizationId] }),
+      ]);
       createToast({ type: 'success', message: t('purchases.toast.saved') });
 
       // Several files uploaded at once are reviewed one after the other
@@ -379,7 +405,6 @@ export function PurchaseEditorPage() {
               <SimpleSelect triggerClass="h-10 w-full" value={category()} onChange={value => setCategory(value as ExpenseCategory)} options={EXPENSE_CATEGORIES.map(value => ({ value, label: t(EXPENSE_CATEGORY_LABEL_I18N_KEYS[value]) }))} />
             </FormField>
             <FormField label={t('purchases.editor.issue-date')}><TextField type="date" value={issueDate()} onInput={event => setIssueDate(event.currentTarget.value)} /></FormField>
-            <FormField label={t('purchases.editor.due-date')}><TextField type="date" value={dueDate()} onInput={event => setDueDate(event.currentTarget.value)} /></FormField>
           </section>
 
           <section class="rounded-xl border bg-card p-4">
@@ -450,6 +475,23 @@ export function PurchaseEditorPage() {
               <TextArea value={notes()} onInput={event => setNotes(event.currentTarget.value)} />
             </FormField>
           </section>
+
+          <Show when={kind() !== 'delivery_note'}>
+            <PaymentScheduleFields
+              paymentMethod={paymentMethod()}
+              onPaymentMethodChange={setPaymentMethod}
+              rows={scheduleRows()}
+              onRowsChange={(rows) => {
+                setScheduleRows(rows);
+                setInstalmentsSource(undefined);
+              }}
+              issueDate={issueDate()}
+              payableMinor={totals().payableMinor}
+              currency={currency()}
+              source={instalmentsSource()}
+              contactTermsDays={supplierTermsDays()}
+            />
+          </Show>
 
           <PurchaseMetadataFields value={metadata()} onChange={setMetadata} />
         </div>

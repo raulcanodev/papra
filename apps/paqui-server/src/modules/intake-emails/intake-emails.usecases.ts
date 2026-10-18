@@ -46,18 +46,23 @@ export async function createIntakeEmail({
   return { intakeEmail };
 }
 
+// Called with each document created from an email, e.g. to read it as an invoice to pay
+export type OnIntakeDocumentCreated = (args: { organizationId: string; document: { id: string; mimeType: string; originalSize: number } }) => Promise<unknown>;
+
 export async function processIntakeEmailIngestion({
   fromAddress,
   recipientsAddresses,
   attachments,
   intakeEmailsRepository,
   createDocument,
+  onDocumentCreated,
 }: {
   fromAddress: string;
   recipientsAddresses: string[];
   attachments: File[];
   intakeEmailsRepository: IntakeEmailsRepository;
   createDocument: CreateDocumentUsecase;
+  onDocumentCreated?: OnIntakeDocumentCreated;
 }) {
   return Promise.all(
     recipientsAddresses.map(async recipientAddress => safely(
@@ -67,6 +72,7 @@ export async function processIntakeEmailIngestion({
         attachments,
         intakeEmailsRepository,
         createDocument,
+        onDocumentCreated,
       }),
     )),
   );
@@ -79,6 +85,7 @@ export async function ingestEmailForRecipient({
   intakeEmailsRepository,
   logger = createLogger({ namespace: 'intake-emails.ingest' }),
   createDocument,
+  onDocumentCreated,
 }: {
   fromAddress: string;
   recipientAddress: string;
@@ -86,6 +93,7 @@ export async function ingestEmailForRecipient({
   intakeEmailsRepository: IntakeEmailsRepository;
   logger?: Logger;
   createDocument: CreateDocumentUsecase;
+  onDocumentCreated?: OnIntakeDocumentCreated;
 }) {
   const { intakeEmail } = await intakeEmailsRepository.getIntakeEmailByEmailAddress({ emailAddress: recipientAddress });
 
@@ -128,6 +136,11 @@ export async function ingestEmailForRecipient({
       logger.error({ error }, 'Failed to create document for intake email ingestion');
     } else {
       logger.info({ documentId: result.document.id }, 'Document created for intake email ingestion');
+
+      const [, hookError] = await safely(onDocumentCreated?.({ organizationId: intakeEmail.organizationId, document: result.document }) ?? Promise.resolve());
+      if (hookError) {
+        logger.error({ error: hookError, documentId: result.document.id }, 'Failed to process the document created for intake email ingestion');
+      }
     }
   }));
 }

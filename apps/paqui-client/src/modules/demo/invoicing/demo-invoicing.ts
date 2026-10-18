@@ -388,6 +388,7 @@ async function buildInvoiceFromDraft({ organizationId, draft, existing }: { orga
     number: null,
     issueDate: new Date(draft.issueDate).toISOString(),
     dueDate: new Date(draft.dueDate).toISOString(),
+    paymentMethod: draft.paymentMethod ?? null,
     currency: draft.currency,
     ...calculateTotals({ items, withholdingRateBps: draft.withholdingRateBps }),
     notes: draft.notes ?? null,
@@ -701,4 +702,20 @@ export async function listDemoContactProducts({ organizationId, contactId }: { o
 
 export async function saveDemoProduct({ product }: { product: Stored }) {
   await db().products.setItem(product.id, product);
+}
+
+/** A due date collected (or returned) from the due dates page: the invoice is paid once collected, owed again otherwise */
+export async function setDemoInvoicePaidState({ invoiceId, isPaid }: { invoiceId: string; isPaid: boolean }) {
+  const invoice = await db().invoices.getItem(invoiceId);
+
+  if (!invoice || !['issued', 'sent', 'paid'].includes(invoice.status)) {
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const status = isPaid ? 'paid' : (invoice.sentAt ? 'sent' : 'issued');
+
+  if (status !== invoice.status) {
+    await db().invoices.setItem(invoiceId, { ...invoice, status, paidAt: isPaid ? now : null, updatedAt: now });
+  }
 }

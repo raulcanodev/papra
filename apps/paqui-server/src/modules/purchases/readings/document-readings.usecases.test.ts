@@ -20,6 +20,8 @@ function extraction(overrides: Partial<InvoiceExtraction> = {}): InvoiceExtracti
     number: 'NUBE-1',
     issueDate: '2026-09-30',
     dueDate: null,
+    paymentMethod: null,
+    paymentTerms: [],
     currency: 'EUR',
     lines: [{ description: 'Hosting', quantity: 1, unitPrice: 100, taxRatePercent: 21, discountPercent: 0 }],
     withholdingRatePercent: 0,

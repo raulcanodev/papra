@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { entityCustomPropertiesInputSchema } from '../custom-properties/entity-custom-properties.usecases';
+import { instalmentsInputSchema, paymentMethodSchema } from '../due-dates/due-dates.schemas';
 import { entityAppearanceSchema } from '../shared/appearance/appearance.schemas';
 import { INCOME_TAX_METHODS, LEGAL_FORMS, VAT_REGIMES } from '../taxes/taxes.constants';
 import { INVOICE_STATUSES, INVOICE_TEMPLATE_IDS, VERIFACTU_MODES } from './invoicing.constants';
@@ -94,6 +95,9 @@ export const invoiceDraftSchema = z.object({
   templateId: z.enum(INVOICE_TEMPLATE_IDS).default('minimal'),
   withholdingRateBps: withholdingRateBpsSchema.default(0),
   items: z.array(invoiceItemSchema).min(1).max(200),
+  paymentMethod: paymentMethodSchema.optional().nullable(),
+  // Several due dates when collected in instalments; a single one on the due date when absent
+  instalments: instalmentsInputSchema.optional(),
 }).refine(value => value.dueDate >= value.issueDate, {
   message: 'Due date must not be before issue date',
   path: ['dueDate'],

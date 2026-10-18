@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { instalmentsInputSchema, paymentMethodSchema } from '../due-dates/due-dates.schemas';
 import { EXPENSE_CATEGORIES, MAX_PURCHASE_METADATA_ENTRIES, PURCHASE_DOCUMENT_KINDS, PURCHASE_INVOICE_STATUSES } from './purchases.constants';
 import { MAX_DOCUMENTS_PER_READING_REQUEST } from './readings/document-readings.constants';
 
@@ -35,6 +36,9 @@ export const purchaseInvoiceDraftSchema = z.object({
   documentId: z.string().trim().min(1).max(64).optional().nullable(),
   metadata: z.array(purchaseMetadataEntrySchema).max(MAX_PURCHASE_METADATA_ENTRIES).default([]),
   items: z.array(purchaseInvoiceItemSchema).min(1).max(200),
+  paymentMethod: paymentMethodSchema.optional().nullable(),
+  // The due dates, as reviewed by the user; computed from the due date or the supplier payment terms when absent
+  instalments: instalmentsInputSchema.optional(),
 }).refine(value => value.dueDate === undefined || value.dueDate === null || value.dueDate >= value.issueDate, {
   message: 'Due date must not be before issue date',
   path: ['dueDate'],

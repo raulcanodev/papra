@@ -10,9 +10,11 @@ import localStorageDriver from 'unstorage/drivers/localstorage';
 import { trackingServices } from '../tracking/tracking.services';
 import { DEMO_DATA_VERSION, DEMO_IS_SEEDED_KEY } from './demo.constants';
 import { createId } from './demo.models';
+import { bindDueDatesStorage } from './due-dates/demo-due-dates';
 import { renderDemoInvoicePdf } from './invoicing/demo-invoice-pdf';
 import { attachDemoInvoiceDocument, bindInvoicingStorage, getDemoInvoicingRecords, listDemoContacts, seedDemoInvoicing } from './invoicing/demo-invoicing';
 import { demoBranding, demoFiscalProfile } from './invoicing/demo-invoicing.fixtures';
+import { bindPricingStorage, seedDemoPricing } from './pricing/demo-pricing';
 import { attachDemoPurchaseDocument, bindPurchasesStorage, getDemoPurchaseInvoice, seedDemoPurchases } from './purchases/demo-purchases';
 import { customPropertyDefinitionsFixtures } from './seed/custom-property-definitions.fixtures';
 import { renderDemoDocumentPdf } from './seed/demo-document-pdf';
@@ -25,6 +27,8 @@ export const storage = createStorage<any>({
 
 bindInvoicingStorage(storage);
 bindPurchasesStorage(storage);
+bindPricingStorage(storage);
+bindDueDatesStorage(storage);
 
 export type DocumentFileStoredFile = { name: string; size: number; type: string; base64Content: string };
 export type DocumentFileRemoteFile = { name: string; path: string };
@@ -173,6 +177,7 @@ export async function seedDemoStorage({ now = new Date() }: { now?: Date } = {})
   await customPropertyDefinitionStorage.setItems(customPropertyDefinitions.map(definition => ({ key: definition.id, value: definition })));
 
   await seedDemoInvoicing({ organizationId, now });
+  await seedDemoPricing({ organizationId });
   const { purchaseInvoices } = await seedDemoPurchases({ organizationId, now });
 
   // Folders: a few manual ones, and one per customer and supplier where their invoices get archived (as the server does)

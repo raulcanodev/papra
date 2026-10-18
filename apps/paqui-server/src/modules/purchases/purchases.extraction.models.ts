@@ -2,10 +2,13 @@ import type { Contact } from '../contacts/contacts.models';
 import type { ExpenseCategory, PurchaseDocumentKind } from './purchases.constants';
 import { z } from 'zod';
 import { normalizeTaxId } from '../contacts/contacts.models';
+import { PAYMENT_METHODS } from '../due-dates/due-dates.constants';
+import { computeInstalments } from '../due-dates/due-dates.models';
+import { calculateInvoiceTotals } from '../invoicing/invoicing.models';
 import { EXPENSE_CATEGORIES, MAX_PURCHASE_METADATA_ENTRIES } from './purchases.constants';
 
 // Bumped whenever the shape below changes, so a stored or cached reading can be told apart from a newer one
-export const INVOICE_EXTRACTION_SCHEMA_VERSION = 2;
+export const INVOICE_EXTRACTION_SCHEMA_VERSION = 3;
 
 const partySchema = z.object({
   name: z.string().nullable().describe('Legal or trade name as printed, null when no name can be read (a logo alone, a torn header...)'),
@@ -26,7 +29,13 @@ export const invoiceExtractionSchema = z.object({
   recipient: partySchema.describe('The company or person the document is addressed to'),
   number: z.string().nullable().describe('Document number (invoice number, delivery note number), null when not printed'),
   issueDate: z.string().nullable().describe('Issue date as YYYY-MM-DD, null when not printed'),
-  dueDate: z.string().nullable().describe('Due date as YYYY-MM-DD, null when not printed'),
+  dueDate: z.string().nullable().describe('Due date as YYYY-MM-DD, null when not printed. The first one when there are several'),
+  paymentMethod: z.enum(PAYMENT_METHODS).nullable().describe('How the document says it is paid. transfer: bank transfer. direct_debit: direct debit or a bill the supplier charges to the bank account on the due date (domiciliación, recibo, giro, letra de cambio). promissory_note: promissory note (pagaré). card: card payment. cash: cash (contado, efectivo). other: anything else. null when not printed'),
+  paymentTerms: z.array(z.object({
+    date: z.string().nullable().describe('Due date as YYYY-MM-DD when a date is printed for it, null otherwise'),
+    daysAfterIssue: z.number().nullable().describe('Days after the issue date when only terms are printed: 30 for "a 30 días", null when a date is printed'),
+    amount: z.number().nullable().describe('Amount of this due date when printed, null when not'),
+  })).describe('Every due date printed, in order: one entry per instalment. "Giro a 30 días" gives one entry with daysAfterIssue 30, "30/60/90 días" three entries (30, 60 and 90), a table of vencimientos one entry per row. Empty when the document says nothing about when to pay'),
   currency: z.string().describe('ISO 4217 currency code, e.g. EUR'),
   lines: z.array(z.object({
     description: z.string(),
@@ -204,8 +213,10 @@ function toDate(value: string | null) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-// Converts what the model read into a purchase draft, the user reviews it before saving
-export function toPurchaseInvoiceDraft({ extraction, supplierId, documentId }: { extraction: InvoiceExtraction; supplierId: string | null; documentId: string }) {
+// Converts what the model read into a purchase draft, the user reviews it before saving.
+// The due dates are the printed ones, or computed from the printed terms and the issue date, or from the supplier
+// usual payment terms when the document says nothing (contactTermsDays, null for an unknown supplier).
+export function toPurchaseInvoiceDraft({ extraction, supplierId, documentId, contactTermsDays = null }: { extraction: InvoiceExtraction; supplierId: string | null; documentId: string; contactTermsDays?: number | null }) {
   const items = extraction.lines
     .filter(line => line.description.trim() !== '' || line.unitPrice !== 0)
     .map(line => ({
@@ -222,16 +233,29 @@ export function toPurchaseInvoiceDraft({ extraction, supplierId, documentId }: {
     .filter(entry => entry.label !== '' && entry.value !== '')
     .slice(0, MAX_PURCHASE_METADATA_ENTRIES);
 
+  const kind = DOCUMENT_KINDS[extraction.documentKind];
+  const issueDate = toDate(extraction.issueDate);
+  const withholdingRateBps = toBps(extraction.withholdingRatePercent, { max: 50 });
+  const { totalMinor, withholdingMinor } = calculateInvoiceTotals({ items, withholdingRateBps });
+  // Older readings (and models) may not have the payment fields
+  const printedDueDates = (extraction.paymentTerms ?? []).map(term => ({ date: toDate(term.date), daysAfterIssue: term.daysAfterIssue === null ? null : Math.round(term.daysAfterIssue), amountMinor: term.amount === null ? null : toMinor(term.amount) }));
+  const { instalments, source: instalmentsSource } = issueDate === null || kind === 'delivery_note'
+    ? { instalments: [], source: 'none' as const }
+    : computeInstalments({ issueDate, payableMinor: totalMinor - withholdingMinor, printedDueDates, dueDate: toDate(extraction.dueDate), contactTermsDays });
+
   return {
     supplierId,
-    kind: DOCUMENT_KINDS[extraction.documentKind],
+    kind,
     number: clean(extraction.number ?? '', 100),
-    issueDate: toDate(extraction.issueDate),
-    dueDate: toDate(extraction.dueDate),
+    issueDate,
+    dueDate: instalments[0]?.dueDate ?? toDate(extraction.dueDate),
+    paymentMethod: extraction.paymentMethod ?? null,
+    instalments,
+    instalmentsSource,
     currency: /^[A-Z]{3}$/i.test(extraction.currency) ? extraction.currency.toUpperCase() : 'EUR',
     category: extraction.category satisfies ExpenseCategory,
     // Same bound as the purchase draft validation
-    withholdingRateBps: toBps(extraction.withholdingRatePercent, { max: 50 }),
+    withholdingRateBps,
     documentId,
     metadata,
     items,

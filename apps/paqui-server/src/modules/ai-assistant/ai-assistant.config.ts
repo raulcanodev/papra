@@ -27,10 +27,16 @@ export const aiAssistantConfig = {
     env: 'AI_GOOGLE_API_KEY',
   },
   model: {
-    doc: 'The default model identifier to use (e.g. gpt-4o, grok-4-1-fast-non-reasoning). If not set, uses the first available provider\'s default model.',
+    doc: 'The default model identifier (e.g. claude-haiku-5-5, grok-4-1-fast-non-reasoning); its provider is the one of the model. If not set, the first configured provider and its default model. The model chosen in the admin panel takes precedence.',
     schema: v.optional(v.string()),
     default: undefined,
     env: 'AI_MODEL',
+  },
+  reasoningEffort: {
+    doc: 'The default reasoning effort of the model (low, medium, high, max) when it accepts one. The model and effort chosen in the admin panel take precedence.',
+    schema: v.optional(v.picklist(['low', 'medium', 'high', 'max'])),
+    default: undefined,
+    env: 'AI_REASONING_EFFORT',
   },
   tavilyApiKey: {
     doc: 'The API key for Tavily web search.',

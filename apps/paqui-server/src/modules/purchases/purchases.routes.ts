@@ -9,6 +9,7 @@ import { legacyValidateJsonBody, legacyValidateParams, legacyValidateQuery } fro
 import { createPurchaseInvoiceNotFoundError } from './purchases.errors';
 import { createPurchasesRepository } from './purchases.repository';
 import { purchaseInvoiceDraftSchema, purchaseInvoiceExtractionBodySchema, purchaseInvoiceIdSchema, purchaseInvoiceListQuerySchema, purchaseInvoiceStatusBodySchema, purchaseReadingsBodySchema, purchaseReadingsQuerySchema } from './purchases.schemas';
+import { dismissPurchaseInboxDocument, listPurchaseInbox } from './readings/document-readings.inbox';
 import { createDocumentReadingsRepository } from './readings/document-readings.repository';
 import { wakeDocumentReadings } from './readings/document-readings.task';
 import { filterOrganizationDocumentIds, formatReadingsForApi, getOrReadPurchaseDocument } from './readings/document-readings.usecases';
@@ -20,6 +21,8 @@ export function registerPurchasesRoutes(context: RouteDefinitionContext) {
   setupListPurchaseInvoicesRoute(context);
   // Before the invoice route: "readings" is not an invoice id
   setupGetPurchaseReadingsRoute(context);
+  setupGetPurchaseInboxRoute(context);
+  setupDismissPurchaseInboxDocumentRoute(context);
   setupGetPurchaseInvoiceRoute(context);
   setupCreatePurchaseInvoiceRoute(context);
   setupUpdatePurchaseInvoiceRoute(context);
@@ -211,6 +214,41 @@ function setupGetPurchaseReadingsRoute({ app, db }: RouteDefinitionContext) {
       const { readings } = await createDocumentReadingsRepository({ db }).getReadings({ organizationId, documentIds, kind: 'purchase' });
 
       return context.json(await formatReadingsForApi({ db, organizationId, readings }));
+    },
+  );
+}
+
+// The documents read as invoices to pay not registered yet (forwarded by email, uploaded and not reviewed)
+function setupGetPurchaseInboxRoute({ app, db }: RouteDefinitionContext) {
+  app.get(
+    '/api/organizations/:organizationId/purchases/inbox',
+    requireAuthentication({ apiKeyPermissions: ['purchases:read'] }),
+    legacyValidateParams(organizationParamsSchema),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId } = context.req.valid('param');
+
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository: createOrganizationsRepository({ db }) });
+
+      return context.json(await listPurchaseInbox({ db, organizationId }));
+    },
+  );
+}
+
+function setupDismissPurchaseInboxDocumentRoute({ app, db }: RouteDefinitionContext) {
+  app.delete(
+    '/api/organizations/:organizationId/purchases/inbox/:documentId',
+    requireAuthentication({ apiKeyPermissions: ['purchases:update'] }),
+    legacyValidateParams(z.object({ organizationId: organizationIdSchema, documentId: purchaseInvoiceIdSchema })),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId, documentId } = context.req.valid('param');
+
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository: createOrganizationsRepository({ db }) });
+
+      await dismissPurchaseInboxDocument({ db, organizationId, documentId });
+
+      return context.body(null, 204);
     },
   );
 }

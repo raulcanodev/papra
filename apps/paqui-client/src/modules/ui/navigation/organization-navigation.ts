@@ -20,10 +20,13 @@ export const organizationRoutes = {
   // Sales: what the organization issues; purchases: what its suppliers send (invoices, tickets, delivery notes)
   invoices: { path: 'sales', surface: 'workspace' },
   purchases: { path: 'purchases', surface: 'workspace' },
+  // What is due, to pay and to collect, from the received and the issued invoices
+  dueDates: { path: 'due-dates', surface: 'workspace' },
   customers: { path: 'contacts/customers', surface: 'workspace' },
   suppliers: { path: 'contacts/suppliers', surface: 'workspace' },
   salesRepresentatives: { path: 'contacts/sales-representatives', surface: 'workspace' },
   products: { path: 'invoicing/products', surface: 'workspace' },
+  priceLists: { path: 'pricing/price-lists', surface: 'workspace' },
   taxes: { path: 'taxes', surface: 'workspace' },
   financeOverview: { path: 'finances/overview', surface: 'workspace' },
   financeTransactions: { path: 'finances/transactions', surface: 'workspace' },
@@ -59,10 +62,12 @@ export const organizationRouteLabelKeys = {
   calendar: 'navigation.item.calendar',
   invoices: 'navigation.item.sales',
   purchases: 'navigation.item.purchases',
+  dueDates: 'navigation.item.due-dates',
   customers: 'contacts.roles.customers',
   suppliers: 'contacts.roles.suppliers',
   salesRepresentatives: 'contacts.roles.sales_representatives',
   products: 'navigation.item.products',
+  priceLists: 'navigation.item.price-lists',
   taxes: 'navigation.item.quarterly-taxes',
   financeOverview: 'navigation.item.overview',
   financeTransactions: 'navigation.item.transactions',
@@ -121,7 +126,9 @@ const workspaceNavigation: readonly NavigationSectionDefinition[] = [
     items: [
       { routeId: 'invoices', icon: 'i-tabler-file-arrow-right', matchSubRoutes: true },
       { routeId: 'purchases', icon: 'i-tabler-file-arrow-left', matchSubRoutes: true },
+      { routeId: 'dueDates', icon: 'i-tabler-calendar-due' },
       { routeId: 'products', icon: 'i-tabler-package' },
+      { routeId: 'priceLists', icon: 'i-tabler-tags' },
       { routeId: 'taxes', icon: 'i-tabler-receipt-tax' },
     ],
   },
@@ -207,6 +214,7 @@ export const organizationEntityRoutes = {
   newPurchaseInvoice: { path: 'purchases/new', label: 'New purchase (received invoice, ticket or delivery note)' },
   editPurchaseInvoice: { path: 'purchases/:purchaseInvoiceId/edit', label: 'Purchase editor (received invoice, ticket or delivery note)' },
   contact: { path: 'contacts/:contactId', label: 'Contact (customer, supplier or sales representative) with its products' },
+  priceList: { path: 'pricing/price-lists/:priceListId', label: 'Price list editor: its products with their prices, costs and margins, and its contacts' },
 } as const satisfies Record<string, { path: string; label: string }>;
 
 export type OrganizationEntityRouteId = keyof typeof organizationEntityRoutes;
@@ -217,6 +225,10 @@ export function getOrganizationEntityRoutePath(routeId: OrganizationEntityRouteI
 
 export function getOrganizationContactHref({ organizationId, contactId }: { organizationId: string; contactId: string }) {
   return `/organizations/${organizationId}/${organizationEntityRoutes.contact.path.replace(':contactId', encodeURIComponent(contactId))}`;
+}
+
+export function getOrganizationPriceListHref({ organizationId, priceListId }: { organizationId: string; priceListId: string }) {
+  return `/organizations/${organizationId}/${organizationEntityRoutes.priceList.path.replace(':priceListId', encodeURIComponent(priceListId))}`;
 }
 
 export function getOrganizationRouteHref({ organizationId, routeId }: { organizationId: string; routeId: OrganizationRouteId }) {

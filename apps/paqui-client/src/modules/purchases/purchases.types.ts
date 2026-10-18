@@ -1,4 +1,5 @@
 import type { Contact } from '../contacts/contacts.types';
+import type { InstalmentInput, InstalmentsSource, PaymentInstalment, PaymentMethod } from '../due-dates/due-dates.types';
 import type { EntityIconColor } from '../ui/components/entity-icon.constants';
 
 export type PurchaseInvoiceStatus = 'pending' | 'paid';
@@ -33,9 +34,12 @@ export type PurchaseInvoiceDraftInput = {
   documentId: string | null;
   metadata: PurchaseMetadataEntry[];
   items: PurchaseInvoiceItemInput[];
+  paymentMethod?: PaymentMethod | null;
+  /** The due dates as reviewed; the server computes one from the due date or the supplier terms when absent */
+  instalments?: InstalmentInput[];
 };
 
-export type PurchaseInvoice = Omit<PurchaseInvoiceDraftInput, 'items'> & {
+export type PurchaseInvoice = Omit<PurchaseInvoiceDraftInput, 'items' | 'instalments'> & {
   id: string;
   organizationId: string;
   status: PurchaseInvoiceStatus;
@@ -53,6 +57,7 @@ export type PurchaseInvoice = Omit<PurchaseInvoiceDraftInput, 'items'> & {
   supplierTaxId?: string | null;
   supplier?: Contact | null;
   items?: (PurchaseInvoiceItemInput & { id: string; position: number })[];
+  instalments?: PaymentInstalment[];
 };
 
 export type InvoiceDirection = 'received' | 'issued' | 'unknown';
@@ -94,7 +99,8 @@ export type PurchaseReading = {
 export type PurchaseInvoiceExtraction = {
   schemaVersion: number;
   direction: InvoiceDirection;
-  draft: Omit<PurchaseInvoiceDraftInput, 'supplierId' | 'issueDate' | 'notes'> & { supplierId: string | null; issueDate: Date | null };
+  // Readings made before the due dates were read have no instalments
+  draft: Omit<PurchaseInvoiceDraftInput, 'supplierId' | 'issueDate' | 'notes'> & { supplierId: string | null; issueDate: Date | null; instalmentsSource?: InstalmentsSource };
   counterparty: {
     status: SupplierResolutionStatus;
     contactId: string | null;

@@ -4,6 +4,7 @@ import { defineHandler } from '../demo-api-mock.models';
 import { createId } from '../demo.models';
 import { documentStorage, folderStorage } from '../demo.storage';
 import { findMany, getValues } from '../demo.storage.models';
+import { listDemoDueDateCalendarEvents } from '../due-dates/demo-due-dates';
 
 async function listFolderDocuments({ organizationId }: { organizationId: string }) {
   return findMany(documentStorage, document => document?.organizationId === organizationId && !document?.deletedAt);
@@ -62,9 +63,13 @@ export const miscHandlers = {
   ...defineHandler({
     path: '/api/organizations/:organizationId/calendar',
     method: 'GET',
-    handler: ({ query }) => {
+    handler: async ({ params: { organizationId }, query }) => {
       const { year, locale } = (query ?? {}) as { year?: string; locale?: string };
-      return buildCalendar({ year: Number(year) || new Date().getFullYear(), locale: locale ?? 'en' });
+      const calendar = buildCalendar({ year: Number(year) || new Date().getFullYear(), locale: locale ?? 'en' });
+      // The organization own due dates, to pay and to collect, like the server adds them
+      const dueDates = await listDemoDueDateCalendarEvents({ organizationId, year: Number(year) || new Date().getFullYear() });
+
+      return { ...calendar, events: [...calendar.events, ...dueDates].sort((a, b) => a.date.localeCompare(b.date)) };
     },
   }),
 

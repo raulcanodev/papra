@@ -1,12 +1,16 @@
 import type { InvoiceDraftInput, InvoiceItemInput, InvoiceTemplateId } from '../invoicing.types';
 import type { Contact } from '@/modules/contacts/contacts.types';
+import type { PaymentMethod } from '@/modules/due-dates/due-dates.types';
 import { A, useNavigate, useParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
-import { createEffect, createMemo, createSignal, For, Index, Show } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, Index, on, Show } from 'solid-js';
 import { ContactFormFields, emptyContact } from '@/modules/contacts/components/contact-form';
 import { createContact, fetchContacts, getContactsQueryKey } from '@/modules/contacts/contacts.services';
+import { PAYMENT_METHOD_LABEL_I18N_KEYS, PAYMENT_METHODS } from '@/modules/due-dates/due-dates.constants';
 import { getDocumentLocale } from '@/modules/i18n/document-locale';
 import { useI18n } from '@/modules/i18n/i18n.provider';
+import { getContactPricesQueryKey } from '@/modules/pricing/components/contact-price-list-field';
+import { fetchContactPrices } from '@/modules/pricing/pricing.services';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
@@ -71,6 +75,7 @@ export function CreateInvoicePage() {
   const [salesRepresentativeId, setSalesRepresentativeId] = createSignal('');
   const [issueDate, setIssueDate] = createSignal(today());
   const [dueDate, setDueDate] = createSignal(plusDays(30));
+  const [paymentMethod, setPaymentMethod] = createSignal<PaymentMethod | null>(null);
   const [currency, setCurrency] = createSignal('EUR');
   const [templateId, setTemplateId] = createSignal<InvoiceTemplateId>('minimal');
   const [withholdingRateBps, setWithholdingRateBps] = createSignal<number | null>(null);
@@ -93,6 +98,7 @@ export function CreateInvoicePage() {
     setSalesRepresentativeId(invoice.salesRepresentativeId ?? '');
     setIssueDate(invoice.issueDate.toISOString().slice(0, 10));
     setDueDate(invoice.dueDate.toISOString().slice(0, 10));
+    setPaymentMethod(invoice.paymentMethod ?? null);
     setCurrency(invoice.currency);
     setTemplateId(invoice.templateId);
     setWithholdingRateBps(invoice.withholdingRateBps);
@@ -106,6 +112,32 @@ export function CreateInvoicePage() {
       discountRateBps: item.discountRateBps,
     })) ?? [newLine()]);
   });
+
+  // The customer price list: picking a product uses its price there and the list discount, else the catalog price
+  const contactPricesQuery = useQuery(() => ({
+    queryKey: getContactPricesQueryKey({ organizationId: params.organizationId, contactId: customerId() }),
+    queryFn: () => fetchContactPrices({ organizationId: params.organizationId, contactId: customerId() }),
+    enabled: customerId() !== '',
+  }));
+  const customerPriceList = () => (customerId() === '' ? null : contactPricesQuery.data?.priceList ?? null);
+  const getProductPricing = (product: { id: string; unitPriceMinor: number }) => {
+    const listPrice = contactPricesQuery.data?.prices.find(price => price.productId === product.id);
+    return listPrice && customerPriceList()
+      ? { unitPriceMinor: listPrice.priceMinor, discountRateBps: customerPriceList()!.discountRateBps }
+      : { unitPriceMinor: product.unitPriceMinor, discountRateBps: 0 };
+  };
+
+  // A new invoice follows the customer: when it changes, the product lines take the prices of its price list
+  createEffect(on(() => contactPricesQuery.data, (data) => {
+    if (!data || params.invoiceId) {
+      return;
+    }
+    const products = productsQuery.data?.products ?? [];
+    setItems(current => current.map((item) => {
+      const product = item.productId === null || item.productId === undefined ? undefined : products.find(candidate => candidate.id === item.productId);
+      return product ? { ...item, ...getProductPricing(product) } : item;
+    }));
+  }, { defer: true }));
 
   // Untouched new invoices use the fiscal profile default withholding, an edited invoice keeps its own
   const effectiveWithholdingRateBps = () => withholdingRateBps() ?? profileQuery.data?.profile?.defaultWithholdingRateBps ?? 0;
@@ -176,6 +208,7 @@ export function CreateInvoicePage() {
         salesRepresentativeId: salesRepresentativeId() || null,
         issueDate: new Date(`${issueDate()}T00:00:00.000Z`),
         dueDate: new Date(`${dueDate()}T00:00:00.000Z`),
+        paymentMethod: paymentMethod(),
         currency: currency(),
         templateId: templateId(),
         withholdingRateBps: effectiveWithholdingRateBps(),
@@ -198,7 +231,7 @@ export function CreateInvoicePage() {
   const applyProductByName = (index: number, name: string) => {
     const product = productsQuery.data?.products.find(item => item.name === name);
     updateItem(index, product
-      ? { productId: product.id, description: product.name, unitPriceMinor: product.unitPriceMinor, taxRateBps: product.taxRateBps }
+      ? { productId: product.id, description: product.name, taxRateBps: product.taxRateBps, ...getProductPricing(product) }
       : { productId: null, description: name });
   };
 
@@ -300,6 +333,14 @@ export function CreateInvoicePage() {
                     <div class="truncate font-medium">{customer().name}</div>
                     <div class="truncate text-xs text-muted-foreground">{customer().email || t('invoicing.editor.customer.no-email')}</div>
                     <Show when={customerSummary(customer())}>{summary => <div class="truncate text-xs text-muted-foreground">{summary()}</div>}</Show>
+                    <Show when={customerPriceList()}>
+                      {priceList => (
+                        <div class="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-px text-[11px] font-medium text-primary">
+                          <div class="i-tabler-tags size-3" />
+                          {priceList().discountRateBps > 0 ? t('pricing.invoice.price-list-discount', { name: priceList().name, discount: priceList().discountRateBps / 100 }) : t('pricing.invoice.price-list', { name: priceList().name })}
+                        </div>
+                      )}
+                    </Show>
                   </div>
                   <Button type="button" variant="secondary" size="sm" class="h-7 rounded-full" onClick={() => setCustomerId('')}>{t('invoicing.editor.customer.change')}</Button>
                 </div>
@@ -392,6 +433,14 @@ export function CreateInvoicePage() {
             <div class="grid gap-4 sm:grid-cols-2">
               <FormField label={t('invoicing.editor.issue-date')}><TextField class="h-10" type="date" value={issueDate()} onInput={event => setIssueDate(event.currentTarget.value)} /></FormField>
               <FormField label={t('invoicing.editor.due-date')}><TextField class="h-10" type="date" value={dueDate()} onInput={event => setDueDate(event.currentTarget.value)} /></FormField>
+              <FormField label={t('due-dates.schedule.method')}>
+                <SimpleSelect
+                  triggerClass="h-10"
+                  value={paymentMethod() ?? ''}
+                  onChange={value => setPaymentMethod(value === '' ? null : value as PaymentMethod)}
+                  options={[{ value: '', label: t('due-dates.schedule.method.none') }, ...PAYMENT_METHODS.map(method => ({ value: method, label: t(PAYMENT_METHOD_LABEL_I18N_KEYS[method]) }))]}
+                />
+              </FormField>
               <FormField label={t('invoicing.editor.series')}>
                 <SimpleSelect
                   triggerClass="h-10"

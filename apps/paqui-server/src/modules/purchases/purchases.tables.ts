@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { check, index, integer, jsonb, pgTable, text, timestamp, unique } from 'drizzle-orm/pg-core';
 import { contactsTable } from '../contacts/contacts.table';
 import { documentsTable } from '../documents/documents.table';
+import { PAYMENT_METHODS } from '../due-dates/due-dates.constants';
 import { organizationsTable } from '../organizations/organizations.table';
 import { createPrimaryKeyField, createTimestampColumns } from '../shared/db/columns.helpers';
 import { EXPENSE_CATEGORIES, PURCHASE_DOCUMENT_KINDS, PURCHASE_INVOICE_ID_PREFIX, PURCHASE_INVOICE_ITEM_ID_PREFIX, PURCHASE_INVOICE_STATUSES } from './purchases.constants';
@@ -34,6 +35,8 @@ export const purchaseInvoicesTable = pgTable('purchase_invoices', {
   // The invoice file, archived in the supplier folder
   documentId: text('document_id').references(() => documentsTable.id, { onDelete: 'set null', onUpdate: 'cascade' }),
   paidAt: timestamp('paid_at', { mode: 'date', withTimezone: true, precision: 3 }),
+  // How the supplier is paid; the due dates themselves are in payment_instalments
+  paymentMethod: text('payment_method', { enum: PAYMENT_METHODS }),
 }, table => [
   index('purchase_invoices_organization_issue_date_index').on(table.organizationId, table.issueDate),
   index('purchase_invoices_supplier_id_index').on(table.supplierId),

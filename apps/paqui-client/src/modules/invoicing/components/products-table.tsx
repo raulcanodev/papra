@@ -1,7 +1,9 @@
 import type { InvoicingProduct } from '../invoicing.types';
 import { A, useParams } from '@solidjs/router';
-import { For, Show } from 'solid-js';
+import { useQuery } from '@tanstack/solid-query';
+import { createMemo, For, Show } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
+import { fetchProductCostTotals, getPricingQueryKey } from '@/modules/pricing/pricing.services';
 import { EntityIcon } from '@/modules/ui/components/entity-icon';
 import { RowActions } from '@/modules/ui/components/row-actions';
 import { getOrganizationContactHref } from '@/modules/ui/navigation/organization-navigation';
@@ -19,7 +21,9 @@ export function ProductsTable(props: {
 }) {
   const { t } = useI18n();
   const params = useParams();
-  const money = (product: InvoicingProduct) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: product.currency }).format(product.unitPriceMinor / 100);
+  const money = (product: InvoicingProduct, amountMinor = product.unitPriceMinor) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: product.currency }).format(amountMinor / 100);
+  const costsQuery = useQuery(() => ({ queryKey: [...getPricingQueryKey({ organizationId: params.organizationId }), 'product-cost-totals'], queryFn: () => fetchProductCostTotals({ organizationId: params.organizationId }) }));
+  const costByProductId = createMemo(() => new Map((costsQuery.data?.costs ?? []).map(cost => [cost.productId, cost.totalMinor])));
 
   return (
     <CatalogTable headers={[
@@ -27,6 +31,7 @@ export function ProductsTable(props: {
       ...(props.showOwner ? [{ label: t('invoicing.products.owner.label') }] : []),
       { label: t('invoicing.products.form.unit') },
       { label: t('invoicing.products.form.price'), class: 'text-right' },
+      { label: t('pricing.costs.cost-column'), class: 'text-right' },
       { label: t('invoicing.products.table.tax'), class: 'text-right' },
       { label: '', class: 'w-14' },
     ]}
@@ -56,6 +61,9 @@ export function ProductsTable(props: {
             </Show>
             <CatalogCell class="text-muted-foreground">{product.unit}</CatalogCell>
             <CatalogCell class="text-right tabular-nums">{money(product)}</CatalogCell>
+            <CatalogCell class="text-right tabular-nums text-muted-foreground">
+              {costByProductId().has(product.id) ? money(product, costByProductId().get(product.id)) : '—'}
+            </CatalogCell>
             <CatalogCell class="text-right tabular-nums">{`${product.taxRateBps / 100}%`}</CatalogCell>
             <CatalogCell>
               <RowActions itemName={product.name} onEdit={() => props.onEdit(product)} onDelete={() => props.onDelete(product)} deleteMessage={t('invoicing.products.delete-message')} />

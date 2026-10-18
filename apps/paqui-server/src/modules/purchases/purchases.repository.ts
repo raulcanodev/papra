@@ -8,6 +8,8 @@ import { contactsTable } from '../contacts/contacts.table';
 import { createDocumentFoldersRepository } from '../documents/document-folders.repository';
 import { createDocumentNotFoundError } from '../documents/documents.errors';
 import { documentsTable } from '../documents/documents.table';
+import { computeInstalments } from '../due-dates/due-dates.models';
+import { createDueDatesRepository } from '../due-dates/due-dates.repository';
 import { isUniqueConstraintError } from '../shared/db/constraints.models';
 import { createPurchaseInvoiceAlreadyExistsError, createPurchaseInvoiceNotFoundError } from './purchases.errors';
 import { calculatePurchaseInvoiceTotals } from './purchases.models';
@@ -53,20 +55,21 @@ async function getPurchaseInvoice({ db, organizationId, purchaseInvoiceId }: { d
     return { purchaseInvoice: null };
   }
 
-  const [items, { contact: supplier }] = await Promise.all([
+  const [items, { contact: supplier }, { instalments }] = await Promise.all([
     db.select().from(purchaseInvoiceItemsTable).where(eq(purchaseInvoiceItemsTable.purchaseInvoiceId, purchaseInvoiceId)).orderBy(asc(purchaseInvoiceItemsTable.position)),
     createContactsRepository({ db }).getContact({ organizationId, contactId: purchaseInvoice.supplierId }),
+    createDueDatesRepository({ db }).listInstalments({ organizationId, source: { direction: 'payable', purchaseInvoiceId } }),
   ]);
 
-  return { purchaseInvoice: { ...purchaseInvoice, items, supplier } };
+  return { purchaseInvoice: { ...purchaseInvoice, items, supplier, instalments: instalments.toSorted((a, b) => a.position - b.position) } };
 }
 
 // The supplier must be a contact of the organization with the supplier role, the attached document one of its documents
 async function ensurePurchaseInvoiceReferences({ db, organizationId, draft }: { db: Database; organizationId: string; draft: PurchaseInvoiceDraftInput }) {
-  await createContactsRepository({ db }).getContactWithRole({ organizationId, contactId: draft.supplierId, role: 'supplier' });
+  const { contact: supplier } = await createContactsRepository({ db }).getContactWithRole({ organizationId, contactId: draft.supplierId, role: 'supplier' });
 
   if (draft.documentId === undefined || draft.documentId === null) {
-    return;
+    return { supplier };
   }
 
   const [document] = await db
@@ -78,6 +81,35 @@ async function ensurePurchaseInvoiceReferences({ db, organizationId, draft }: { 
   if (!document) {
     throw createDocumentNotFoundError();
   }
+
+  return { supplier };
+}
+
+// The due dates as reviewed by the user, or a single one on the printed due date or after the supplier usual payment
+// terms. A delivery note is not paid by itself: the invoice covering it is.
+function getPurchaseInstalments({ draft, supplierTermsDays }: { draft: PurchaseInvoiceDraftInput; supplierTermsDays: number }) {
+  if (draft.kind === 'delivery_note') {
+    return [];
+  }
+
+  if (draft.instalments !== undefined && draft.instalments.length > 0) {
+    return draft.instalments;
+  }
+
+  const { totalMinor, withholdingMinor } = calculatePurchaseInvoiceTotals(draft);
+
+  return computeInstalments({ issueDate: draft.issueDate, payableMinor: totalMinor - withholdingMinor, dueDate: draft.dueDate ?? null, contactTermsDays: supplierTermsDays }).instalments;
+}
+
+async function savePurchaseInstalments({ db, organizationId, purchaseInvoiceId, draft, instalments }: { db: Database; organizationId: string; purchaseInvoiceId: string; draft: PurchaseInvoiceDraftInput; instalments: ReturnType<typeof getPurchaseInstalments> }) {
+  await createDueDatesRepository({ db }).saveSourceInstalments({
+    organizationId,
+    source: { direction: 'payable', purchaseInvoiceId },
+    contactId: draft.supplierId,
+    currency: draft.currency,
+    paymentMethod: draft.paymentMethod ?? null,
+    instalments,
+  });
 }
 
 // The invoice file is archived in the supplier documents folder, next to its other invoices
@@ -97,12 +129,15 @@ function toItemRows({ purchaseInvoiceId, draft }: { purchaseInvoiceId: string; d
   return draft.items.map((item, position) => ({ purchaseInvoiceId, ...item, position }));
 }
 
-function toInvoiceValues({ draft }: { draft: PurchaseInvoiceDraftInput }) {
-  const { items: _items, ...fields } = draft;
+function toInvoiceValues({ draft, instalments }: { draft: PurchaseInvoiceDraftInput; instalments: ReturnType<typeof getPurchaseInstalments> }) {
+  const { items: _items, instalments: _instalments, ...fields } = draft;
+  // The invoice due date is its first one, so the lists and the taxes keep reading a single date
+  const [firstDueDate] = instalments.map(({ dueDate }) => dueDate).toSorted((a, b) => a.getTime() - b.getTime());
 
   return {
     ...fields,
-    dueDate: draft.dueDate ?? null,
+    paymentMethod: draft.paymentMethod ?? null,
+    dueDate: firstDueDate ?? draft.dueDate ?? null,
     documentId: draft.documentId ?? null,
     notes: draft.notes ?? null,
     ...calculatePurchaseInvoiceTotals(draft),
@@ -110,12 +145,14 @@ function toInvoiceValues({ draft }: { draft: PurchaseInvoiceDraftInput }) {
 }
 
 async function createPurchaseInvoice({ db, organizationId, draft }: { db: Database; organizationId: string; draft: PurchaseInvoiceDraftInput }) {
-  await ensurePurchaseInvoiceReferences({ db, organizationId, draft });
+  const { supplier } = await ensurePurchaseInvoiceReferences({ db, organizationId, draft });
+  const instalments = getPurchaseInstalments({ draft, supplierTermsDays: supplier.paymentTermsDays });
 
   const [purchaseInvoiceId, error] = await safely(db.transaction(async (transaction) => {
     const tx = transaction as unknown as Database;
-    const [purchaseInvoice] = await tx.insert(purchaseInvoicesTable).values({ organizationId, ...toInvoiceValues({ draft }) }).returning({ id: purchaseInvoicesTable.id });
+    const [purchaseInvoice] = await tx.insert(purchaseInvoicesTable).values({ organizationId, ...toInvoiceValues({ draft, instalments }) }).returning({ id: purchaseInvoicesTable.id });
     await tx.insert(purchaseInvoiceItemsTable).values(toItemRows({ purchaseInvoiceId: purchaseInvoice!.id, draft }));
+    await savePurchaseInstalments({ db: tx, organizationId, purchaseInvoiceId: purchaseInvoice!.id, draft, instalments });
     await archiveDocumentInSupplierFolder({ db: tx, organizationId, draft });
 
     return purchaseInvoice!.id;
@@ -133,13 +170,14 @@ async function createPurchaseInvoice({ db, organizationId, draft }: { db: Databa
 }
 
 async function updatePurchaseInvoice({ db, organizationId, purchaseInvoiceId, draft }: { db: Database; organizationId: string; purchaseInvoiceId: string; draft: PurchaseInvoiceDraftInput }) {
-  await ensurePurchaseInvoiceReferences({ db, organizationId, draft });
+  const { supplier } = await ensurePurchaseInvoiceReferences({ db, organizationId, draft });
+  const instalments = getPurchaseInstalments({ draft, supplierTermsDays: supplier.paymentTermsDays });
 
   const [updated, error] = await safely(db.transaction(async (transaction) => {
     const tx = transaction as unknown as Database;
     const [purchaseInvoice] = await tx
       .update(purchaseInvoicesTable)
-      .set({ ...toInvoiceValues({ draft }), updatedAt: new Date() })
+      .set({ ...toInvoiceValues({ draft, instalments }), updatedAt: new Date() })
       .where(and(eq(purchaseInvoicesTable.id, purchaseInvoiceId), eq(purchaseInvoicesTable.organizationId, organizationId)))
       .returning({ id: purchaseInvoicesTable.id });
 
@@ -149,6 +187,7 @@ async function updatePurchaseInvoice({ db, organizationId, purchaseInvoiceId, dr
 
     await tx.delete(purchaseInvoiceItemsTable).where(eq(purchaseInvoiceItemsTable.purchaseInvoiceId, purchaseInvoiceId));
     await tx.insert(purchaseInvoiceItemsTable).values(toItemRows({ purchaseInvoiceId, draft }));
+    await savePurchaseInstalments({ db: tx, organizationId, purchaseInvoiceId, draft, instalments });
     await archiveDocumentInSupplierFolder({ db: tx, organizationId, draft });
 
     return true;
@@ -179,6 +218,9 @@ async function setPurchaseInvoiceStatus({ db, organizationId, purchaseInvoiceId,
   if (!updated) {
     throw createPurchaseInvoiceNotFoundError();
   }
+
+  // Marking the whole invoice paid pays every due date of it
+  await createDueDatesRepository({ db }).setSourceInstalmentsStatus({ organizationId, source: { direction: 'payable', purchaseInvoiceId }, status, now });
 
   return getPurchaseInvoice({ db, organizationId, purchaseInvoiceId });
 }

@@ -1,4 +1,5 @@
 import type { Contact } from '../contacts/contacts.types';
+import type { PaymentMethod } from '../due-dates/due-dates.types';
 import type { IncomeTaxMethod, LegalForm, VatRegime } from '../taxes/taxes.types';
 import type { EntityIconColor } from '../ui/components/entity-icon.constants';
 
@@ -100,6 +101,8 @@ export type InvoiceDraftInput = {
   /** IRPF withholding on the taxable base, in basis points (1500 = 15%) */
   withholdingRateBps: number;
   items: InvoiceItemInput[];
+  /** How the customer pays; the due dates are collected in the due dates page */
+  paymentMethod?: PaymentMethod | null;
 };
 
 export type Invoice = {
@@ -132,6 +135,7 @@ export type Invoice = {
   issuedAt: Date | null;
   sentAt: Date | null;
   paidAt: Date | null;
+  paymentMethod?: PaymentMethod | null;
   voidedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;

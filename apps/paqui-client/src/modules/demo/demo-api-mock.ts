@@ -32,9 +32,12 @@ import {
   webhooksStorage,
 } from './demo.storage';
 import { findMany, getValues } from './demo.storage.models';
+import { dueDatesHandlers } from './due-dates/demo-due-dates';
 import { gestoriasHandlers } from './gestorias/demo-gestorias';
 import { contactsHandlers, getDemoContact, getDemoEntityCustomPropertyValues, getDemoFiscalProfile, getDemoInvoicingRecords, invoicingHandlers, listDemoContacts } from './invoicing/demo-invoicing';
 import { miscHandlers } from './misc/demo-misc';
+import { pricingHandlers } from './pricing/demo-pricing';
+import { pricingImportHandlers } from './pricing/demo-pricing-import';
 import { productScannerHandlers } from './product-scanner/demo-product-scanner';
 import { buildDemoExtraction, listDemoPurchaseInvoices, purchasesHandlers } from './purchases/demo-purchases';
 import { generatePropertyKey, searchDemoDocuments } from './search/demo.search.services';
@@ -202,8 +205,11 @@ let demoOnboardingStep: string | null = null;
 
 const inMemoryApiMock: Record<string, { handler: any }> = {
   ...invoicingHandlers,
+  ...pricingHandlers,
+  ...pricingImportHandlers,
   ...contactsHandlers,
   ...purchasesHandlers,
+  ...dueDatesHandlers,
   ...productScannerHandlers,
   ...capturesHandlers,
   ...gestoriasHandlers,
@@ -264,6 +270,26 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
     path: '/api/organizations/:organizationId/purchases/readings',
     method: 'POST',
     handler: async ({ params: { organizationId }, body }) => ({ readings: await getDemoReadings({ organizationId, documentIds: (get(body, ['documentIds']) as string[] | undefined) ?? [] }) }),
+  }),
+  // The documents read and not registered yet (uploaded and left unreviewed: the demo receives no email)
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/purchases/inbox',
+    method: 'GET',
+    handler: async ({ params: { organizationId } }) => {
+      const linkedDocumentIds = new Set((await listDemoPurchaseInvoices({ organizationId })).map(({ documentId }) => documentId).filter(Boolean));
+      const readings = await getDemoReadings({ organizationId, documentIds: [...demoReadings.keys()].filter(documentId => !linkedDocumentIds.has(documentId)) });
+      const documents = await Promise.all(readings.map(async ({ documentId }) => documentStorage.getItem(`${organizationId}:${documentId}`)));
+
+      return { readings: readings.map((reading, index) => ({ ...reading, documentName: documents[index]?.name ?? null })) };
+    },
+  }),
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/purchases/inbox/:documentId',
+    method: 'DELETE',
+    handler: async ({ params: { documentId } }) => {
+      demoReadings.delete(documentId);
+      return {};
+    },
   }),
   ...defineHandler({
     path: '/api/organizations/:organizationId/purchases/readings',

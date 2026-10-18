@@ -1,5 +1,7 @@
+import type { PaymentInstalment } from '../due-dates/due-dates.types';
 import type { AsDto } from '../shared/http/http-client.types';
 import type { PurchaseInvoice, PurchaseInvoiceDraftInput, PurchaseInvoiceExtraction, PurchaseInvoiceStatus, PurchaseReading } from './purchases.types';
+import { toPaymentInstalment } from '../due-dates/due-dates.services';
 import { apiClient } from '../shared/http/api-client';
 
 const basePath = (organizationId: string) => `/api/organizations/${organizationId}/purchases`;
@@ -15,6 +17,7 @@ function toPurchaseInvoice(dto: AsDto<PurchaseInvoice>): PurchaseInvoice {
     paidAt: toNullableDate(dto.paidAt),
     createdAt: toDate(dto.createdAt),
     updatedAt: toDate(dto.updatedAt),
+    instalments: (dto.instalments as unknown as AsDto<PaymentInstalment>[] | undefined)?.map(toPaymentInstalment),
   };
 }
 
@@ -59,7 +62,12 @@ export async function deletePurchaseInvoice({ organizationId, purchaseInvoiceId 
 function toExtraction(extraction: AsDto<PurchaseInvoiceExtraction>): PurchaseInvoiceExtraction {
   return {
     ...(extraction as unknown as PurchaseInvoiceExtraction),
-    draft: { ...(extraction.draft as unknown as PurchaseInvoiceExtraction['draft']), issueDate: toNullableDate(extraction.draft.issueDate), dueDate: toNullableDate(extraction.draft.dueDate) },
+    draft: {
+      ...(extraction.draft as unknown as PurchaseInvoiceExtraction['draft']),
+      issueDate: toNullableDate(extraction.draft.issueDate),
+      dueDate: toNullableDate(extraction.draft.dueDate),
+      instalments: extraction.draft.instalments?.map(instalment => ({ ...instalment, dueDate: new Date(instalment.dueDate) })),
+    },
   };
 }
 
@@ -80,4 +88,21 @@ export async function fetchPurchaseReadings({ organizationId, documentIds }: { o
   const { readings } = await apiClient<{ readings: AsDto<PurchaseReading>[] }>({ path: `${basePath(organizationId)}/readings`, method: 'GET', query: { documentIds: documentIds.join(',') } });
 
   return { readings: readings.map(toReading) };
+}
+
+/** A document waiting in the inbox: read as an invoice to pay (forwarded by email, or uploaded and not reviewed) */
+export type PurchaseInboxReading = PurchaseReading & { documentName: string | null };
+
+export function getPurchaseInboxQueryKey({ organizationId }: { organizationId: string }) {
+  return [...getPurchaseInvoicesQueryKey({ organizationId }), 'inbox'];
+}
+
+export async function fetchPurchaseInbox({ organizationId }: { organizationId: string }) {
+  const { readings } = await apiClient<{ readings: AsDto<PurchaseInboxReading>[] }>({ path: `${basePath(organizationId)}/inbox`, method: 'GET' });
+
+  return { readings: readings.map(reading => ({ ...toReading(reading), documentName: reading.documentName })) };
+}
+
+export async function dismissPurchaseInboxDocument({ organizationId, documentId }: { organizationId: string; documentId: string }) {
+  await apiClient({ path: `${basePath(organizationId)}/inbox/${documentId}`, method: 'DELETE' });
 }

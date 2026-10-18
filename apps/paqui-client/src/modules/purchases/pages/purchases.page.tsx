@@ -6,6 +6,7 @@ import pLimit from 'p-limit';
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { uploadChatAttachment } from '@/modules/ai-assistant/ai-assistant.services';
 import { createPhotoCapture } from '@/modules/captures/components/photo-capture-button';
+import { getDueDatesQueryKey } from '@/modules/due-dates/due-dates.services';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { CatalogCell, CatalogRow, CatalogTable } from '@/modules/invoicing/components/catalog-page';
 import { getInvoicePayableMinor } from '@/modules/invoicing/invoicing.models';
@@ -19,8 +20,9 @@ import { dateIsInRange, getActiveFilter, isDateRangeValue } from '@/modules/ui/c
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
 import { AddPurchaseDialog } from '../components/add-purchase-dialog';
+import { PurchaseDropZone } from '../components/purchase-drop-zone';
 import { EXPENSE_CATEGORY_LABEL_I18N_KEYS, EXTRACTABLE_FILE_ACCEPT, PURCHASE_DOCUMENT_KIND_BADGE_CLASSES, PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS, PURCHASE_DOCUMENT_KINDS, PURCHASE_STATUS_BADGE_CLASSES, PURCHASE_STATUS_LABEL_I18N_KEYS } from '../purchases.constants';
-import { createPurchaseReadings, deletePurchaseInvoice, fetchPurchaseInvoices, getPurchaseInvoicesQueryKey, setPurchaseInvoiceStatus } from '../purchases.services';
+import { createPurchaseReadings, deletePurchaseInvoice, dismissPurchaseInboxDocument, fetchPurchaseInbox, fetchPurchaseInvoices, getPurchaseInboxQueryKey, getPurchaseInvoicesQueryKey, setPurchaseInvoiceStatus } from '../purchases.services';
 
 const STATUS_FILTERS: (PurchaseInvoiceStatus | undefined)[] = [undefined, 'pending', 'paid'];
 
@@ -37,6 +39,14 @@ export function PurchasesPage() {
   let fileInput: HTMLInputElement | undefined;
 
   const query = useQuery(() => ({ queryKey: getPurchaseInvoicesQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchPurchaseInvoices({ organizationId: params.organizationId }) }));
+
+  // Invoices forwarded by email (or uploaded and not reviewed), already read: waiting to be registered
+  const inboxQuery = useQuery(() => ({ queryKey: getPurchaseInboxQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchPurchaseInbox({ organizationId: params.organizationId }) }));
+  const inbox = () => inboxQuery.data?.readings ?? [];
+  const dismissInboxMutation = createMutation(() => ({
+    mutationFn: (documentId: string) => dismissPurchaseInboxDocument({ organizationId: params.organizationId, documentId }),
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: getPurchaseInboxQueryKey({ organizationId: params.organizationId }) }),
+  }));
 
   const filterFields = createMemo((): FilterField[] => [
     {
@@ -131,7 +141,10 @@ export function PurchasesPage() {
 
   const statusMutation = createMutation(() => ({
     mutationFn: ({ purchaseInvoiceId, status }: { purchaseInvoiceId: string; status: PurchaseInvoiceStatus }) => setPurchaseInvoiceStatus({ organizationId: params.organizationId, purchaseInvoiceId, status }),
-    onSuccess: async () => queryClient.invalidateQueries({ queryKey: getPurchaseInvoicesQueryKey({ organizationId: params.organizationId }) }),
+    onSuccess: async () => Promise.all([
+      queryClient.invalidateQueries({ queryKey: getPurchaseInvoicesQueryKey({ organizationId: params.organizationId }) }),
+      queryClient.invalidateQueries({ queryKey: getDueDatesQueryKey({ organizationId: params.organizationId }) }),
+    ]),
     onError: () => createToast({ type: 'error', message: t('purchases.toast.error') }),
   }));
 
@@ -173,6 +186,41 @@ export function PurchasesPage() {
         </div>
       </div>
 
+      <PurchaseDropZone compact={purchaseInvoices().length > 0} isUploading={isUploading()} onFiles={files => void uploadFiles(files)} onPick={() => fileInput?.click()} />
+
+      <Show when={inbox().length > 0}>
+        <section class="mt-4 rounded-xl border border-violet-500/25 bg-violet-500/6 p-4">
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="i-tabler-inbox size-5 shrink-0 text-violet-600 dark:text-violet-300" />
+            <div class="min-w-0 flex-1">
+              <p class="font-medium">{t('purchases.inbox.title', { count: inbox().length })}</p>
+              <p class="text-sm text-muted-foreground">{t('purchases.inbox.description')}</p>
+            </div>
+            <Button size="sm" class="gap-1.5" onClick={() => reviewDocuments(inbox().map(({ documentId }) => documentId))}>
+              <div class="i-tabler-eye-check size-4" />
+              {t('purchases.inbox.review')}
+            </Button>
+          </div>
+          <ul class="mt-3 flex flex-col gap-1.5">
+            <For each={inbox().slice(0, 5)}>
+              {reading => (
+                <li class="flex items-center gap-2 text-sm">
+                  <div class={cn('size-4 shrink-0', reading.status === 'pending' || reading.status === 'reading' ? 'i-tabler-loader-2 animate-spin text-muted-foreground' : reading.status === 'failed' ? 'i-tabler-alert-triangle text-orange-600' : 'i-tabler-file-invoice text-violet-600 dark:text-violet-300')} />
+                  <button type="button" class="min-w-0 flex-1 truncate text-left hover:underline" onClick={() => reviewDocuments([reading.documentId])}>
+                    {reading.extraction?.counterparty.name ?? reading.documentName ?? reading.documentId}
+                    <Show when={reading.extraction?.draft.number}>
+                      {getNumber => <span class="ml-1.5 text-muted-foreground">{getNumber()}</span>}
+                    </Show>
+                  </button>
+                  <Button variant="ghost" size="sm" class="h-7 text-xs text-muted-foreground" onClick={() => dismissInboxMutation.mutate(reading.documentId)}>{t('purchases.inbox.dismiss')}</Button>
+                </li>
+              )}
+            </For>
+          </ul>
+        </section>
+      </Show>
+
+      <div class="mt-4" />
       <TableToolbar search={search()} onSearchChange={setSearch} searchPlaceholder={t('invoicing.common.search')} fields={filterFields()} filters={filters()} onFiltersChange={setFilters} />
 
       <Show

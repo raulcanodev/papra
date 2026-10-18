@@ -1,16 +1,19 @@
 import type { InvoicingProduct, ProductInput } from '../invoicing.types';
 import type { EntityCustomPropertiesInput } from '@/modules/custom-properties/custom-properties.types';
+import type { ProductCostLine } from '@/modules/pricing/pricing.types';
 import { createMutation, useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, Show } from 'solid-js';
 import { fetchContacts, getContactsQueryKey } from '@/modules/contacts/contacts.services';
 import { EntityCustomPropertiesFields, invalidateEntityCustomProperties } from '@/modules/custom-properties/components/entity-custom-properties-fields.component';
 import { useI18n } from '@/modules/i18n/i18n.provider';
+import { ProductCostsEditor } from '@/modules/pricing/components/product-costs-editor';
+import { fetchProductCosts, getPricingQueryKey, saveProductCosts } from '@/modules/pricing/pricing.services';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { EntityIconPicker } from '@/modules/ui/components/entity-icon';
 import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextField } from '@/modules/ui/components/textfield';
-import { createProduct, updateProduct } from '../invoicing.services';
+import { createProduct, fetchProducts, updateProduct } from '../invoicing.services';
 import { FormField, SaveButton } from './catalog-page';
 import { ProductPhotoField } from './product-photo';
 
@@ -42,6 +45,16 @@ export function ProductForm(props: {
   const [value, setValue] = createSignal<ProductInput>(toProductInput({ product: props.product, contactId: props.lockedContactId ?? null }));
   const [customProperties, setCustomProperties] = createSignal<EntityCustomPropertiesInput>({});
   const update = (changes: Partial<ProductInput>) => setValue(current => ({ ...current, ...changes }));
+  // null until the breakdown is touched: an untouched breakdown is not saved again
+  const [costLines, setCostLines] = createSignal<ProductCostLine[] | null>(null);
+
+  const costsQuery = useQuery(() => ({
+    queryKey: [...getPricingQueryKey({ organizationId: props.organizationId }), 'product-costs', props.product?.id],
+    queryFn: () => fetchProductCosts({ organizationId: props.organizationId, productId: props.product!.id }),
+    enabled: props.product !== null,
+  }));
+
+  const productsQuery = useQuery(() => ({ queryKey: getProductsQueryKey({ organizationId: props.organizationId }), queryFn: () => fetchProducts({ organizationId: props.organizationId }) }));
 
   const contactsQuery = useQuery(() => ({
     queryKey: getContactsQueryKey({ organizationId: props.organizationId }),
@@ -59,14 +72,20 @@ export function ProductForm(props: {
   const mutation = createMutation(() => ({
     mutationFn: async () => {
       const product = { ...value(), customProperties: customProperties() };
-      return props.product === null
-        ? createProduct({ organizationId: props.organizationId, product })
-        : updateProduct({ organizationId: props.organizationId, productId: props.product.id, product });
+      const saved = props.product === null
+        ? await createProduct({ organizationId: props.organizationId, product })
+        : await updateProduct({ organizationId: props.organizationId, productId: props.product.id, product });
+      const lines = costLines();
+      if (lines !== null) {
+        await saveProductCosts({ organizationId: props.organizationId, productId: saved.product.id, lines });
+      }
+      return saved;
     },
     onSuccess: async () => {
       await Promise.all([
         invalidateEntityCustomProperties({ organizationId: props.organizationId, entityType: 'product' }),
         queryClient.invalidateQueries({ queryKey: getProductsQueryKey({ organizationId: props.organizationId }) }),
+        queryClient.invalidateQueries({ queryKey: getPricingQueryKey({ organizationId: props.organizationId }) }),
       ]);
       createToast({ type: 'success', message: t('invoicing.products.toast.saved') });
       props.onDone();
@@ -98,6 +117,18 @@ export function ProductForm(props: {
           <SimpleSelect triggerClass="h-10 w-full" value={value().contactId ?? ''} onChange={contactId => update({ contactId: contactId === '' ? null : contactId })} options={ownerOptions()} />
         </FormField>
       </Show>
+      <div class="sm:col-span-2">
+        <Show when={props.product === null || costsQuery.data}>
+          <ProductCostsEditor
+            organizationId={props.organizationId}
+            initialLines={costsQuery.data?.lines ?? []}
+            currency={value().currency}
+            basePriceMinor={value().unitPriceMinor}
+            copyCandidates={(productsQuery.data?.products ?? []).filter(product => product.id !== props.product?.id)}
+            onChange={setCostLines}
+          />
+        </Show>
+      </div>
       <EntityCustomPropertiesFields organizationId={props.organizationId} entityType="product" entityId={props.product?.id ?? null} value={customProperties()} onChange={setCustomProperties} />
       <SaveButton loading={mutation.isPending} editing={props.product !== null} onCancel={() => props.onDone()} />
     </form>

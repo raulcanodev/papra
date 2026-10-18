@@ -5,7 +5,8 @@ import type { InvoiceExtraction } from './purchases.extraction.models';
 import { Buffer } from 'node:buffer';
 import { generateObject } from 'ai';
 import { and, eq } from 'drizzle-orm';
-import { getConfiguredLlmModel } from '../ai-assistant/ai-assistant.providers';
+import { getAiModel } from '../ai-assistant/ai-assistant.providers';
+import { AI_FEATURES } from '../ai-usage/ai-usage.constants';
 import { createContactsRepository } from '../contacts/contacts.repository';
 import { createDocumentNotFoundError } from '../documents/documents.errors';
 import { extractDocumentText } from '../documents/documents.services';
@@ -32,6 +33,7 @@ They come as PDF text or as phone photos that can be skewed, folded, blurry or p
 Extract exactly what is printed, never invent values: use null (or 0 for rates and prices) when something is not on the paper.
 Amounts are decimals in the document currency. Unit prices are before VAT and before discounts: when only VAT-included prices are printed (tickets), compute the price before VAT from the rate.
 The issuer is who sends and charges the document (its header, logo, tax id), the recipient is who receives the goods or has to pay.
+Read the payment terms when printed, in any wording: the payment method and every due date ("vencimiento 15/11", "a 30 días", "30/60/90 días", a table of instalments with their amounts).
 Anything useful printed that has no dedicated field goes to metadata, with a short label, instead of being lost.
 Report in warnings anything the reviewer should double check.`;
 
@@ -45,9 +47,9 @@ function getReaderPrompt({ text, file, organization }: InvoiceReaderInput) {
   return lines.filter(Boolean).join('\n\n');
 }
 
-export function createAiInvoiceReader({ config }: { config: Config }): InvoiceReader {
+export function createAiInvoiceReader({ config, db, organizationId }: { config: Config; db: Database; organizationId: string }): InvoiceReader {
   return async (input) => {
-    const model = getConfiguredLlmModel({ config });
+    const model = getAiModel({ config, db, feature: AI_FEATURES.PURCHASE_READING, organizationId });
 
     const { object } = await generateObject({
       model,
@@ -72,7 +74,7 @@ export async function extractPurchaseInvoiceFromDocument({
   db,
   config,
   documentsStorageService,
-  readInvoice = createAiInvoiceReader({ config }),
+  readInvoice = createAiInvoiceReader({ config, db, organizationId }),
 }: {
   organizationId: string;
   documentId: string;
@@ -140,11 +142,12 @@ export async function extractPurchaseInvoiceFromDocument({
   const counterparty = direction === 'issued' ? extraction.recipient : extraction.issuer;
   const { contacts } = await createContactsRepository({ db }).listContacts({ organizationId });
   const supplier = resolveSupplier({ party: counterparty, contacts });
+  const matchedContact = supplier.status === 'matched' ? contacts.find(contact => contact.id === supplier.contactId) : undefined;
 
   return {
     schemaVersion: INVOICE_EXTRACTION_SCHEMA_VERSION,
     direction,
-    draft: toPurchaseInvoiceDraft({ extraction, supplierId: supplier.status === 'matched' && supplier.hasSupplierRole ? supplier.contactId : null, documentId }),
+    draft: toPurchaseInvoiceDraft({ extraction, supplierId: supplier.status === 'matched' && supplier.hasSupplierRole ? supplier.contactId : null, documentId, contactTermsDays: matchedContact?.paymentTermsDays ?? null }),
     // Shown to the user: the contact to use (adding it the supplier role if needed), similar ones, or the data to create one
     counterparty: { ...counterparty, ...supplier },
     warnings: extraction.warnings,

@@ -9,6 +9,7 @@ import { organizationIdSchema } from '../organizations/organization.schemas.lega
 import { createOrganizationsRepository } from '../organizations/organizations.repository';
 import { ensureUserIsInOrganization } from '../organizations/organizations.usecases';
 import { createPlansRepository } from '../plans/plans.repository';
+import { queueIntakeDocumentReading } from '../purchases/readings/document-readings.inbox';
 import { createError } from '../shared/errors/errors';
 import { getHeader } from '../shared/headers/headers.models';
 import { addLogContext, createLogger } from '../shared/logger/logger';
@@ -216,6 +217,8 @@ function setupIngestIntakeEmailRoute({ app, db, config, taskServices, documentsS
         attachments,
         intakeEmailsRepository,
         createDocument,
+        // Invoices forwarded by email are read like the ones uploaded on the purchases page
+        onDocumentCreated: async ({ organizationId, document }) => queueIntakeDocumentReading({ db, config, documentsStorageService, taskServices, organizationId, document }),
       });
 
       return context.body(null, 202);

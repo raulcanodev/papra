@@ -2,6 +2,8 @@ import type { RouteDefinitionContext } from '../app/server.types';
 import { z } from 'zod';
 import { requireAuthentication } from '../app/auth/auth.middleware';
 import { getUser } from '../app/auth/auth.models';
+import { toDueDateCalendarEvent } from '../due-dates/due-dates.models';
+import { createDueDatesRepository } from '../due-dates/due-dates.repository';
 import { createInvoicingRepository } from '../invoicing/invoicing.repository';
 import { organizationIdSchema } from '../organizations/organization.schemas.legacy';
 import { createOrganizationsRepository } from '../organizations/organizations.repository';
@@ -23,10 +25,15 @@ export function registerCalendarRoutes({ app, db }: RouteDefinitionContext) {
 
     const { profile } = await createInvoicingRepository({ db }).getFiscalProfile({ organizationId });
     const holidays = generateSpanishHolidays({ year, region: profile?.region, locale });
-    const aeat = await fetchAeatEvents(year);
+    const [aeat, { instalments }] = await Promise.all([
+      fetchAeatEvents(year),
+      // The organization own due dates, to pay and to collect, each one opening its invoice
+      createDueDatesRepository({ db }).listInstalments({ organizationId, from: new Date(Date.UTC(year, 0, 1)), to: new Date(Date.UTC(year + 1, 0, 1)) }),
+    ]);
+    const dueDates = instalments.map(instalment => toDueDateCalendarEvent({ instalment }));
 
     return context.json({
-      events: [...holidays.events, ...aeat.events].sort((left, right) => left.date.localeCompare(right.date) || left.name.localeCompare(right.name, locale)),
+      events: [...holidays.events, ...aeat.events, ...dueDates].sort((left, right) => left.date.localeCompare(right.date) || left.name.localeCompare(right.name, locale)),
       warnings: aeat.warnings,
       holidayRegion: profile?.region ?? null,
       holidaySubdivision: holidays.subdivision,

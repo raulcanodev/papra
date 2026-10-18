@@ -6,9 +6,10 @@ import type { CreatePropertyDefinition } from '../custom-properties/definitions/
 import type { DocumentStorageService } from '../documents/storage/documents.storage.services';
 import type { CatalogReading, ProductCatalogImport, ScannerPropertyDefinition } from './product-scanner.models';
 import { generateObject } from 'ai';
-import { getConfiguredLlmModel } from '../ai-assistant/ai-assistant.providers';
+import { getAiModel } from '../ai-assistant/ai-assistant.providers';
 import { formatDocumentContentForModel } from '../ai-assistant/attachments/attachments.models';
 import { getOrganizationDocuments, loadDocumentFile, readDocumentForAssistant } from '../ai-assistant/attachments/attachments.usecases';
+import { AI_FEATURES } from '../ai-usage/ai-usage.constants';
 import { createContactNotFoundError } from '../contacts/contacts.errors';
 import { createContactsRepository } from '../contacts/contacts.repository';
 import { CUSTOM_PROPERTY_ENTITY_TYPES } from '../custom-properties/custom-properties.constants';
@@ -30,10 +31,10 @@ const MAX_PDF_FILE_BYTES = 10 * 1024 * 1024;
 
 export type CatalogReader = (args: { system: string; schema: z.ZodType; content: UserContent }) => Promise<CatalogReading>;
 
-export function createAiCatalogReader({ config }: { config: Config }): CatalogReader {
+export function createAiCatalogReader({ config, db, organizationId }: { config: Config; db: Database; organizationId: string }): CatalogReader {
   return async ({ system, schema, content }) => {
     const result = await generateObject({
-      model: getConfiguredLlmModel({ config }),
+      model: getAiModel({ config, db, feature: AI_FEATURES.PRODUCT_CATALOG_SCAN, organizationId }),
       schema,
       system,
       messages: [{ role: 'user', content }],
@@ -78,7 +79,7 @@ export async function scanProductCatalog({
   organizationId,
   contactId,
   documentIds,
-  readCatalog = createAiCatalogReader({ config }),
+  readCatalog = createAiCatalogReader({ config, db, organizationId }),
 }: {
   db: Database;
   config: Config;

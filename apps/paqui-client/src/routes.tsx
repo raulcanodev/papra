@@ -31,6 +31,7 @@ import { DeletedDocumentsPage } from './modules/documents/pages/deleted-document
 import { DocumentPdfViewerPage } from './modules/documents/pages/document-pdf-viewer.page';
 import { DocumentPage } from './modules/documents/pages/document.page';
 import { DocumentsPage } from './modules/documents/pages/documents.page';
+import { DueDatesPage } from './modules/due-dates/pages/due-dates.page';
 import { FeatureFlagsProvider } from './modules/feature-flags/feature-flags.provider';
 import { FinanceGoalsPage } from './modules/finances/pages/goals.page';
 import { OverviewPage } from './modules/finances/pages/overview.page';
@@ -60,6 +61,8 @@ import { OrganizationMorePage } from './modules/organizations/pages/organization
 import { OrganizationUsagePage } from './modules/organizations/pages/organization-usage.page';
 import { OrganizationsSettingsPage } from './modules/organizations/pages/organizations-settings.page';
 import { OrganizationsPage } from './modules/organizations/pages/organizations.page';
+import { PriceListPage } from './modules/pricing/pages/price-list.page';
+import { PriceListsPage } from './modules/pricing/pages/price-lists.page';
 import { PurchaseEditorPage } from './modules/purchases/pages/purchase-editor.page';
 import { PurchasesPage } from './modules/purchases/pages/purchases.page';
 import { InstallAppPage } from './modules/pwa/pages/install-app.page';
@@ -257,6 +260,10 @@ export const routes: RouteDefinition[] = [
                         component: PurchasesPage,
                       },
                       {
+                        path: getOrganizationNestedRoutePath('dueDates'),
+                        component: DueDatesPage,
+                      },
+                      {
                         path: [getOrganizationEntityRoutePath('newPurchaseInvoice'), getOrganizationEntityRoutePath('editPurchaseInvoice')],
                         component: PurchaseEditorPage,
                       },
@@ -292,6 +299,14 @@ export const routes: RouteDefinition[] = [
                       {
                         path: getOrganizationNestedRoutePath('products'),
                         component: ProductsPage,
+                      },
+                      {
+                        path: getOrganizationNestedRoutePath('priceLists'),
+                        component: PriceListsPage,
+                      },
+                      {
+                        path: getOrganizationEntityRoutePath('priceList'),
+                        component: PriceListPage,
                       },
 
                       {

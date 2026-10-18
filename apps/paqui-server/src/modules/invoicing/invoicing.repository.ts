@@ -7,6 +7,7 @@ import { createContactsRepository } from '../contacts/contacts.repository';
 import { contactsTable } from '../contacts/contacts.table';
 import { createDocumentNotFoundError } from '../documents/documents.errors';
 import { documentsTable } from '../documents/documents.table';
+import { createDueDatesRepository } from '../due-dates/due-dates.repository';
 import { createFiscalProfileRequiredError, createInvoiceNotEditableError, createInvoiceNotFoundError, createInvoiceNotIssuableError } from './invoicing.errors';
 import { calculateInvoiceTotals, formatInvoiceNumber } from './invoicing.models';
 import { invoiceEventsTable, invoiceItemsTable, invoiceSeriesTable, invoicesTable, invoicingBrandingTable, invoicingProductsTable, invoicingProfilesTable, invoicingTaxRatesTable } from './invoicing.tables';
@@ -209,6 +210,18 @@ async function ensureInvoiceContacts({ db, organizationId, draft }: { db: Databa
   }
 }
 
+// The due dates to collect: those typed by the user, or the whole amount on the due date
+async function saveInvoiceInstalments({ db, organizationId, invoiceId, draft, payableMinor }: { db: Database; organizationId: string; invoiceId: string; draft: InvoiceDraftInput; payableMinor: number }) {
+  await createDueDatesRepository({ db }).saveSourceInstalments({
+    organizationId,
+    source: { direction: 'receivable', invoiceId },
+    contactId: draft.customerId,
+    currency: draft.currency,
+    paymentMethod: draft.paymentMethod ?? null,
+    instalments: draft.instalments !== undefined && draft.instalments.length > 0 ? draft.instalments : [{ dueDate: draft.dueDate, amountMinor: payableMinor }],
+  });
+}
+
 async function createInvoice({ db, organizationId, draft, userId }: { db: Database; organizationId: string; draft: InvoiceDraftInput; userId: string }) {
   await ensureInvoiceContacts({ db, organizationId, draft });
   const { profile } = await getFiscalProfile({ db, organizationId });
@@ -218,10 +231,11 @@ async function createInvoice({ db, organizationId, draft, userId }: { db: Databa
     terms: draft.terms ?? profile?.defaultTerms ?? null,
   };
   const totals = calculateInvoiceTotals(effectiveDraft);
-  const { items: invoiceItems, ...invoiceDraft } = effectiveDraft;
+  const { items: invoiceItems, instalments: _instalments, ...invoiceDraft } = effectiveDraft;
   const invoiceId = await db.transaction(async (tx) => {
-    const [invoice] = await tx.insert(invoicesTable).values({ organizationId, ...invoiceDraft, ...totals, seriesId: draft.seriesId ?? null, salesRepresentativeId: draft.salesRepresentativeId ?? null }).returning();
+    const [invoice] = await tx.insert(invoicesTable).values({ organizationId, ...invoiceDraft, ...totals, paymentMethod: draft.paymentMethod ?? null, seriesId: draft.seriesId ?? null, salesRepresentativeId: draft.salesRepresentativeId ?? null }).returning();
     await tx.insert(invoiceItemsTable).values(invoiceItems.map((item, position) => ({ invoiceId: invoice!.id, ...item, position })));
+    await saveInvoiceInstalments({ db: tx as unknown as Database, organizationId, invoiceId: invoice!.id, draft, payableMinor: totals.totalMinor - totals.withholdingMinor });
     await tx.insert(invoiceEventsTable).values({ invoiceId: invoice!.id, organizationId, userId, type: 'created', createdAt: new Date() });
     return invoice!.id;
   });
@@ -238,9 +252,10 @@ async function updateInvoice({ db, organizationId, invoiceId, draft, userId }: {
   }
   await ensureInvoiceContacts({ db, organizationId, draft });
   const totals = calculateInvoiceTotals(draft);
-  const { items: invoiceItems, ...invoiceDraft } = draft;
+  const { items: invoiceItems, instalments: _instalments, ...invoiceDraft } = draft;
   await db.transaction(async (tx) => {
-    await tx.update(invoicesTable).set({ ...invoiceDraft, ...totals, seriesId: draft.seriesId ?? null, salesRepresentativeId: draft.salesRepresentativeId ?? null, updatedAt: new Date() }).where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.organizationId, organizationId)));
+    await saveInvoiceInstalments({ db: tx as unknown as Database, organizationId, invoiceId, draft, payableMinor: totals.totalMinor - totals.withholdingMinor });
+    await tx.update(invoicesTable).set({ ...invoiceDraft, ...totals, paymentMethod: draft.paymentMethod ?? null, seriesId: draft.seriesId ?? null, salesRepresentativeId: draft.salesRepresentativeId ?? null, updatedAt: new Date() }).where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.organizationId, organizationId)));
     await tx.delete(invoiceItemsTable).where(eq(invoiceItemsTable.invoiceId, invoiceId));
     await tx.insert(invoiceItemsTable).values(invoiceItems.map((item, position) => ({ invoiceId, ...item, position })));
     await tx.insert(invoiceEventsTable).values({ invoiceId, organizationId, userId, type: 'updated', createdAt: new Date() });
@@ -320,6 +335,8 @@ async function finalizeInvoice({ db, organizationId, invoiceId, documentId, user
       throw createInvoiceNotIssuableError();
     }
   }
+  // Issued, the invoice is owed: its due dates get their reminders
+  await createDueDatesRepository({ db }).syncSourceReminders({ organizationId, source: { direction: 'receivable', invoiceId } });
   return getInvoice({ db, organizationId, invoiceId });
 }
 
@@ -354,6 +371,7 @@ async function markInvoicePaid({ db, organizationId, invoiceId, userId }: { db: 
     throw createInvoiceNotFoundError();
   }
   await db.insert(invoiceEventsTable).values({ invoiceId, organizationId, userId, type: 'paid', createdAt: now });
+  await createDueDatesRepository({ db }).setSourceInstalmentsStatus({ organizationId, source: { direction: 'receivable', invoiceId }, status: 'paid', now });
   return getInvoice({ db, organizationId, invoiceId });
 }
 

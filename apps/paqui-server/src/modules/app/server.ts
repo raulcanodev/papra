@@ -2,6 +2,7 @@ import type { GlobalDependencies, ServerInstanceGenerics } from './server.types'
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { secureHeaders } from 'hono/secure-headers';
+import { createAiUsageContextMiddleware } from '../ai-usage/ai-usage.context';
 import { createApiKeyMiddleware } from '../api-keys/api-keys.middlewares';
 import { createLoggerMiddleware } from '../shared/logger/logger.middleware';
 import { createCorsMiddleware } from './middlewares/cors.middleware';
@@ -24,6 +25,8 @@ export function createServer(dependencies: GlobalDependencies) {
   registerStaticAssetsRoutes({ app, config });
 
   app.use(createApiKeyMiddleware({ db }));
+  // Lets every AI call know the workspace and member it is made for, to record its usage
+  app.use(createAiUsageContextMiddleware());
 
   registerRoutes({ app, ...dependencies });
 

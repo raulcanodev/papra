@@ -2,6 +2,7 @@ import type { ModelMessage } from 'ai';
 import type { RouteDefinitionContext } from '../app/server.types';
 import { stepCountIs, streamText } from 'ai';
 import { z } from 'zod';
+import { AI_FEATURES } from '../ai-usage/ai-usage.constants';
 import { requireAuthentication } from '../app/auth/auth.middleware';
 import { getUser } from '../app/auth/auth.models';
 import { organizationIdSchema } from '../organizations/organization.schemas.legacy';
@@ -11,9 +12,9 @@ import { legacyValidateJsonBody, legacyValidateParams } from '../shared/validati
 import { getAssistantCapabilities } from './ai-assistant.capabilities.usecases';
 import { AI_CHAT_SESSION_ID_REGEX } from './ai-assistant.constants';
 import { createAiNotConfiguredError } from './ai-assistant.errors';
-import { AI_MODELS } from './ai-assistant.models';
+import { AI_MODELS, AI_PROVIDER_LABELS } from './ai-assistant.models';
 import { buildSystemPrompt } from './ai-assistant.prompt';
-import { createLlmModel, getApiKeyForProvider, getConfiguredProviders, getDefaultModel } from './ai-assistant.providers';
+import { getAiModel, getAiModelSelection, getConfiguredProviders, isAiConfigured } from './ai-assistant.providers';
 import { createAiAssistantRepository } from './ai-assistant.repository';
 import { MAX_CHAT_ATTACHMENTS } from './attachments/attachments.constants';
 import { toChatAttachment } from './attachments/attachments.models';
@@ -58,35 +59,21 @@ export function registerAiAssistantRoutes(routeContext: RouteDefinitionContext) 
       const organizationsRepository = createOrganizationsRepository({ db });
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
-      const aiConfig = config.aiAssistant as { openaiApiKey: string | undefined; anthropicApiKey: string | undefined; grokApiKey: string | undefined; googleApiKey: string | undefined; model: string | undefined };
-      const apiKeys = { openaiApiKey: aiConfig.openaiApiKey, anthropicApiKey: aiConfig.anthropicApiKey, grokApiKey: aiConfig.grokApiKey, googleApiKey: aiConfig.googleApiKey };
-      const configuredProviders = getConfiguredProviders(apiKeys);
-
-      if (configuredProviders.length === 0) {
+      if (!isAiConfigured({ config })) {
         throw createAiNotConfiguredError();
       }
 
+      // A model picked in the chat selector applies when its provider has a key, else the one chosen in the admin panel
+      const configuredProviders = getConfiguredProviders(config.aiAssistant);
       const selectedModel = modelOverride !== undefined && modelOverride !== ''
-        ? AI_MODELS.find(m => m.id === modelOverride)
+        ? AI_MODELS.find(m => m.id === modelOverride && configuredProviders.includes(m.provider))
         : undefined;
+      const selection = await getAiModelSelection({ config, db });
+      const resolvedModelId = selectedModel?.id ?? selection.model;
+      const modelLabel = AI_MODELS.find(m => m.id === resolvedModelId)?.label ?? resolvedModelId;
+      const providerLabel = AI_PROVIDER_LABELS[selectedModel?.provider ?? selection.provider];
 
-      const provider = selectedModel?.provider ?? configuredProviders[0]!;
-      const apiKey = getApiKeyForProvider({ provider, apiKeys });
-
-      if (apiKey === undefined || apiKey === '') {
-        throw createAiNotConfiguredError();
-      }
-
-      const model = createLlmModel({
-        provider,
-        apiKey,
-        model: selectedModel?.id ?? aiConfig.model,
-      });
-
-      const resolvedModelId = selectedModel?.id ?? aiConfig.model ?? getDefaultModel({ configuredProviders });
-      const resolvedModelDef = AI_MODELS.find(m => m.id === resolvedModelId);
-      const modelLabel = resolvedModelDef?.label ?? resolvedModelId;
-      const providerLabel = ({ xai: 'xAI (Grok)', openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google' } as Record<string, string>)[provider] ?? provider;
+      const model = getAiModel({ config, db, feature: AI_FEATURES.ASSISTANT_CHAT, organizationId, userId, modelOverride: selectedModel?.id });
       const { profile: userProfile } = await aiAssistantRepository.getUserProfile({ userId });
       const capabilities = await getAssistantCapabilities({ userId, db });
       const systemPrompt = buildSystemPrompt({ now: new Date(), providerLabel, modelLabel, profile: userProfile, pageContext, organizationId, capabilities });
@@ -138,7 +125,7 @@ export function registerAiAssistantRoutes(routeContext: RouteDefinitionContext) 
           organizationId,
           userId,
           title,
-          model: selectedModel?.id ?? aiConfig.model,
+          model: resolvedModelId,
         });
         activeSessionId = session.id;
 
@@ -433,12 +420,10 @@ export function registerAiAssistantRoutes(routeContext: RouteDefinitionContext) 
   app.get(
     '/api/ai/models',
     requireAuthentication(),
-    (context) => {
-      const aiConfig = config.aiAssistant as { openaiApiKey: string | undefined; anthropicApiKey: string | undefined; grokApiKey: string | undefined; googleApiKey: string | undefined; model: string | undefined };
-      const apiKeys = { openaiApiKey: aiConfig.openaiApiKey, anthropicApiKey: aiConfig.anthropicApiKey, grokApiKey: aiConfig.grokApiKey, googleApiKey: aiConfig.googleApiKey };
-      const configuredProviders = getConfiguredProviders(apiKeys);
+    async (context) => {
+      const configuredProviders = getConfiguredProviders(config.aiAssistant);
       const isConfigured = configuredProviders.length > 0;
-      const defaultModel = aiConfig.model ?? getDefaultModel({ configuredProviders });
+      const defaultModel = isConfigured ? (await getAiModelSelection({ config, db })).model : '';
       const availableModels = AI_MODELS.filter(m => configuredProviders.includes(m.provider));
 
       return context.json({

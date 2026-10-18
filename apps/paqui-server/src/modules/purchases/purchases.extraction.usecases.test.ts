@@ -20,6 +20,8 @@ const extraction: InvoiceExtraction = {
   number: 'NUBE-2026-77',
   issueDate: '2026-09-30',
   dueDate: null,
+  paymentMethod: 'direct_debit',
+  paymentTerms: [],
   currency: 'EUR',
   lines: [{ description: 'Hosting', quantity: 1, unitPrice: 45, taxRatePercent: 21, discountPercent: 0 }],
   withholdingRatePercent: 0,

@@ -31,7 +31,9 @@ export async function processDocumentReading({ reading, db, config, documentsSto
 
     logger.warn({ error, readingId: reading.id, documentId: reading.documentId, errorCode, willRetry }, 'Document reading failed');
 
-    await readingsRepository.finishReading({ readingId: reading.id, status: willRetry ? 'pending' : 'failed', errorCode });
+    // Even saving the failure can fail (database gone): logged, the promise of a background reading must never reject
+    await readingsRepository.finishReading({ readingId: reading.id, status: willRetry ? 'pending' : 'failed', errorCode })
+      .catch(finishError => logger.error({ error: finishError, readingId: reading.id }, 'Could not save the document reading failure'));
   }
 }
 

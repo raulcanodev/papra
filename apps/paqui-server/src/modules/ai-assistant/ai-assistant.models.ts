@@ -1,43 +1,78 @@
+import type { AiReasoningEffort } from '../ai-usage/ai-usage.constants';
+
 export type AiProvider = 'openai' | 'anthropic' | 'xai' | 'google';
+
+export const AI_PROVIDERS: AiProvider[] = ['anthropic', 'openai', 'google', 'xai'];
+
+export const AI_PROVIDER_LABELS: Record<AiProvider, string> = {
+  anthropic: 'Anthropic',
+  openai: 'OpenAI',
+  google: 'Google',
+  xai: 'xAI (Grok)',
+};
+
+// US dollars per million tokens, which is also millionths of a dollar per token
+export type AiTokenPrices = {
+  input: number;
+  cacheRead: number;
+  // Writing a prompt to the cache, when the provider charges it (Anthropic)
+  cacheWrite?: number;
+  output: number;
+};
 
 export type AiModelDefinition = {
   id: string;
   provider: AiProvider;
   label: string;
+  // The reasoning efforts the model accepts, empty when it does not reason or has no setting for it
+  efforts: AiReasoningEffort[];
+  prices: AiTokenPrices & {
+    // Some models charge the whole request more when its prompt is longer than a threshold
+    longPrompt?: AiTokenPrices & { aboveTokens: number };
+  };
 };
 
+// The models that can be chosen from the admin panel, with their prices.
+// Prices checked on the providers pages on 2026-10-18: update them here when a provider changes them,
+// the usage already recorded keeps the cost computed at the time of the call.
 export const AI_MODELS: AiModelDefinition[] = [
-  // xAI (Grok)
-  { id: 'grok-4-1-fast-non-reasoning', provider: 'xai', label: 'Grok 4.1 Fast' },
+  // Anthropic, https://platform.claude.com/docs/en/about-claude/pricing
+  {
+    id: 'claude-haiku-5-5',
+    provider: 'anthropic',
+    label: 'Claude Haiku 5.5',
+    efforts: ['low', 'medium', 'high', 'max'],
+    prices: { input: 0.10, cacheRead: 0.01, cacheWrite: 0.125, output: 0.50, longPrompt: { aboveTokens: 100_000, input: 0.50, cacheRead: 0.05, cacheWrite: 0.625, output: 2.50 } },
+  },
+  { id: 'claude-sonnet-5-5', provider: 'anthropic', label: 'Claude Sonnet 5.5', efforts: ['low', 'medium', 'high', 'max'], prices: { input: 2, cacheRead: 0.10, cacheWrite: 2.50, output: 10 } },
+  { id: 'claude-opus-5-5', provider: 'anthropic', label: 'Claude Opus 5.5', efforts: ['low', 'medium', 'high', 'max'], prices: { input: 4, cacheRead: 0.20, cacheWrite: 5, output: 20 } },
 
-  // OpenAI
-  // { id: 'gpt-4o', provider: 'openai', label: 'GPT-4o' },
-  // { id: 'gpt-4o-mini', provider: 'openai', label: 'GPT-4o Mini' },
-  // { id: 'gpt-4.1', provider: 'openai', label: 'GPT-4.1' },
-  // { id: 'gpt-4.1-mini', provider: 'openai', label: 'GPT-4.1 Mini' },
-  // { id: 'gpt-4.1-nano', provider: 'openai', label: 'GPT-4.1 Nano' },
-  // { id: 'gpt-4.5-preview', provider: 'openai', label: 'GPT-4.5 Preview' },
-  // { id: 'o3', provider: 'openai', label: 'o3' },
-  // { id: 'o3-mini', provider: 'openai', label: 'o3-mini' },
-  // { id: 'o4-mini', provider: 'openai', label: 'o4-mini' },
+  // xAI, prices of the xAI models page
+  { id: 'grok-4-1-fast-non-reasoning', provider: 'xai', label: 'Grok 4.1 Fast', efforts: [], prices: { input: 0.20, cacheRead: 0.05, output: 0.50 } },
+  { id: 'grok-4-1-fast-reasoning', provider: 'xai', label: 'Grok 4.1 Fast (reasoning)', efforts: [], prices: { input: 0.20, cacheRead: 0.05, output: 0.50 } },
 
-  // Anthropic
-  // { id: 'claude-sonnet-4-20250514', provider: 'anthropic', label: 'Claude Sonnet 4' },
-  // { id: 'claude-opus-4-20250514', provider: 'anthropic', label: 'Claude Opus 4' },
-  // { id: 'claude-3-5-sonnet-20241022', provider: 'anthropic', label: 'Claude 3.5 Sonnet' },
-  // { id: 'claude-3-5-haiku-20241022', provider: 'anthropic', label: 'Claude 3.5 Haiku' },
-
-  // Google
-  // { id: 'gemini-2.5-pro-preview-05-06', provider: 'google', label: 'Gemini 2.5 Pro' },
-  // { id: 'gemini-2.5-flash-preview-05-20', provider: 'google', label: 'Gemini 2.5 Flash' },
-  // { id: 'gemini-2.0-flash', provider: 'google', label: 'Gemini 2.0 Flash' },
+  // Earlier defaults, kept so a deployment still configured with them is priced
+  { id: 'gpt-4o', provider: 'openai', label: 'GPT-4o', efforts: [], prices: { input: 2.50, cacheRead: 1.25, output: 10 } },
+  { id: 'gemini-2.5-flash', provider: 'google', label: 'Gemini 2.5 Flash', efforts: [], prices: { input: 0.30, cacheRead: 0.075, output: 2.50 } },
 ];
 
+export function findAiModel({ modelId }: { modelId: string }) {
+  return AI_MODELS.find(model => model.id === modelId);
+}
+
+// Used when nothing is chosen: the first configured provider in this order, with its default model
 export const DEFAULT_MODELS: Record<AiProvider, string> = {
+  anthropic: 'claude-haiku-5-5',
   xai: 'grok-4-1-fast-non-reasoning',
   openai: 'gpt-4o',
-  anthropic: 'claude-sonnet-4-20250514',
-  google: 'gemini-2.5-flash-preview-05-20',
+  google: 'gemini-2.5-flash',
 };
 
-export const PROVIDER_PRIORITY: AiProvider[] = ['xai', 'google', 'openai', 'anthropic'];
+// Anthropic first: with its key set, every AI feature uses Claude Haiku 5.5 with a high reasoning effort,
+// no other variable needed. The admin panel (/admin/ai) or AI_MODEL / AI_REASONING_EFFORT change it.
+export const PROVIDER_PRIORITY: AiProvider[] = ['anthropic', 'xai', 'google', 'openai'];
+
+// The reasoning effort used with the default model of each provider
+export const DEFAULT_REASONING_EFFORTS: Partial<Record<AiProvider, AiReasoningEffort>> = {
+  anthropic: 'high',
+};

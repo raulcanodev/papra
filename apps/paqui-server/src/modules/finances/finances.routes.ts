@@ -2,7 +2,8 @@ import type { RouteDefinitionContext } from '../app/server.types';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { createAiNotConfiguredError } from '../ai-assistant/ai-assistant.errors';
-import { createLlmModel, getApiKeyForProvider, getConfiguredProviders } from '../ai-assistant/ai-assistant.providers';
+import { getAiModel, isAiConfigured } from '../ai-assistant/ai-assistant.providers';
+import { AI_FEATURES } from '../ai-usage/ai-usage.constants';
 import { requireAuthentication } from '../app/auth/auth.middleware';
 import { getUser } from '../app/auth/auth.models';
 import { CUSTOM_PROPERTY_ENTITY_TYPES } from '../custom-properties/custom-properties.constants';
@@ -497,22 +498,11 @@ function setupSuggestClassificationConditionsRoute({ app, db, config }: RouteDef
       const organizationsRepository = createOrganizationsRepository({ db });
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
-      const aiConfig = config.aiAssistant as { openaiApiKey?: string; anthropicApiKey?: string; grokApiKey?: string; googleApiKey?: string; model?: string };
-      const apiKeys = { openaiApiKey: aiConfig.openaiApiKey, anthropicApiKey: aiConfig.anthropicApiKey, grokApiKey: aiConfig.grokApiKey, googleApiKey: aiConfig.googleApiKey };
-      const configuredProviders = getConfiguredProviders(apiKeys);
-
-      if (configuredProviders.length === 0) {
+      if (!isAiConfigured({ config })) {
         throw createAiNotConfiguredError();
       }
 
-      const provider = configuredProviders[0]!;
-      const apiKey = getApiKeyForProvider({ provider, apiKeys });
-
-      if (apiKey === undefined || apiKey === '') {
-        throw createAiNotConfiguredError();
-      }
-
-      const model = createLlmModel({ provider, apiKey, model: aiConfig.model });
+      const model = getAiModel({ config, db, feature: AI_FEATURES.FINANCE_RULE_SUGGESTIONS, organizationId, userId });
 
       // Fetch sample transactions to inform suggestions
       const financesRepository = createFinancesRepository({ db, authSecret: config.auth.secret });

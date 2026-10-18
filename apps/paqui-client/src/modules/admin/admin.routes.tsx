@@ -44,6 +44,10 @@ export const adminRoutes: RouteDefinition = {
       component: lazy(() => import('./feature-flags/feature-flags.page').then(m => ({ default: m.AdminFeatureFlagsPage }))),
     },
     {
+      path: '/ai',
+      component: lazy(() => import('./ai/ai-usage.page')),
+    },
+    {
       path: '/verifactu',
       component: lazy(() => import('./verifactu/verifactu.page')),
     },

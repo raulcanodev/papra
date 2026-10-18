@@ -36,6 +36,11 @@ const AdminLayout: ParentComponent = (props) => {
       icon: 'i-tabler-flag',
     },
     {
+      label: t('admin.layout.menu.ai'),
+      href: '/admin/ai',
+      icon: 'i-tabler-sparkles',
+    },
+    {
       label: 'VERI*FACTU',
       href: '/admin/verifactu',
       icon: 'i-tabler-receipt-tax',

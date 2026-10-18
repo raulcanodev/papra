@@ -34,6 +34,7 @@ function setValidParams(path: string) {
     .replaceAll(':key', 'profile-key')
     .replaceAll(':contactId', 'ctc_333333333333333333333333')
     .replaceAll(':purchaseInvoiceId', 'pinv_333333333333333333333333')
+    .replaceAll(':instalmentId', 'pins_333333333333333333333333')
     .replaceAll(':gestoriaId', 'gst_333333333333333333333333')
     .replaceAll(':invoiceId', 'inv_333333333333333333333333')
     .replaceAll(':year', '2026')

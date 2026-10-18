@@ -6,6 +6,7 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { getProductsQueryKey, ProductForm } from '@/modules/invoicing/components/product-form';
 import { ProductsTable } from '@/modules/invoicing/components/products-table';
 import { deleteProduct, fetchProducts } from '@/modules/invoicing/invoicing.services';
+import { ContactPriceListField } from '@/modules/pricing/components/contact-price-list-field';
 import { ProductScannerDialog } from '@/modules/product-scanner/components/product-scanner-dialog';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
@@ -100,6 +101,12 @@ export function ContactPage() {
                   </div>
                 )}
               </For>
+              <Show when={getContact().isCustomer || getContact().isSupplier}>
+                <div class="min-w-0">
+                  <dt class="mb-1 text-xs text-muted-foreground">{t('pricing.contact.label')}</dt>
+                  <dd><ContactPriceListField organizationId={params.organizationId} contactId={getContact().id} /></dd>
+                </div>
+              </Show>
             </dl>
 
             <div class="mb-3 flex items-center justify-between gap-3">

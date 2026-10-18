@@ -14,6 +14,8 @@ function extraction(overrides: Partial<InvoiceExtraction> = {}): InvoiceExtracti
     number: 'FRA/000011',
     issueDate: '2026-08-03',
     dueDate: '2026-08-18',
+    paymentMethod: null,
+    paymentTerms: [],
     currency: 'eur',
     lines: [{ description: 'Juegos de base con almohadas', quantity: 100, unitPrice: 15, taxRatePercent: 21, discountPercent: 0 }],
     withholdingRatePercent: 0,
@@ -48,6 +50,9 @@ describe('purchases extraction models', () => {
       number: 'FRA/000011',
       issueDate: new Date('2026-08-03T00:00:00.000Z'),
       dueDate: new Date('2026-08-18T00:00:00.000Z'),
+      paymentMethod: null,
+      instalments: [{ dueDate: new Date('2026-08-18T00:00:00.000Z'), amountMinor: 181_500 }],
+      instalmentsSource: 'document',
       currency: 'EUR',
       category: 'goods',
       withholdingRateBps: 0,
@@ -57,6 +62,32 @@ describe('purchases extraction models', () => {
     });
 
     expect(calculatePurchaseInvoiceTotals(draft).totalMinor).toBe(181_500);
+  });
+
+  test('printed payment terms become due dates computed from the issue date, split in equal parts when no amount is printed', () => {
+    const draft = toPurchaseInvoiceDraft({
+      extraction: extraction({ dueDate: null, paymentMethod: 'direct_debit', paymentTerms: [30, 60, 90].map(days => ({ date: null, daysAfterIssue: days, amount: null })) }),
+      supplierId: 'ctc_1',
+      documentId: 'doc_1',
+    });
+
+    expect(draft.paymentMethod).toBe('direct_debit');
+    expect(draft.instalmentsSource).toBe('terms');
+    expect(draft.instalments).toEqual([
+      { dueDate: new Date('2026-09-02T00:00:00.000Z'), amountMinor: 60_500 },
+      { dueDate: new Date('2026-10-02T00:00:00.000Z'), amountMinor: 60_500 },
+      { dueDate: new Date('2026-11-01T00:00:00.000Z'), amountMinor: 60_500 },
+    ]);
+    expect(draft.dueDate).toEqual(new Date('2026-09-02T00:00:00.000Z'));
+  });
+
+  test('without any printed due date, the supplier usual payment terms are used; a delivery note has no due date', () => {
+    const fromContact = toPurchaseInvoiceDraft({ extraction: extraction({ dueDate: null }), supplierId: 'ctc_1', documentId: 'doc_1', contactTermsDays: 45 });
+    expect(fromContact.instalments).toEqual([{ dueDate: new Date('2026-09-17T00:00:00.000Z'), amountMinor: 181_500 }]);
+    expect(fromContact.instalmentsSource).toBe('contact_terms');
+
+    expect(toPurchaseInvoiceDraft({ extraction: extraction({ dueDate: null }), supplierId: null, documentId: 'doc_1' }).instalments).toEqual([]);
+    expect(toPurchaseInvoiceDraft({ extraction: extraction({ documentKind: 'delivery_note' }), supplierId: null, documentId: 'doc_1' }).instalments).toEqual([]);
   });
 
   test('invalid dates and out of range rates read by the model are neutralized', () => {
