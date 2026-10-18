@@ -132,22 +132,18 @@ function withReasoningEffort({ options, selection }: { options: LanguageModelV3C
  * the model, provider and reasoning effort come from the admin panel, and the usage is recorded without slowing the call.
  * The workspace and member are taken from the current request; background jobs pass the organization themselves.
  */
-export function getAiModel({ config, db, feature, organizationId, userId, modelOverride }: {
+export function getAiModel({ config, db, feature, organizationId, userId }: {
   config: Config;
   db: Database;
   feature: AiFeature;
   organizationId?: string | null;
   userId?: string | null;
-  // A model picked for this call only (the chat model selector), from the catalog
-  modelOverride?: string;
 }): LanguageModelV3 {
   const requestContext = getRequestAiUsageContext();
   const attribution = { feature, organizationId: organizationId ?? requestContext.organizationId, userId: userId ?? requestContext.userId };
 
   const resolve = async () => {
-    const selection = await getAiModelSelection({ config, db });
-    const override = modelOverride === undefined ? undefined : findAiModel({ modelId: modelOverride });
-    const effective: AiModelSelection = override ? { provider: override.provider, model: override.id, reasoningEffort: selection.reasoningEffort } : selection;
+    const effective = await getAiModelSelection({ config, db });
     const apiKey = getApiKeys({ config })[API_KEY_BY_PROVIDER[effective.provider]];
 
     if (!isKeySet(apiKey)) {

@@ -61,17 +61,6 @@ export type AiModel = {
   provider: 'openai' | 'anthropic' | 'xai' | 'google';
 };
 
-export type AiModelsResponse = {
-  isConfigured: boolean;
-  defaultModel: string;
-  providers: string[];
-  models: AiModel[];
-};
-
-export async function fetchAiModels(): Promise<AiModelsResponse> {
-  return apiClient<AiModelsResponse>({ path: '/api/ai/models' });
-}
-
 export async function fetchChatSessions({ organizationId }: { organizationId: string }): Promise<{ sessions: ChatSession[] }> {
   return apiClient<{ sessions: ChatSession[] }>({ path: `/api/organizations/${organizationId}/ai/sessions` });
 }
@@ -157,10 +146,9 @@ function serializeMessages(messages: ChatMessage[]): Array<{ role: string; conte
   });
 }
 
-export async function streamChatMessage({ organizationId, messages, model, sessionId, onChunk, onThinking, onToolConfirmation, onToolActivity, onToolDone, onWebSources, onNavigate, onSessionId, pageContext, signal }: {
+export async function streamChatMessage({ organizationId, messages, sessionId, onChunk, onThinking, onToolConfirmation, onToolActivity, onToolDone, onWebSources, onNavigate, onSessionId, pageContext, signal }: {
   organizationId: string;
   messages: ChatMessage[];
-  model?: string;
   sessionId?: string;
   /** Where the user is and what is on screen, so the assistant answers about it */
   pageContext?: PageContext;
@@ -184,7 +172,7 @@ export async function streamChatMessage({ organizationId, messages, model, sessi
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ messages: serializeMessages(messages), model, sessionId, pageContext }),
+    body: JSON.stringify({ messages: serializeMessages(messages), sessionId, pageContext }),
     signal,
   });
 

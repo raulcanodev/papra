@@ -148,11 +148,6 @@ const notFound = () => Object.assign(new FetchError('Not found'), { status: 404 
 
 export const aiHandlers = {
   ...defineHandler({
-    path: '/api/ai/models',
-    method: 'GET',
-    handler: () => ({ isConfigured: true, defaultModel: DEMO_AI_MODEL, providers: ['openai'], models: [{ id: DEMO_AI_MODEL, label: 'Paqui AI', provider: 'openai' }] }),
-  }),
-  ...defineHandler({
     path: '/api/organizations/:organizationId/ai/sessions',
     method: 'GET',
     handler: async ({ params: { organizationId } }) => {

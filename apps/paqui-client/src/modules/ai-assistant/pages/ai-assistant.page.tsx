@@ -13,11 +13,10 @@ import { getClassificationLabelKey } from '@/modules/finances/finances-labels';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/modules/ui/components/dropdown-menu';
 import { buildOrganizationSettingsNavigation, buildOrganizationWorkspaceNavigation } from '@/modules/ui/navigation/organization-navigation';
 import { useNavigationCapabilities } from '@/modules/ui/navigation/use-navigation-capabilities';
 import { useAiAssistantPanel } from '../ai-assistant-panel.provider';
-import { deleteChatSession, executeToolAction, fetchAiModels, fetchChatSession, fetchChatSessions, renameChatSession, streamChatMessage, updateMessageMetadata, uploadChatAttachment } from '../ai-assistant.services';
+import { deleteChatSession, executeToolAction, fetchChatSession, fetchChatSessions, renameChatSession, streamChatMessage, updateMessageMetadata, uploadChatAttachment } from '../ai-assistant.services';
 import { AttachmentChip, ChatAttachMenu, MAX_CHAT_ATTACHMENTS } from '../components/chat-attachments';
 import { buildPageContext } from '../page-context/build-page-context';
 import { capturePageSnapshot } from '../page-context/capture-page-snapshot';
@@ -703,7 +702,6 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
   const [messages, setMessages] = createSignal<ChatMessage[]>([]);
   const [hasInput, setHasInput] = createSignal(false);
   const [isStreaming, setIsStreaming] = createSignal(false);
-  const [selectedModel, setSelectedModel] = createSignal<string>(localStorage.getItem('paqui-ai-model') ?? '');
   const [activeChatId, setActiveChatId] = createSignal<string | undefined>(sessionStorage.getItem('paqui-ai-chat') ?? undefined);
   const [showHistory, setShowHistory] = createSignal(false);
   const [pendingAttachments, setPendingAttachments] = createSignal<PendingAttachment[]>([]);
@@ -766,19 +764,11 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
       return updated;
     });
   }
-  const [modelsData] = createResource(fetchAiModels);
   const [sessionsData, { refetch: refetchSessions }] = createResource(orgId, organizationId => fetchChatSessions({ organizationId }));
 
-  const models = () => modelsData()?.models ?? [];
-  const currentModel = () => selectedModel() || modelsData()?.defaultModel || '';
   const sessions = () => sessionsData()?.sessions ?? [];
   const suggestions = () => (isDemoMode ? DEMO_SUGGESTION_CONFIG : PLACEHOLDER_SUGGESTION_CONFIG.filter(suggestion => suggestion.requires === undefined || getNavigationCapabilities()[suggestion.requires]))
     .map(suggestion => ({ icon: suggestion.icon, text: t(suggestion.key) }));
-
-  function selectModel(id: string) {
-    setSelectedModel(id);
-    localStorage.setItem('paqui-ai-model', id);
-  }
 
   function setActiveChat(id: string | undefined) {
     setActiveChatId(id);
@@ -803,7 +793,6 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
       const data = await fetchChatSession({ organizationId: orgId(), sessionId: storedChatId });
       setActiveChatId(storedChatId);
       setMessages(data.messages);
-      selectModel(data.session?.model ?? selectedModel());
       scrollToBottom();
     } catch {
       sessionStorage.removeItem('paqui-ai-chat');
@@ -892,7 +881,6 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
       await streamChatMessage({
         organizationId: orgId(),
         messages: updatedMessages,
-        model: selectedModel(),
         sessionId: activeChatId(),
         pageContext: collectPageContext(),
         signal: abortController.signal,
@@ -1040,7 +1028,6 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
     const data = await fetchChatSession({ organizationId: orgId(), sessionId: session.id });
     setActiveChat(session.id);
     setMessages(data.messages);
-    selectModel(session.model ?? selectedModel());
     scrollToBottom();
   }
 
@@ -1264,43 +1251,6 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
                   </Button>
                 </div>
               </div>
-            </div>
-            <div class="flex items-center justify-between mt-2">
-              <Show when={models().length > 1}>
-                <div class="flex items-center gap-3">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger class="inline-flex items-center gap-1 h-6 px-2 rounded text-[11px] text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/50 transition-colors font-normal cursor-pointer select-none outline-none">
-                      <div class={cn(
-                        'size-1.5 rounded-full shrink-0',
-                        { anthropic: 'bg-orange-500', xai: 'bg-blue-500', google: 'bg-yellow-500', openai: 'bg-green-500' }[models().find(m => m.id === currentModel())?.provider ?? 'openai'],
-                      )}
-                      />
-                      <span>{models().find(m => m.id === currentModel())?.label ?? modelsData()?.defaultModel ?? t('ai-assistant.model.select')}</span>
-                      <div class="i-tabler-chevron-down size-3 opacity-50" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent class="min-w-40">
-                      <For each={models()}>
-                        {m => (
-                          <DropdownMenuItem
-                            class="flex items-center gap-2 cursor-pointer text-xs"
-                            onClick={() => selectModel(m.id)}
-                          >
-                            <div class={cn(
-                              'size-1.5 rounded-full',
-                              { anthropic: 'bg-orange-500', xai: 'bg-blue-500', google: 'bg-yellow-500', openai: 'bg-green-500' }[m.provider],
-                            )}
-                            />
-                            {m.label}
-                            <Show when={m.id === currentModel()}>
-                              <div class="i-tabler-check size-3 ml-auto text-primary" />
-                            </Show>
-                          </DropdownMenuItem>
-                        )}
-                      </For>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </Show>
             </div>
           </div>
         </div>

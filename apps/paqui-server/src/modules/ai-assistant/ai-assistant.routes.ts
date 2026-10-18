@@ -14,7 +14,7 @@ import { AI_CHAT_SESSION_ID_REGEX } from './ai-assistant.constants';
 import { createAiNotConfiguredError } from './ai-assistant.errors';
 import { AI_MODELS, AI_PROVIDER_LABELS } from './ai-assistant.models';
 import { buildSystemPrompt } from './ai-assistant.prompt';
-import { getAiModel, getAiModelSelection, getConfiguredProviders, isAiConfigured } from './ai-assistant.providers';
+import { getAiModel, getAiModelSelection, isAiConfigured } from './ai-assistant.providers';
 import { createAiAssistantRepository } from './ai-assistant.repository';
 import { MAX_CHAT_ATTACHMENTS } from './attachments/attachments.constants';
 import { toChatAttachment } from './attachments/attachments.models';
@@ -30,7 +30,6 @@ const chatBodySchema = z.object({
     // Documents of the organization attached to the message (uploaded first)
     attachments: z.array(z.object({ documentId: z.string().min(1).max(64) })).max(MAX_CHAT_ATTACHMENTS).optional(),
   })),
-  model: z.string().optional(),
   sessionId: z.string().optional(),
   pageContext: pageContextSchema.optional(),
 });
@@ -54,7 +53,7 @@ export function registerAiAssistantRoutes(routeContext: RouteDefinitionContext) 
     async (context) => {
       const { userId } = getUser({ context });
       const { organizationId } = context.req.valid('param');
-      const { messages, model: modelOverride, sessionId, pageContext } = context.req.valid('json');
+      const { messages, sessionId, pageContext } = context.req.valid('json');
 
       const organizationsRepository = createOrganizationsRepository({ db });
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
@@ -63,17 +62,13 @@ export function registerAiAssistantRoutes(routeContext: RouteDefinitionContext) 
         throw createAiNotConfiguredError();
       }
 
-      // A model picked in the chat selector applies when its provider has a key, else the one chosen in the admin panel
-      const configuredProviders = getConfiguredProviders(config.aiAssistant);
-      const selectedModel = modelOverride !== undefined && modelOverride !== ''
-        ? AI_MODELS.find(m => m.id === modelOverride && configuredProviders.includes(m.provider))
-        : undefined;
+      // Always the model chosen in the admin panel (or the default one): members never pick it
       const selection = await getAiModelSelection({ config, db });
-      const resolvedModelId = selectedModel?.id ?? selection.model;
+      const resolvedModelId = selection.model;
       const modelLabel = AI_MODELS.find(m => m.id === resolvedModelId)?.label ?? resolvedModelId;
-      const providerLabel = AI_PROVIDER_LABELS[selectedModel?.provider ?? selection.provider];
+      const providerLabel = AI_PROVIDER_LABELS[selection.provider];
 
-      const model = getAiModel({ config, db, feature: AI_FEATURES.ASSISTANT_CHAT, organizationId, userId, modelOverride: selectedModel?.id });
+      const model = getAiModel({ config, db, feature: AI_FEATURES.ASSISTANT_CHAT, organizationId, userId });
       const { profile: userProfile } = await aiAssistantRepository.getUserProfile({ userId });
       const capabilities = await getAssistantCapabilities({ userId, db });
       const systemPrompt = buildSystemPrompt({ now: new Date(), providerLabel, modelLabel, profile: userProfile, pageContext, organizationId, capabilities });
@@ -414,24 +409,6 @@ export function registerAiAssistantRoutes(routeContext: RouteDefinitionContext) 
       await aiAssistantRepository.deleteChatSession({ sessionId, userId });
 
       return context.json({ success: true });
-    },
-  );
-
-  app.get(
-    '/api/ai/models',
-    requireAuthentication(),
-    async (context) => {
-      const configuredProviders = getConfiguredProviders(config.aiAssistant);
-      const isConfigured = configuredProviders.length > 0;
-      const defaultModel = isConfigured ? (await getAiModelSelection({ config, db })).model : '';
-      const availableModels = AI_MODELS.filter(m => configuredProviders.includes(m.provider));
-
-      return context.json({
-        isConfigured,
-        defaultModel,
-        providers: configuredProviders,
-        models: availableModels.map(m => ({ id: m.id, label: m.label, provider: m.provider })),
-      });
     },
   );
 

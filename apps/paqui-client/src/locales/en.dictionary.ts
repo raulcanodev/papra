@@ -1632,7 +1632,6 @@ export const translations = {
   'ai-assistant.attachments.take-photo.hint-desktop': 'With your phone, scanning a code',
   'ai-assistant.attachments.remove': 'Remove file',
   'ai-assistant.attachments.failed': 'Could not be uploaded',
-  'ai-assistant.model.select': 'Select model',
   'ai-assistant.suggestion.documents-overview': 'What are my documents about?',
   'ai-assistant.suggestion.find-invoices': 'Find invoices and tell me the total amounts',
   'ai-assistant.suggestion.quarterly-taxes': 'What taxes do I have to pay this quarter?',

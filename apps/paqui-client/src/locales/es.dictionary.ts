@@ -1634,7 +1634,6 @@ export const translations: Partial<TranslationsDictionary> = {
   'ai-assistant.attachments.take-photo.hint-desktop': 'Con tu móvil, escaneando un código',
   'ai-assistant.attachments.remove': 'Quitar archivo',
   'ai-assistant.attachments.failed': 'No se pudo subir',
-  'ai-assistant.model.select': 'Seleccionar modelo',
   'ai-assistant.suggestion.documents-overview': '¿De qué tratan mis documentos?',
   'ai-assistant.suggestion.find-invoices': 'Busca facturas y dime los importes totales',
   'ai-assistant.suggestion.quarterly-taxes': '¿Qué impuestos tengo que pagar este trimestre?',
