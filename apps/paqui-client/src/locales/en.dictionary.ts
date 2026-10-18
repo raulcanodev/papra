@@ -1281,6 +1281,7 @@ export const translations = {
   'layout.menu.deleted-documents': 'Deleted documents',
   'layout.menu.organization-settings': 'Settings',
   'layout.menu.gestoria-view': 'Gestoría view',
+  'layout.menu.developers': 'Developers',
   'layout.menu.api-keys': 'API keys',
   'layout.menu.settings': 'Settings',
   'layout.menu.account': 'Account',
@@ -1304,8 +1305,6 @@ export const translations = {
   'layout.menu.import-document': 'Import a document',
 
   'user-menu.account-settings': 'Account settings',
-  'user-menu.api-keys': 'API keys',
-  'user-menu.invitations': 'Invitations',
   'user-menu.language': 'Language',
   'user-menu.theme': 'Theme',
   'user-menu.about': 'About Paqui',

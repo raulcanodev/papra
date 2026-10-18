@@ -1283,6 +1283,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'layout.menu.deleted-documents': 'Documentos eliminados',
   'layout.menu.organization-settings': 'Configuración',
   'layout.menu.gestoria-view': 'Vista gestoría',
+  'layout.menu.developers': 'Desarrolladores',
   'layout.menu.api-keys': 'Claves API',
   'layout.menu.settings': 'Ajustes',
   'layout.menu.account': 'Cuenta',
@@ -1306,8 +1307,6 @@ export const translations: Partial<TranslationsDictionary> = {
   'layout.menu.import-document': 'Importar un documento',
 
   'user-menu.account-settings': 'Ajustes de cuenta',
-  'user-menu.api-keys': 'Claves API',
-  'user-menu.invitations': 'Invitaciones',
   'user-menu.language': 'Idioma',
   'user-menu.theme': 'Tema',
   'user-menu.about': 'Acerca de Paqui',

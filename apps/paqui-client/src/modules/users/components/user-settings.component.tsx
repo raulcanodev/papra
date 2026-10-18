@@ -60,19 +60,10 @@ export const UserSettingsDropdown: Component<{
         </Show>
       </DropdownMenuTrigger>
       <DropdownMenuContent class="min-w-56">
-        <DropdownMenuItem class="flex items-center gap-2 cursor-pointer" as={A} href="/settings">
+        {/* Kept short: API keys and invitations are in the account settings; pending invitations lead there */}
+        <DropdownMenuItem class="flex items-center gap-2 cursor-pointer" as={A} href={getPendingInvitationsCount() > 0 ? '/invitations' : '/settings'}>
           <div class="i-tabler-settings size-4 text-muted-foreground" />
           {t('user-menu.account-settings')}
-        </DropdownMenuItem>
-
-        <DropdownMenuItem class="flex items-center gap-2 cursor-pointer" as={A} href="/api-keys">
-          <div class="i-tabler-key size-4 text-muted-foreground" />
-          {t('user-menu.api-keys')}
-        </DropdownMenuItem>
-
-        <DropdownMenuItem class="flex items-center gap-2 cursor-pointer" as={A} href="/invitations">
-          <div class="i-tabler-mail-plus size-4 text-muted-foreground" />
-          {t('user-menu.invitations')}
           <Show when={getPendingInvitationsCount() > 0}>
             <div class="ml-auto bg-primary text-primary-foreground rounded-xl text-xs px-1.5 py-0.8 font-bold leading-none">
               {getPendingInvitationsCount()}
