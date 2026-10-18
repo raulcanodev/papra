@@ -191,7 +191,7 @@ function PriceListEditor(props: { organizationId: string; priceList: PriceList }
         </div>
       </div>
 
-      <section class="mb-8 grid gap-4 rounded-xl border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section class="mb-8 grid gap-4 border-b pb-8 sm:grid-cols-2 lg:grid-cols-4">
         <FormField label={t('invoicing.common.name')}><TextField value={settings().name} onInput={event => setSettings(current => ({ ...current, name: event.currentTarget.value }))} /></FormField>
         <FormField label={t('pricing.list.discount')}><TextField inputMode="decimal" placeholder="0" value={settings().discountText} onInput={event => setSettings(current => ({ ...current, discountText: event.currentTarget.value }))} /></FormField>
         <FormField label={t('pricing.list.default-shipping')}>
@@ -276,7 +276,7 @@ function PriceListEditor(props: { organizationId: string; priceList: PriceList }
       </Show>
 
       <Show when={props.priceList.adjustments.length > 0}>
-        <details class="mt-4 rounded-xl border bg-card px-4 py-3 text-sm">
+        <details class="mt-4 border-t pt-3 text-sm">
           <summary class="cursor-pointer select-none font-medium">{t('pricing.adjust.history.title', { count: props.priceList.adjustments.length })}</summary>
           <ul class="mt-2 divide-y">
             <For each={props.priceList.adjustments}>

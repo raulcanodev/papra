@@ -3,6 +3,7 @@ import type { InvoiceStatus, InvoicingProduct } from '@/modules/invoicing/invoic
 import { A, useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For, Show } from 'solid-js';
+import { ContactDeliveryNotes } from '@/modules/delivery-notes/components/contact-delivery-notes';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { CatalogCell, CatalogRow, CatalogTable } from '@/modules/invoicing/components/catalog-page';
 import { getProductsQueryKey, ProductForm } from '@/modules/invoicing/components/product-form';
@@ -28,7 +29,7 @@ import { CONTACT_ROLE_BADGE_CLASSES, CONTACT_ROLE_LABEL_I18N_KEYS, CONTACT_ROLE_
 import { fetchContacts, getContactsQueryKey } from '../contacts.services';
 import { useDeleteContact } from '../use-delete-contact';
 
-const CONTACT_TABS = ['invoices', 'products', 'price-lists'] as const;
+const CONTACT_TABS = ['invoices', 'delivery-notes', 'products', 'price-lists'] as const;
 
 const invoiceStatusLabelKeys = { draft: 'invoicing.status.draft', issuing: 'invoicing.status.issuing', issued: 'invoicing.status.issued', sent: 'invoicing.status.sent', paid: 'invoicing.status.paid', void: 'invoicing.status.void' } as const satisfies Record<InvoiceStatus, TranslationKeys>;
 
@@ -109,7 +110,7 @@ export function ContactPage() {
               />
             </div>
 
-            <dl class="mb-8 grid gap-4 rounded-xl border bg-card p-4 text-sm sm:grid-cols-3">
+            <dl class="mb-8 grid gap-x-6 gap-y-4 border-y py-5 text-sm grid-cols-2 sm:grid-cols-3">
               <For each={[
                 { label: t('invoicing.common.tax-id'), value: getContact().taxId },
                 { label: 'Email', value: getContact().email },
@@ -129,17 +130,24 @@ export function ContactPage() {
             </dl>
 
             <Tabs value={activeTab()} onChange={tab => setSearchParams({ tab: tab === 'invoices' ? undefined : tab }, { replace: true })}>
-              <TabsList class="mb-4 h-11 w-full p-1 sm:w-fit">
-                <TabsTrigger value="invoices" class="h-9 gap-2 px-4">
-                  <div class="i-tabler-receipt size-4" />
+              <TabsList class="mb-4 h-11 w-full overflow-x-auto p-1 sm:w-fit">
+                <TabsTrigger value="invoices" class="h-9 gap-2 px-3 sm:px-4">
+                  <div class="i-tabler-receipt size-4 max-sm:hidden" />
                   {t('contacts.detail.tabs.invoices')}
                 </TabsTrigger>
-                <TabsTrigger value="products" class="h-9 gap-2 px-4">
-                  <div class="i-tabler-package size-4" />
+                {/* Handed with the goods: only customers get delivery notes */}
+                <Show when={getContact().isCustomer}>
+                  <TabsTrigger value="delivery-notes" class="h-9 gap-2 px-3 sm:px-4">
+                    <div class="i-tabler-truck-delivery size-4 max-sm:hidden" />
+                    {t('contacts.detail.tabs.delivery-notes')}
+                  </TabsTrigger>
+                </Show>
+                <TabsTrigger value="products" class="h-9 gap-2 px-3 sm:px-4">
+                  <div class="i-tabler-package size-4 max-sm:hidden" />
                   {t('contacts.detail.tabs.products')}
                 </TabsTrigger>
-                <TabsTrigger value="price-lists" class="h-9 gap-2 px-4">
-                  <div class="i-tabler-tags size-4" />
+                <TabsTrigger value="price-lists" class="h-9 gap-2 px-3 sm:px-4">
+                  <div class="i-tabler-tags size-4 max-sm:hidden" />
                   {t('contacts.detail.tabs.price-lists')}
                 </TabsTrigger>
                 <TabsIndicator />
@@ -164,6 +172,10 @@ export function ContactPage() {
 
               <TabsContent value="products" class="mt-0">
                 <div class="mb-3 flex items-center justify-between gap-3">
+              <TabsContent value="delivery-notes" class="mt-0">
+                <ContactDeliveryNotes organizationId={params.organizationId} contactId={getContact().id} />
+              </TabsContent>
+
                   <p class="text-sm text-muted-foreground">{t(getContact().isSupplier ? 'contacts.detail.products.supplier' : 'contacts.detail.products.customer', { name: getContact().name })}</p>
                   <div class="flex shrink-0 gap-2">
                     <Button size="sm" variant="outline" class="gap-1.5" onClick={() => setScannerOpen(true)} aria-label={t('contacts.detail.products.scan')}>
@@ -184,7 +196,7 @@ export function ContactPage() {
 
               <TabsContent value="price-lists" class="mt-0">
                 <Show when={getContact().isCustomer || getContact().isSupplier} fallback={<div class="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground">{t('contacts.detail.price-list.unavailable')}</div>}>
-                  <div class="mb-4 grid gap-2 rounded-xl border bg-card p-4 sm:grid-cols-[1fr_18rem_auto] sm:items-center">
+                  <div class="mb-4 grid gap-2 sm:grid-cols-[1fr_18rem_auto] sm:items-center">
                     <div>
                       <div class="font-medium">{t('contacts.detail.price-list.title')}</div>
                       <div class="text-sm text-muted-foreground">{t('contacts.detail.price-list.description')}</div>

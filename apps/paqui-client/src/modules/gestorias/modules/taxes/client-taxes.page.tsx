@@ -76,7 +76,7 @@ export function ClientTaxesPage() {
 
               <QuarterlyTaxModels report={getReport()} />
 
-              <section class="mt-4 rounded-2xl border border-border/80 bg-card p-4">
+              <section class="mt-8 border-t pt-6">
                 <div class="flex flex-wrap items-start justify-between gap-4">
                   <div class="min-w-0">
                     <div class="flex items-center gap-2">

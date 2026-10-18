@@ -48,7 +48,7 @@ export const WebhookCard: Component<{ webhook: Webhook }> = (props) => {
   };
 
   return (
-    <div class="bg-card rounded-lg border p-4 flex items-center gap-4">
+    <div class="py-3.5 flex items-center gap-4">
       <div class="rounded-lg bg-muted p-2">
         <div class="i-tabler-webhook text-muted-foreground size-5 text-primary" />
       </div>
@@ -142,7 +142,7 @@ export const WebhooksPage: Component = () => {
           </Match>
 
           <Match when={query.data?.webhooks?.length}>
-            <div class="mt-6 flex flex-col gap-2">
+            <div class="mt-6 flex flex-col divide-y border-y">
               <For each={query.data?.webhooks}>
                 {webhook => (
                   <WebhookCard webhook={webhook} />

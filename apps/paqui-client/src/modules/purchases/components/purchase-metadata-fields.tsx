@@ -10,7 +10,7 @@ export function PurchaseMetadataFields(props: { value: PurchaseMetadataEntry[]; 
   const update = (index: number, changes: Partial<PurchaseMetadataEntry>) => props.onChange(props.value.map((entry, entryIndex) => (entryIndex === index ? { ...entry, ...changes } : entry)));
 
   return (
-    <section class="rounded-xl border bg-card p-4">
+    <section class="border-t pt-6">
       <div class="mb-3 flex items-start justify-between gap-3">
         <div>
           <h2 class="font-medium">{t('purchases.editor.metadata')}</h2>

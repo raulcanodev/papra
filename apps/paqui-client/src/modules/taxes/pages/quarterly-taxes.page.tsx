@@ -127,9 +127,9 @@ export function QuarterlyTaxesPage() {
 
             <QuarterlyTaxModels report={getReport()} fiscalProfileHref={fiscalProfileHref()} />
 
-            <div class="mt-4 grid gap-4 lg:grid-cols-2">
+            <div class="mt-8 grid gap-8 border-t pt-6 lg:grid-cols-2">
               {/* "If I buy now, how much do I save?" */}
-              <section class="rounded-2xl border border-border/80 bg-card p-4">
+              <section>
                 <div class="flex items-center gap-2">
                   <div class="i-tabler-calculator size-5 text-violet-600 dark:text-violet-300" />
                   <p class="font-medium">{t('taxes.simulator.title')}</p>
@@ -163,7 +163,7 @@ export function QuarterlyTaxesPage() {
                 </Show>
               </section>
 
-              <section class="rounded-2xl border border-border/80 bg-card p-4">
+              <section>
                 <div class="flex items-center gap-2">
                   <div class="i-tabler-briefcase size-5 text-emerald-600 dark:text-emerald-300" />
                   <p class="font-medium">{t('taxes.accountant.title')}</p>

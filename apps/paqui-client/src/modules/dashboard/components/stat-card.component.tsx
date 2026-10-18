@@ -79,7 +79,7 @@ export function StatCard(props: {
         <p class="whitespace-nowrap text-2xl font-semibold tracking-tight tabular-nums sm:text-[28px]">{props.format(display())}</p>
       </div>
 
-      <div class="mt-auto flex w-full items-center justify-between gap-2 rounded-xl border border-border/60 bg-card py-1.5 pe-1.5 ps-2.5 shadow-[0_1px_2px_rgb(0_0_0/0.04)]">
+      <div class="mt-auto flex w-full items-center justify-between gap-2 border-t border-border/60 pt-3">
         <p class="truncate text-sm text-muted-foreground">{props.caption}</p>
         <Show when={props.delta} fallback={props.badge}>
           {getDelta => <DeltaPill current={getDelta().current} previous={getDelta().previous} invert={getDelta().invert} />}

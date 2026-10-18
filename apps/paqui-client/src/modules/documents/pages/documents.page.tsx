@@ -127,8 +127,8 @@ export const DocumentsPage: Component = () => {
         </div>
 
         <Show when={getView() === 'folders' && getFolderId() === ''}>
-          <div class="overflow-hidden rounded-xl border border-border/80 bg-card shadow-[0_1px_2px_rgb(0_0_0/0.04)] dark:shadow-none">
-            <div class="flex flex-col gap-4 border-b border-border/70 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <div>
+            <div class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 class="font-semibold">{t('documents.folders.heading')}</h2>
                 <p class="mt-1 text-sm text-muted-foreground">{t('documents.folders.description')}</p>
@@ -149,7 +149,7 @@ export const DocumentsPage: Component = () => {
                 </Button>
               </form>
             </div>
-            <div class="p-4 sm:p-5">
+            <div>
               <Show
                 when={(foldersQuery.data?.folders.length ?? 0) > 0}
                 fallback={(
@@ -161,17 +161,17 @@ export const DocumentsPage: Component = () => {
                   </div>
                 )}
               >
-                <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div class="divide-y border-y">
                   <For each={foldersQuery.data?.folders}>{folder => (
                     <button
                       type="button"
-                      class="group flex min-w-0 items-center gap-3 rounded-xl border border-border/80 bg-background p-4 text-left transition-all hover:border-primary/40 hover:bg-muted/25 hover:shadow-sm focus-visible:(outline-none ring-1.5 ring-ring ring-offset-2)"
+                      class="group flex w-full min-w-0 items-center gap-3 px-1 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:(outline-none ring-2 ring-ring)"
                       onClick={() => {
                         setFolderId(folder.id);
                         resetPage();
                       }}
                     >
-                      <div class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-primary transition-colors group-hover:bg-primary/12">
+                      <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary transition-colors group-hover:bg-primary/12">
                         <Show when={folder.kind === 'contact'} fallback={<div class="i-tabler-folder size-5" />}>
                           <div class="i-tabler-folder-star size-5" />
                         </Show>
@@ -197,7 +197,7 @@ export const DocumentsPage: Component = () => {
 
         <Show when={getView() === 'all' || getFolderId() !== ''}>
           <Show when={getView() === 'folders'}>
-            <div class="mb-4 flex items-center gap-3 rounded-xl border border-border/80 bg-card p-3 sm:p-4">
+            <div class="mb-4 flex items-center gap-3 border-b pb-4">
               <Button variant="ghost" size="icon" class="size-9 shrink-0" aria-label={t('documents.folders.back')} onClick={() => setFolderId('')}>
                 <div class="i-tabler-arrow-left size-4" />
               </Button>

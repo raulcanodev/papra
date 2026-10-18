@@ -292,12 +292,12 @@ export function CreateInvoicePage() {
                     <p class="pt-1 text-xs font-medium text-muted-foreground">{customerSearch().trim() ? t('invoicing.editor.customer.results') : t('invoicing.editor.customer.recents')}</p>
                   </Show>
 
-                  <div class="space-y-2">
+                  <div class="divide-y border-y">
                     <For each={filteredCustomers()}>
                       {customer => (
                         <button
                           type="button"
-                          class="group flex w-full items-center gap-3 rounded-xl border border-border/80 bg-card px-3 py-2.5 text-left transition-colors hover:bg-accent/60"
+                          class="group flex w-full items-center gap-3 px-1 py-2.5 text-left transition-colors hover:bg-accent/40"
                           onClick={() => selectCustomer(customer)}
                         >
                           <div class="min-w-0 flex-1">
@@ -305,14 +305,14 @@ export function CreateInvoicePage() {
                             <Show when={customer.email}>{email => <div class="truncate text-xs text-muted-foreground">{email()}</div>}</Show>
                             <Show when={customerSummary(customer)}>{summary => <div class="truncate text-xs text-muted-foreground">{summary()}</div>}</Show>
                           </div>
-                          <span class="shrink-0 rounded-full bg-card px-3 py-1 text-xs font-medium shadow-xs transition-colors group-hover:bg-background">{t('invoicing.editor.customer.select')}</span>
+                          <span class="shrink-0 rounded-full bg-muted px-3 py-1 text-xs font-medium transition-colors group-hover:bg-accent">{t('invoicing.editor.customer.select')}</span>
                         </button>
                       )}
                     </For>
 
                     <button
                       type="button"
-                      class="flex w-full items-center gap-3 rounded-xl border border-dashed px-3 py-2.5 text-left text-sm text-muted-foreground transition-colors hover:(border-foreground/30 text-foreground)"
+                      class="flex w-full items-center gap-3 px-1 py-2.5 text-left text-sm text-muted-foreground transition-colors hover:text-foreground"
                       onClick={openNewCustomerDialog}
                     >
                       <span class="flex size-7 items-center justify-center rounded-full bg-muted">
@@ -325,7 +325,7 @@ export function CreateInvoicePage() {
               )}
             >
               {customer => (
-                <div class="flex items-start gap-3 rounded-xl border border-border/80 bg-card p-4 shadow-xs dark:shadow-none">
+                <div class="flex items-start gap-3">
                   <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
                     {customer().name.trim().charAt(0).toUpperCase()}
                   </span>
@@ -355,10 +355,10 @@ export function CreateInvoicePage() {
               <For each={productsQuery.data?.products}>{product => <option value={product.name} />}</For>
             </datalist>
 
-            <div class="space-y-3">
+            <div class="divide-y border-y">
               <Index each={items()}>
                 {(item, index) => (
-                  <div class="rounded-xl border border-border/80 bg-card p-5 shadow-xs dark:shadow-none">
+                  <div class="py-5">
                     <div class="mb-4 flex items-center justify-between">
                       <h3 class="text-sm font-semibold">{items().length > 1 ? t('invoicing.editor.item-number', { number: index + 1 }) : t('invoicing.editor.item')}</h3>
                       <Show when={items().length > 1}>
@@ -416,10 +416,10 @@ export function CreateInvoicePage() {
 
               <button
                 type="button"
-                class="flex w-full items-center gap-3 rounded-xl border border-dashed bg-muted/30 px-4 py-3.5 text-sm text-muted-foreground transition-colors hover:(border-foreground/30 text-foreground)"
+                class="flex w-full items-center gap-3 py-3.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
                 onClick={() => setItems(current => [...current, newLine(defaultTaxRateBps())])}
               >
-                <span class="flex size-8 items-center justify-center rounded-full bg-card shadow-xs">
+                <span class="flex size-8 items-center justify-center rounded-full bg-muted">
                   <div class="i-tabler-list-details size-4" />
                 </span>
                 {t('invoicing.editor.item.add')}

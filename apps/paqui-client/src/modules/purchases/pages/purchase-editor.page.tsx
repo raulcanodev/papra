@@ -344,7 +344,7 @@ export function PurchaseEditorPage() {
       </div>
 
       <div class={cn('grid gap-6', documentId() && 'lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]')}>
-        <div class="flex min-w-0 flex-col gap-4">
+        <div class="flex min-w-0 flex-col gap-6">
           <Show when={isReading()}>
             <div class="flex items-center gap-3 rounded-xl border bg-muted/40 p-4 text-sm">
               <div class="i-tabler-loader-2 size-5 animate-spin text-muted-foreground" />
@@ -390,7 +390,7 @@ export function PurchaseEditorPage() {
             )}
           </Show>
 
-          <section class="grid gap-4 rounded-xl border bg-card p-4 sm:grid-cols-2">
+          <section class="grid gap-4 sm:grid-cols-2">
             <FormField label={t('purchases.editor.supplier')} class="sm:col-span-2">
               <SimpleSelect triggerClass="h-10 w-full" value={supplierId()} onChange={setSupplierId} options={supplierOptions()} />
             </FormField>
@@ -407,7 +407,7 @@ export function PurchaseEditorPage() {
             <FormField label={t('purchases.editor.issue-date')}><TextField type="date" value={issueDate()} onInput={event => setIssueDate(event.currentTarget.value)} /></FormField>
           </section>
 
-          <section class="rounded-xl border bg-card p-4">
+          <section class="border-t pt-6">
             <div class="mb-3 flex items-center justify-between">
               <h2 class="font-medium">{t('purchases.editor.lines')}</h2>
               <Button variant="outline" size="sm" class="gap-1.5" onClick={() => setItems(current => [...current, emptyPurchaseInvoiceItem()])}>
@@ -448,7 +448,7 @@ export function PurchaseEditorPage() {
             </div>
           </section>
 
-          <section class="grid gap-4 rounded-xl border bg-card p-4 sm:grid-cols-2">
+          <section class="grid gap-4 border-t pt-6 sm:grid-cols-2">
             <FormField label={t('invoicing.editor.withholding')}>
               <SimpleSelect triggerClass="h-10 w-full" value={String(withholdingRateBps())} onChange={value => setWithholdingRateBps(Number(value))} options={[...new Set([...WITHHOLDING_RATES_BPS, withholdingRateBps()])].toSorted((a, b) => a - b).map(rateBps => ({ value: String(rateBps), label: rateBps === 0 ? t('invoicing.editor.withholding.none') : `${rateBps / 100} %` }))} />
             </FormField>

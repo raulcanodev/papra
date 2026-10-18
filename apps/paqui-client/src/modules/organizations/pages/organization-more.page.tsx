@@ -15,10 +15,10 @@ import { useCurrentUser } from '@/modules/users/composables/useCurrentUser';
 import { OrganizationSwitcher } from '../components/organization-switcher.component';
 
 const MenuList: Component<{ items: SideNavMenuItem[] }> = props => (
-  <div class="overflow-hidden rounded-2xl border bg-card">
+  <div class="divide-y border-y">
     <For each={props.items}>
       {item => (
-        <A href={item.href ?? '#'} class="flex min-h-12 items-center gap-3 border-t px-3.5 py-2 text-[15px] font-medium first:border-t-0 active:bg-accent">
+        <A href={item.href ?? '#'} class="flex min-h-12 items-center gap-3 py-2 text-[15px] font-medium active:bg-accent">
           <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground/80">
             <div class={cn(item.icon, 'size-4.5')} />
           </span>
@@ -49,12 +49,10 @@ export const OrganizationMorePage: Component = () => {
   }));
 
   return (
-    <div class="page-narrow flex flex-col gap-5">
+    <div class="page-narrow flex flex-col gap-6">
       <h1 class="page-title">{t('navigation.item.more')}</h1>
 
-      <div class="rounded-2xl border bg-card p-1.5">
-        <OrganizationSwitcher class="w-full" triggerClass="h-13 w-full hover:bg-accent data-[expanded]:bg-accent" />
-      </div>
+      <OrganizationSwitcher class="-mx-2 w-[calc(100%+1rem)]" triggerClass="h-13 w-full hover:bg-accent data-[expanded]:bg-accent" />
 
       <Show when={!isInstalled()}>
         <A
@@ -74,7 +72,7 @@ export const OrganizationMorePage: Component = () => {
         {section => (
           <section class="flex flex-col gap-2">
             <Show when={section.label}>
-              <h2 class="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{section.label}</h2>
+              <h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{section.label}</h2>
             </Show>
             <MenuList items={section.items} />
           </section>
@@ -83,9 +81,7 @@ export const OrganizationMorePage: Component = () => {
 
       <MenuList items={getFooterMenuItems()} />
 
-      <div class="rounded-2xl border bg-card p-1.5">
-        <UserSettingsDropdown userId={user.id} userName={user.name} userEmail={user.email} class="hover:bg-accent data-[expanded]:bg-accent" />
-      </div>
+      <UserSettingsDropdown userId={user.id} userName={user.name} userEmail={user.email} class="-mx-2 hover:bg-accent data-[expanded]:bg-accent" />
     </div>
   );
 };

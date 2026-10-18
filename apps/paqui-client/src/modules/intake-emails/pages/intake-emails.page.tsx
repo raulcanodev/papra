@@ -15,7 +15,6 @@ import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
 import { Alert, AlertDescription } from '@/modules/ui/components/alert';
 import { Button } from '@/modules/ui/components/button';
-import { Card } from '@/modules/ui/components/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/modules/ui/components/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/modules/ui/components/dropdown-menu';
 import { EmptyState } from '@/modules/ui/components/empty';
@@ -166,7 +165,7 @@ export const IntakeEmailsPage: Component = () => {
         <p class="text-muted-foreground mt-1">
           {t('intake-emails.description')}
         </p>
-        <Card class="px-6 py-4 mt-4 flex items-center gap-4">
+        <div class="mt-6 flex items-center gap-4 border-y py-4">
           <div class="i-tabler-mail-off size-12 text-muted-foreground flex-shrink-0" />
           <div>
             <h2 class="text-base font-bold text-muted-foreground">{t('intake-emails.disabled.title')}</h2>
@@ -174,7 +173,7 @@ export const IntakeEmailsPage: Component = () => {
               {t('intake-emails.disabled.description')}
             </p>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }

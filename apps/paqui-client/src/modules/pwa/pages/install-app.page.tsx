@@ -65,7 +65,7 @@ export const InstallAppPage: Component = () => {
             </Match>
 
             <Match when={isIos()}>
-              <div class="rounded-lg border p-4">
+              <div>
                 <h3 class="text-sm font-medium">{t('pwa.install.ios.title')}</h3>
                 <ol class="mt-3 grid gap-2.5 text-sm">
                   <li class="flex items-center gap-2.5">
@@ -87,7 +87,7 @@ export const InstallAppPage: Component = () => {
             </Match>
 
             <Match when={true}>
-              <div class="rounded-lg border p-4">
+              <div>
                 <h3 class="text-sm font-medium">{t('pwa.install.manual.title')}</h3>
                 <p class="mt-1 text-sm text-muted-foreground">{t('pwa.install.manual.description')}</p>
               </div>

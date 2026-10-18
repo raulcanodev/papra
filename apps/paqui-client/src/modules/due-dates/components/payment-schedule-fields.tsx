@@ -66,7 +66,7 @@ export function PaymentScheduleFields(props: {
   };
 
   return (
-    <section class="flex flex-col gap-4 rounded-xl border bg-card p-4">
+    <section class="flex flex-col gap-4 border-t pt-6">
       <div class="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 class="font-medium">{t('due-dates.schedule.title')}</h2>

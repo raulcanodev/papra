@@ -15,6 +15,7 @@ import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-err
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
+import { PageSection, PageSections } from '@/modules/ui/components/page-section';
 import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextArea } from '@/modules/ui/components/textarea';
@@ -93,6 +94,13 @@ export function DeliveryNoteEditorPage() {
     setIsNotesOpen((loaded.notes ?? '') !== '');
     setDocumentId(loaded.documentId);
     setItems(loaded.items?.map(({ productId, writtenText, description, quantityMillis }) => ({ productId, writtenText, description, quantityMillis })) ?? [emptyLine()]);
+  }));
+
+  // Opened from a customer page: the delivery note is already for it
+  createEffect(on(() => searchParams.customerId, (id) => {
+    if (!isEditing() && typeof id === 'string' && id !== '') {
+      setCustomerId(id);
+    }
   }));
 
   // A new delivery note from a photo: shown as soon as it is uploaded, filled once read
@@ -310,132 +318,134 @@ export function DeliveryNoteEditorPage() {
             </div>
           </Show>
 
-          <fieldset disabled={isInvoiced()} class="flex min-w-0 flex-col gap-4">
-            <section class="rounded-xl border bg-card p-4">
-              <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem]">
-                <FormField label={t('delivery-notes.editor.customer')}>
-                  <SimpleSelect
-                    triggerClass="h-11"
-                    value={customerId()}
-                    onChange={setCustomerId}
-                    disabled={isInvoiced()}
-                    options={[{ value: '', label: t('delivery-notes.editor.customer.placeholder') }, ...customers().map(contact => ({ value: contact.id, label: contact.name }))]}
-                  />
-                </FormField>
-                <FormField label={t('delivery-notes.editor.date')}>
-                  <TextField class="h-11" type="date" value={date()} onInput={event => setDate(event.currentTarget.value)} />
-                </FormField>
-              </div>
-
-              <Show when={customerId() === '' && ((reading()?.customer.candidates.length ?? 0) > 0 || unknownCustomerName())}>
-                <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
-                  <Show when={reading()?.customer.name}>
-                    {name => <span class="text-muted-foreground">{t('delivery-notes.editor.customer.read', { name: name() })}</span>}
-                  </Show>
-                  <For each={reading()?.customer.candidates}>
-                    {candidate => (
-                      <Button size="sm" variant="outline" class="h-7 rounded-full" onClick={() => setCustomerId(candidate.contactId)}>{candidate.name}</Button>
-                    )}
-                  </For>
-                  <Show when={unknownCustomerName()}>
-                    {name => (
-                      <Button size="sm" variant="secondary" class="h-7 gap-1 rounded-full" isLoading={createCustomerMutation.isPending} onClick={() => createCustomerMutation.mutate(name())}>
-                        <div class="i-tabler-user-plus size-3.5" />
-                        {t('delivery-notes.editor.customer.create', { name: name() })}
-                      </Button>
-                    )}
-                  </Show>
+          <fieldset disabled={isInvoiced()} class="min-w-0">
+            <PageSections>
+              <PageSection>
+                <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem]">
+                  <FormField label={t('delivery-notes.editor.customer')}>
+                    <SimpleSelect
+                      triggerClass="h-11"
+                      value={customerId()}
+                      onChange={setCustomerId}
+                      disabled={isInvoiced()}
+                      options={[{ value: '', label: t('delivery-notes.editor.customer.placeholder') }, ...customers().map(contact => ({ value: contact.id, label: contact.name }))]}
+                    />
+                  </FormField>
+                  <FormField label={t('delivery-notes.editor.date')}>
+                    <TextField class="h-11" type="date" value={date()} onInput={event => setDate(event.currentTarget.value)} />
+                  </FormField>
                 </div>
-              </Show>
-            </section>
 
-            <section class="rounded-xl border bg-card p-4">
-              <div class="mb-2 grid grid-cols-[minmax(0,1fr)_6rem_2rem] gap-2 text-xs font-medium text-muted-foreground">
-                <span>{t('delivery-notes.editor.line.product')}</span>
-                <span class="text-right">{t('delivery-notes.editor.line.quantity')}</span>
-              </div>
-              <datalist id="delivery-note-products">
-                <For each={products()}>{product => <option value={product.name} />}</For>
-              </datalist>
+                <Show when={customerId() === '' && ((reading()?.customer.candidates.length ?? 0) > 0 || unknownCustomerName())}>
+                  <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                    <Show when={reading()?.customer.name}>
+                      {name => <span class="text-muted-foreground">{t('delivery-notes.editor.customer.read', { name: name() })}</span>}
+                    </Show>
+                    <For each={reading()?.customer.candidates}>
+                      {candidate => (
+                        <Button size="sm" variant="outline" class="h-7 rounded-full" onClick={() => setCustomerId(candidate.contactId)}>{candidate.name}</Button>
+                      )}
+                    </For>
+                    <Show when={unknownCustomerName()}>
+                      {name => (
+                        <Button size="sm" variant="secondary" class="h-7 gap-1 rounded-full" isLoading={createCustomerMutation.isPending} onClick={() => createCustomerMutation.mutate(name())}>
+                          <div class="i-tabler-user-plus size-3.5" />
+                          {t('delivery-notes.editor.customer.create', { name: name() })}
+                        </Button>
+                      )}
+                    </Show>
+                  </div>
+                </Show>
+              </PageSection>
 
-              <div class="flex flex-col gap-2">
-                <Index each={items()}>
-                  {(item, index) => {
-                    const needsReview = () => item().reading !== undefined && (item().productId === null || item().reading!.confidence === 'low');
-                    const alternatives = () => (item().reading?.alternativeProductIds ?? []).map(id => productsById().get(id)).filter(product => product !== undefined);
+              <PageSection>
+                <div class="mb-2 grid grid-cols-[minmax(0,1fr)_6rem_2rem] gap-2 text-xs font-medium text-muted-foreground">
+                  <span>{t('delivery-notes.editor.line.product')}</span>
+                  <span class="text-right">{t('delivery-notes.editor.line.quantity')}</span>
+                </div>
+                <datalist id="delivery-note-products">
+                  <For each={products()}>{product => <option value={product.name} />}</For>
+                </datalist>
 
-                    return (
-                      <div class={cn('flex flex-col gap-1.5', needsReview() && '-mx-2 rounded-lg bg-amber-500/6 px-2 py-2')}>
-                        <div class="grid grid-cols-[minmax(0,1fr)_6rem_2rem] items-center gap-2">
-                          <TextField
-                            class="h-11"
-                            list="delivery-note-products"
-                            aria-label={t('delivery-notes.editor.line.product')}
-                            placeholder={t('delivery-notes.editor.line.product.placeholder')}
-                            value={item().description}
-                            onInput={event => applyProductByName(index, event.currentTarget.value)}
-                          />
-                          <TextField class="no-spinner h-11 text-right text-base font-medium" type="number" inputMode="decimal" min="0.001" step="0.001" aria-label={t('delivery-notes.editor.line.quantity')} value={item().quantityMillis / 1_000} onInput={event => updateItem(index, { quantityMillis: Math.round(Number(event.currentTarget.value) * 1_000) })} />
-                          <Button type="button" variant="ghost" size="icon-sm" class="text-muted-foreground" aria-label={t('delivery-notes.editor.line.remove')} disabled={items().length === 1} onClick={() => setItems(current => current.filter((_, itemIndex) => itemIndex !== index))}>
-                            <div class="i-tabler-x size-4" />
-                          </Button>
-                        </div>
+                <div class="flex flex-col gap-2">
+                  <Index each={items()}>
+                    {(item, index) => {
+                      const needsReview = () => item().reading !== undefined && (item().productId === null || item().reading!.confidence === 'low');
+                      const alternatives = () => (item().reading?.alternativeProductIds ?? []).map(id => productsById().get(id)).filter(product => product !== undefined);
 
-                        <Show when={item().reading}>
-                          <div class="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                            <div class="i-tabler-writing size-3.5" />
-                            <span class="italic">{`«${item().writtenText ?? ''}»`}</span>
-                            <Show when={item().reading?.matchedBy === 'memory'}>
-                              <span class="rounded-full bg-emerald-500/12 px-1.5 py-px font-medium text-emerald-700 dark:text-emerald-300">{t('delivery-notes.editor.line.remembered')}</span>
-                            </Show>
-                            <Show when={needsReview()}>
-                              <span class="rounded-full bg-amber-500/15 px-1.5 py-px font-medium text-amber-700 dark:text-amber-300">{item().productId === null ? t('delivery-notes.editor.line.unmatched') : t('delivery-notes.editor.line.unsure')}</span>
-                            </Show>
-                            <Show when={alternatives().length > 0}>
-                              <span>{t('delivery-notes.editor.line.alternatives')}</span>
-                              <For each={alternatives()}>
-                                {product => (
-                                  <Button type="button" size="sm" variant="outline" class="h-6 rounded-full px-2 text-xs" onClick={() => pickProduct(index, product)}>{product.name}</Button>
-                                )}
-                              </For>
-                            </Show>
-                            <Show when={needsReview() && item().productId !== null}>
-                              <Button type="button" size="sm" variant="ghost" class="h-6 gap-1 rounded-full px-2 text-xs" onClick={() => pickProduct(index, productsById().get(item().productId!)!)}>
-                                <div class="i-tabler-check size-3.5" />
-                                {t('delivery-notes.editor.line.confirm')}
-                              </Button>
-                            </Show>
+                      return (
+                        <div class={cn('flex flex-col gap-1.5', needsReview() && '-mx-2 rounded-lg bg-amber-500/6 px-2 py-2')}>
+                          <div class="grid grid-cols-[minmax(0,1fr)_6rem_2rem] items-center gap-2">
+                            <TextField
+                              class="h-11"
+                              list="delivery-note-products"
+                              aria-label={t('delivery-notes.editor.line.product')}
+                              placeholder={t('delivery-notes.editor.line.product.placeholder')}
+                              value={item().description}
+                              onInput={event => applyProductByName(index, event.currentTarget.value)}
+                            />
+                            <TextField class="no-spinner h-11 text-right text-base font-medium" type="number" inputMode="decimal" min="0.001" step="0.001" aria-label={t('delivery-notes.editor.line.quantity')} value={item().quantityMillis / 1_000} onInput={event => updateItem(index, { quantityMillis: Math.round(Number(event.currentTarget.value) * 1_000) })} />
+                            <Button type="button" variant="ghost" size="icon-sm" class="text-muted-foreground" aria-label={t('delivery-notes.editor.line.remove')} disabled={items().length === 1} onClick={() => setItems(current => current.filter((_, itemIndex) => itemIndex !== index))}>
+                              <div class="i-tabler-x size-4" />
+                            </Button>
                           </div>
-                        </Show>
-                      </div>
-                    );
-                  }}
-                </Index>
-              </div>
 
-              <button
-                type="button"
-                class="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed py-2.5 text-sm text-muted-foreground transition-colors hover:(border-foreground/30 text-foreground)"
-                onClick={() => setItems(current => [...current, emptyLine()])}
-              >
-                <div class="i-tabler-plus size-4" />
-                {t('delivery-notes.editor.line.add')}
-              </button>
-            </section>
+                          <Show when={item().reading}>
+                            <div class="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                              <div class="i-tabler-writing size-3.5" />
+                              <span class="italic">{`«${item().writtenText ?? ''}»`}</span>
+                              <Show when={item().reading?.matchedBy === 'memory'}>
+                                <span class="rounded-full bg-emerald-500/12 px-1.5 py-px font-medium text-emerald-700 dark:text-emerald-300">{t('delivery-notes.editor.line.remembered')}</span>
+                              </Show>
+                              <Show when={needsReview()}>
+                                <span class="rounded-full bg-amber-500/15 px-1.5 py-px font-medium text-amber-700 dark:text-amber-300">{item().productId === null ? t('delivery-notes.editor.line.unmatched') : t('delivery-notes.editor.line.unsure')}</span>
+                              </Show>
+                              <Show when={alternatives().length > 0}>
+                                <span>{t('delivery-notes.editor.line.alternatives')}</span>
+                                <For each={alternatives()}>
+                                  {product => (
+                                    <Button type="button" size="sm" variant="outline" class="h-6 rounded-full px-2 text-xs" onClick={() => pickProduct(index, product)}>{product.name}</Button>
+                                  )}
+                                </For>
+                              </Show>
+                              <Show when={needsReview() && item().productId !== null}>
+                                <Button type="button" size="sm" variant="ghost" class="h-6 gap-1 rounded-full px-2 text-xs" onClick={() => pickProduct(index, productsById().get(item().productId!)!)}>
+                                  <div class="i-tabler-check size-3.5" />
+                                  {t('delivery-notes.editor.line.confirm')}
+                                </Button>
+                              </Show>
+                            </div>
+                          </Show>
+                        </div>
+                      );
+                    }}
+                  </Index>
+                </div>
 
-            <Show
-              when={isNotesOpen()}
-              fallback={(
-                <button type="button" class="flex items-center gap-1.5 self-start text-sm text-muted-foreground hover:text-foreground" onClick={() => setIsNotesOpen(true)}>
-                  <div class="i-tabler-note size-4" />
-                  {t('delivery-notes.editor.notes.add')}
+                <button
+                  type="button"
+                  class="mt-3 flex items-center gap-1.5 py-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  onClick={() => setItems(current => [...current, emptyLine()])}
+                >
+                  <div class="i-tabler-plus size-4" />
+                  {t('delivery-notes.editor.line.add')}
                 </button>
-              )}
-            >
-              <FormField label={t('delivery-notes.editor.notes')}>
-                <TextArea value={notes()} onInput={event => setNotes(event.currentTarget.value)} />
-              </FormField>
-            </Show>
+                <div class="mt-4" />
+                <Show
+                  when={isNotesOpen()}
+                  fallback={(
+                    <button type="button" class="flex items-center gap-1.5 self-start text-sm text-muted-foreground hover:text-foreground" onClick={() => setIsNotesOpen(true)}>
+                      <div class="i-tabler-note size-4" />
+                      {t('delivery-notes.editor.notes.add')}
+                    </button>
+                  )}
+                >
+                  <FormField label={t('delivery-notes.editor.notes')}>
+                    <TextArea value={notes()} onInput={event => setNotes(event.currentTarget.value)} />
+                  </FormField>
+                </Show>
+              </PageSection>
+            </PageSections>
           </fieldset>
         </div>
 
