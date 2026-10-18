@@ -21,6 +21,7 @@ import { UpgradeDialog } from '@/modules/subscriptions/components/upgrade-dialog
 import { fetchOrganizationSubscription } from '@/modules/subscriptions/subscriptions.services';
 import { SideNav } from '@/modules/ui/components/sidenav';
 import { buildOrganizationWorkspaceNavigation, getOrganizationRouteHref, getOrganizationRouteLabelKey } from '@/modules/ui/navigation/organization-navigation';
+import { useTrackWorkspacePath } from '@/modules/ui/navigation/return-to';
 import { useNavigationCapabilities } from '@/modules/ui/navigation/use-navigation-capabilities';
 import { useOrganizationFooterMenu } from '@/modules/ui/navigation/use-organization-footer-menu';
 import { UserSettingsDropdown } from '@/modules/users/components/user-settings.component';
@@ -109,6 +110,7 @@ const OrganizationLayoutSideNav: Component = () => {
   });
 
   const getFooterMenuItems = useOrganizationFooterMenu();
+  useTrackWorkspacePath();
 
   const organizationQuery = useQuery(() => ({
     queryKey: ['organizations', params.organizationId],

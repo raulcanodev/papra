@@ -15,6 +15,7 @@ import { createToast } from '@/modules/ui/components/sonner';
 import { dateIsInRange, getActiveFilter, isDateRangeValue } from '@/modules/ui/components/table-filters';
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { getOrganizationRouteChildHref, getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
+import { useLinkWithReturn } from '@/modules/ui/navigation/return-to';
 import { CatalogCell, CatalogRow, CatalogTable } from '../components/catalog-page';
 import { getInvoicePayableMinor } from '../invoicing.models';
 import { deleteDraftInvoice, downloadInvoicePdf, fetchInvoices, markInvoicePaid, sendInvoice } from '../invoicing.services';
@@ -44,7 +45,9 @@ export function InvoicesPage() {
   const deleteMutation = createMutation(() => ({ mutationFn: (invoiceId: string) => deleteDraftInvoice({ organizationId: params.organizationId, invoiceId }), onSuccess: async () => {
     createToast({ type: 'success', message: t('invoicing.invoices.toast.deleted') }); await refresh();
   }, onError: () => createToast({ type: 'error', message: t('invoicing.invoices.toast.delete-error') }) }));
-  const editHref = (invoice: Invoice) => getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: `${invoice.id}/edit` });
+  const linkWithReturn = useLinkWithReturn();
+  // The list keeps its search (filters) when the editor returns to it
+  const editHref = (invoice: Invoice) => linkWithReturn(getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: `${invoice.id}/edit` }));
   const paidMutation = createMutation(() => ({ mutationFn: (invoiceId: string) => markInvoicePaid({ organizationId: params.organizationId, invoiceId }), onSuccess: refresh }));
   // The amount the customer pays, the IRPF withholding goes to the tax agency
   const money = (invoice: Invoice) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency: invoice.currency }).format(getInvoicePayableMinor(invoice) / 100);

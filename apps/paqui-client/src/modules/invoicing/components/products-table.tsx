@@ -7,6 +7,7 @@ import { fetchProductCostTotals, getPricingQueryKey } from '@/modules/pricing/pr
 import { EntityIcon } from '@/modules/ui/components/entity-icon';
 import { RowActions } from '@/modules/ui/components/row-actions';
 import { getOrganizationContactHref } from '@/modules/ui/navigation/organization-navigation';
+import { useLinkWithReturn } from '@/modules/ui/navigation/return-to';
 import { CatalogCell, CatalogRow, CatalogTable } from './catalog-page';
 import { PRODUCT_FALLBACK_ICON } from './product-form';
 import { ProductThumbnail } from './product-photo';
@@ -21,6 +22,7 @@ export function ProductsTable(props: {
 }) {
   const { t } = useI18n();
   const params = useParams();
+  const linkWithReturn = useLinkWithReturn();
   const money = (product: InvoicingProduct, amountMinor = product.unitPriceMinor) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: product.currency }).format(amountMinor / 100);
   const costsQuery = useQuery(() => ({ queryKey: [...getPricingQueryKey({ organizationId: params.organizationId }), 'product-cost-totals'], queryFn: () => fetchProductCostTotals({ organizationId: params.organizationId }) }));
   const costByProductId = createMemo(() => new Map((costsQuery.data?.costs ?? []).map(cost => [cost.productId, cost.totalMinor])));
@@ -52,7 +54,7 @@ export function ProductsTable(props: {
               <CatalogCell class="text-muted-foreground">
                 <Show when={product.contactId} fallback={t('invoicing.products.owner.own')}>
                   {contactId => (
-                    <A href={getOrganizationContactHref({ organizationId: params.organizationId, contactId: contactId() })} class="hover:text-foreground hover:underline" onClick={event => event.stopPropagation()}>
+                    <A href={linkWithReturn(getOrganizationContactHref({ organizationId: params.organizationId, contactId: contactId() }))} class="hover:text-foreground hover:underline" onClick={event => event.stopPropagation()}>
                       {product.contactName}
                     </A>
                   )}

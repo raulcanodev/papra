@@ -24,6 +24,7 @@ import { RowActions } from '@/modules/ui/components/row-actions';
 import { createToast } from '@/modules/ui/components/sonner';
 import { Tabs, TabsContent, TabsIndicator, TabsList, TabsTrigger } from '@/modules/ui/components/tabs';
 import { getOrganizationRouteChildHref, getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
+import { useLinkWithReturn, useReturnHref } from '@/modules/ui/navigation/return-to';
 import { ContactEditor } from '../components/contact-editor';
 import { CONTACT_ROLE_BADGE_CLASSES, CONTACT_ROLE_LABEL_I18N_KEYS, CONTACT_ROLE_PAGE_I18N_KEYS, CONTACT_ROLE_ROUTE_IDS, getContactFallbackIcon, getContactRoles } from '../contacts.constants';
 import { fetchContacts, getContactsQueryKey } from '../contacts.services';
@@ -42,6 +43,7 @@ export function ContactPage() {
   // The open tab lives in the URL so a link (or going back) lands on it
   const activeTab = () => CONTACT_TABS.find(tab => tab === searchParams.tab) ?? 'invoices';
   const { deleteContact } = useDeleteContact();
+  const linkWithReturn = useLinkWithReturn();
   const [contactFormOpen, setContactFormOpen] = createSignal(false);
   const [productFormOpen, setProductFormOpen] = createSignal(false);
   const [scannerOpen, setScannerOpen] = createSignal(false);
@@ -61,8 +63,8 @@ export function ContactPage() {
     return product ? [{ product, priceMinor: price.priceMinor }] : [];
   }));
   const role = () => getContactRoles({ contact: contact() ?? { isCustomer: true, isSupplier: false, isSalesRepresentative: false } })[0] ?? 'customer';
-  const backHref = () => getOrganizationRouteHref({ organizationId: params.organizationId, routeId: CONTACT_ROLE_ROUTE_IDS[role()] });
-  const invoiceEditHref = (invoiceId: string) => getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: `${invoiceId}/edit` });
+  const { returnHref: backHref } = useReturnHref(() => getOrganizationRouteHref({ organizationId: params.organizationId, routeId: CONTACT_ROLE_ROUTE_IDS[role()] }));
+  const invoiceEditHref = (invoiceId: string) => linkWithReturn(getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: `${invoiceId}/edit` }));
   const money = ({ amountMinor, currency }: { amountMinor: number; currency: string }) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency }).format(amountMinor / 100);
 
   const openProductForm = (product: InvoicingProduct | null) => {
@@ -170,12 +172,12 @@ export function ContactPage() {
                 </Show>
               </TabsContent>
 
-              <TabsContent value="products" class="mt-0">
-                <div class="mb-3 flex items-center justify-between gap-3">
               <TabsContent value="delivery-notes" class="mt-0">
                 <ContactDeliveryNotes organizationId={params.organizationId} contactId={getContact().id} />
               </TabsContent>
 
+              <TabsContent value="products" class="mt-0">
+                <div class="mb-3 flex items-center justify-between gap-3">
                   <p class="text-sm text-muted-foreground">{t(getContact().isSupplier ? 'contacts.detail.products.supplier' : 'contacts.detail.products.customer', { name: getContact().name })}</p>
                   <div class="flex shrink-0 gap-2">
                     <Button size="sm" variant="outline" class="gap-1.5" onClick={() => setScannerOpen(true)} aria-label={t('contacts.detail.products.scan')}>

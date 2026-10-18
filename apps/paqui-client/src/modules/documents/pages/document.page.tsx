@@ -20,6 +20,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/module
 import { Separator } from '@/modules/ui/components/separator';
 import { Tabs, TabsContent, TabsIndicator, TabsList, TabsTrigger } from '@/modules/ui/components/tabs';
 import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
+import { useLinkWithReturn } from '@/modules/ui/navigation/return-to';
 import { DocumentContentEditionPanel } from '../components/document-content-edition-panel.component';
 import { DocumentDatePicker } from '../components/document-date-picker.component';
 import { DocumentPreview } from '../components/document-preview.component';
@@ -127,6 +128,7 @@ const DocumentOpenWithDropdown: Component<{ document: Document; organizationId: 
 export const DocumentPage: Component = () => {
   const { t, formatRelativeTime } = useI18n();
   const params = useParams();
+  const linkWithReturn = useLinkWithReturn();
   const [searchParams, setSearchParams] = useSearchParams();
   const { deleteDocument } = useDeleteDocument();
   const { restore, getIsRestoring } = useRestoreDocument();
@@ -251,7 +253,7 @@ export const DocumentPage: Component = () => {
                         as={A}
                         variant="outline"
                         size="sm"
-                        href={`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath: 'new' })}?documentId=${getDocument().id}`}
+                        href={linkWithReturn(`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath: 'new' })}?documentId=${getDocument().id}`)}
                       >
                         <div class="i-tabler-file-invoice size-4 mr-2" />
                         {t('purchases.actions.register-expense')}

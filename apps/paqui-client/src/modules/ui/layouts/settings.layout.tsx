@@ -4,11 +4,13 @@ import { A } from '@solidjs/router';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { usePendingInvitationsCount } from '@/modules/invitations/composables/usePendingInvitationsCount';
 import { SideNav } from '@/modules/ui/components/sidenav';
+import { useLastWorkspaceHref } from '@/modules/ui/navigation/return-to';
 import { Button } from '../components/button';
 import { AppShell, ShellBreadcrumb } from './sidenav.layout';
 
 export const SettingsLayout: ParentComponent = (props) => {
   const { t } = useI18n();
+  const backHref = useLastWorkspaceHref({ fallback: () => '/' });
 
   const { getPendingInvitationsCount } = usePendingInvitationsCount();
 
@@ -40,7 +42,7 @@ export const SettingsLayout: ParentComponent = (props) => {
       mainSections={getMainSections()}
       header={() => (
         <div class="flex h-12 items-center gap-1 px-1">
-          <Button variant="ghost" size="icon-sm" class="text-muted-foreground" as={A} href="/" aria-label={t('layout.back')}>
+          <Button variant="ghost" size="icon-sm" class="text-muted-foreground" as={A} href={backHref()} aria-label={t('layout.back')}>
             <div class="i-tabler-arrow-left size-4" />
           </Button>
           <h1 class="text-sm font-semibold">

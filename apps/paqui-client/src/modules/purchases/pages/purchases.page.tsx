@@ -20,6 +20,7 @@ import { createToast } from '@/modules/ui/components/sonner';
 import { dateIsInRange, getActiveFilter, isDateRangeValue } from '@/modules/ui/components/table-filters';
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
+import { useLinkWithReturn } from '@/modules/ui/navigation/return-to';
 import { AddPurchaseDialog } from '../components/add-purchase-dialog';
 import { EXPENSE_CATEGORY_LABEL_I18N_KEYS, EXTRACTABLE_FILE_ACCEPT, PURCHASE_DOCUMENT_KIND_BADGE_CLASSES, PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS, PURCHASE_DOCUMENT_KINDS, PURCHASE_STATUS_BADGE_CLASSES, PURCHASE_STATUS_LABEL_I18N_KEYS } from '../purchases.constants';
 import { createPurchaseReadings, deletePurchaseInvoice, dismissPurchaseInboxDocument, fetchPurchaseInbox, fetchPurchaseInvoices, getPurchaseInboxQueryKey, getPurchaseInvoicesQueryKey, setPurchaseInvoiceStatus } from '../purchases.services';
@@ -89,7 +90,8 @@ export function PurchasesPage() {
   });
 
   const money = (purchaseInvoice: PurchaseInvoice, minor: number) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency: purchaseInvoice.currency }).format(minor / 100);
-  const editorHref = (childPath: string) => getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath });
+  const linkWithReturn = useLinkWithReturn();
+  const editorHref = (childPath: string) => linkWithReturn(getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath }));
 
   // Queued for the AI as soon as each one is there: it reads in the background while the rest uploads
   const queueReadings = async (documentIds: string[]) => createPurchaseReadings({ organizationId: params.organizationId, documentIds }).catch(() => {
@@ -109,7 +111,7 @@ export function PurchasesPage() {
     if (queue.length > 0) {
       search.set('queue', queue.join(','));
     }
-    navigate(`${editorHref('new')}?${search.toString()}`);
+    navigate(linkWithReturn(`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath: 'new' })}?${search.toString()}`));
   };
 
   // Files (or photos taken on this device) are uploaded as documents first, photos sent from the phone already are

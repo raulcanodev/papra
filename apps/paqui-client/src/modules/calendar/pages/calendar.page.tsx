@@ -9,6 +9,7 @@ import { fetchInvoices } from '@/modules/invoicing/invoicing.services';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
 import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
+import { useLinkWithReturn } from '@/modules/ui/navigation/return-to';
 import { fetchCalendarFeed } from '../calendar.services';
 
 type CalendarEntry = {
@@ -64,6 +65,7 @@ function feedEntry({ event, organizationId, formatMoney }: { event: CalendarFeed
 export function CalendarPage() {
   const { t, getLocale } = useI18n();
   const params = useParams();
+  const linkWithReturn = useLinkWithReturn();
   const now = new Date();
   const [month, setMonth] = createSignal(new Date(now.getFullYear(), now.getMonth(), 1));
   const invoicesQuery = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'invoices'], queryFn: () => fetchInvoices({ organizationId: params.organizationId }) }));
@@ -149,7 +151,7 @@ export function CalendarPage() {
                           )}
                         >
                           {getHref => (
-                            <A href={getHref()} class={cn('block truncate rounded px-1.5 py-1 text-[11px] leading-tight border-l-2 hover:brightness-95', entryStyles[entry.type], entry.isSettled && 'line-through opacity-60')} title={[entry.title, entry.subtitle].filter(Boolean).join(' · ')}>
+                            <A href={linkWithReturn(getHref())} class={cn('block truncate rounded px-1.5 py-1 text-[11px] leading-tight border-l-2 hover:brightness-95', entryStyles[entry.type], entry.isSettled && 'line-through opacity-60')} title={[entry.title, entry.subtitle].filter(Boolean).join(' · ')}>
                               <span class="font-medium">{entry.title}</span>
                               <Show when={entry.subtitle}><span class="ml-1 opacity-75">{entry.subtitle}</span></Show>
                             </A>

@@ -10,6 +10,7 @@ import { EntityIcon } from '@/modules/ui/components/entity-icon';
 import { RowActions } from '@/modules/ui/components/row-actions';
 import { matchesSelectedFilter, toDistinctFilterOptions } from '@/modules/ui/components/table-filters';
 import { getOrganizationContactHref } from '@/modules/ui/navigation/organization-navigation';
+import { useLinkWithReturn } from '@/modules/ui/navigation/return-to';
 import { ContactEditor } from '../components/contact-editor';
 import { CONTACT_KIND_LABEL_I18N_KEYS, CONTACT_KINDS, CONTACT_ROLE_BADGE_CLASSES, CONTACT_ROLE_LABEL_I18N_KEYS, CONTACT_ROLE_PAGE_I18N_KEYS, CONTACT_ROLE_PLURAL_LABEL_I18N_KEYS, getContactFallbackIcon, getContactRoles, hasContactRole } from '../contacts.constants';
 import { fetchContacts, getContactsQueryKey } from '../contacts.services';
@@ -19,6 +20,7 @@ import { useDeleteContact } from '../use-delete-contact';
 export function ContactsPage(props: { role: ContactRole }) {
   const { t } = useI18n();
   const params = useParams();
+  const linkWithReturn = useLinkWithReturn();
   const navigate = useNavigate();
   const [editing, setEditing] = createSignal<Contact | null>(null);
   const [formOpen, setFormOpen] = createSignal(false);
@@ -75,7 +77,7 @@ export function ContactsPage(props: { role: ContactRole }) {
       <CatalogTable headers={[{ label: t('contacts.table.contact') }, { label: t('invoicing.common.tax-id') }, { label: t('contacts.table.location') }, { label: '', class: 'w-14' }]}>
         <For each={rows()}>
           {contact => (
-            <CatalogRow onClick={() => navigate(getOrganizationContactHref({ organizationId: params.organizationId, contactId: contact.id }))}>
+            <CatalogRow onClick={() => navigate(linkWithReturn(getOrganizationContactHref({ organizationId: params.organizationId, contactId: contact.id })))}>
               <CatalogCell>
                 <div class="flex items-center gap-2.5">
                   <EntityIcon icon={contact.icon} color={contact.iconColor} fallback={getContactFallbackIcon({ contact })} />

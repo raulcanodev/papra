@@ -18,6 +18,7 @@ import { getActiveFilter, toDistinctFilterOptions } from '@/modules/ui/component
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { TextField } from '@/modules/ui/components/textfield';
 import { getOrganizationRouteChildHref, getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
+import { useLinkWithReturn } from '@/modules/ui/navigation/return-to';
 import { DUE_DATE_BUCKET_LABEL_I18N_KEYS, DUE_DATE_BUCKETS, INSTALMENT_STATUS_BADGE_CLASSES, INSTALMENT_STATUS_LABEL_I18N_KEYS, INSTALMENT_STATUSES, PAYMENT_METHOD_LABEL_I18N_KEYS, PAYMENT_METHODS } from '../due-dates.constants';
 import { getDaysUntil, getDueDateBucket, summarizeDueDates } from '../due-dates.models';
 import { fetchDueDates, fetchDueDateSettings, getDueDateSettingsQueryKey, getDueDatesQueryKey, setInstalmentStatus, updateDueDateSettings } from '../due-dates.services';
@@ -122,7 +123,8 @@ export function DueDatesPage() {
     ]);
   };
 
-  const documentHref = (instalment: PaymentInstalment) => (instalment.purchaseInvoiceId
+  const linkWithReturn = useLinkWithReturn();
+  const documentHref = (instalment: PaymentInstalment) => linkWithReturn(instalment.purchaseInvoiceId
     ? getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath: `${instalment.purchaseInvoiceId}/edit` })
     : getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: `${instalment.invoiceId}/edit` }));
 

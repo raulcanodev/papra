@@ -17,6 +17,7 @@ import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextField } from '@/modules/ui/components/textfield';
 import { getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
+import { useReturnHref } from '@/modules/ui/navigation/return-to';
 import { AdjustPricesDialog } from '../components/adjust-prices-dialog';
 import { MultiPickerDialog } from '../components/multi-picker-dialog';
 import { usePriceListDownloads } from '../components/price-list-downloads';
@@ -51,7 +52,7 @@ function PriceListEditor(props: { organizationId: string; priceList: PriceList }
   const { t, getLocale } = useI18n();
   const { downloadImage, downloadPdf, downloadSpreadsheet } = usePriceListDownloads({ organizationId: () => props.organizationId });
   const navigate = useNavigate();
-  const listsHref = () => getOrganizationRouteHref({ organizationId: props.organizationId, routeId: 'priceLists' });
+  const { returnHref: listsHref } = useReturnHref(() => getOrganizationRouteHref({ organizationId: props.organizationId, routeId: 'priceLists' }));
 
   const initialSettings: Settings = {
     name: props.priceList.name,

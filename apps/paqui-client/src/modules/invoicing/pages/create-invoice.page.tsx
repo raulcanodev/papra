@@ -20,6 +20,7 @@ import { createToast } from '@/modules/ui/components/sonner';
 import { TextArea } from '@/modules/ui/components/textarea';
 import { TextField } from '@/modules/ui/components/textfield';
 import { getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
+import { useReturnHref } from '@/modules/ui/navigation/return-to';
 import { FormField, SaveButton } from '../components/catalog-page';
 import { getLineNetMinor, InvoicePreview } from '../components/invoice-preview';
 import { WITHHOLDING_RATES_BPS } from '../invoicing.constants';
@@ -56,7 +57,7 @@ export function CreateInvoicePage() {
   const { t } = useI18n();
   const params = useParams();
   const navigate = useNavigate();
-  const invoicesHref = () => getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'invoices' });
+  const { returnHref } = useReturnHref(() => getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'invoices' }));
 
   const contactsQuery = useQuery(() => ({ queryKey: getContactsQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchContacts({ organizationId: params.organizationId }) }));
   const profileQuery = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'profile'], queryFn: () => fetchFiscalProfile({ organizationId: params.organizationId }) }));
@@ -222,7 +223,7 @@ export function CreateInvoicePage() {
     },
     onSuccess: (_, variables) => {
       createToast({ type: 'success', message: variables.send ? t('invoicing.invoices.toast.sent') : t('invoicing.editor.toast.draft-saved') });
-      navigate(invoicesHref());
+      navigate(returnHref());
     },
     onError: () => createToast({ type: 'error', message: t('invoicing.editor.toast.error') }),
   }));
@@ -245,7 +246,7 @@ export function CreateInvoicePage() {
         <form class="min-w-0 space-y-10" onSubmit={event => event.preventDefault()}>
           <div class="flex items-center justify-between gap-4">
             <div class="flex min-w-0 items-center gap-2.5">
-              <Button as={A} href={invoicesHref()} variant="ghost" size="icon-sm" class="-ml-2 text-muted-foreground" aria-label={t('invoicing.editor.back')}>
+              <Button as={A} href={returnHref()} variant="ghost" size="icon-sm" class="-ml-2 text-muted-foreground" aria-label={t('invoicing.editor.back')}>
                 <div class="i-tabler-arrow-left size-4" />
               </Button>
               <h1 class="truncate text-[28px] font-semibold tracking-tight">{invoiceNumber() ?? t('invoicing.editor.new-title')}</h1>

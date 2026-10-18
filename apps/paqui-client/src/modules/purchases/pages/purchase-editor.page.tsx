@@ -22,6 +22,7 @@ import { createToast } from '@/modules/ui/components/sonner';
 import { TextArea } from '@/modules/ui/components/textarea';
 import { TextField } from '@/modules/ui/components/textfield';
 import { getOrganizationRouteChildHref, getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
+import { useReturnHref } from '@/modules/ui/navigation/return-to';
 import { PurchaseMetadataFields } from '../components/purchase-metadata-fields';
 import { ReadingChecks } from '../components/reading-checks';
 import { SupplierResolutionPanel } from '../components/supplier-resolution-panel';
@@ -45,7 +46,7 @@ export function PurchaseEditorPage() {
   const isEditing = () => Boolean(params.purchaseInvoiceId);
   const documentIdParam = () => (typeof searchParams.documentId === 'string' ? searchParams.documentId : undefined);
   const queue = () => (typeof searchParams.queue === 'string' && searchParams.queue !== '' ? searchParams.queue.split(',') : []);
-  const listHref = () => getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'purchases' });
+  const { returnHref: listHref, keepReturnTo } = useReturnHref(() => getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'purchases' }));
 
   const [supplierId, setSupplierId] = createSignal('');
   const [number, setNumber] = createSignal('');
@@ -294,7 +295,7 @@ export function PurchaseEditorPage() {
       if (rest.length > 0) {
         search.set('queue', rest.join(','));
       }
-      navigate(`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath: 'new' })}?${search.toString()}`);
+      navigate(keepReturnTo(`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath: 'new' })}?${search.toString()}`));
     },
     onError: (error: unknown) => createToast({ type: 'error', message: getErrorMessage({ error, defaultMessage: t('purchases.toast.error') }) }),
   }));
