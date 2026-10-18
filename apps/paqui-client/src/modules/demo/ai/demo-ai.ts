@@ -36,6 +36,37 @@ function buildAttachmentsReply({ question, names }: { question: string; names: s
     : `I received ${list}. In your account I would read them without any template: invoices, tickets and delivery notes become received invoices (creating the supplier if needed), a spreadsheet of products or customers goes to your catalog or contacts, and anything else is kept interpreted to answer from later. This public demo has no AI connected, so I cannot read their content.`;
 }
 
+// The real assistant saves what the user tells about themselves to the AI memory (Settings). Without a model,
+// the demo only picks up the common phrasings of a name, a business, a city and a team size.
+function extractProfileFacts(text: string): Record<string, string> {
+  const es = detectLanguage(text) === 'es';
+  const facts: Record<string, string> = {};
+  const capitalized = '([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?: [A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)?)';
+
+  const name = text.match(new RegExp(es ? `\\b(?:[Mm]e llamo|[Ss]oy) ${capitalized}` : `\\b(?:[Mm]y name is|I'm|I am) ${capitalized}`));
+  if (name) {
+    facts[es ? 'Nombre' : 'Name'] = name[1]!;
+  }
+
+  const business = text.match(es
+    ? /\b(?:[Tt]engo|[Ll]levo) una? ([a-záéíóúñ ]{3,40}?)(?: en ([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+))?(?= con |[,.;!?]|$)/
+    : /\bI (?:run|own|have) an? ([a-z ]{3,40}?)(?: in ([A-Z][a-z]+))?(?= with |[,.;!?]|$)/);
+  // "tengo una factura pendiente" is a question about the data, not a business
+  if (business && !/factur|client|pedido|duda|pregunta|problema|error|invoice|customer|order|question/i.test(business[1]!)) {
+    facts[es ? 'Negocio' : 'Business'] = business[1]!.charAt(0).toUpperCase() + business[1]!.slice(1);
+    if (business[2]) {
+      facts[es ? 'Ciudad' : 'City'] = business[2];
+    }
+  }
+
+  const team = text.match(es ? /\bcon (\d+) (?:empleados|trabajadores)/i : /\bwith (\d+) (?:employees|people)/i);
+  if (team) {
+    facts[es ? 'Empleados' : 'Employees'] = team[1]!;
+  }
+
+  return facts;
+}
+
 async function buildReply(question: string): Promise<string> {
   const lang = detectLanguage(question);
   const es = lang === 'es';
@@ -87,9 +118,12 @@ async function buildReply(question: string): Promise<string> {
       : `You've invoiced **${money(billed, lang)}** across **${issued.length} issued invoices**. **${money(paid, lang)}** is already paid and **${money(billed - paid, lang)}** is still outstanding. You also have ${drafts} drafts not yet issued.`;
   }
 
-  return es
+  const name = await profileStorage.getItem(es ? 'Nombre' : 'Name');
+  const greeting = name ? (es ? `Encantado, ${name}. ` : `Nice to meet you, ${name}. `) : '';
+
+  return greeting + (es
     ? 'Soy el asistente de **Paqui** en modo demo: respondo con los datos de ejemplo de **Acme SL** guardados en tu navegador. Prueba a preguntarme:\n\n- ¿Qué facturas tengo pendientes de cobro?\n- ¿Cuánto he facturado en total?\n- ¿Cuáles son mis mejores clientes?'
-    : 'I\'m the **Paqui** assistant in demo mode: I answer using the sample data for **Acme SL** stored in your browser. Try asking:\n\n- Which invoices are unpaid?\n- How much have I invoiced in total?\n- Who are my top customers?';
+    : 'I\'m the **Paqui** assistant in demo mode: I answer using the sample data for **Acme SL** stored in your browser. Try asking:\n\n- Which invoices are unpaid?\n- How much have I invoiced in total?\n- Who are my top customers?');
 }
 
 function titleFrom(text: string) {
@@ -128,6 +162,10 @@ export async function demoStreamChatMessage({ organizationId, messages, sessionI
   onSessionId?.(session.id);
 
   await messageStorage.setItem(`${session.id}:${now}:u`, { id: createId({ prefix: 'aim' }), sessionId: session.id, role: 'user', content: lastUser, createdAt: now, metadata: attachments.length > 0 ? { attachments } : undefined });
+
+  for (const [key, value] of Object.entries(extractProfileFacts(lastUser))) {
+    await profileStorage.setItem(key, value);
+  }
 
   const reply = attachments.length > 0 ? buildAttachmentsReply({ question: lastUser, names: attachments.map(attachment => attachment.name) }) : await buildReply(lastUser);
   await sleep(450, signal);

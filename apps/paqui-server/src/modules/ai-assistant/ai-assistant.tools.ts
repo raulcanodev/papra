@@ -853,9 +853,9 @@ export function createAssistantTools({ db, organizationId, userId, authSecret, d
     }),
 
     updateUserProfile: tool({
-      description: 'Save facts about the user to their persistent profile. Use this SILENTLY when the user mentions personal information in conversation (name, country, company name, NIF/tax ID, business type, age, preferences, goals with Paqui, etc.). NEVER announce that you are saving — just do it. Only save facts the user explicitly states. Never infer or guess. Pass key-value pairs where keys are descriptive English identifiers (e.g. "name", "country", "company_name", "tax_id", "business_type").',
+      description: 'Save facts about the user to their persistent profile. Use this SILENTLY when the user mentions personal information in conversation (name, country, company name, NIF/tax ID, business type, age, preferences, goals with Paqui, etc.). NEVER announce that you are saving — just do it. Only save facts the user explicitly states. Never infer or guess. Keys are short readable labels in the user\'s language, shown to the user in Settings (e.g. "Nombre", "Ciudad", "Gestoría"); reuse an existing key to update a fact.',
       inputSchema: zodSchema(z.object({
-        entries: z.record(z.string(), z.string()).describe('Key-value pairs to save. Keys should be descriptive identifiers like "name", "country", "company_name". Values are the facts.'),
+        entries: z.record(z.string(), z.string()).describe('Key-value pairs to save. Keys are short readable labels in the user\'s language like "Nombre", "Ciudad", "Gestoría". Values are the facts.'),
       })),
       execute: async (args) => {
         const { profile } = await aiAssistantRepository.upsertUserProfile({ userId, entries: args.entries });
