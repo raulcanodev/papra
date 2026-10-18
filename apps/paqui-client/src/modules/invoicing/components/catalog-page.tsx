@@ -10,7 +10,7 @@ import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 
 export function FormField(props: ParentProps<{ label: string; class?: string }>) {
   return (
-    <label class={cn('block text-sm font-medium', props.class)}>
+    <label class={cn('block min-w-0 text-sm font-medium', props.class)}>
       {props.label}
       <div class="mt-1.5 font-normal">{props.children}</div>
     </label>
