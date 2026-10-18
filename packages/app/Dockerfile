@@ -23,7 +23,9 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 
 COPY . .
 
-RUN pnpm --filter "@paqui/app-client..." run build && \
+# The image is built on the production server: the client build is the memory peak (about 3.5 GB unbounded).
+# A capped heap keeps it around 2 GB so it cannot take the whole machine and restart it mid-deploy.
+RUN NODE_OPTIONS="--max-old-space-size=1536" pnpm --filter "@paqui/app-client..." run build && \
     pnpm --filter "@paqui/app-server..." run build
 
 RUN pnpm deploy --filter=@paqui/app-server --legacy --prod /prod/paqui-server

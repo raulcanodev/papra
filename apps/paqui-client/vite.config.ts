@@ -25,6 +25,8 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
+    // The production image is built on the server itself: computing every chunk gzip size only adds memory and time
+    reportCompressedSize: false,
   },
   resolve: {
     alias: {
