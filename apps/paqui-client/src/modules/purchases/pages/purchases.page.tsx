@@ -6,6 +6,7 @@ import pLimit from 'p-limit';
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { uploadChatAttachment } from '@/modules/ai-assistant/ai-assistant.services';
 import { createPhotoCapture } from '@/modules/captures/components/photo-capture-button';
+import { usePageFilesDrop } from '@/modules/documents/components/global-drop-area.component';
 import { getDueDatesQueryKey } from '@/modules/due-dates/due-dates.services';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { CatalogCell, CatalogRow, CatalogTable } from '@/modules/invoicing/components/catalog-page';
@@ -20,7 +21,6 @@ import { dateIsInRange, getActiveFilter, isDateRangeValue } from '@/modules/ui/c
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
 import { AddPurchaseDialog } from '../components/add-purchase-dialog';
-import { PurchaseDropZone } from '../components/purchase-drop-zone';
 import { EXPENSE_CATEGORY_LABEL_I18N_KEYS, EXTRACTABLE_FILE_ACCEPT, PURCHASE_DOCUMENT_KIND_BADGE_CLASSES, PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS, PURCHASE_DOCUMENT_KINDS, PURCHASE_STATUS_BADGE_CLASSES, PURCHASE_STATUS_LABEL_I18N_KEYS } from '../purchases.constants';
 import { createPurchaseReadings, deletePurchaseInvoice, dismissPurchaseInboxDocument, fetchPurchaseInbox, fetchPurchaseInvoices, getPurchaseInboxQueryKey, getPurchaseInvoicesQueryKey, setPurchaseInvoiceStatus } from '../purchases.services';
 
@@ -137,6 +137,9 @@ export function PurchasesPage() {
     }
   };
 
+  // Invoices dropped anywhere on this page are uploaded and read as purchases, not as plain documents
+  usePageFilesDrop(files => void uploadFiles(files));
+
   const photoCapture = createPhotoCapture({ organizationId: params.organizationId, purpose: 'purchase', onFiles: files => void uploadFiles(files), onDocuments: reviewDocuments });
 
   const statusMutation = createMutation(() => ({
@@ -185,8 +188,6 @@ export function PurchasesPage() {
           />
         </div>
       </div>
-
-      <PurchaseDropZone compact={purchaseInvoices().length > 0} isUploading={isUploading()} onFiles={files => void uploadFiles(files)} onPick={() => fileInput?.click()} />
 
       <Show when={inbox().length > 0}>
         <section class="mt-4 rounded-xl border border-violet-500/25 bg-violet-500/6 p-4">

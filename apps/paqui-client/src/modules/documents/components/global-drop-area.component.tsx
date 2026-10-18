@@ -3,6 +3,15 @@ import { createSignal, onCleanup } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cn } from '@/modules/shared/style/cn';
 
+// A page can take the files dropped on it for itself instead of the plain document upload
+// (the purchases page reads them as invoices to pay); only while it is mounted
+const [getPageFilesDropHandler, setPageFilesDropHandler] = createSignal<((files: File[]) => void) | undefined>();
+
+export function usePageFilesDrop(handler: (files: File[]) => void) {
+  setPageFilesDropHandler(() => handler);
+  onCleanup(() => setPageFilesDropHandler(undefined));
+}
+
 export const GlobalDropArea: Component<{ onFilesDrop?: (args: { files: File[] }) => void }> = (props) => {
   const { t } = useI18n();
   const [isDragging, setIsDragging] = createSignal(false);
@@ -24,6 +33,12 @@ export const GlobalDropArea: Component<{ onFilesDrop?: (args: { files: File[] })
     const files = Array.from(e.dataTransfer?.files ?? []);
 
     if (files.length === 0) {
+      return;
+    }
+
+    const pageHandler = getPageFilesDropHandler();
+    if (pageHandler) {
+      pageHandler(files);
       return;
     }
 
