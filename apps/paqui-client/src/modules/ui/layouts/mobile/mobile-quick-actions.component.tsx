@@ -29,11 +29,13 @@ export const MobileQuickActions: Component<{ open: boolean; onOpenChange: (open:
     navigate(getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'documents' }));
   };
 
-  const getEntityHref = (routeId: 'newInvoice' | 'newPurchaseInvoice') => `/organizations/${params.organizationId}/${organizationEntityRoutes[routeId].path}`;
+  const getEntityHref = (routeId: 'newDeliveryNote' | 'newInvoice' | 'newPurchaseInvoice') => `/organizations/${params.organizationId}/${organizationEntityRoutes[routeId].path}`;
 
   const getLinkActions = (): { icon?: string; image?: string; label: string; description: string; href: string; isHighlighted?: boolean }[] => [
     ...(getCapabilities().invoicing
       ? [
+          // Filled on the spot when the goods leave: customer, products and quantities, then printed to sign
+          { icon: 'i-tabler-truck-delivery', label: t('layout.mobile.quick-actions.new-delivery-note'), description: t('layout.mobile.quick-actions.new-delivery-note.description'), href: getEntityHref('newDeliveryNote') },
           { icon: 'i-tabler-receipt', label: t('layout.mobile.quick-actions.new-invoice'), description: t('layout.mobile.quick-actions.new-invoice.description'), href: getEntityHref('newInvoice') },
           { icon: 'i-tabler-truck', label: t('layout.mobile.quick-actions.new-purchase'), description: t('layout.mobile.quick-actions.new-purchase.description'), href: getEntityHref('newPurchaseInvoice') },
         ]

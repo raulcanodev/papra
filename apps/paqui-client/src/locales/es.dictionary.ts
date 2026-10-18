@@ -2846,6 +2846,8 @@ export const translations: Partial<TranslationsDictionary> = {
   'layout.mobile.quick-actions.scan.description': 'Ticket o factura con la cámara',
   'layout.mobile.quick-actions.upload': 'Subir archivo',
   'layout.mobile.quick-actions.upload.description': 'PDF, foto o documento',
+  'layout.mobile.quick-actions.new-delivery-note': 'Crear albarán',
+  'layout.mobile.quick-actions.new-delivery-note.description': 'Rellénalo e imprímelo para firmar',
   'layout.mobile.quick-actions.new-invoice': 'Nueva factura',
   'layout.mobile.quick-actions.new-invoice.description': 'Emitir a un cliente',
   'layout.mobile.quick-actions.new-purchase': 'Factura recibida',
