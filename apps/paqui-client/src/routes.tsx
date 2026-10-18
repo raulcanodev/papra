@@ -85,6 +85,8 @@ import { CreateWebhookPage } from './modules/webhooks/pages/create-webhook.page'
 import { EditWebhookPage } from './modules/webhooks/pages/edit-webhook.page';
 import { WebhooksPage } from './modules/webhooks/pages/webhooks.page';
 
+const ORGANIZATION_ID_PATTERN = /^org_[a-zA-Z0-9]+$/;
+
 function OrganizationRouteRedirect(props: { routeId: OrganizationRouteId; childPath?: string; search?: string }) {
   const params = useParams();
   const href = () => `${props.childPath
@@ -203,7 +205,7 @@ export const routes: RouteDefinition[] = [
               {
                 path: '/:organizationId',
                 matchFilters: {
-                  organizationId: /^org_[a-zA-Z0-9]+$/,
+                  organizationId: ORGANIZATION_ID_PATTERN,
                 },
                 component: (props) => {
                   const params = useParams();
@@ -409,6 +411,9 @@ export const routes: RouteDefinition[] = [
               },
               {
                 path: '/:organizationId/settings',
+                matchFilters: {
+                  organizationId: ORGANIZATION_ID_PATTERN,
+                },
                 component: OrganizationSettingsLayout,
                 children: [
                   {
@@ -532,13 +537,22 @@ export const routes: RouteDefinition[] = [
               {
                 path: '/:organizationId/setup',
                 matchFilters: {
-                  organizationId: /^org_[a-zA-Z0-9]+$/,
+                  organizationId: ORGANIZATION_ID_PATTERN,
                 },
                 component: OrganizationSetupPage,
               },
               {
                 path: '/first',
                 component: () => <Navigate href="/onboarding" />,
+              },
+              {
+                // A link built without an organization (/organizations/undefined/...) would otherwise be a 404 dead end,
+                // and going back to it too: the root sends to the last organization used, or the list
+                path: '/:organizationId/*rest',
+                matchFilters: {
+                  organizationId: (organizationId: string) => !ORGANIZATION_ID_PATTERN.test(organizationId) && !['create', 'first', 'deleted'].includes(organizationId),
+                },
+                component: () => <Navigate href="/" />,
               },
             ],
           },
