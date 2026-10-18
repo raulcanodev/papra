@@ -12,6 +12,7 @@ export type MobileTab = {
 const mobileTabIcons = {
   home: 'i-tabler-home',
   documents: 'i-tabler-file-text',
+  purchases: 'i-tabler-file-arrow-left',
   invoices: 'i-tabler-receipt',
   calendar: 'i-tabler-calendar-month',
   more: 'i-tabler-layout-grid',
@@ -21,8 +22,11 @@ type MobileTabRouteId = keyof typeof mobileTabIcons;
 
 /** The tabs left and right of the "+" button, in order: two before it, two after it */
 export function getMobileTabs({ capabilities }: { capabilities: OrganizationNavigationCapabilities }): MobileTab[] {
-  // Without invoicing the calendar takes its place, so the bar never has a hole
-  const routeIds: MobileTabRouteId[] = ['home', 'documents', capabilities.invoicing ? 'invoices' : 'calendar', 'more'];
+  // Sales and purchases are the two daily invoicing destinations. Without invoicing, documents and the calendar
+  // keep the bar useful without leaving holes.
+  const routeIds: MobileTabRouteId[] = capabilities.invoicing
+    ? ['home', 'purchases', 'invoices', 'more']
+    : ['home', 'documents', 'calendar', 'more'];
 
   return routeIds.map(routeId => ({ routeId, icon: mobileTabIcons[routeId] }));
 }

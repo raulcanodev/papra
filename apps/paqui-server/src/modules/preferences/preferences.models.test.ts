@@ -2,10 +2,10 @@ import { describe, expect, test } from 'vitest';
 import { mergePreferences, parseStoredPreferences } from './preferences.models';
 
 describe('preferences models', () => {
-  test('nothing stored yet gives the defaults: everything visible, billed revenue', () => {
+  test('nothing stored yet hides secondary documents and uses billed revenue', () => {
     expect(parseStoredPreferences({ stored: undefined })).to.eql({
       dashboard: { hiddenWidgetIds: [], revenueMode: 'billed' },
-      navigation: { hiddenItemIds: [] },
+      navigation: { hiddenItemIds: ['documents'] },
     });
   });
 

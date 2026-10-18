@@ -13,7 +13,7 @@ export const memberPreferencesSchema = z.object({
     revenueMode: z.enum(DASHBOARD_REVENUE_MODES).default('billed'),
   }).default({}),
   navigation: z.object({
-    hiddenItemIds: idListSchema.default([]),
+    hiddenItemIds: idListSchema.default(['documents']),
   }).default({}),
 });
 

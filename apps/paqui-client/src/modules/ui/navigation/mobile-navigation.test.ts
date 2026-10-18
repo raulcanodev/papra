@@ -7,8 +7,8 @@ const translate = (key: string) => key;
 
 describe('mobile navigation', () => {
   describe('getMobileTabs', () => {
-    test('the bar shows home, documents, invoices and more', () => {
-      expect(getMobileTabs({ capabilities: withInvoicing }).map(({ routeId }) => routeId)).toEqual(['home', 'documents', 'invoices', 'more']);
+    test('the bar shows home, purchases, invoices and more', () => {
+      expect(getMobileTabs({ capabilities: withInvoicing }).map(({ routeId }) => routeId)).toEqual(['home', 'purchases', 'invoices', 'more']);
     });
 
     test('without invoicing the calendar takes the place of the invoices', () => {
@@ -22,8 +22,8 @@ describe('mobile navigation', () => {
 
     test('a tab is active on its page and on the pages under it', () => {
       expect(getActive('home')).toBe('home');
-      expect(getActive('documents')).toBe('documents');
-      expect(getActive('documents/doc_1')).toBe('documents');
+      expect(getActive('purchases')).toBe('purchases');
+      expect(getActive('purchases/new')).toBe('purchases');
       expect(getActive('sales')).toBe('invoices');
       expect(getActive('sales/new')).toBe('invoices');
     });
@@ -32,7 +32,7 @@ describe('mobile navigation', () => {
       expect(getActive('more')).toBe('more');
       expect(getActive('contacts/customers')).toBe('more');
       expect(getActive('taxes')).toBe('more');
-      expect(getActive('purchases')).toBe('more');
+      expect(getActive('documents')).toBe('more');
       expect(getActive('ai-assistant')).toBe('more');
     });
 
@@ -57,7 +57,7 @@ describe('mobile navigation', () => {
       expect(routeIds).toContain('customers');
       expect(routeIds).toContain('taxes');
       expect(routeIds).not.toContain('home');
-      expect(routeIds).not.toContain('documents');
+      expect(routeIds).not.toContain('purchases');
       expect(routeIds).not.toContain('invoices');
     });
 

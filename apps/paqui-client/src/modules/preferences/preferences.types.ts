@@ -13,5 +13,5 @@ export type MemberPreferencesPatch = {
 
 export const DEFAULT_MEMBER_PREFERENCES: MemberPreferences = {
   dashboard: { hiddenWidgetIds: [], revenueMode: 'billed' },
-  navigation: { hiddenItemIds: [] },
+  navigation: { hiddenItemIds: ['documents'] },
 };

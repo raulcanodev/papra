@@ -213,7 +213,7 @@ export const organizationEntityRoutes = {
   editInvoice: { path: 'sales/:invoiceId/edit', label: 'Issued invoice editor' },
   newPurchaseInvoice: { path: 'purchases/new', label: 'New purchase (received invoice, ticket or delivery note)' },
   editPurchaseInvoice: { path: 'purchases/:purchaseInvoiceId/edit', label: 'Purchase editor (received invoice, ticket or delivery note)' },
-  contact: { path: 'contacts/:contactId', label: 'Contact (customer, supplier or sales representative) with its products' },
+  contact: { path: 'contacts/:contactId', label: 'Contact (customer, supplier or sales representative) with its invoices, products and price list' },
   priceList: { path: 'pricing/price-lists/:priceListId', label: 'Price list editor: its products with their prices, costs and margins, and its contacts' },
 } as const satisfies Record<string, { path: string; label: string }>;
 

@@ -6,7 +6,7 @@ describe('preferences models', () => {
   test('a patch only changes the fields it carries', () => {
     expect(applyPreferencesPatch({ preferences: DEFAULT_MEMBER_PREFERENCES, patch: { dashboard: { revenueMode: 'profit' } } })).to.eql({
       dashboard: { hiddenWidgetIds: [], revenueMode: 'profit' },
-      navigation: { hiddenItemIds: [] },
+      navigation: { hiddenItemIds: ['documents'] },
     });
   });
 

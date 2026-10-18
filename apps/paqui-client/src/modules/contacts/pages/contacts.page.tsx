@@ -15,7 +15,7 @@ import { CONTACT_KIND_LABEL_I18N_KEYS, CONTACT_KINDS, CONTACT_ROLE_BADGE_CLASSES
 import { fetchContacts, getContactsQueryKey } from '../contacts.services';
 import { useDeleteContact } from '../use-delete-contact';
 
-/** The contacts of one role (customers, suppliers or sales representatives); a click opens the contact with its products */
+/** The contacts of one role (customers, suppliers or sales representatives); a click opens the contact detail. */
 export function ContactsPage(props: { role: ContactRole }) {
   const { t } = useI18n();
   const params = useParams();

@@ -38,12 +38,12 @@ async function setupApp() {
 }
 
 describe('member preferences e2e', () => {
-  test('a member starts with everything visible and can hide menu entries and home cards', async () => {
+  test('a member starts with secondary documents hidden and can hide menu entries and home cards', async () => {
     const { request } = await setupApp();
 
     expect((await request({})).body.preferences).to.eql({
       dashboard: { hiddenWidgetIds: [], revenueMode: 'billed' },
-      navigation: { hiddenItemIds: [] },
+      navigation: { hiddenItemIds: ['documents'] },
     });
 
     await request({ method: 'PATCH', body: { navigation: { hiddenItemIds: ['salesRepresentatives'] } } });
@@ -60,8 +60,8 @@ describe('member preferences e2e', () => {
 
     await request({ method: 'PATCH', body: { navigation: { hiddenItemIds: ['salesRepresentatives'] } } });
 
-    expect((await request({ userId: COLLEAGUE_ID })).body.preferences.navigation.hiddenItemIds).to.eql([]);
-    expect((await request({ organizationId: OTHER_ORG_ID })).body.preferences.navigation.hiddenItemIds).to.eql([]);
+    expect((await request({ userId: COLLEAGUE_ID })).body.preferences.navigation.hiddenItemIds).to.eql(['documents']);
+    expect((await request({ organizationId: OTHER_ORG_ID })).body.preferences.navigation.hiddenItemIds).to.eql(['documents']);
   });
 
   test('invalid values are rejected and non members cannot read or write', async () => {

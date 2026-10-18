@@ -35,9 +35,9 @@ type BusinessSector = 'restaurant' | 'factory' | 'other';
 
 // What each sector does not use, hidden from the menu and the home of whoever sets the company up (they can show it again)
 const SECTOR_HIDDEN_ITEMS: Record<BusinessSector, { navigation: string[]; widgets: string[] }> = {
-  restaurant: { navigation: ['salesRepresentatives'], widgets: ['sales-by-representative'] },
-  factory: { navigation: [], widgets: [] },
-  other: { navigation: [], widgets: [] },
+  restaurant: { navigation: ['documents', 'salesRepresentatives'], widgets: ['sales-by-representative'] },
+  factory: { navigation: ['documents'], widgets: [] },
+  other: { navigation: ['documents'], widgets: [] },
 };
 type TaxRateChoice = { name: string; rateBps: number; selected: boolean };
 type Invite = { email: string; role: Exclude<OrganizationMemberRole, 'owner'> };
