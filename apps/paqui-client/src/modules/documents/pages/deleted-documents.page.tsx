@@ -4,14 +4,15 @@ import { useParams } from '@solidjs/router';
 import { keepPreviousData, useMutation, useQuery } from '@tanstack/solid-query';
 import { createSignal, Show, Suspense } from 'solid-js';
 import { useConfig } from '@/modules/config/config.provider';
-import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { useConfirmModal } from '@/modules/shared/confirm';
 import { queryClient } from '@/modules/shared/query/query-client';
+import { cn } from '@/modules/shared/style/cn';
 import { Alert, AlertDescription } from '@/modules/ui/components/alert';
 import { Button } from '@/modules/ui/components/button';
 import { createToast } from '@/modules/ui/components/sonner';
-import { DocumentsPaginatedList } from '../components/documents-list.component';
+import { deletedAtColumn, DocumentsPaginatedList } from '../components/documents-list.component';
+import { getDaysBeforePermanentDeletion } from '../document.models';
 import { useRestoreDocument } from '../documents.composables';
 import { deleteAllTrashDocuments, deleteTrashDocument, fetchOrganizationDeletedDocuments } from '../documents.services';
 
@@ -162,7 +163,7 @@ export const DeletedDocumentsPage: Component = () => {
 
   return (
     <div class="page">
-      <h1 class="text-2xl font-bold">{t('documents.deleted.title')}</h1>
+      <h1 class="text-xl font-semibold">{t('documents.deleted.title')}</h1>
 
       <Alert variant="muted" class="my-4 flex items-center gap-6 xl:gap-4">
         <div class="i-tabler-info-circle size-10 xl:size-8 text-primary flex-shrink-0 hidden sm:block" />
@@ -193,18 +194,24 @@ export const DeletedDocumentsPage: Component = () => {
             getPagination={getPagination}
             setPagination={setPagination}
             extraColumns={[
+              deletedAtColumn,
               {
-                id: 'deletion',
-                cell: data => (
-                  <div class="text-muted-foreground hidden sm:block">
-                    {t('documents.deleted.deleted-at')}
-                    {' '}
-                    <RelativeTime class="text-foreground font-bold" date={data.row.original.deletedAt!} />
-                  </div>
-                ),
+                id: 'permanentDeletion',
+                header: () => t('documents.list.table.headers.permanent-deletion'),
+                cell: (data) => {
+                  // The purge runs once a day, a document past its date stays until then
+                  const days = () => Math.max(0, getDaysBeforePermanentDeletion({ document: data.row.original, deletedDocumentsRetentionDays: config.documents.deletedDocumentsRetentionDays }) ?? 0);
+
+                  return (
+                    <span class={cn('whitespace-nowrap tabular-nums', days() <= 3 ? 'font-medium text-destructive' : 'text-muted-foreground')}>
+                      {days() === 0 ? t('documents.deleted.days-left.today') : t('documents.deleted.days-left', { count: days() })}
+                    </span>
+                  );
+                },
               },
               {
                 id: 'actions',
+                header: () => <span class="block text-right">{t('documents.list.table.headers.actions')}</span>,
                 cell: data => (
                   <div class="flex items-center justify-end gap-2">
                     <RestoreDocumentButton document={data.row.original} />

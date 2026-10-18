@@ -34,7 +34,6 @@ export const organizationRoutes = {
   financeTransactions: { path: 'finances/transactions', surface: 'workspace' },
   financeSubscriptions: { path: 'finances/subscriptions', surface: 'workspace' },
   financeGoals: { path: 'finances/goals', surface: 'workspace' },
-  deletedDocuments: { path: 'documents/deleted', surface: 'workspace' },
   // Phones only: what does not fit in the bottom bar
   more: { path: 'more', surface: 'workspace' },
 
@@ -45,6 +44,8 @@ export const organizationRoutes = {
   settingsCustomProperties: { path: 'settings/documents/custom-properties', surface: 'settings' },
   settingsAutomations: { path: 'settings/documents/automations', surface: 'settings' },
   settingsIntakeEmails: { path: 'settings/documents/intake-emails', surface: 'settings' },
+  // The trash: documents deleted, kept a while before being removed for good
+  deletedDocuments: { path: 'settings/documents/trash', surface: 'settings' },
   settingsFiscalProfile: { path: 'settings/invoicing/fiscal-profile', surface: 'settings' },
   settingsInvoiceSeries: { path: 'settings/invoicing/series', surface: 'settings' },
   settingsTaxes: { path: 'settings/invoicing/taxes', surface: 'settings' },
@@ -76,7 +77,6 @@ export const organizationRouteLabelKeys = {
   financeTransactions: 'navigation.item.transactions',
   financeSubscriptions: 'navigation.item.subscriptions',
   financeGoals: 'navigation.item.goals',
-  deletedDocuments: 'layout.menu.deleted-documents',
   more: 'navigation.item.more',
   settingsGeneral: 'navigation.item.general',
   settingsMembers: 'navigation.item.members',
@@ -85,6 +85,7 @@ export const organizationRouteLabelKeys = {
   settingsCustomProperties: 'navigation.item.custom-fields',
   settingsAutomations: 'navigation.item.automations',
   settingsIntakeEmails: 'navigation.item.intake-emails',
+  deletedDocuments: 'navigation.item.trash',
   settingsFiscalProfile: 'navigation.item.fiscal-profile',
   settingsInvoiceSeries: 'navigation.item.invoice-series',
   settingsTaxes: 'navigation.item.taxes',
@@ -178,6 +179,7 @@ const settingsNavigation: readonly NavigationSectionDefinition[] = [
       { routeId: 'settingsCustomProperties', icon: 'i-tabler-forms' },
       { routeId: 'settingsAutomations', icon: 'i-tabler-wand' },
       { routeId: 'settingsIntakeEmails', icon: 'i-tabler-mail' },
+      { routeId: 'deletedDocuments', icon: 'i-tabler-trash' },
     ],
   },
   {

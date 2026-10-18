@@ -240,8 +240,9 @@ export const routes: RouteDefinition[] = [
                         component: DocumentPage,
                       },
                       {
-                        path: getOrganizationNestedRoutePath('deletedDocuments'),
-                        component: DeletedDocumentsPage,
+                        // The trash moved to the settings, old links still land on it
+                        path: '/documents/deleted',
+                        component: () => <OrganizationRouteRedirect routeId="deletedDocuments" />,
                       },
                       {
                         path: getOrganizationNestedRoutePath('invoices'),
@@ -477,6 +478,10 @@ export const routes: RouteDefinition[] = [
                   {
                     path: getOrganizationNestedRoutePath('settingsIntakeEmails'),
                     component: IntakeEmailsPage,
+                  },
+                  {
+                    path: getOrganizationNestedRoutePath('deletedDocuments'),
+                    component: DeletedDocumentsPage,
                   },
                   {
                     path: getOrganizationNestedRoutePath('settingsFiscalProfile'),
