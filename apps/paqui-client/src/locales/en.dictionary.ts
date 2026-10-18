@@ -2850,6 +2850,7 @@ export const translations = {
   'due-dates.actions.mark-paid': 'Mark as paid',
   'due-dates.actions.mark-collected': 'Mark as collected',
   'due-dates.actions.mark-returned': 'Mark as returned (bounced)',
+  'due-dates.actions.undo': 'Undo',
   'due-dates.actions.mark-pending': 'Mark as pending',
   'due-dates.toast.paid': 'Due date marked as paid',
   'due-dates.toast.returned': 'Due date marked as returned: it is owed again',

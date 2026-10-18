@@ -41,6 +41,9 @@ export function DueDatesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const direction = (): DueDateDirection => (searchParams.tab === 'receivable' ? 'receivable' : 'payable');
   const [search, setSearch] = createSignal('');
+  // Due dates changed from this page stay listed with their previous status, whatever the filters, until the page is
+  // reloaded: a click by mistake is undone right there instead of looking for the invoice elsewhere
+  const [changed, setChanged] = createSignal<ReadonlyMap<string, InstalmentStatus>>(new Map());
   const [filters, setFilters] = createSignal<ActiveFilter[]>([DEFAULT_STATUS_FILTER]);
   const [isSettingsOpen, setIsSettingsOpen] = createSignal(false);
 
@@ -104,8 +107,7 @@ export function DueDatesPage() {
     const periods = selected('period');
 
     return scoped()
-      .filter(instalment => !statuses || statuses.includes(instalment.status))
-      .filter(instalment => !periods || periods.includes(getDueDateBucket(instalment)));
+      .filter(instalment => changed().has(instalment.id) || ((!statuses || statuses.includes(instalment.status)) && (!periods || periods.includes(getDueDateBucket(instalment)))));
   });
 
   const summary = createMemo(() => summarizeDueDates({ instalments: scoped() }));
@@ -133,9 +135,17 @@ export function DueDatesPage() {
   };
 
   const statusMutation = createMutation(() => ({
-    mutationFn: ({ instalmentId, status }: { instalmentId: string; status: InstalmentStatus }) => setInstalmentStatus({ organizationId: params.organizationId, instalmentId, status }),
-    onSuccess: async (_, { status }) => {
+    mutationFn: ({ instalmentId, status }: { instalmentId: string; status: InstalmentStatus; previousStatus: InstalmentStatus }) => setInstalmentStatus({ organizationId: params.organizationId, instalmentId, status }),
+    onSuccess: async (_, { instalmentId, status, previousStatus }) => {
       createToast({ type: 'success', message: t(`due-dates.toast.${status}`) });
+      setChanged((current) => {
+        const next = new Map(current);
+        // The first status seen is the one an undo goes back to
+        if (!next.has(instalmentId)) {
+          next.set(instalmentId, previousStatus);
+        }
+        return next;
+      });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: getDueDatesQueryKey({ organizationId: params.organizationId }) }),
         queryClient.invalidateQueries({ queryKey: ['organizations', params.organizationId, 'purchases'] }),
@@ -147,9 +157,9 @@ export function DueDatesPage() {
   }));
 
   const quickActions = (instalment: PaymentInstalment) => [
-    ...(instalment.status !== 'paid' ? [{ label: instalment.direction === 'payable' ? t('due-dates.actions.mark-paid') : t('due-dates.actions.mark-collected'), icon: 'i-tabler-check', onSelect: () => statusMutation.mutate({ instalmentId: instalment.id, status: 'paid' }) }] : []),
-    ...(instalment.status !== 'returned' ? [{ label: t('due-dates.actions.mark-returned'), icon: 'i-tabler-arrow-back-up', onSelect: () => statusMutation.mutate({ instalmentId: instalment.id, status: 'returned' }) }] : []),
-    ...(instalment.status !== 'pending' ? [{ label: t('due-dates.actions.mark-pending'), icon: 'i-tabler-clock', onSelect: () => statusMutation.mutate({ instalmentId: instalment.id, status: 'pending' }) }] : []),
+    ...(instalment.status !== 'paid' ? [{ label: instalment.direction === 'payable' ? t('due-dates.actions.mark-paid') : t('due-dates.actions.mark-collected'), icon: 'i-tabler-check', onSelect: () => statusMutation.mutate({ instalmentId: instalment.id, status: 'paid', previousStatus: instalment.status }) }] : []),
+    ...(instalment.status !== 'returned' ? [{ label: t('due-dates.actions.mark-returned'), icon: 'i-tabler-arrow-back-up', onSelect: () => statusMutation.mutate({ instalmentId: instalment.id, status: 'returned', previousStatus: instalment.status }) }] : []),
+    ...(instalment.status !== 'pending' ? [{ label: t('due-dates.actions.mark-pending'), icon: 'i-tabler-clock', onSelect: () => statusMutation.mutate({ instalmentId: instalment.id, status: 'pending', previousStatus: instalment.status }) }] : []),
   ];
 
   return (
@@ -240,7 +250,7 @@ export function DueDatesPage() {
         >
           <For each={rows()}>
             {instalment => (
-              <CatalogRow onClick={() => navigate(documentHref(instalment))}>
+              <CatalogRow onClick={() => navigate(documentHref(instalment))} class={cn(changed().has(instalment.id) && instalment.status === 'paid' && 'opacity-60')}>
                 <CatalogCell class="whitespace-nowrap">
                   <div class="font-medium tabular-nums">{formatDate(instalment.dueDate)}</div>
                   <div class={cn('text-xs', getDueDateBucket(instalment) === 'overdue' && instalment.status !== 'paid' ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground')}>{relativeDays(instalment)}</div>
@@ -266,10 +276,20 @@ export function DueDatesPage() {
                 </CatalogCell>
                 <CatalogCell>
                   <div class="flex items-center justify-end gap-1" onClick={event => event.stopPropagation()}>
-                    <Show when={instalment.status !== 'paid'}>
-                      <Button size="sm" variant="ghost" class="h-8 gap-1 px-2 text-xs max-md:hidden" onClick={() => statusMutation.mutate({ instalmentId: instalment.id, status: 'paid' })}>
-                        <div class="i-tabler-check size-4" />
-                        {instalment.direction === 'payable' ? t('due-dates.actions.paid') : t('due-dates.actions.collected')}
+                    <Show
+                      when={changed().get(instalment.id) !== undefined && changed().get(instalment.id) !== instalment.status}
+                      fallback={(
+                        <Show when={instalment.status !== 'paid'}>
+                          <Button size="sm" variant="ghost" class="h-8 gap-1 px-2 text-xs max-md:hidden" onClick={() => statusMutation.mutate({ instalmentId: instalment.id, status: 'paid', previousStatus: instalment.status })}>
+                            <div class="i-tabler-check size-4" />
+                            {instalment.direction === 'payable' ? t('due-dates.actions.paid') : t('due-dates.actions.collected')}
+                          </Button>
+                        </Show>
+                      )}
+                    >
+                      <Button size="sm" variant="outline" class="h-8 gap-1 px-2 text-xs" onClick={() => statusMutation.mutate({ instalmentId: instalment.id, status: changed().get(instalment.id)!, previousStatus: instalment.status })}>
+                        <div class="i-tabler-arrow-back-up size-4" />
+                        {t('due-dates.actions.undo')}
                       </Button>
                     </Show>
                     <RowActions itemName={`${instalment.contactName} ${instalment.documentNumber ?? ''}`} actions={quickActions(instalment)} onEdit={() => navigate(documentHref(instalment))} />

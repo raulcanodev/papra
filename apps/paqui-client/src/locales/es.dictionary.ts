@@ -2852,6 +2852,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'due-dates.actions.mark-paid': 'Marcar como pagado',
   'due-dates.actions.mark-collected': 'Marcar como cobrado',
   'due-dates.actions.mark-returned': 'Marcar como devuelto (impagado)',
+  'due-dates.actions.undo': 'Deshacer',
   'due-dates.actions.mark-pending': 'Marcar como pendiente',
   'due-dates.toast.paid': 'Vencimiento marcado como pagado',
   'due-dates.toast.returned': 'Vencimiento marcado como devuelto: vuelve a estar pendiente',
