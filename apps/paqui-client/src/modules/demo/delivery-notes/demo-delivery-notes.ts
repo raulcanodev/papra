@@ -5,7 +5,8 @@ import { prefixStorage } from 'unstorage';
 import { defineHandler } from '../demo-api-mock.models';
 import { createId } from '../demo.models';
 import { getValues } from '../demo.storage.models';
-import { createDemoDraftInvoice, getDemoContact, getDemoFiscalProfile, getDemoInvoice, listDemoContacts, listDemoProducts } from '../invoicing/demo-invoicing';
+import { createDemoDraftInvoice, getDemoContact, getDemoFiscalProfile, getDemoInvoice, listDemoContacts, listDemoInvoices, listDemoProducts } from '../invoicing/demo-invoicing';
+import { daysAgoToDate } from '../invoicing/demo-invoicing.fixtures';
 import { getDemoContactPrices } from '../pricing/demo-pricing';
 
 // Delivery notes of the demo, in the browser localStorage like every other demo record, same rules as the server
@@ -150,6 +151,60 @@ async function buildInvoiceLines({ organizationId, customerId, items }: { organi
       discountRateBps: listPrice && priceList ? priceList.discountRateBps : 0,
     };
   });
+}
+
+// What the demo starts with: the goods handed to a few customers these weeks, most of them not invoiced yet (the
+// "not invoiced" banner and the invoice button have something to show), the older ones already on an invoice
+const DEMO_DELIVERY_NOTES: Array<{ customerTaxId: string; daysAgo: number; invoiced?: boolean; notes?: string; lines: Array<{ product: 'book' | 'catering' | null; description?: string; quantity: number; writtenText?: string }> }> = [
+  { customerTaxId: 'B00000001', daysAgo: 34, invoiced: true, lines: [{ product: 'book', quantity: 12 }] },
+  { customerTaxId: 'B00000003', daysAgo: 45, invoiced: true, lines: [{ product: 'book', quantity: 6 }, { product: null, description: 'Portes', quantity: 1 }] },
+  { customerTaxId: 'B00000003', daysAgo: 38, invoiced: true, lines: [{ product: 'catering', quantity: 1 }] },
+  { customerTaxId: 'B00000003', daysAgo: 11, lines: [{ product: 'book', quantity: 10, writtenText: '10 manual. form.' }] },
+  { customerTaxId: 'B00000004', daysAgo: 9, notes: 'Entregar en recepción, preguntar por Ana', lines: [{ product: 'book', quantity: 25 }, { product: null, description: 'Portes', quantity: 1 }] },
+  { customerTaxId: 'F00000005', daysAgo: 8, lines: [{ product: 'catering', quantity: 2 }] },
+  { customerTaxId: 'B00000003', daysAgo: 6, lines: [{ product: 'book', quantity: 4 }, { product: 'catering', quantity: 1 }] },
+  { customerTaxId: 'F00000005', daysAgo: 3, lines: [{ product: 'catering', quantity: 1, writtenText: '1 cater. evento' }] },
+  { customerTaxId: 'B00000003', daysAgo: 1, lines: [{ product: 'book', quantity: 8 }] },
+];
+
+const DEMO_PRODUCT_NAMES = { book: 'Manual de formación (impreso)', catering: 'Servicio de catering' } as const;
+
+export async function seedDemoDeliveryNotes({ organizationId, now = new Date() }: { organizationId: string; now?: Date }) {
+  const [contacts, products, invoices] = await Promise.all([listDemoContacts({ organizationId }), listDemoProducts({ organizationId }), listDemoInvoices()]);
+  const sorted = DEMO_DELIVERY_NOTES.toSorted((a, b) => b.daysAgo - a.daysAgo);
+
+  for (const [index, fixture] of sorted.entries()) {
+    const customer = contacts.find(contact => contact.taxId === fixture.customerTaxId);
+
+    if (!customer) {
+      continue;
+    }
+
+    // An invoiced one sits on the latest invoice already issued to that customer, like after "Invoice"
+    const invoice = fixture.invoiced
+      ? invoices.filter(candidate => candidate.organizationId === organizationId && candidate.customerId === customer.id && candidate.status !== 'draft').toSorted((a, b) => String(b.issueDate).localeCompare(String(a.issueDate)))[0]
+      : undefined;
+    const date = daysAgoToDate(now, fixture.daysAgo);
+    const stamp = date.toISOString();
+
+    await db().setItem(`dln_demo${index}`, {
+      id: `dln_demo${index}`,
+      organizationId,
+      customerId: customer.id,
+      number: String(index + 1).padStart(4, '0'),
+      date: new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())).toISOString(),
+      notes: fixture.notes ?? null,
+      documentId: null,
+      invoiceId: invoice?.id ?? null,
+      items: fixture.lines.map((line, position) => {
+        const product = line.product === null ? undefined : products.find(candidate => candidate.name === DEMO_PRODUCT_NAMES[line.product!]);
+
+        return { id: `dlni_demo${index}_${position}`, position, productId: product?.id ?? null, writtenText: line.writtenText ?? null, description: product?.name ?? line.description ?? '', quantityMillis: line.quantity * 1_000 };
+      }),
+      createdAt: stamp,
+      updatedAt: stamp,
+    });
+  }
 }
 
 const base = '/api/organizations/:organizationId/delivery-notes';

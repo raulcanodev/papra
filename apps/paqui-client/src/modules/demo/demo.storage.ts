@@ -8,7 +8,7 @@ import type { Webhook } from '../webhooks/webhooks.types';
 import { createStorage, prefixStorage } from 'unstorage';
 import localStorageDriver from 'unstorage/drivers/localstorage';
 import { trackingServices } from '../tracking/tracking.services';
-import { bindDeliveryNotesStorage } from './delivery-notes/demo-delivery-notes';
+import { bindDeliveryNotesStorage, seedDemoDeliveryNotes } from './delivery-notes/demo-delivery-notes';
 import { DEMO_DATA_VERSION, DEMO_IS_SEEDED_KEY } from './demo.constants';
 import { createId } from './demo.models';
 import { bindDueDatesStorage } from './due-dates/demo-due-dates';
@@ -181,6 +181,7 @@ export async function seedDemoStorage({ now = new Date() }: { now?: Date } = {})
   await seedDemoInvoicing({ organizationId, now });
   await seedDemoPricing({ organizationId });
   const { purchaseInvoices } = await seedDemoPurchases({ organizationId, now });
+  await seedDemoDeliveryNotes({ organizationId, now });
 
   // Folders: a few manual ones, and one per customer and supplier where their invoices get archived (as the server does)
   const createFolder = async ({ name, kind, contactId = null }: { name: string; kind: 'manual' | 'contact'; contactId?: string | null }) => {
