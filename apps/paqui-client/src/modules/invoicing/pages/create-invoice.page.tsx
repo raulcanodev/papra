@@ -1,4 +1,4 @@
-import type { InvoiceDeliveryNote, InvoiceDraftInput, InvoiceItemInput, InvoiceTemplateId } from '../invoicing.types';
+import type { InvoiceDeliveryNote, InvoiceDraftInput, InvoiceItemInput, InvoiceTemplateId, InvoicingProduct } from '../invoicing.types';
 import type { Contact } from '@/modules/contacts/contacts.types';
 import type { DeliveryNote } from '@/modules/delivery-notes/delivery-notes.types';
 import type { PaymentMethod } from '@/modules/due-dates/due-dates.types';
@@ -25,8 +25,10 @@ import { getOrganizationRouteHref } from '@/modules/ui/navigation/organization-n
 import { useReturnHref } from '@/modules/ui/navigation/return-to';
 import { FormField, SaveButton } from '../components/catalog-page';
 import { getLineNetMinor, InvoicePreview } from '../components/invoice-preview';
+import { getProductsQueryKey } from '../components/product-form';
+import { ProductSelector } from '../components/product-selector';
 import { WITHHOLDING_RATES_BPS } from '../invoicing.constants';
-import { createInvoice, fetchFiscalProfile, fetchInvoice, fetchInvoiceBranding, fetchInvoiceSeries, fetchProducts, fetchTaxRates, sendInvoice, updateInvoice } from '../invoicing.services';
+import { createInvoice, createProduct, fetchFiscalProfile, fetchInvoice, fetchInvoiceBranding, fetchInvoiceSeries, fetchProducts, fetchTaxRates, sendInvoice, updateInvoice } from '../invoicing.services';
 
 const CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF', 'MXN', 'CAD', 'AUD'];
 const FALLBACK_TAX_RATES_BPS = [0, 400, 1_000, 2_100];
@@ -64,7 +66,7 @@ export function CreateInvoicePage() {
   const contactsQuery = useQuery(() => ({ queryKey: getContactsQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchContacts({ organizationId: params.organizationId }) }));
   const profileQuery = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'profile'], queryFn: () => fetchFiscalProfile({ organizationId: params.organizationId }) }));
   const brandingQuery = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'branding'], queryFn: () => fetchInvoiceBranding({ organizationId: params.organizationId }) }));
-  const productsQuery = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'products'], queryFn: () => fetchProducts({ organizationId: params.organizationId }) }));
+  const productsQuery = useQuery(() => ({ queryKey: getProductsQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchProducts({ organizationId: params.organizationId }) }));
   const taxesQuery = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'tax-rates'], queryFn: () => fetchTaxRates({ organizationId: params.organizationId }) }));
   const seriesQuery = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'series'], queryFn: () => fetchInvoiceSeries({ organizationId: params.organizationId }) }));
   const invoiceQuery = useQuery(() => ({
@@ -243,11 +245,26 @@ export function CreateInvoicePage() {
   }));
 
   const updateItem = (index: number, patch: Partial<InvoiceItemInput>) => setItems(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item));
-  const applyProductByName = (index: number, name: string) => {
-    const product = productsQuery.data?.products.find(item => item.name === name);
+  const applyProduct = (index: number, name: string, product: InvoicingProduct | null) => {
     updateItem(index, product
       ? { productId: product.id, description: product.name, taxRateBps: product.taxRateBps, ...getProductPricing(product) }
       : { productId: null, description: name });
+  };
+
+  const createLineProduct = async (index: number, name: string) => {
+    const line = items()[index] ?? newLine(defaultTaxRateBps());
+    try {
+      const { product } = await createProduct({
+        organizationId: params.organizationId,
+        product: { name, description: null, unit: 'unidad', unitPriceMinor: line.unitPriceMinor, currency: currency(), taxRateBps: line.taxRateBps, icon: null, iconColor: null, contactId: null, imageDocumentId: null },
+      });
+      void queryClient.invalidateQueries({ queryKey: getProductsQueryKey({ organizationId: params.organizationId }) });
+      createToast({ type: 'success', message: t('invoicing.products.toast.saved') });
+      return product;
+    } catch (error) {
+      createToast({ type: 'error', message: t('invoicing.products.toast.error') });
+      throw error;
+    }
   };
 
   const addDeliveryNotes = (notesToAdd: DeliveryNote[]) => {
@@ -406,10 +423,6 @@ export function CreateInvoicePage() {
           {/* Items */}
           <section>
             <SectionTitle>{t('invoicing.editor.items')}</SectionTitle>
-            <datalist id="invoice-products">
-              <For each={productsQuery.data?.products}>{product => <option value={product.name} />}</For>
-            </datalist>
-
             <Show when={customerId()}>
               <InvoiceDeliveryNotesField
                 organizationId={params.organizationId}
@@ -435,11 +448,12 @@ export function CreateInvoicePage() {
 
                     <div class="space-y-4">
                       <FormField label={t('invoicing.editor.item.product')}>
-                        <TextField
-                          class="h-10"
-                          list="invoice-products"
+                        <ProductSelector
+                          products={productsQuery.data?.products ?? []}
                           value={item().description}
-                          onInput={event => applyProductByName(index, event.currentTarget.value)}
+                          selectedProductId={item().productId}
+                          onChange={(name, product) => applyProduct(index, name, product)}
+                          onCreate={name => createLineProduct(index, name)}
                         />
                       </FormField>
 

@@ -38,10 +38,12 @@ export async function deleteProduct({ organizationId, productId }: { organizatio
   await apiClient({ path: `${basePath(organizationId)}/products/${productId}`, method: 'DELETE' });
 }
 export async function createProduct({ organizationId, product }: { organizationId: string; product: WithCustomProperties<ProductInput> }) {
-  return apiClient<{ product: AsDto<InvoicingProduct> }>({ path: `${basePath(organizationId)}/products`, method: 'POST', body: product });
+  const result = await apiClient<{ product: AsDto<InvoicingProduct> }>({ path: `${basePath(organizationId)}/products`, method: 'POST', body: product });
+  return { product: coerceDates(result.product) as InvoicingProduct };
 }
 export async function updateProduct({ organizationId, productId, product }: { organizationId: string; productId: string; product: WithCustomProperties<ProductInput> }) {
-  return apiClient<{ product: AsDto<InvoicingProduct> }>({ path: `${basePath(organizationId)}/products/${productId}`, method: 'PUT', body: product });
+  const result = await apiClient<{ product: AsDto<InvoicingProduct> }>({ path: `${basePath(organizationId)}/products/${productId}`, method: 'PUT', body: product });
+  return { product: coerceDates(result.product) as InvoicingProduct };
 }
 
 export async function fetchTaxRates({ organizationId }: { organizationId: string }) {

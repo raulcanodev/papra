@@ -1756,6 +1756,13 @@ export const translations = {
   'invoicing.products.toast.deleted': 'Product deleted',
   'invoicing.products.toast.delete-error': 'The product could not be deleted',
   'invoicing.products.delete-message': 'It leaves the catalog. Invoices that already use it keep their lines.',
+  'invoicing.product-selector.open': 'Open product selector',
+  'invoicing.product-selector.all': 'All products',
+  'invoicing.product-selector.results': 'Results',
+  'invoicing.product-selector.empty': 'No matching products.',
+  'invoicing.product-selector.more': 'Scroll to see more',
+  'invoicing.product-selector.use-text': 'Use “{{ name }}” as free text',
+  'invoicing.product-selector.create': 'Save “{{ name }}” as a new product',
   // Pricing: cost breakdowns, shipping rates and price lists
   'pricing.costs.title': 'Cost breakdown',
   'pricing.costs.copy-from': 'Copy from…',

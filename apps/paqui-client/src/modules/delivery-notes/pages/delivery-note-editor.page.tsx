@@ -9,7 +9,9 @@ import { DocumentPreview } from '@/modules/documents/components/document-preview
 import { fetchDocument } from '@/modules/documents/documents.services';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { FormField } from '@/modules/invoicing/components/catalog-page';
-import { fetchProducts } from '@/modules/invoicing/invoicing.services';
+import { getProductsQueryKey } from '@/modules/invoicing/components/product-form';
+import { ProductSelector } from '@/modules/invoicing/components/product-selector';
+import { createProduct, fetchProducts } from '@/modules/invoicing/invoicing.services';
 import { useConfirmModal } from '@/modules/shared/confirm';
 import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-errors';
 import { queryClient } from '@/modules/shared/query/query-client';
@@ -53,7 +55,7 @@ export function DeliveryNoteEditorPage() {
   const [items, setItems] = createSignal<EditorLine[]>([emptyLine()]);
 
   const contactsQuery = useQuery(() => ({ queryKey: getContactsQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchContacts({ organizationId: params.organizationId }) }));
-  const productsQuery = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'products'], queryFn: () => fetchProducts({ organizationId: params.organizationId }) }));
+  const productsQuery = useQuery(() => ({ queryKey: getProductsQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchProducts({ organizationId: params.organizationId }) }));
   const deliveryNoteQuery = useQuery(() => ({
     queryKey: [...getDeliveryNotesQueryKey({ organizationId: params.organizationId }), params.deliveryNoteId],
     queryFn: () => fetchDeliveryNote({ organizationId: params.organizationId, deliveryNoteId: params.deliveryNoteId! }),
@@ -136,15 +138,28 @@ export function DeliveryNoteEditorPage() {
   // Picking a product confirms the line: the reading hints go away, the written text stays to be learnt
   const pickProduct = (index: number, product: InvoicingProduct) => updateItem(index, { productId: product.id, description: product.name, reading: undefined });
 
-  const applyProductByName = (index: number, name: string) => {
-    const product = products().find(candidate => candidate.name === name);
-
+  const applyProduct = (index: number, name: string, product: InvoicingProduct | null) => {
     if (product) {
       pickProduct(index, product);
       return;
     }
 
     updateItem(index, { productId: null, description: name });
+  };
+
+  const createLineProduct = async (name: string) => {
+    try {
+      const { product } = await createProduct({
+        organizationId: params.organizationId,
+        product: { name, description: null, unit: 'unidad', unitPriceMinor: 0, currency: 'EUR', taxRateBps: 2_100, icon: null, iconColor: null, contactId: null, imageDocumentId: null },
+      });
+      void queryClient.invalidateQueries({ queryKey: getProductsQueryKey({ organizationId: params.organizationId }) });
+      createToast({ type: 'success', message: t('invoicing.products.toast.saved') });
+      return product;
+    } catch (error) {
+      createToast({ type: 'error', message: t('invoicing.products.toast.error') });
+      throw error;
+    }
   };
 
   const createCustomerMutation = createMutation(() => ({
@@ -363,10 +378,6 @@ export function DeliveryNoteEditorPage() {
                   <span>{t('delivery-notes.editor.line.product')}</span>
                   <span class="text-right">{t('delivery-notes.editor.line.quantity')}</span>
                 </div>
-                <datalist id="delivery-note-products">
-                  <For each={products()}>{product => <option value={product.name} />}</For>
-                </datalist>
-
                 <div class="flex flex-col gap-2">
                   <Index each={items()}>
                     {(item, index) => {
@@ -376,13 +387,15 @@ export function DeliveryNoteEditorPage() {
                       return (
                         <div class={cn('flex flex-col gap-1.5', needsReview() && '-mx-2 rounded-lg bg-amber-500/6 px-2 py-2')}>
                           <div class="grid grid-cols-[minmax(0,1fr)_6rem_2rem] items-center gap-2">
-                            <TextField
-                              class="h-11"
-                              list="delivery-note-products"
-                              aria-label={t('delivery-notes.editor.line.product')}
+                            <ProductSelector
+                              class="[&_input]:h-11"
+                              products={products()}
+                              selectedProductId={item().productId}
+                              ariaLabel={t('delivery-notes.editor.line.product')}
                               placeholder={t('delivery-notes.editor.line.product.placeholder')}
                               value={item().description}
-                              onInput={event => applyProductByName(index, event.currentTarget.value)}
+                              onChange={(name, product) => applyProduct(index, name, product)}
+                              onCreate={createLineProduct}
                             />
                             <TextField class="no-spinner h-11 text-right text-base font-medium" type="number" inputMode="decimal" min="0.001" step="0.001" aria-label={t('delivery-notes.editor.line.quantity')} value={item().quantityMillis / 1_000} onInput={event => updateItem(index, { quantityMillis: Math.round(Number(event.currentTarget.value) * 1_000) })} />
                             <Button type="button" variant="ghost" size="icon-sm" class="text-muted-foreground" aria-label={t('delivery-notes.editor.line.remove')} disabled={items().length === 1} onClick={() => setItems(current => current.filter((_, itemIndex) => itemIndex !== index))}>

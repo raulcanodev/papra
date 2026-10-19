@@ -1758,6 +1758,13 @@ export const translations: Partial<TranslationsDictionary> = {
   'invoicing.products.toast.deleted': 'Producto eliminado',
   'invoicing.products.toast.delete-error': 'No se ha podido eliminar el producto',
   'invoicing.products.delete-message': 'Sale del catálogo. Las facturas que ya lo usan conservan sus líneas.',
+  'invoicing.product-selector.open': 'Abrir selector de productos',
+  'invoicing.product-selector.all': 'Todos los productos',
+  'invoicing.product-selector.results': 'Resultados',
+  'invoicing.product-selector.empty': 'No hay productos que coincidan.',
+  'invoicing.product-selector.more': 'Desplázate para ver más',
+  'invoicing.product-selector.use-text': 'Usar «{{ name }}» como texto libre',
+  'invoicing.product-selector.create': 'Guardar «{{ name }}» como producto nuevo',
   // Pricing: cost breakdowns, shipping rates and price lists
   'pricing.costs.title': 'Escandallo (costes)',
   'pricing.costs.copy-from': 'Copiar de…',
