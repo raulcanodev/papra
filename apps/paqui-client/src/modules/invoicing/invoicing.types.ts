@@ -103,7 +103,11 @@ export type InvoiceDraftInput = {
   items: InvoiceItemInput[];
   /** How the customer pays; the due dates are collected in the due dates page */
   paymentMethod?: PaymentMethod | null;
+  /** The delivery notes of the customer the invoice covers; absent leaves them as they are */
+  deliveryNoteIds?: string[];
 };
+
+export type InvoiceDeliveryNote = { id: string; number: string | null; date: Date };
 
 export type Invoice = {
   id: string;
@@ -132,6 +136,7 @@ export type Invoice = {
   terms: string | null;
   templateId: InvoiceTemplateId;
   items?: Array<InvoiceItemInput & { id: string; position: number }>;
+  deliveryNotes?: InvoiceDeliveryNote[];
   issuedAt: Date | null;
   sentAt: Date | null;
   paidAt: Date | null;

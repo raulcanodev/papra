@@ -23,7 +23,6 @@ import { dateIsInRange, getActiveFilter, isDateRangeValue } from '@/modules/ui/c
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
 import { DELIVERY_NOTE_STATUS_BADGE_CLASSES, DELIVERY_NOTE_STATUS_LABEL_I18N_KEYS, DELIVERY_NOTE_STATUSES } from '../delivery-notes.constants';
-import { getPendingDeliveryNotesByCustomer } from '../delivery-notes.models';
 import { deleteDeliveryNote, fetchDeliveryNotes, getDeliveryNotesQueryKey, invoiceDeliveryNotes, openDeliveryNotePdf } from '../delivery-notes.services';
 
 export function DeliveryNotesPage() {
@@ -63,8 +62,6 @@ export function DeliveryNotesPage() {
       .filter(deliveryNote => `${deliveryNote.customerName} ${deliveryNote.number ?? ''} ${deliveryNote.invoiceNumber ?? ''}`.toLowerCase().includes(term));
   });
 
-  // What is owed and not invoiced yet, customer by customer: one click turns all of it into an invoice
-  const pendingByCustomer = createMemo(() => getPendingDeliveryNotesByCustomer({ deliveryNotes: deliveryNotes() }));
   const selected = createMemo(() => deliveryNotes().filter(deliveryNote => selectedIds().includes(deliveryNote.id)));
   const selectionCustomerCount = () => new Set(selected().map(({ customerId }) => customerId)).size;
 
@@ -177,42 +174,6 @@ export function DeliveryNotesPage() {
           />
         </div>
       </div>
-
-      <Show when={pendingByCustomer().length > 0}>
-        <section class="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/6 p-4">
-          <div class="flex items-center gap-3">
-            <div class="i-tabler-truck-delivery size-5 shrink-0 text-amber-600 dark:text-amber-300" />
-            <div class="min-w-0 flex-1">
-              <p class="font-medium">{t('delivery-notes.pending.title')}</p>
-              <p class="text-sm text-muted-foreground">{t('delivery-notes.pending.description')}</p>
-            </div>
-          </div>
-          <ul class="mt-3 flex flex-col divide-y divide-amber-500/15">
-            <For each={pendingByCustomer()}>
-              {group => (
-                <li class="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2">
-                  <EntityIcon icon={group.customerIcon} color={group.customerIconColor} fallback="i-tabler-building" size="sm" />
-                  <div class="min-w-0 flex-1">
-                    <span class="font-medium">{group.customerName}</span>
-                    <span class="ml-2 text-sm text-muted-foreground">{t('delivery-notes.pending.count', { count: group.deliveryNoteIds.length })}</span>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    class="h-8 gap-1.5"
-                    isLoading={invoiceMutation.isPending && invoiceMutation.variables?.join() === group.deliveryNoteIds.join()}
-                    disabled={invoiceMutation.isPending}
-                    onClick={() => invoiceMutation.mutate(group.deliveryNoteIds)}
-                  >
-                    <div class="i-tabler-file-invoice size-4" />
-                    {t('delivery-notes.pending.invoice')}
-                  </Button>
-                </li>
-              )}
-            </For>
-          </ul>
-        </section>
-      </Show>
 
       <div class="mt-4" />
       <TableToolbar search={search()} onSearchChange={setSearch} searchPlaceholder={t('invoicing.common.search')} fields={filterFields()} filters={filters()} onFiltersChange={setFilters} />

@@ -98,6 +98,8 @@ export const invoiceDraftSchema = z.object({
   paymentMethod: paymentMethodSchema.optional().nullable(),
   // Several due dates when collected in instalments; a single one on the due date when absent
   instalments: instalmentsInputSchema.optional(),
+  // The delivery notes of the customer the invoice covers; absent leaves them as they are
+  deliveryNoteIds: z.array(z.string().trim().min(1).max(64)).max(100).optional(),
 }).refine(value => value.dueDate >= value.issueDate, {
   message: 'Due date must not be before issue date',
   path: ['dueDate'],

@@ -21,7 +21,6 @@ export function createDeliveryNotesRepository({ db }: { db: Database }) {
     createDeliveryNote: async (args: { organizationId: string; draft: DeliveryNoteDraft }) => createDeliveryNote({ db, ...args }),
     updateDeliveryNote: async (args: { organizationId: string; deliveryNoteId: string; draft: DeliveryNoteDraft }) => updateDeliveryNote({ db, ...args }),
     deleteDeliveryNote: async (args: { organizationId: string; deliveryNoteId: string }) => deleteDeliveryNote({ db, ...args }),
-    markInvoiced: async (args: { organizationId: string; deliveryNoteIds: string[]; invoiceId: string; now?: Date }) => markInvoiced({ db, ...args }),
     listWrittenTextItems: async (args: { organizationId: string; limit: number }) => listWrittenTextItems({ db, ...args }),
     getProductUsage: async (args: { organizationId: string }) => getProductUsage({ db, ...args }),
     findByNumber: async (args: { organizationId: string; number: string }) => findByNumber({ db, ...args }),
@@ -189,18 +188,6 @@ async function deleteDeliveryNote({ db, organizationId, deliveryNoteId }: { db: 
     .returning({ id: deliveryNotesTable.id });
 
   if (!deleted) {
-    throw createDeliveryNoteInvoicedError();
-  }
-}
-
-// All or none: a delivery note invoiced in the meantime fails the whole invoice
-async function markInvoiced({ db, organizationId, deliveryNoteIds, invoiceId, now = new Date() }: { db: Database; organizationId: string; deliveryNoteIds: string[]; invoiceId: string; now?: Date }) {
-  const updated = await db.update(deliveryNotesTable)
-    .set({ invoiceId, updatedAt: now })
-    .where(and(eq(deliveryNotesTable.organizationId, organizationId), inArray(deliveryNotesTable.id, deliveryNoteIds), isNull(deliveryNotesTable.invoiceId)))
-    .returning({ id: deliveryNotesTable.id });
-
-  if (updated.length !== deliveryNoteIds.length) {
     throw createDeliveryNoteInvoicedError();
   }
 }

@@ -54,25 +54,21 @@ export async function invoiceDeliveryNotes({ db, organizationId, deliveryNoteIds
   const issueDate = startOfUtcDay(now);
   const termsDays = customer?.paymentTermsDays ?? profile?.paymentTermsDays ?? 30;
 
-  return db.transaction(async (transaction) => {
-    const tx = transaction as unknown as Database;
-    const { invoice } = await createInvoicingRepository({ db: tx }).createInvoice({
-      organizationId,
-      userId,
-      draft: {
-        customerId,
-        issueDate,
-        dueDate: new Date(issueDate.getTime() + termsDays * DAY_MS),
-        currency: customer?.currency ?? profile?.currency ?? 'EUR',
-        templateId: profile?.templateId === 'classic' ? 'classic' : 'minimal',
-        withholdingRateBps: profile?.defaultWithholdingRateBps ?? 0,
-        notes: [`${label}: ${reference}`, profile?.defaultNotes].filter(Boolean).join('\n\n'),
-        items,
-      },
-    });
-
-    await createDeliveryNotesRepository({ db: tx }).markInvoiced({ organizationId, deliveryNoteIds: ids, invoiceId: invoice!.id, now });
-
-    return { invoice: invoice! };
+  const { invoice } = await invoicingRepository.createInvoice({
+    organizationId,
+    userId,
+    draft: {
+      customerId,
+      issueDate,
+      dueDate: new Date(issueDate.getTime() + termsDays * DAY_MS),
+      currency: customer?.currency ?? profile?.currency ?? 'EUR',
+      templateId: profile?.templateId === 'classic' ? 'classic' : 'minimal',
+      withholdingRateBps: profile?.defaultWithholdingRateBps ?? 0,
+      notes: [`${label}: ${reference}`, profile?.defaultNotes].filter(Boolean).join('\n\n'),
+      items,
+      deliveryNoteIds: ids,
+    },
   });
+
+  return { invoice: invoice! };
 }

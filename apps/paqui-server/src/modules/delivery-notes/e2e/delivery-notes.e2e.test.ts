@@ -132,6 +132,35 @@ describe('delivery notes e2e', () => {
     expect(Buffer.from(await response.arrayBuffer()).subarray(0, 5).toString()).to.eql('%PDF-');
   });
 
+  test('an invoice made in the editor covers the delivery notes picked for it, taking one out makes it pending again', async () => {
+    const { request, json, createContact, createDeliveryNote, listDeliveryNotes } = await setupApp();
+    const bar = await createContact({ name: 'Bar Pepe', isCustomer: true });
+    const shop = await createContact({ name: 'Tienda Ana', isCustomer: true });
+    const item = { description: 'Lechuga', quantityMillis: 1_000 };
+    const createNote = async (customerId: string) => (await json<{ deliveryNote: { id: string } }>(await createDeliveryNote({ customerId, items: [item] }))).deliveryNote.id;
+    const [first, second, foreign] = [await createNote(bar.id), await createNote(bar.id), await createNote(shop.id)];
+    const draft = { customerId: bar.id, issueDate: '2026-10-19', dueDate: '2026-11-18', items: [{ description: 'Lechuga', quantityMillis: 2_000, unitPriceMinor: 80 }] };
+
+    // A delivery note of another customer cannot go on it
+    expect((await request({ path: '/invoicing/invoices', method: 'POST', body: { ...draft, deliveryNoteIds: [first, foreign] } })).status).to.eql(409);
+    expect((await listDeliveryNotes('?status=pending')).length).to.eql(3);
+
+    const created = await request({ path: '/invoicing/invoices', method: 'POST', body: { ...draft, deliveryNoteIds: [first, second] } });
+    const { invoice } = await json<{ invoice: { id: string; deliveryNotes: Array<{ id: string; number: string }> } }>(created);
+
+    expect(created.status).to.eql(201);
+    expect(invoice.deliveryNotes.map(({ id }) => id).toSorted()).to.eql([first, second].toSorted());
+    expect((await listDeliveryNotes('?status=pending')).map(({ id }) => id)).to.eql([foreign]);
+
+    // Saved again without the second one: back to pending; saved without the list: left as they are
+    await request({ path: `/invoicing/invoices/${invoice.id}`, method: 'PUT', body: { ...draft, deliveryNoteIds: [first] } });
+    await request({ path: `/invoicing/invoices/${invoice.id}`, method: 'PUT', body: draft });
+    const { invoice: updated } = await json<{ invoice: { deliveryNotes: Array<{ id: string }> } }>(await request({ path: `/invoicing/invoices/${invoice.id}` }));
+
+    expect(updated.deliveryNotes.map(({ id }) => id)).to.eql([first]);
+    expect((await listDeliveryNotes('?status=pending')).map(({ id }) => id).toSorted()).to.eql([second, foreign].toSorted());
+  });
+
   test('the delivery notes of another organization are out of reach', async () => {
     const { request, json, createContact, createDeliveryNote } = await setupApp();
     const customer = await createContact({ name: 'Bar Pepe', isCustomer: true });

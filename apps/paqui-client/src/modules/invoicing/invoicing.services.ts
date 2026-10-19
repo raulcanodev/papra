@@ -139,5 +139,6 @@ export function coerceInvoice(invoice: AsDto<Invoice>): Invoice {
     sentAt: invoice.sentAt ? new Date(invoice.sentAt) : null,
     paidAt: invoice.paidAt ? new Date(invoice.paidAt) : null,
     voidedAt: invoice.voidedAt ? new Date(invoice.voidedAt) : null,
+    deliveryNotes: (invoice.deliveryNotes as Array<{ id: string; number: string | null; date: string | Date }> | undefined)?.map(deliveryNote => ({ ...deliveryNote, date: new Date(deliveryNote.date) })),
   } as Invoice;
 }

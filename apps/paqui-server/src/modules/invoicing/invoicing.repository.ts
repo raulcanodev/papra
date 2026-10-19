@@ -1,14 +1,15 @@
 /* eslint-disable style/max-statements-per-line */
 import type { Database } from '../app/database/database.types';
 import type { FiscalProfileInput, InvoiceBrandingInput, InvoiceDraftInput, InvoiceSeriesInput, ProductInput, TaxRateInput } from './invoicing.models';
-import { and, asc, desc, eq, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, notInArray, or } from 'drizzle-orm';
 import { createContactNotFoundError } from '../contacts/contacts.errors';
 import { createContactsRepository } from '../contacts/contacts.repository';
 import { contactsTable } from '../contacts/contacts.table';
+import { deliveryNotesTable } from '../delivery-notes/delivery-notes.tables';
 import { createDocumentNotFoundError } from '../documents/documents.errors';
 import { documentsTable } from '../documents/documents.table';
 import { createDueDatesRepository } from '../due-dates/due-dates.repository';
-import { createFiscalProfileRequiredError, createInvoiceNotEditableError, createInvoiceNotFoundError, createInvoiceNotIssuableError } from './invoicing.errors';
+import { createFiscalProfileRequiredError, createInvoiceDeliveryNotesUnavailableError, createInvoiceNotEditableError, createInvoiceNotFoundError, createInvoiceNotIssuableError } from './invoicing.errors';
 import { calculateInvoiceTotals, formatInvoiceNumber } from './invoicing.models';
 import { invoiceEventsTable, invoiceItemsTable, invoiceSeriesTable, invoicesTable, invoicingBrandingTable, invoicingProductsTable, invoicingProfilesTable, invoicingTaxRatesTable } from './invoicing.tables';
 
@@ -196,7 +197,13 @@ async function getInvoice({ db, organizationId, invoiceId }: { db: Database; org
   }
   const items = await db.select().from(invoiceItemsTable).where(eq(invoiceItemsTable.invoiceId, invoiceId)).orderBy(asc(invoiceItemsTable.position));
   const { contact: customer } = await createContactsRepository({ db }).getContact({ organizationId, contactId: invoice.customerId });
-  return { invoice: { ...invoice, items, customer } };
+  // The delivery notes it covers, so the editor can show them and keep them on the next save
+  const deliveryNotes = await db
+    .select({ id: deliveryNotesTable.id, number: deliveryNotesTable.number, date: deliveryNotesTable.date })
+    .from(deliveryNotesTable)
+    .where(and(eq(deliveryNotesTable.organizationId, organizationId), eq(deliveryNotesTable.invoiceId, invoiceId)))
+    .orderBy(asc(deliveryNotesTable.date));
+  return { invoice: { ...invoice, items, customer, deliveryNotes } };
 }
 
 // The customer and the sales representative must be contacts of the organization with the matching role
@@ -231,11 +238,14 @@ async function createInvoice({ db, organizationId, draft, userId }: { db: Databa
     terms: draft.terms ?? profile?.defaultTerms ?? null,
   };
   const totals = calculateInvoiceTotals(effectiveDraft);
-  const { items: invoiceItems, instalments: _instalments, ...invoiceDraft } = effectiveDraft;
+  const { items: invoiceItems, instalments: _instalments, deliveryNoteIds, ...invoiceDraft } = effectiveDraft;
   const invoiceId = await db.transaction(async (tx) => {
     const [invoice] = await tx.insert(invoicesTable).values({ organizationId, ...invoiceDraft, ...totals, paymentMethod: draft.paymentMethod ?? null, seriesId: draft.seriesId ?? null, salesRepresentativeId: draft.salesRepresentativeId ?? null }).returning();
     await tx.insert(invoiceItemsTable).values(invoiceItems.map((item, position) => ({ invoiceId: invoice!.id, ...item, position })));
     await saveInvoiceInstalments({ db: tx as unknown as Database, organizationId, invoiceId: invoice!.id, draft, payableMinor: totals.totalMinor - totals.withholdingMinor });
+    if (deliveryNoteIds !== undefined) {
+      await setInvoiceDeliveryNotes({ db: tx as unknown as Database, organizationId, invoiceId: invoice!.id, customerId: draft.customerId, deliveryNoteIds });
+    }
     await tx.insert(invoiceEventsTable).values({ invoiceId: invoice!.id, organizationId, userId, type: 'created', createdAt: new Date() });
     return invoice!.id;
   });
@@ -252,15 +262,47 @@ async function updateInvoice({ db, organizationId, invoiceId, draft, userId }: {
   }
   await ensureInvoiceContacts({ db, organizationId, draft });
   const totals = calculateInvoiceTotals(draft);
-  const { items: invoiceItems, instalments: _instalments, ...invoiceDraft } = draft;
+  const { items: invoiceItems, instalments: _instalments, deliveryNoteIds, ...invoiceDraft } = draft;
   await db.transaction(async (tx) => {
     await saveInvoiceInstalments({ db: tx as unknown as Database, organizationId, invoiceId, draft, payableMinor: totals.totalMinor - totals.withholdingMinor });
     await tx.update(invoicesTable).set({ ...invoiceDraft, ...totals, paymentMethod: draft.paymentMethod ?? null, seriesId: draft.seriesId ?? null, salesRepresentativeId: draft.salesRepresentativeId ?? null, updatedAt: new Date() }).where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.organizationId, organizationId)));
     await tx.delete(invoiceItemsTable).where(eq(invoiceItemsTable.invoiceId, invoiceId));
     await tx.insert(invoiceItemsTable).values(invoiceItems.map((item, position) => ({ invoiceId, ...item, position })));
+    if (deliveryNoteIds !== undefined) {
+      await setInvoiceDeliveryNotes({ db: tx as unknown as Database, organizationId, invoiceId, customerId: draft.customerId, deliveryNoteIds });
+    }
     await tx.insert(invoiceEventsTable).values({ invoiceId, organizationId, userId, type: 'updated', createdAt: new Date() });
   });
   return getInvoice({ db, organizationId, invoiceId });
+}
+
+// The delivery notes a draft covers: the given ones go on it, the ones taken out are pending again. Only pending
+// delivery notes of the same customer (or already on this invoice): one invoiced elsewhere in the meantime fails the save
+async function setInvoiceDeliveryNotes({ db, organizationId, invoiceId, customerId, deliveryNoteIds }: { db: Database; organizationId: string; invoiceId: string; customerId: string; deliveryNoteIds: string[] }) {
+  const ids = [...new Set(deliveryNoteIds)];
+  const now = new Date();
+
+  await db.update(deliveryNotesTable)
+    .set({ invoiceId: null, updatedAt: now })
+    .where(and(eq(deliveryNotesTable.organizationId, organizationId), eq(deliveryNotesTable.invoiceId, invoiceId), ids.length > 0 ? notInArray(deliveryNotesTable.id, ids) : undefined));
+
+  if (ids.length === 0) {
+    return;
+  }
+
+  const linked = await db.update(deliveryNotesTable)
+    .set({ invoiceId, updatedAt: now })
+    .where(and(
+      eq(deliveryNotesTable.organizationId, organizationId),
+      eq(deliveryNotesTable.customerId, customerId),
+      inArray(deliveryNotesTable.id, ids),
+      or(isNull(deliveryNotesTable.invoiceId), eq(deliveryNotesTable.invoiceId, invoiceId)),
+    ))
+    .returning({ id: deliveryNotesTable.id });
+
+  if (linked.length !== ids.length) {
+    throw createInvoiceDeliveryNotesUnavailableError();
+  }
 }
 
 async function reserveInvoiceNumber({ db, organizationId, invoiceId, userId }: { db: Database; organizationId: string; invoiceId: string; userId: string }) {

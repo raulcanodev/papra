@@ -56,6 +56,36 @@ async function listDeliveryNotes({ organizationId }: { organizationId: string })
   return (await Promise.all(deliveryNotes.map(hydrate))).toSorted((a, b) => String(b.date).localeCompare(String(a.date)));
 }
 
+export async function getDemoInvoiceDeliveryNotes({ organizationId, invoiceId }: { organizationId: string; invoiceId: string }) {
+  return (await listDeliveryNotes({ organizationId }))
+    .filter(deliveryNote => deliveryNote.invoiceId === invoiceId)
+    .map(({ id, number, date }) => ({ id, number, date }));
+}
+
+// Keeps the browser demo consistent with the server when a draft invoice adds or removes delivery notes.
+export async function setDemoInvoiceDeliveryNotes({ organizationId, invoiceId, customerId, deliveryNoteIds }: { organizationId: string; invoiceId: string; customerId: string; deliveryNoteIds: string[] }) {
+  const ids = [...new Set(deliveryNoteIds)];
+  const selected = await Promise.all(ids.map(async (id) => {
+    const stored = await db().getItem(id);
+    if (!stored) {
+      return null;
+    }
+    const deliveryNote = await hydrate(stored);
+    return deliveryNote.customerId === customerId && (deliveryNote.status === 'pending' || deliveryNote.invoiceId === invoiceId) ? stored : null;
+  }));
+
+  if (selected.includes(null)) {
+    fail({ message: 'A delivery note is not a pending one of this customer', code: 'invoicing.delivery_notes_unavailable', status: 409 });
+  }
+
+  const current = (await getValues(db())).filter(deliveryNote => deliveryNote.organizationId === organizationId && deliveryNote.invoiceId === invoiceId);
+  const now = new Date().toISOString();
+  await Promise.all([
+    ...current.filter(deliveryNote => !ids.includes(deliveryNote.id)).map(async deliveryNote => db().setItem(deliveryNote.id, { ...deliveryNote, invoiceId: null, updatedAt: now })),
+    ...selected.map(async deliveryNote => db().setItem(deliveryNote!.id, { ...deliveryNote, invoiceId, updatedAt: now })),
+  ]);
+}
+
 async function getEditableOrFail({ deliveryNoteId }: { deliveryNoteId: string }) {
   const stored = await db().getItem(deliveryNoteId);
 

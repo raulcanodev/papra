@@ -2,6 +2,7 @@ import type { Storage } from 'unstorage';
 import type { Invoice, InvoiceDraftInput, InvoiceTemplateId } from '../../invoicing/invoicing.types';
 import { FetchError } from 'ofetch';
 import { prefixStorage } from 'unstorage';
+import { getDemoInvoiceDeliveryNotes, setDemoInvoiceDeliveryNotes } from '../delivery-notes/demo-delivery-notes';
 import { defineHandler } from '../demo-api-mock.models';
 import { createId } from '../demo.models';
 import { getValues } from '../demo.storage.models';
@@ -338,9 +339,12 @@ function singleDefault(key: 'taxRates' | 'series') {
 }
 
 async function hydrateInvoice(invoice: Stored): Promise<Stored> {
-  const customer = invoice.customerId ? await db().contacts.getItem(invoice.customerId) : null;
+  const [customer, deliveryNotes] = await Promise.all([
+    invoice.customerId ? db().contacts.getItem(invoice.customerId) : null,
+    getDemoInvoiceDeliveryNotes({ organizationId: invoice.organizationId, invoiceId: invoice.id }),
+  ]);
 
-  return { ...invoice, customer, customerName: customer?.name ?? invoice.customerName, customerEmail: customer?.email ?? invoice.customerEmail, customerIcon: customer?.icon ?? null, customerIconColor: customer?.iconColor ?? null };
+  return { ...invoice, customer, customerName: customer?.name ?? invoice.customerName, customerEmail: customer?.email ?? invoice.customerEmail, customerIcon: customer?.icon ?? null, customerIconColor: customer?.iconColor ?? null, deliveryNotes };
 }
 
 async function buildInvoiceFromDraft({ organizationId, draft, existing }: { organizationId: string; draft: InvoiceDraftInput; existing?: Stored }): Promise<Stored> {
@@ -565,9 +569,18 @@ export const invoicingHandlers = {
     path: '/api/organizations/:organizationId/invoicing/invoices',
     method: 'POST',
     handler: async ({ params: { organizationId }, body }) => {
-      const invoice = await buildInvoiceFromDraft({ organizationId, draft: body as InvoiceDraftInput });
+      const draft = body as InvoiceDraftInput;
+      const invoice = await buildInvoiceFromDraft({ organizationId, draft });
       await db().invoices.setItem(invoice.id, invoice);
-      return { invoice };
+      try {
+        if (draft.deliveryNoteIds !== undefined) {
+          await setDemoInvoiceDeliveryNotes({ organizationId, invoiceId: invoice.id, customerId: draft.customerId, deliveryNoteIds: draft.deliveryNoteIds });
+        }
+      } catch (error) {
+        await db().invoices.removeItem(invoice.id);
+        throw error;
+      }
+      return { invoice: await hydrateInvoice(invoice) };
     },
   }),
   ...defineHandler({
@@ -583,9 +596,13 @@ export const invoicingHandlers = {
       if (existing.status !== 'draft') {
         fail('Only draft invoices can be edited', 409);
       }
-      const invoice = await buildInvoiceFromDraft({ organizationId, draft: body as InvoiceDraftInput, existing });
+      const draft = body as InvoiceDraftInput;
+      const invoice = await buildInvoiceFromDraft({ organizationId, draft, existing });
+      if (draft.deliveryNoteIds !== undefined) {
+        await setDemoInvoiceDeliveryNotes({ organizationId, invoiceId: invoice.id, customerId: draft.customerId, deliveryNoteIds: draft.deliveryNoteIds });
+      }
       await db().invoices.setItem(invoice.id, invoice);
-      return { invoice };
+      return { invoice: await hydrateInvoice(invoice) };
     },
   }),
   ...defineHandler({

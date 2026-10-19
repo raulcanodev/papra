@@ -18,6 +18,12 @@ export const createInvoiceNotEditableError = createErrorFactory({
   statusCode: 409,
 });
 
+export const createInvoiceDeliveryNotesUnavailableError = createErrorFactory({
+  code: 'invoicing.delivery_notes_unavailable',
+  message: 'A delivery note is not a pending one of this customer',
+  statusCode: 409,
+});
+
 export const createInvoiceNotIssuableError = createErrorFactory({
   code: 'invoicing.invoice_not_issuable',
   message: 'This invoice cannot be issued',

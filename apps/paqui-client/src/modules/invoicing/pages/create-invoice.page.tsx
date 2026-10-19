@@ -1,11 +1,13 @@
-import type { InvoiceDraftInput, InvoiceItemInput, InvoiceTemplateId } from '../invoicing.types';
+import type { InvoiceDeliveryNote, InvoiceDraftInput, InvoiceItemInput, InvoiceTemplateId } from '../invoicing.types';
 import type { Contact } from '@/modules/contacts/contacts.types';
+import type { DeliveryNote } from '@/modules/delivery-notes/delivery-notes.types';
 import type { PaymentMethod } from '@/modules/due-dates/due-dates.types';
 import { A, useNavigate, useParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
 import { createEffect, createMemo, createSignal, For, Index, on, Show } from 'solid-js';
 import { ContactFormFields, emptyContact } from '@/modules/contacts/components/contact-form';
 import { createContact, fetchContacts, getContactsQueryKey } from '@/modules/contacts/contacts.services';
+import { InvoiceDeliveryNotesField } from '@/modules/delivery-notes/components/invoice-delivery-notes-field';
 import { PAYMENT_METHOD_LABEL_I18N_KEYS, PAYMENT_METHODS } from '@/modules/due-dates/due-dates.constants';
 import { getDocumentLocale } from '@/modules/i18n/document-locale';
 import { useI18n } from '@/modules/i18n/i18n.provider';
@@ -82,6 +84,9 @@ export function CreateInvoicePage() {
   const [withholdingRateBps, setWithholdingRateBps] = createSignal<number | null>(null);
   const [notes, setNotes] = createSignal('');
   const [items, setItems] = createSignal<InvoiceItemInput[]>([newLine()]);
+  const [deliveryNotes, setDeliveryNotes] = createSignal<InvoiceDeliveryNote[]>([]);
+  const [savedDeliveryNotes, setSavedDeliveryNotes] = createSignal<InvoiceDeliveryNote[]>([]);
+  const [deliveryNotesAddedToItems, setDeliveryNotesAddedToItems] = createSignal<string[]>([]);
   const [customerSearch, setCustomerSearch] = createSignal('');
   const [isCustomerDialogOpen, setIsCustomerDialogOpen] = createSignal(false);
   const [newCustomer, setNewCustomer] = createSignal(emptyContact({ isCustomer: true }));
@@ -112,6 +117,9 @@ export function CreateInvoicePage() {
       taxRateBps: item.taxRateBps,
       discountRateBps: item.discountRateBps,
     })) ?? [newLine()]);
+    setDeliveryNotes(invoice.deliveryNotes ?? []);
+    setSavedDeliveryNotes(invoice.deliveryNotes ?? []);
+    setDeliveryNotesAddedToItems((invoice.deliveryNotes ?? []).map(deliveryNote => deliveryNote.id));
   });
 
   // The customer price list: picking a product uses its price there and the list discount, else the catalog price
@@ -179,6 +187,11 @@ export function CreateInvoicePage() {
   };
 
   const selectCustomer = (customer: Contact) => {
+    if (customer.id !== customerId()) {
+      setDeliveryNotes([]);
+      setSavedDeliveryNotes([]);
+      setDeliveryNotesAddedToItems([]);
+    }
     setCustomerId(customer.id);
     setCurrency(customer.currency);
     setDueDate(plusDays(customer.paymentTermsDays));
@@ -215,6 +228,7 @@ export function CreateInvoicePage() {
         withholdingRateBps: effectiveWithholdingRateBps(),
         notes: notes() || null,
         items: items(),
+        deliveryNoteIds: deliveryNotes().map(deliveryNote => deliveryNote.id),
       };
       const { invoice } = params.invoiceId
         ? await updateInvoice({ organizationId: params.organizationId, invoiceId: params.invoiceId, invoice: draft })
@@ -234,6 +248,46 @@ export function CreateInvoicePage() {
     updateItem(index, product
       ? { productId: product.id, description: product.name, taxRateBps: product.taxRateBps, ...getProductPricing(product) }
       : { productId: null, description: name });
+  };
+
+  const addDeliveryNotes = (notesToAdd: DeliveryNote[]) => {
+    setDeliveryNotes(current => [
+      ...current,
+      ...notesToAdd
+        .filter(note => !current.some(existing => existing.id === note.id))
+        .map(({ id, number, date }) => ({ id, number, date })),
+    ]);
+
+    const notesWithNewItems = notesToAdd.filter(note => !deliveryNotesAddedToItems().includes(note.id));
+    setDeliveryNotesAddedToItems(current => [...new Set([...current, ...notesToAdd.map(note => note.id)])]);
+    const products = productsQuery.data?.products ?? [];
+    const addedLines = notesWithNewItems.flatMap(note => note.items ?? []).map((item): InvoiceItemInput => {
+      const product = item.productId ? products.find(candidate => candidate.id === item.productId) : undefined;
+      return {
+        productId: product?.id ?? null,
+        description: product?.name ?? item.description,
+        quantityMillis: item.quantityMillis,
+        taxRateBps: product?.taxRateBps ?? defaultTaxRateBps() ?? 2_100,
+        ...(product ? getProductPricing(product) : { unitPriceMinor: 0, discountRateBps: 0 }),
+      };
+    });
+
+    setItems((current) => {
+      const next = current.length === 1 && current[0]?.description === '' ? [] : [...current];
+      for (const line of addedLines) {
+        const index = next.findIndex(existing => existing.productId === line.productId
+          && existing.description === line.description
+          && existing.unitPriceMinor === line.unitPriceMinor
+          && existing.taxRateBps === line.taxRateBps
+          && existing.discountRateBps === line.discountRateBps);
+        if (index === -1) {
+          next.push(line);
+        } else {
+          next[index] = { ...next[index]!, quantityMillis: next[index]!.quantityMillis + line.quantityMillis };
+        }
+      }
+      return next.length > 0 ? next : [newLine(defaultTaxRateBps())];
+    });
   };
 
   const canSubmit = () => Boolean((!params.invoiceId || !invoiceQuery.isLoading) && customerId() && items().length && items().every(item => item.description.trim() && item.quantityMillis > 0));
@@ -356,6 +410,16 @@ export function CreateInvoicePage() {
               <For each={productsQuery.data?.products}>{product => <option value={product.name} />}</For>
             </datalist>
 
+            <Show when={customerId()}>
+              <InvoiceDeliveryNotesField
+                organizationId={params.organizationId}
+                customerId={customerId()}
+                deliveryNotes={deliveryNotes()}
+                savedDeliveryNotes={savedDeliveryNotes()}
+                onAdd={addDeliveryNotes}
+                onRemove={deliveryNoteId => setDeliveryNotes(current => current.filter(note => note.id !== deliveryNoteId))}
+              />
+            </Show>
             <div class="divide-y border-y">
               <Index each={items()}>
                 {(item, index) => (
