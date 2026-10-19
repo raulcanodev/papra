@@ -4,6 +4,8 @@ services:
     build:
       context: .
       dockerfile: packages/app/Dockerfile
+      args:
+        VITE_INTAKE_EMAILS_IS_ENABLED: ${VITE_INTAKE_EMAILS_IS_ENABLED:-false}
     restart: unless-stopped
     ports:
       - "1221:1221"
@@ -29,6 +31,11 @@ services:
       - EMAILS_DRIVER=${EMAILS_DRIVER:-logger}
       - RESEND_API_KEY=${RESEND_API_KEY:-}
       - EMAILS_FROM_ADDRESS=${EMAILS_FROM_ADDRESS:-Paqui <noreply@heypaqui.com>}
+      # Recepción de facturas mediante Resend Inbound
+      - INTAKE_EMAILS_IS_ENABLED=${INTAKE_EMAILS_IS_ENABLED:-false}
+      - INTAKE_EMAILS_DRIVER=${INTAKE_EMAILS_DRIVER:-resend}
+      - INTAKE_EMAILS_RESEND_DOMAIN=${INTAKE_EMAILS_RESEND_DOMAIN:-heypaqui.com}
+      - INTAKE_EMAILS_WEBHOOK_SECRET=${INTAKE_EMAILS_WEBHOOK_SECRET:-}
       - AI_GROK_API_KEY=${AI_GROK_API_KEY:-}
       - AI_GOOGLE_API_KEY=${AI_GOOGLE_API_KEY:-}
       - AI_OPENAI_API_KEY=${AI_OPENAI_API_KEY:-}

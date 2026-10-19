@@ -10,6 +10,9 @@ FROM base AS build
 
 WORKDIR /app
 
+ARG VITE_INTAKE_EMAILS_IS_ENABLED=false
+ENV VITE_INTAKE_EMAILS_IS_ENABLED=${VITE_INTAKE_EMAILS_IS_ENABLED}
+
 COPY pnpm-lock.yaml ./
 COPY pnpm-workspace.yaml ./
 COPY apps/paqui-client/package.json apps/paqui-client/package.json
