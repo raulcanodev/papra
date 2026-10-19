@@ -1,5 +1,6 @@
+import type { Resend } from 'resend';
 import type { RouteDefinitionContext } from '../app/server.types';
-import { verifySignature } from '@owlrelay/webhook';
+import { Resend as ResendClient } from 'resend';
 import { z } from 'zod';
 import { createUnauthorizedError } from '../app/auth/auth.errors';
 import { requireAuthentication } from '../app/auth/auth.middleware';
@@ -14,16 +15,15 @@ import { createError } from '../shared/errors/errors';
 import { getHeader } from '../shared/headers/headers.models';
 import { addLogContext, createLogger } from '../shared/logger/logger';
 import { isNil } from '../shared/utils';
-import { legacyValidateFormData, legacyValidateJsonBody, legacyValidateParams } from '../shared/validation/validation.legacy';
+import { legacyValidateJsonBody, legacyValidateParams } from '../shared/validation/validation.legacy';
 import { createSubscriptionsRepository } from '../subscriptions/subscriptions.repository';
 import { createUsersRepository } from '../users/users.repository';
 import { INTAKE_EMAILS_INGEST_ROUTE } from './intake-emails.constants';
-import { getRecipientAddresses } from './intake-emails.models';
+import { extractEmailAddress, getRecipientAddressesFromValues } from './intake-emails.models';
 import { createIntakeEmailsRepository } from './intake-emails.repository';
-import { allowedOriginsSchema, intakeEmailIdSchema, intakeEmailsIngestionMetaSchema, parseJson } from './intake-emails.schemas.legacy';
+import { allowedOriginsSchema, intakeEmailAliasSchema, intakeEmailIdSchema } from './intake-emails.schemas.legacy';
 import { createIntakeEmailsServices } from './intake-emails.services';
 import { createIntakeEmail, deleteIntakeEmail, processIntakeEmailIngestion } from './intake-emails.usecases';
-import { createIntakeEmailUsernameServices } from './username-drivers/intake-email-username.services';
 
 const logger = createLogger({ namespace: 'intake-emails.routes' });
 
@@ -35,7 +35,7 @@ export function registerIntakeEmailsRoutes(context: RouteDefinitionContext) {
   setupUpdateIntakeEmailRoute(context);
 }
 
-function setupGetOrganizationIntakeEmailsRoute({ app, db }: RouteDefinitionContext) {
+function setupGetOrganizationIntakeEmailsRoute({ app, db, config }: RouteDefinitionContext) {
   app.get(
     '/api/organizations/:organizationId/intake-emails',
     requireAuthentication(),
@@ -48,12 +48,16 @@ function setupGetOrganizationIntakeEmailsRoute({ app, db }: RouteDefinitionConte
 
       const organizationsRepository = createOrganizationsRepository({ db });
       const intakeEmailsRepository = createIntakeEmailsRepository({ db });
+      const intakeEmailsServices = createIntakeEmailsServices({ config });
 
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
 
-      const { intakeEmails } = await intakeEmailsRepository.getOrganizationIntakeEmails({ organizationId });
+      const [{ intakeEmails }, { deliveries }] = await Promise.all([
+        intakeEmailsRepository.getOrganizationIntakeEmails({ organizationId }),
+        intakeEmailsRepository.listOrganizationIntakeEmailDeliveries({ organizationId }),
+      ]);
 
-      return context.json({ intakeEmails });
+      return context.json({ intakeEmails, deliveries, domain: intakeEmailsServices.getEmailDomain() });
     },
   );
 }
@@ -65,9 +69,11 @@ function setupCreateIntakeEmailRoute({ app, db, config }: RouteDefinitionContext
     legacyValidateParams(z.object({
       organizationId: organizationIdSchema,
     })),
+    legacyValidateJsonBody(z.object({ alias: intakeEmailAliasSchema })),
     async (context) => {
       const { userId } = getUser({ context });
       const { organizationId } = context.req.valid('param');
+      const { alias } = context.req.valid('json');
 
       const usersRepository = createUsersRepository({ db });
       const organizationsRepository = createOrganizationsRepository({ db });
@@ -75,18 +81,18 @@ function setupCreateIntakeEmailRoute({ app, db, config }: RouteDefinitionContext
       const intakeEmailsServices = createIntakeEmailsServices({ config });
       const plansRepository = createPlansRepository({ config });
       const subscriptionsRepository = createSubscriptionsRepository({ db });
-      const intakeEmailUsernameServices = createIntakeEmailUsernameServices({ config, usersRepository, organizationsRepository });
 
       await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository });
+      const { user } = await usersRepository.getUserById({ userId });
 
       const { intakeEmail } = await createIntakeEmail({
-        userId,
+        alias,
+        initialAllowedOrigins: user ? [user.email.toLowerCase()] : [],
         organizationId,
         intakeEmailsRepository,
         intakeEmailsServices,
         plansRepository,
         subscriptionsRepository,
-        intakeEmailUsernameServices,
       });
 
       return context.json({ intakeEmail });
@@ -156,20 +162,7 @@ function setupUpdateIntakeEmailRoute({ app, db }: RouteDefinitionContext) {
 function setupIngestIntakeEmailRoute({ app, db, config, taskServices, documentsStorageService, eventServices }: RouteDefinitionContext) {
   app.post(
     INTAKE_EMAILS_INGEST_ROUTE,
-    legacyValidateFormData(z.object({
-      // email field is a JSON string
-      'email': z.string().transform(parseJson).pipe(intakeEmailsIngestionMetaSchema),
-      'attachments[]': z.array(z.instanceof(File)).min(1, 'At least one attachment is required').optional(),
-    }), { allowAdditionalFields: true }),
     async (context) => {
-      const { email, 'attachments[]': attachments = [] } = context.req.valid('form');
-      const fromAddress = email.from.address;
-      const recipientsAddresses = getRecipientAddresses({ email });
-
-      addLogContext({ fromAddress, recipientsAddresses });
-
-      logger.info({ attachmentsCount: attachments.length }, 'Received intake email ingestion request');
-
       if (!config.intakeEmails.isEnabled) {
         throw createError({
           message: 'Intake emails are disabled',
@@ -178,28 +171,54 @@ function setupIngestIntakeEmailRoute({ app, db, config, taskServices, documentsS
         });
       }
 
-      const bodyBuffer = await context.req.arrayBuffer();
-      const signature = getHeader({ context, name: 'X-Signature' });
+      const webhookId = getHeader({ context, name: 'svix-id' });
+      const webhookTimestamp = getHeader({ context, name: 'svix-timestamp' });
+      const webhookSignature = getHeader({ context, name: 'svix-signature' });
 
-      if (isNil(signature)) {
+      if (isNil(webhookId) || isNil(webhookTimestamp) || isNil(webhookSignature)) {
         throw createError({
-          message: 'Signature header is required',
+          message: 'Resend signature headers are required',
           code: 'intake_emails.signature_header_required',
           statusCode: 400,
         });
       }
 
-      const isSignatureValid = await verifySignature({
-        signature,
-        bodyBuffer,
-        secret: config.intakeEmails.webhookSecret,
-      });
+      const payload = await context.req.text();
+      const resend = new ResendClient(config.emails.drivers.resend.resendApiKey || 're_intake_emails');
+      let event: ReturnType<Resend['webhooks']['verify']>;
 
-      if (!isSignatureValid) {
-        logger.error({ signature }, 'Invalid webhook signature');
+      try {
+        event = resend.webhooks.verify({
+          payload,
+          headers: {
+            id: webhookId,
+            timestamp: webhookTimestamp,
+            signature: webhookSignature,
+          },
+          webhookSecret: config.intakeEmails.webhookSecret,
+        });
+      } catch (error) {
+        logger.error({ error }, 'Invalid Resend webhook signature');
 
         throw createUnauthorizedError();
       }
+
+      if (event.type !== 'email.received') {
+        return context.body(null, 204);
+      }
+
+      const fromAddress = extractEmailAddress({ value: event.data.from });
+      const recipientsAddresses = getRecipientAddressesFromValues({
+        recipients: [...event.data.to, ...event.data.received_for],
+      });
+      const attachments = await downloadResendAttachments({
+        resend,
+        emailId: event.data.email_id,
+        expectedAttachments: event.data.attachments,
+      });
+
+      addLogContext({ fromAddress, recipientsAddresses, resendEmailId: event.data.email_id });
+      logger.info({ attachmentsCount: attachments.length }, 'Received Resend intake email');
 
       const intakeEmailsRepository = createIntakeEmailsRepository({ db });
 
@@ -214,6 +233,8 @@ function setupIngestIntakeEmailRoute({ app, db, config, taskServices, documentsS
       await processIntakeEmailIngestion({
         fromAddress,
         recipientsAddresses,
+        subject: event.data.subject,
+        providerMessageId: event.data.email_id,
         attachments,
         intakeEmailsRepository,
         createDocument,
@@ -224,4 +245,50 @@ function setupIngestIntakeEmailRoute({ app, db, config, taskServices, documentsS
       return context.body(null, 202);
     },
   );
+}
+
+async function downloadResendAttachments({
+  resend,
+  emailId,
+  expectedAttachments,
+}: {
+  resend: Resend;
+  emailId: string;
+  expectedAttachments: Array<{ content_disposition: string | null }>;
+}) {
+  if (!expectedAttachments.some(({ content_disposition: disposition }) => disposition !== 'inline')) {
+    return [];
+  }
+
+  const { data, error } = await resend.emails.receiving.attachments.list({ emailId });
+
+  if (error) {
+    throw createError({
+      message: 'Failed to list Resend email attachments',
+      code: 'intake_emails.list_attachments_failed',
+      statusCode: 502,
+      isInternal: true,
+    });
+  }
+
+  return Promise.all(data.data
+    .filter(({ content_disposition: disposition }) => disposition !== 'inline')
+    .map(async (attachment) => {
+      const response = await fetch(attachment.download_url);
+
+      if (!response.ok) {
+        throw createError({
+          message: 'Failed to download Resend email attachment',
+          code: 'intake_emails.download_attachment_failed',
+          statusCode: 502,
+          isInternal: true,
+        });
+      }
+
+      return new File(
+        [new Uint8Array(await response.arrayBuffer())],
+        attachment.filename ?? `attachment-${attachment.id}`,
+        { type: attachment.content_type },
+      );
+    }));
 }

@@ -1,23 +1,26 @@
 import type { AsDto } from '../shared/http/http-client.types';
-import type { IntakeEmail } from './intake-emails.types';
+import type { IntakeEmail, IntakeEmailDelivery } from './intake-emails.types';
 import { apiClient } from '../shared/http/api-client';
 import { coerceDates } from '../shared/http/http-client.models';
 
 export async function fetchIntakeEmails({ organizationId }: { organizationId: string }) {
-  const { intakeEmails } = await apiClient<{ intakeEmails: AsDto<IntakeEmail>[] }>({
+  const { intakeEmails, deliveries, domain } = await apiClient<{ intakeEmails: AsDto<IntakeEmail>[]; deliveries: AsDto<IntakeEmailDelivery>[]; domain: string | null }>({
     path: `/api/organizations/${organizationId}/intake-emails`,
     method: 'GET',
   });
 
   return {
     intakeEmails: intakeEmails.map(coerceDates),
+    deliveries: deliveries.map(coerceDates),
+    domain,
   };
 }
 
-export async function createIntakeEmail({ organizationId }: { organizationId: string }) {
+export async function createIntakeEmail({ organizationId, alias }: { organizationId: string; alias: string }) {
   const { intakeEmail } = await apiClient<{ intakeEmail: AsDto<IntakeEmail> }>({
     path: `/api/organizations/${organizationId}/intake-emails`,
     method: 'POST',
+    body: { alias },
   });
 
   return {

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { createInMemoryDatabase } from '../app/database/database.test-utils';
 import { omit } from '../shared/objects';
+import { createIntakeEmailAlreadyExistsError } from './intake-emails.errors';
 import { createIntakeEmailsRepository } from './intake-emails.repository';
 
 describe('intake-emails repository', () => {
@@ -71,6 +72,23 @@ describe('intake-emails repository', () => {
       });
 
       expect(orgIntakeEmailsAfterDelete).to.eql([]);
+    });
+
+    test('email addresses are normalized and globally unique across organizations', async () => {
+      const { db } = await createInMemoryDatabase({
+        organizations: [
+          { id: 'organization-1', name: 'Organization 1' },
+          { id: 'organization-2', name: 'Organization 2' },
+        ],
+      });
+      const repository = createIntakeEmailsRepository({ db });
+
+      const { intakeEmail } = await repository.createIntakeEmail({ organizationId: 'organization-1', emailAddress: 'Jocrimar@HeyPaqui.com' });
+      expect(intakeEmail.emailAddress).to.eql('jocrimar@heypaqui.com');
+
+      await expect(repository.createIntakeEmail({ organizationId: 'organization-2', emailAddress: 'jocrimar@heypaqui.com' }))
+        .rejects
+        .toThrow(createIntakeEmailAlreadyExistsError());
     });
   });
 });

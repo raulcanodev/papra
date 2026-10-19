@@ -2,8 +2,13 @@ import { createPrefixedIdRegex } from '../shared/random/ids';
 
 export const INTAKE_EMAIL_ID_PREFIX = 'ie';
 export const INTAKE_EMAIL_ID_REGEX = createPrefixedIdRegex({ prefix: INTAKE_EMAIL_ID_PREFIX });
+export const INTAKE_EMAIL_DELIVERY_ID_PREFIX = 'ied';
 
-// Mutualized since it's used in route definition and owlrelay client
+export const INTAKE_EMAIL_DELIVERY_STATUSES = ['processed', 'no_attachments', 'blocked_sender', 'address_disabled'] as const;
+
+export const INTAKE_EMAIL_ALIAS_MIN_LENGTH = 3;
+export const INTAKE_EMAIL_ALIAS_MAX_LENGTH = 48;
+
 export const INTAKE_EMAILS_INGEST_ROUTE = '/api/intake-emails/ingest' as const;
 
 // Copied from https://github.com/colinhacks/zod/blob/main/packages/zod/src/v4/core/regexes.ts#L42 while waiting to migrate to zod v4

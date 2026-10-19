@@ -304,7 +304,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
   // No feature flags in the demo: personal finances stays hidden, like for any new account
   ...defineHandler({ path: '/api/feature-flags', method: 'GET', handler: () => ({ featureFlags: [] }) }),
   ...defineHandler({ path: '/api/organizations/deleted', method: 'GET', handler: () => ({ organizations: [] }) }),
-  ...defineHandler({ path: '/api/organizations/:organizationId/intake-emails', method: 'GET', handler: () => ({ intakeEmails: [] }) }),
+  ...defineHandler({ path: '/api/organizations/:organizationId/intake-emails', method: 'GET', handler: () => ({ intakeEmails: [], deliveries: [], domain: 'heypaqui.com' }) }),
   ...defineHandler({ path: '/api/organizations/:organizationId/tagging-rules/:taggingRuleId/apply', method: 'POST', handler: () => ({ taskId: createId({ prefix: 'task' }) }) }),
 
   // Things that need a real server (emails, payments, other people): explained instead of failing silently

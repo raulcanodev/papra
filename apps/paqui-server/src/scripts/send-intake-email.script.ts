@@ -1,5 +1,6 @@
+import { Buffer } from 'node:buffer';
+import { createHmac } from 'node:crypto';
 import { buildUrl } from '@corentinth/chisels';
-import { triggerWebhook } from '@owlrelay/webhook';
 import { getServerBaseUrl } from '../modules/config/config.models';
 import { INTAKE_EMAILS_INGEST_ROUTE } from '../modules/intake-emails/intake-emails.constants';
 import { runScriptWithDb } from './commons/run-script';
@@ -12,23 +13,37 @@ await runScriptWithDb(
 
     const webhookUrl = buildUrl({ baseUrl: serverBaseUrl, path: INTAKE_EMAILS_INGEST_ROUTE });
 
-    await triggerWebhook({
-      webhookUrl,
-      webhookSecret,
-      email: {
-        from: { address: 'test@example.com', name: 'Test' },
-        to: [{ address: 'plucky-hyena-524@callback.email', name: 'Test' }],
-        subject: 'Test',
-        text: 'Hello, world!',
-        html: '<p>Hello, world!</p>',
-        attachments: [
-          {
-            filename: 'test.txt',
-            content: new TextEncoder().encode('Hello, world!').buffer as ArrayBuffer,
-            mimeType: 'text/plain',
-          },
-        ],
+    const payload = JSON.stringify({
+      type: 'email.received',
+      created_at: new Date().toISOString(),
+      data: {
+        email_id: 'local-test-email',
+        created_at: new Date().toISOString(),
+        from: 'Test <test@example.com>',
+        to: ['jocrimar@heypaqui.com'],
+        received_for: ['jocrimar@heypaqui.com'],
+        bcc: [],
+        cc: [],
+        message_id: 'local-test-message',
+        subject: 'Local Resend webhook test',
+        attachments: [],
       },
+    });
+
+    const id = 'local-webhook-test';
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const key = Buffer.from(webhookSecret.replace(/^whsec_/, ''), 'base64');
+    const signature = createHmac('sha256', key).update(`${id}.${timestamp}.${payload}`).digest('base64');
+
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'svix-id': id,
+        'svix-timestamp': timestamp,
+        'svix-signature': `v1,${signature}`,
+      },
+      body: payload,
     });
   },
 );

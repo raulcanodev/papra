@@ -4,7 +4,7 @@ import { booleanishSchema } from '../config/config.schemas';
 import { CATCH_ALL_INTAKE_EMAIL_DRIVER_NAME } from './drivers/catch-all/catch-all.intake-email-driver';
 import { catchAllIntakeEmailDriverConfig } from './drivers/catch-all/catch-all.intake-email-driver.config';
 import { intakeEmailDrivers } from './drivers/intake-emails.drivers';
-import { owlrelayIntakeEmailDriverConfig } from './drivers/owlrelay/owlrelay.intake-email-driver.config';
+import { resendIntakeEmailDriverConfig } from './drivers/resend/resend.intake-email-driver.config';
 import { intakeEmailUsernameConfig } from './username-drivers/intake-email-username.config';
 
 export const intakeEmailsConfig = {
@@ -15,7 +15,7 @@ export const intakeEmailsConfig = {
     env: 'INTAKE_EMAILS_IS_ENABLED',
   },
   webhookSecret: {
-    doc: 'The secret to use when verifying webhooks, should be a random string between 16 and 128 characters',
+    doc: 'The Resend webhook signing secret (whsec_...) used to verify inbound email events',
     schema: v.pipe(v.string(), v.minLength(16), v.maxLength(128)),
     default: 'please-change-me',
     env: 'INTAKE_EMAILS_WEBHOOK_SECRET',
@@ -27,7 +27,7 @@ export const intakeEmailsConfig = {
     env: 'INTAKE_EMAILS_DRIVER',
   },
   drivers: {
-    owlrelay: owlrelayIntakeEmailDriverConfig,
+    resend: resendIntakeEmailDriverConfig,
     catchAll: catchAllIntakeEmailDriverConfig,
   },
   username: intakeEmailUsernameConfig,

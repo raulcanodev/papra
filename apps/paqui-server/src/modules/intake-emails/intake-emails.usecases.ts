@@ -4,31 +4,30 @@ import type { Logger } from '../shared/logger/logger';
 import type { SubscriptionsRepository } from '../subscriptions/subscriptions.repository';
 import type { IntakeEmailsServices } from './drivers/intake-emails.drivers.models';
 import type { IntakeEmailsRepository } from './intake-emails.repository';
-import type { IntakeEmailUsernameServices } from './username-drivers/intake-email-username.services';
 import { safely } from '@corentinth/chisels';
 import { getOrganizationPlan } from '../plans/plans.usecases';
 import { addLogContext, createLogger } from '../shared/logger/logger';
 import { coerceFileMimeType } from '../shared/mime-types/mime-types.usecases';
 import { fileToReadableStream } from '../shared/streams/readable-stream';
-import { createIntakeEmailLimitReachedError, createIntakeEmailNotFoundError } from './intake-emails.errors';
-import { getIsFromAllowedOrigin } from './intake-emails.models';
+import { createIntakeEmailAlreadyExistsError, createIntakeEmailLimitReachedError, createIntakeEmailNotFoundError } from './intake-emails.errors';
+import { buildEmailAddress, getIsFromAllowedOrigin } from './intake-emails.models';
 
 export async function createIntakeEmail({
-  userId,
+  alias,
+  initialAllowedOrigins,
   organizationId,
   intakeEmailsRepository,
   intakeEmailsServices,
   plansRepository,
   subscriptionsRepository,
-  intakeEmailUsernameServices,
 }: {
-  userId: string;
+  alias: string;
+  initialAllowedOrigins?: string[];
   organizationId: string;
   intakeEmailsRepository: IntakeEmailsRepository;
   intakeEmailsServices: IntakeEmailsServices;
   plansRepository: PlansRepository;
   subscriptionsRepository: SubscriptionsRepository;
-  intakeEmailUsernameServices: IntakeEmailUsernameServices;
 }) {
   await checkIfOrganizationCanCreateNewIntakeEmail({
     organizationId,
@@ -37,13 +36,24 @@ export async function createIntakeEmail({
     intakeEmailsRepository,
   });
 
-  const { username } = await intakeEmailUsernameServices.generateIntakeEmailUsername({ userId, organizationId });
+  const domain = intakeEmailsServices.getEmailDomain();
+  if (domain !== null) {
+    const candidateAddress = buildEmailAddress({ username: alias, domain }).toLowerCase();
+    const { intakeEmail: existing } = await intakeEmailsRepository.getIntakeEmailByEmailAddress({ emailAddress: candidateAddress });
+    if (existing) {
+      throw createIntakeEmailAlreadyExistsError();
+    }
+  }
 
-  const { emailAddress } = await intakeEmailsServices.createEmailAddress({ username });
-
-  const { intakeEmail } = await intakeEmailsRepository.createIntakeEmail({ organizationId, emailAddress });
-
-  return { intakeEmail };
+  const { emailAddress } = await intakeEmailsServices.createEmailAddress({ username: alias });
+  try {
+    const { intakeEmail } = await intakeEmailsRepository.createIntakeEmail({ organizationId, emailAddress, allowedOrigins: initialAllowedOrigins });
+    return { intakeEmail };
+  } catch (error) {
+    // Avoid leaving an external provider address without an owner after a database race or insertion failure.
+    await intakeEmailsServices.deleteEmailAddress({ emailAddress });
+    throw error;
+  }
 }
 
 // Called with each document created from an email, e.g. to read it as an invoice to pay
@@ -52,6 +62,8 @@ export type OnIntakeDocumentCreated = (args: { organizationId: string; document:
 export async function processIntakeEmailIngestion({
   fromAddress,
   recipientsAddresses,
+  subject,
+  providerMessageId,
   attachments,
   intakeEmailsRepository,
   createDocument,
@@ -59,6 +71,8 @@ export async function processIntakeEmailIngestion({
 }: {
   fromAddress: string;
   recipientsAddresses: string[];
+  subject?: string;
+  providerMessageId?: string;
   attachments: File[];
   intakeEmailsRepository: IntakeEmailsRepository;
   createDocument: CreateDocumentUsecase;
@@ -69,6 +83,8 @@ export async function processIntakeEmailIngestion({
       ingestEmailForRecipient({
         fromAddress,
         recipientAddress,
+        subject,
+        providerMessageId,
         attachments,
         intakeEmailsRepository,
         createDocument,
@@ -81,6 +97,8 @@ export async function processIntakeEmailIngestion({
 export async function ingestEmailForRecipient({
   fromAddress,
   recipientAddress,
+  subject,
+  providerMessageId,
   attachments,
   intakeEmailsRepository,
   logger = createLogger({ namespace: 'intake-emails.ingest' }),
@@ -89,6 +107,8 @@ export async function ingestEmailForRecipient({
 }: {
   fromAddress: string;
   recipientAddress: string;
+  subject?: string;
+  providerMessageId?: string;
   attachments: File[];
   intakeEmailsRepository: IntakeEmailsRepository;
   logger?: Logger;
@@ -103,10 +123,33 @@ export async function ingestEmailForRecipient({
     return;
   }
 
+  if (providerMessageId !== undefined) {
+    const { delivery } = await intakeEmailsRepository.getIntakeEmailDeliveryByProviderMessageId({
+      intakeEmailId: intakeEmail.id,
+      providerMessageId,
+    });
+
+    if (delivery) {
+      logger.info({ providerMessageId }, 'Intake email was already processed');
+      return;
+    }
+  }
+
   addLogContext({ intakeEmailId: intakeEmail.id });
 
   if (!intakeEmail.isEnabled) {
     logger.info('Intake email is disabled');
+
+    await intakeEmailsRepository.createIntakeEmailDelivery({
+      intakeEmailId: intakeEmail.id,
+      organizationId: intakeEmail.organizationId,
+      providerMessageId,
+      fromAddress,
+      recipientAddress,
+      subject,
+      attachmentCount: attachments.length,
+      status: 'address_disabled',
+    });
 
     return;
   }
@@ -118,6 +161,34 @@ export async function ingestEmailForRecipient({
 
   if (!isFromAllowedOrigin) {
     logger.warn({ fromAddress }, 'Origin not allowed');
+
+    await intakeEmailsRepository.createIntakeEmailDelivery({
+      intakeEmailId: intakeEmail.id,
+      organizationId: intakeEmail.organizationId,
+      providerMessageId,
+      fromAddress,
+      recipientAddress,
+      subject,
+      attachmentCount: attachments.length,
+      status: 'blocked_sender',
+    });
+
+    return;
+  }
+
+  if (attachments.length === 0) {
+    logger.info('Intake email has no attachments');
+
+    await intakeEmailsRepository.createIntakeEmailDelivery({
+      intakeEmailId: intakeEmail.id,
+      organizationId: intakeEmail.organizationId,
+      providerMessageId,
+      fromAddress,
+      recipientAddress,
+      subject,
+      attachmentCount: 0,
+      status: 'no_attachments',
+    });
 
     return;
   }
@@ -143,6 +214,17 @@ export async function ingestEmailForRecipient({
       }
     }
   }));
+
+  await intakeEmailsRepository.createIntakeEmailDelivery({
+    intakeEmailId: intakeEmail.id,
+    organizationId: intakeEmail.organizationId,
+    providerMessageId,
+    fromAddress,
+    recipientAddress,
+    subject,
+    attachmentCount: attachments.length,
+    status: 'processed',
+  });
 }
 
 export async function checkIfOrganizationCanCreateNewIntakeEmail({

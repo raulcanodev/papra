@@ -8,7 +8,7 @@ import { apiKeyOrganizationsTable, apiKeysTable } from '../../api-keys/api-keys.
 import { customPropertyDefinitionsTable, documentCustomPropertyValuesTable } from '../../custom-properties/custom-properties.table';
 import { customPropertySelectOptionsTable } from '../../custom-properties/options/custom-properties-options.table';
 import { documentsTable } from '../../documents/documents.table';
-import { intakeEmailsTable } from '../../intake-emails/intake-emails.tables';
+import { intakeEmailDeliveriesTable, intakeEmailsTable } from '../../intake-emails/intake-emails.tables';
 import { organizationInvitationsTable, organizationMembersTable, organizationsTable } from '../../organizations/organizations.table';
 import { userRolesTable } from '../../roles/roles.table';
 import { organizationSubscriptionsTable } from '../../subscriptions/subscriptions.tables';
@@ -78,6 +78,7 @@ const seedTables = {
   tags: tagsTable,
   documentsTags: documentsTagsTable,
   intakeEmails: intakeEmailsTable,
+  intakeEmailDeliveries: intakeEmailDeliveriesTable,
   organizationSubscriptions: organizationSubscriptionsTable,
   taggingRules: taggingRulesTable,
   taggingRuleConditions: taggingRuleConditionsTable,

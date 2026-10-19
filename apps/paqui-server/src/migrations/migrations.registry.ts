@@ -23,6 +23,7 @@ import { aiUsageMigration } from './list/0020-ai-usage.migration';
 import { priceListAdjustmentsMigration } from './list/0021-price-list-adjustments.migration';
 import { hideDocumentsNavigationMigration } from './list/0022-hide-documents-navigation.migration';
 import { deliveryNotesMigration } from './list/0023-delivery-notes.migration';
+import { intakeEmailAliasesMigration } from './list/0024-intake-email-aliases.migration';
 
 export const migrations: Migration[] = [
   postgresInitialSchemaMigration,
@@ -48,4 +49,5 @@ export const migrations: Migration[] = [
   priceListAdjustmentsMigration,
   hideDocumentsNavigationMigration,
   deliveryNotesMigration,
+  intakeEmailAliasesMigration,
 ];

@@ -1,11 +1,11 @@
 import type { Database } from '../app/database/database.types';
 import { injectArguments, safely } from '@corentinth/chisels';
-import { and, count, eq } from 'drizzle-orm';
+import { and, count, desc, eq, sql } from 'drizzle-orm';
 import { isUniqueConstraintError } from '../shared/db/constraints.models';
 import { createError } from '../shared/errors/errors';
 import { omitUndefined } from '../shared/objects';
 import { createIntakeEmailAlreadyExistsError, createIntakeEmailNotFoundError } from './intake-emails.errors';
-import { intakeEmailsTable } from './intake-emails.tables';
+import { intakeEmailDeliveriesTable, intakeEmailsTable } from './intake-emails.tables';
 
 export type IntakeEmailsRepository = ReturnType<typeof createIntakeEmailsRepository>;
 
@@ -19,13 +19,16 @@ export function createIntakeEmailsRepository({ db }: { db: Database }) {
       getIntakeEmailByEmailAddress,
       deleteIntakeEmail,
       getOrganizationIntakeEmailsCount,
+      createIntakeEmailDelivery,
+      getIntakeEmailDeliveryByProviderMessageId,
+      listOrganizationIntakeEmailDeliveries,
     },
     { db },
   );
 }
 
-async function createIntakeEmail({ organizationId, emailAddress, db }: { organizationId: string; emailAddress: string; db: Database }) {
-  const [result, error] = await safely(db.insert(intakeEmailsTable).values({ organizationId, emailAddress }).returning());
+async function createIntakeEmail({ organizationId, emailAddress, allowedOrigins, db }: { organizationId: string; emailAddress: string; allowedOrigins?: string[]; db: Database }) {
+  const [result, error] = await safely(db.insert(intakeEmailsTable).values({ organizationId, emailAddress: emailAddress.toLowerCase(), allowedOrigins }).returning());
 
   if (isUniqueConstraintError({ error })) {
     throw createIntakeEmailAlreadyExistsError();
@@ -92,7 +95,7 @@ async function getIntakeEmailByEmailAddress({ emailAddress, db }: { emailAddress
   const [intakeEmail] = await db
     .select()
     .from(intakeEmailsTable)
-    .where(eq(intakeEmailsTable.emailAddress, emailAddress));
+    .where(eq(sql`lower(${intakeEmailsTable.emailAddress})`, emailAddress.toLowerCase()));
 
   return { intakeEmail };
 }
@@ -134,4 +137,32 @@ async function getOrganizationIntakeEmailsCount({ organizationId, db }: { organi
   const { intakeEmailCount } = record;
 
   return { intakeEmailCount };
+}
+
+async function createIntakeEmailDelivery({ db, ...delivery }: { db: Database } & typeof intakeEmailDeliveriesTable.$inferInsert) {
+  const [created] = await db.insert(intakeEmailDeliveriesTable).values(delivery).returning();
+  return { delivery: created! };
+}
+
+async function getIntakeEmailDeliveryByProviderMessageId({ intakeEmailId, providerMessageId, db }: { intakeEmailId: string; providerMessageId: string; db: Database }) {
+  const [delivery] = await db
+    .select()
+    .from(intakeEmailDeliveriesTable)
+    .where(and(
+      eq(intakeEmailDeliveriesTable.intakeEmailId, intakeEmailId),
+      eq(intakeEmailDeliveriesTable.providerMessageId, providerMessageId),
+    ));
+
+  return { delivery };
+}
+
+async function listOrganizationIntakeEmailDeliveries({ organizationId, limit = 20, db }: { organizationId: string; limit?: number; db: Database }) {
+  const deliveries = await db
+    .select()
+    .from(intakeEmailDeliveriesTable)
+    .where(eq(intakeEmailDeliveriesTable.organizationId, organizationId))
+    .orderBy(desc(intakeEmailDeliveriesTable.createdAt))
+    .limit(limit);
+
+  return { deliveries };
 }
