@@ -212,8 +212,8 @@ input[type="week"]::-webkit-date-and-time-value {
 
 /*
  * Tables on phones: each row becomes a card, each cell a "column title · value" line (labels from stacked-table.ts).
- * The first cell, or the one marked data-stack-primary, is the title of the card; a cell without a column title
- * or holding only icon buttons (the row actions) sits in its top right corner. Nothing is wider than the screen.
+ * The first cell, or the one marked data-stack-primary, is the title of the card; a cell holding only icon buttons
+ * (the row actions) sits in its top right corner. Nothing is wider than the screen.
  */
 @media (max-width: 767.98px) {
   table.stacked-table,
@@ -279,7 +279,6 @@ input[type="week"]::-webkit-date-and-time-value {
     content: none;
   }
 
-  .stacked-table > tbody > tr > td[data-label=""],
   .stacked-table > tbody > tr > td[data-stack-actions] {
     position: absolute;
     top: 0.5rem;

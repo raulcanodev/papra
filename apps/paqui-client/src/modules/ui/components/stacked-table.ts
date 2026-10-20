@@ -18,7 +18,8 @@ function labelCells(table: HTMLTableElement) {
       for (const cell of row.cells) {
         const label = headerCells[cell.cellIndex]?.textContent?.trim() ?? '';
         // Only icon buttons, no text: the row actions, shown in the corner of the card
-        const isActions = !cell.textContent?.trim() && cell.querySelector('button, [role="button"]') !== null;
+        const hasCheckbox = cell.querySelector('input[type="checkbox"], [role="checkbox"]') !== null;
+        const isActions = !hasCheckbox && !cell.textContent?.trim() && cell.querySelector('button, [role="button"]') !== null;
 
         if (cell.dataset.label !== label) {
           cell.dataset.label = label;
