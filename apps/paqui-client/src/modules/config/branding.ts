@@ -13,12 +13,6 @@ export const appBrand = {
   ),
 } as const;
 
-/** The agency behind the product, credited in the landing footer. */
-export const appAgency = {
-  name: 'Halo Studio 27',
-  url: getBrandValue(import.meta.env.VITE_AGENCY_URL, 'https://halostudio27.com'),
-} as const;
-
 const hasCustomTagline = Boolean(import.meta.env.VITE_APP_TAGLINE?.trim());
 const hasCustomDescription = Boolean(import.meta.env.VITE_APP_DESCRIPTION?.trim());
 

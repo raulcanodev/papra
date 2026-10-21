@@ -2,7 +2,7 @@ import type { Component } from 'solid-js';
 import type { TranslationKeys } from '@/modules/i18n/locales.types';
 import { A } from '@solidjs/router';
 import { createEffect, For, onCleanup, onMount, Show, untrack } from 'solid-js';
-import { appAgency, appBrand } from '@/modules/config/branding';
+import { appBrand } from '@/modules/config/branding';
 import { buildTimeConfig } from '@/modules/config/config';
 import { useConfig } from '@/modules/config/config.provider';
 import { DEMO_PREFERENCES_MESSAGE_SOURCE, DEMO_READY_MESSAGE_SOURCE } from '@/modules/demo/demo.constants';
@@ -198,11 +198,6 @@ export const LandingPage: Component<{ audience?: LandingAudience }> = (props) =>
         <div class="border-t">
           <div class="mx-auto flex max-w-6xl flex-col gap-1 px-5 py-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8">
             <p>{t('landing.footer.rights', { year: new Date().getFullYear(), name: appBrand.name })}</p>
-            <p>
-              {t('landing.footer.by')}
-              {' '}
-              <a href={appAgency.url} target="_blank" rel="noopener noreferrer" class="font-medium text-foreground/80 underline-offset-4 transition hover:text-foreground hover:underline">{appAgency.name}</a>
-            </p>
           </div>
         </div>
       </footer>
