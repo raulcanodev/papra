@@ -1089,14 +1089,19 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
       <div class="flex flex-col flex-1 min-w-0 min-h-0">
         {/* Header */}
         <div class={cn('border-b flex items-center justify-between shrink-0 bg-white dark:bg-card', isPanel() ? 'px-3 py-2' : 'px-5 py-2.5')}>
-          <div class="flex items-center gap-3">
-            <button
+          <div class="flex items-center gap-2">
+            <Button
               type="button"
-              class="size-8 rounded-lg bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors"
+              size="sm"
+              class="h-7 px-2.5 text-xs"
+              aria-expanded={showHistory()}
               onClick={() => setShowHistory(!showHistory())}
             >
-              <div class="i-tabler-layout-sidebar-left-expand size-4 text-muted-foreground" />
-            </button>
+              {t('ai-assistant.history.title')}
+            </Button>
+            <Button size="sm" class="h-7 px-2.5 text-xs" onClick={handleNewChat}>
+              {t('ai-assistant.new-chat')}
+            </Button>
             <div class={cn('flex items-center gap-2', isPanel() && 'sr-only')}>
               <img src="/logo.svg" alt="Paqui" class="size-8 shrink-0 [image-rendering:pixelated]" />
               <div>
@@ -1105,9 +1110,6 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <Button variant="ghost" size="icon-sm" class="rounded-full" onClick={handleNewChat} aria-label={t('ai-assistant.new-chat')}>
-              <div class="i-tabler-plus size-3.5" />
-            </Button>
             <Show when={isPanel()}>
               <Button variant="ghost" size="icon-sm" class="rounded-full" onClick={props.onExpand} aria-label={t('ai-assistant.open-full-page')}>
                 <div class="i-tabler-arrows-maximize size-4" />
