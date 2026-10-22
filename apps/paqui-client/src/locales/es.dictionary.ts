@@ -2763,12 +2763,8 @@ export const translations: Partial<TranslationsDictionary> = {
   'onboarding.company.sector.other.description': 'Servicios, comercio, consultoría…',
   'onboarding.done.both-hint': 'Este espacio es para tu sociedad. Tu actividad como autónomo tiene otro NIF y sus propios impuestos (303 y 130): crea un segundo espacio para ella desde el selector de empresas.',
   'onboarding.done.title': '¡Todo listo!',
-  'onboarding.done.description.company': '{{ company }} está lista. Esto es lo que puedes hacer ahora:',
+  'onboarding.done.description.company': '{{ company }} está lista.',
   'onboarding.done.description.invited': 'Tu perfil está listo. Tu equipo te espera.',
-  'onboarding.done.next.invoice': 'Crear tu primera factura',
-  'onboarding.done.next.customers': 'Añadir tus clientes',
-  'onboarding.done.next.documents': 'Subir tus documentos',
-  'onboarding.done.next.bank': 'Conectar tu banco',
   'onboarding.done.cta': 'Ir a mi espacio de trabajo',
 
   // Gestorías

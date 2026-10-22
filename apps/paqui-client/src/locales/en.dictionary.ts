@@ -2761,12 +2761,8 @@ export const translations = {
   'onboarding.company.sector.other.description': 'Services, retail, consulting…',
   'onboarding.done.both-hint': 'This workspace is for your company. Your freelance activity has its own tax ID and taxes (303 and 130): create a second workspace for it from the company switcher.',
   'onboarding.done.title': 'You’re all set',
-  'onboarding.done.description.company': '{{ company }} is ready. Here’s what you can do next:',
+  'onboarding.done.description.company': '{{ company }} is ready.',
   'onboarding.done.description.invited': 'Your profile is ready. Your team is waiting for you.',
-  'onboarding.done.next.invoice': 'Create your first invoice',
-  'onboarding.done.next.customers': 'Add your customers',
-  'onboarding.done.next.documents': 'Upload your documents',
-  'onboarding.done.next.bank': 'Connect your bank',
   'onboarding.done.cta': 'Go to my workspace',
 
   // Gestorías

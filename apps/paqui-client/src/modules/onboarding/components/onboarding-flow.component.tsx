@@ -515,9 +515,7 @@ export const OnboardingFlow: Component<{
           when={!finished()}
           fallback={(
             <div class="text-center animate-in fade-in slide-in-from-bottom-4">
-              <div class="mx-auto size-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-                <div class="i-tabler-confetti size-7" />
-              </div>
+              <img src="/logo.svg" alt="" width="56" height="56" class="mx-auto size-14 [image-rendering:pixelated]" />
               <h1 class="mt-6 text-2xl font-semibold tracking-tight">{t('onboarding.done.title')}</h1>
               <p class="mt-2 text-muted-foreground">
                 {props.flow === 'invited-user' ? t('onboarding.done.description.invited') : t('onboarding.done.description.company', { company: values.companyName })}
@@ -527,24 +525,6 @@ export const OnboardingFlow: Component<{
                   <span class="i-tabler-info-circle mr-1 inline-block size-4 align-text-bottom" />
                   {t('onboarding.done.both-hint')}
                 </p>
-              </Show>
-              <Show when={props.flow !== 'invited-user'}>
-                <ul class="mt-8 grid gap-2 text-left sm:grid-cols-2">
-                  <For each={[
-                    { icon: 'i-tabler-file-invoice', label: t('onboarding.done.next.invoice') },
-                    { icon: 'i-tabler-building-store', label: t('onboarding.done.next.customers') },
-                    { icon: 'i-tabler-upload', label: t('onboarding.done.next.documents') },
-                    { icon: 'i-tabler-building-bank', label: t('onboarding.done.next.bank') },
-                  ]}
-                  >
-                    {item => (
-                      <li class="flex items-center gap-3 rounded-xl border bg-card p-3 text-sm">
-                        <div class={cn(item.icon, 'size-4.5 text-primary')} />
-                        {item.label}
-                      </li>
-                    )}
-                  </For>
-                </ul>
               </Show>
               <Button variant="primary" size="lg" class="mt-8" onClick={leave}>
                 {t('onboarding.done.cta')}
@@ -920,7 +900,10 @@ export const OnboardingFlow: Component<{
                   </Button>
                 </Show>
                 <Button type="submit" variant="primary" class="min-w-28" isLoading={isSaving()} disabled={isLoadingCompany()}>
-                  {isSaving() ? t('onboarding.actions.saving') : index() === steps.length - 1 ? t('onboarding.actions.finish') : t('onboarding.actions.continue')}
+                  {/* Keyed so each label is a fresh element: browser translators replace text nodes, and updating one in place piles up every past label */}
+                  <Show when={isSaving() ? t('onboarding.actions.saving') : index() === steps.length - 1 ? t('onboarding.actions.finish') : t('onboarding.actions.continue')} keyed>
+                    {label => <span>{label}</span>}
+                  </Show>
                 </Button>
               </div>
             </div>
