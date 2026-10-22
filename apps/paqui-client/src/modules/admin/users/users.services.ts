@@ -1,3 +1,4 @@
+import type { Impersonation } from '../impersonation/impersonation.services';
 import type { Organization } from '@/modules/organizations/organizations.types';
 import type { User } from '@/modules/users/users.types';
 import { apiClient } from '@/modules/shared/http/api-client';
@@ -20,14 +21,16 @@ export async function listUsers({ search, pageIndex = 0, pageSize = 25 }: { sear
 }
 
 export async function getUserDetail({ userId }: { userId: string }) {
-  const { organizations, roles, user } = await apiClient<{
+  const { organizations, roles, user, impersonations, isImpersonable } = await apiClient<{
     user: User;
     organizations: Organization[];
     roles: string[];
+    impersonations: Impersonation[];
+    isImpersonable: boolean;
   }>({
     method: 'GET',
     path: `/api/admin/users/${userId}`,
   });
 
-  return { organizations, roles, user };
+  return { organizations, roles, user, impersonations, isImpersonable };
 }

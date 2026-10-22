@@ -1,6 +1,6 @@
 import type { RouteDefinitionContext } from '../app/server.types';
 import { z } from 'zod';
-import { requireAuthentication } from '../app/auth/auth.middleware';
+import { forbidDuringImpersonation, requireAuthentication } from '../app/auth/auth.middleware';
 import { getUser } from '../app/auth/auth.models';
 import { getPermissionsForRoles } from '../roles/roles.methods';
 import { createRolesRepository } from '../roles/roles.repository';
@@ -84,6 +84,7 @@ function setupSetPasswordRoute({ app, auth }: RouteDefinitionContext) {
   app.post(
     '/api/users/me/password',
     requireAuthentication(),
+    forbidDuringImpersonation(),
     legacyValidateJsonBody(z.object({
       newPassword: z.string().min(8).max(128),
     })),

@@ -11,6 +11,12 @@ export function useSession() {
 
   const getUser = () => sessionQuery.data?.data?.user;
   const getIsAuthenticated = () => Boolean(getUser());
+  // Set when an admin opened this session from the admin panel to act as the user
+  const getImpersonation = () => {
+    const session = sessionQuery.data?.data?.session as { impersonatedBy?: string | null; expiresAt: Date } | undefined;
+
+    return session?.impersonatedBy ? { impersonatedBy: session.impersonatedBy, expiresAt: new Date(session.expiresAt) } : undefined;
+  };
 
   // Remember the outcome so the next visit knows what to show before the session is fetched
   createEffect(() => {
@@ -23,5 +29,6 @@ export function useSession() {
     sessionQuery,
     getUser,
     getIsAuthenticated,
+    getImpersonation,
   };
 }

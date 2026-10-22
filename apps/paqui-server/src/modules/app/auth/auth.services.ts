@@ -6,6 +6,7 @@ import { expo } from '@better-auth/expo';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { genericOAuth } from 'better-auth/plugins';
+import { impersonationPlugin } from '../../admin/impersonation/impersonation.plugin';
 import { getClientBaseUrl, getServerBaseUrl } from '../../config/config.models';
 import { createLogger } from '../../shared/logger/logger';
 import { usersTable } from '../../users/users.table';
@@ -133,6 +134,7 @@ export function getAuth({
       // Keep Expo after two-factor so its OAuth callback bridge forwards the
       // challenge cookie, never the short-lived session that was just revoked.
       expo(),
+      impersonationPlugin({ db }),
 
       ...(config.auth.providers.customs.length > 0
         ? [genericOAuth({ config: config.auth.providers.customs })]

@@ -8,6 +8,7 @@ export const PERMISSIONS = {
   VIEW_ANALYTICS: 'analytics:view',
   MANAGE_GESTORIAS: 'gestorias:manage',
   MANAGE_AI: 'ai:manage',
+  IMPERSONATE_USERS: 'users:impersonate',
 } as const;
 
 export const PERMISSIONS_BY_ROLE = {
@@ -17,6 +18,7 @@ export const PERMISSIONS_BY_ROLE = {
     PERMISSIONS.VIEW_ANALYTICS,
     PERMISSIONS.MANAGE_GESTORIAS,
     PERMISSIONS.MANAGE_AI,
+    PERMISSIONS.IMPERSONATE_USERS,
   ],
 } as const;
 

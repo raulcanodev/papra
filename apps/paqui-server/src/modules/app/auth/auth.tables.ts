@@ -15,6 +15,8 @@ export const sessionsTable = pgTable(
     ipAddress: text('ip_address'),
     userAgent: text('user_agent'),
     activeOrganizationId: text('active_organization_id').references(() => organizationsTable.id, { onDelete: 'set null', onUpdate: 'cascade' }),
+    // The admin acting as this user, set only on the short sessions opened from the admin panel
+    impersonatedBy: text('impersonated_by').references(() => usersTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
   },
   table => [
     // To select sessions by token

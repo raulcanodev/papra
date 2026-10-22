@@ -2,7 +2,7 @@ import type { RouteDefinitionContext } from '../app/server.types';
 import type { ApiKeyPermissions } from './api-keys.types';
 import { z } from 'zod';
 import { createUnauthorizedError } from '../app/auth/auth.errors';
-import { requireAuthentication } from '../app/auth/auth.middleware';
+import { forbidDuringImpersonation, requireAuthentication } from '../app/auth/auth.middleware';
 import { getUser } from '../app/auth/auth.models';
 import { isNil } from '../shared/utils';
 import { legacyValidateJsonBody, legacyValidateParams } from '../shared/validation/validation.legacy';
@@ -23,6 +23,7 @@ function setupCreateApiKeyRoute({ app, db }: RouteDefinitionContext) {
   app.post(
     '/api/api-keys',
     requireAuthentication(),
+    forbidDuringImpersonation(),
     legacyValidateJsonBody(
       z.object({
         name: z.string(),
