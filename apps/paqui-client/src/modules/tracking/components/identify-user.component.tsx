@@ -9,12 +9,13 @@ export const IdentifyUser: Component = () => {
     return null;
   }
 
-  const { getUser } = useSession();
+  const { getUser, getImpersonation } = useSession();
 
   createEffect(() => {
     const user = getUser();
 
-    if (user) {
+    // An admin visiting an account must not be counted as that user
+    if (user && !getImpersonation()) {
       trackingServices.identify({
         userId: user.id,
         email: user.email,

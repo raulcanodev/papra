@@ -6,8 +6,8 @@ import { createMiddleware } from 'hono/factory';
 import { PERMISSIONS_BY_ROLE } from '../../roles/roles.constants';
 import { getPermissionsForRoles } from '../../roles/roles.methods';
 import { createRolesRepository } from '../../roles/roles.repository';
-import { isNil } from '../../shared/utils';
-import { createUnauthorizedError } from './auth.errors';
+import { isDefined, isNil } from '../../shared/utils';
+import { createForbiddenDuringImpersonationError, createUnauthorizedError } from './auth.errors';
 import { isAuthenticationValid } from './auth.models';
 
 export function requireAuthentication({ apiKeyPermissions }: { apiKeyPermissions?: ApiKeyPermissions[] } = {}) {
@@ -21,6 +21,20 @@ export function requireAuthentication({ apiKeyPermissions }: { apiKeyPermissions
 
     if (!isAuthenticated) {
       throw createUnauthorizedError();
+    }
+
+    await next();
+  });
+}
+
+/**
+ * For actions that would leave the admin a way back into the account after an impersonation
+ * (API keys, credentials): only the user themselves can do them.
+ */
+export function forbidDuringImpersonation() {
+  return createMiddleware(async (context: Context, next) => {
+    if (isDefined(context.get('session')?.impersonatedBy)) {
+      throw createForbiddenDuringImpersonationError();
     }
 
     await next();

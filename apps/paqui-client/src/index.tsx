@@ -5,6 +5,7 @@ import { QueryClientProvider } from '@tanstack/solid-query';
 
 import { lazy, Suspense } from 'solid-js';
 import { render } from 'solid-js/web';
+import { ImpersonationBanner } from './modules/admin/impersonation/components/impersonation-banner.component';
 import { readSessionHint } from './modules/auth/session-hint';
 import { CommandPaletteProvider } from './modules/command-palette/command-palette.provider';
 import { applyBrandMetadata } from './modules/config/branding';
@@ -82,6 +83,7 @@ render(
                             {props.children}
                           </div>
                         </RenameDocumentDialogProvider>
+                        <ImpersonationBanner />
                         {DemoIndicator && <DemoIndicator />}
                         {DevTools && <DevTools />}
                       </ConfigProvider>

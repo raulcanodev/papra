@@ -7,7 +7,9 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/modules/ui/components/card';
+import { PageSection, PageSections } from '@/modules/ui/components/page-section';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/ui/components/table';
+import { ImpersonateUser, ImpersonationHistory } from '../../impersonation/components/impersonate-user.component';
 import { getUserDetail } from '../users.services';
 
 export const AdminUserDetailPage: Component = () => {
@@ -39,6 +41,19 @@ export const AdminUserDetailPage: Component = () => {
                 </h1>
                 <p class="text-muted-foreground mt-1">{data().user.email}</p>
               </div>
+
+              <PageSections>
+                <PageSection
+                  title={t('admin.impersonation.title')}
+                  description={t('admin.impersonation.description')}
+                >
+                  <ImpersonateUser userId={data().user.id} email={data().user.email} isImpersonable={data().isImpersonable} />
+                </PageSection>
+
+                <PageSection title={t('admin.impersonation.history.title')}>
+                  <ImpersonationHistory impersonations={data().impersonations} userId={data().user.id} />
+                </PageSection>
+              </PageSections>
 
               <div class="grid gap-6 md:grid-cols-2">
                 <Card>

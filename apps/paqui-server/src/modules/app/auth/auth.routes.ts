@@ -1,5 +1,6 @@
 import type { Context, RouteDefinitionContext } from '../server.types';
 import type { Session } from './auth.types';
+import { ensureImpersonationSessionIsValid } from '../../admin/impersonation/impersonation.usecases';
 import { addLogContext } from '../../shared/logger/logger';
 import { isDefined, isNil } from '../../shared/utils';
 
@@ -16,7 +17,7 @@ function getOverrideUserId(context: Context): string | undefined {
   return undefined;
 }
 
-export function registerAuthRoutes({ app, auth, config }: RouteDefinitionContext) {
+export function registerAuthRoutes({ app, auth, config, db }: RouteDefinitionContext) {
   app.on(
     ['POST', 'GET'],
     '/api/auth/*',
@@ -37,12 +38,22 @@ export function registerAuthRoutes({ app, auth, config }: RouteDefinitionContext
       const { user, session } = sessionData;
       const userId = user.id;
       const authType = 'session';
+      const { impersonatedBy } = session;
+
+      if (isDefined(impersonatedBy)) {
+        const { isValid } = await ensureImpersonationSessionIsValid({ db, session: { ...session, impersonatedBy } });
+
+        if (!isValid) {
+          return next();
+        }
+      }
 
       context.set('userId', userId);
       context.set('session', session);
       context.set('authType', authType);
 
-      addLogContext({ userId, authType, sessionId: session.id });
+      // Everything done during an impersonation is traceable to the admin in the logs
+      addLogContext({ userId, authType, sessionId: session.id, ...(isDefined(impersonatedBy) ? { impersonatedBy } : {}) });
     }
 
     return next();

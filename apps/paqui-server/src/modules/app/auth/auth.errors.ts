@@ -12,6 +12,12 @@ export const createForbiddenError = createErrorFactory({
   statusCode: 403,
 });
 
+export const createForbiddenDuringImpersonationError = createErrorFactory({
+  message: 'Not available while impersonating a user',
+  code: 'auth.forbidden_during_impersonation',
+  statusCode: 403,
+});
+
 export const createForbiddenEmailDomainError = createErrorFactory({
   message: 'Email domain is not allowed',
   code: 'auth.forbidden_email_domain',
