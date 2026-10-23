@@ -26,6 +26,7 @@ const contactFields = {
   isCustomer: z.boolean().describe('Receives invoices from the organization'),
   isSupplier: z.boolean().describe('Sends invoices to the organization'),
   isSalesRepresentative: z.boolean().describe('Sells on behalf of the organization (commercial agent)'),
+  equivalenceSurcharge: z.boolean().describe('Customer is a self-employed retailer under the equivalence surcharge (recargo de equivalencia): its invoices carry the surcharge on top of the VAT'),
 };
 
 const CONTACT_FIELD_KEYS = Object.keys(contactFields) as Array<keyof typeof contactFields>;
@@ -65,6 +66,7 @@ export const contactTools = [
       isCustomer: contactFields.isCustomer.default(false),
       isSupplier: contactFields.isSupplier.default(false),
       isSalesRepresentative: contactFields.isSalesRepresentative.default(false),
+      equivalenceSurcharge: contactFields.equivalenceSurcharge.default(false),
     },
     run: (contact, { api, organizationId }) => api.request('POST', organizationPath(organizationId, '/contacts'), contact),
   }),

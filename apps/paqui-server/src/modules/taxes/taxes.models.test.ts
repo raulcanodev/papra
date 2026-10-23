@@ -57,15 +57,29 @@ describe('taxes models', () => {
       });
 
       expect(result).toEqual({
-        output: [{ rateBps: 2_100, baseMinor: 100_000, taxMinor: 21_000 }, { rateBps: 1_000, baseMinor: 20_000, taxMinor: 2_000 }],
+        output: [{ rateBps: 2_100, baseMinor: 100_000, taxMinor: 21_000, equivalenceSurchargeMinor: 0 }, { rateBps: 1_000, baseMinor: 20_000, taxMinor: 2_000, equivalenceSurchargeMinor: 0 }],
         outputBaseMinor: 120_000,
         outputTaxMinor: 23_000,
+        outputEquivalenceSurchargeMinor: 0,
         inputBaseMinor: 60_000,
         inputTaxMinor: 12_600,
         deductibleTaxMinor: 10_500 + 1_050,
         resultMinor: 23_000 - 11_550,
         outcome: 'pay',
       });
+    });
+
+    test('the equivalence surcharge charged to retailer customers is paid with the VAT', () => {
+      const result = computeVatReturn({
+        quarter: 3,
+        period: getQuarterPeriod({ year: 2026, quarter: 3 }),
+        issuedInvoices: [{ ...issued('2026-07-10', 1_000), equivalenceSurcharge: true }, issued('2026-08-01', 1_000)],
+        purchaseInvoices: [],
+      });
+
+      expect(result.output).toEqual([{ rateBps: 2_100, baseMinor: 200_000, taxMinor: 42_000, equivalenceSurchargeMinor: 5_200 }]);
+      expect(result.outputEquivalenceSurchargeMinor).toBe(5_200);
+      expect(result.resultMinor).toBe(42_000 + 5_200);
     });
 
     test('more deductible VAT than charged is carried forward, refundable in the last quarter', () => {

@@ -54,4 +54,32 @@ describe('invoice PDF', () => {
 
     expect(pdf.toString('latin1').match(/\/Type \/Page\b/g)).toHaveLength(1);
   });
+
+  test('keeps an invoice with the equivalence surcharge and a withholding on one page', async () => {
+    const pdf = await renderInvoicePdf({
+      number: 'F-2026-0002',
+      issueDate: new Date('2026-10-13T00:00:00.000Z'),
+      dueDate: new Date('2026-11-12T00:00:00.000Z'),
+      currency: 'EUR',
+      subtotalMinor: 15_000,
+      taxMinor: 2_600,
+      // One surcharge row per VAT rate: 5,2% of 100 € and 1,4% of 50 €
+      equivalenceSurcharge: true,
+      equivalenceSurchargeMinor: 590,
+      totalMinor: 18_190,
+      withholdingRateBps: 1_500,
+      withholdingMinor: 2_250,
+      notes: 'Gracias',
+      terms: 'Transferencia',
+      templateId: 'minimal',
+      sellerSnapshot: JSON.stringify({ legalName: 'Jocrimar SL', taxId: 'B12345678', locale: 'es-ES' }),
+      customerSnapshot: JSON.stringify({ name: 'Zapatería Lola', taxId: '12345678Z' }),
+      items: [
+        { description: 'Zapatos', quantityMillis: 1_000, unitPriceMinor: 10_000, taxRateBps: 2_100, discountRateBps: 0 },
+        { description: 'Plantillas', quantityMillis: 1_000, unitPriceMinor: 5_000, taxRateBps: 1_000, discountRateBps: 0 },
+      ],
+    });
+
+    expect(pdf.toString('latin1').match(/\/Type \/Page\b/g)).toHaveLength(1);
+  });
 });

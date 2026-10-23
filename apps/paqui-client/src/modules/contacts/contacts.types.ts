@@ -27,12 +27,14 @@ export type Contact = {
   isCustomer: boolean;
   isSupplier: boolean;
   isSalesRepresentative: boolean;
+  /** A retailer under the equivalence surcharge: its invoices carry the surcharge on top of the VAT */
+  equivalenceSurcharge: boolean;
   archivedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
 
 // The look (icon and its color) is optional: contacts created on the fly (from a purchase invoice...) keep the default one
-export type ContactInput = Omit<Contact, 'id' | 'organizationId' | 'archivedAt' | 'createdAt' | 'updatedAt' | 'icon' | 'iconColor'> & Partial<Pick<Contact, 'icon' | 'iconColor'>>;
+export type ContactInput = Omit<Contact, 'id' | 'organizationId' | 'archivedAt' | 'createdAt' | 'updatedAt' | 'icon' | 'iconColor' | 'equivalenceSurcharge'> & Partial<Pick<Contact, 'icon' | 'iconColor' | 'equivalenceSurcharge'>>;
 
 export type ContactInputWithCustomProperties = ContactInput & { customProperties?: EntityCustomPropertiesInput };

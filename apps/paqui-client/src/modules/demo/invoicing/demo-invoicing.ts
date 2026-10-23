@@ -2,6 +2,7 @@ import type { Storage } from 'unstorage';
 import type { Invoice, InvoiceDraftInput, InvoiceTemplateId } from '../../invoicing/invoicing.types';
 import { FetchError } from 'ofetch';
 import { prefixStorage } from 'unstorage';
+import { getEquivalenceSurchargeRateBps } from '../../invoicing/invoicing.models';
 import { getDemoInvoiceDeliveryNotes, setDemoInvoiceDeliveryNotes } from '../delivery-notes/demo-delivery-notes';
 import { defineHandler } from '../demo-api-mock.models';
 import { createId } from '../demo.models';
@@ -58,17 +59,18 @@ function fail(message: string, status: number): never {
 }
 
 // Same computation as the server invoicing models
-export function calculateTotals({ items, withholdingRateBps = 0 }: { items: Array<{ quantityMillis: number; unitPriceMinor: number; discountRateBps: number; taxRateBps: number }>; withholdingRateBps?: number }) {
+export function calculateTotals({ items, withholdingRateBps = 0, equivalenceSurcharge = false }: { items: Array<{ quantityMillis: number; unitPriceMinor: number; discountRateBps: number; taxRateBps: number }>; withholdingRateBps?: number; equivalenceSurcharge?: boolean }) {
   const totals = items.reduce((sums, item) => {
     const gross = Math.round(item.quantityMillis * item.unitPriceMinor / 1_000);
     const discount = Math.round(gross * item.discountRateBps / 10_000);
     const net = gross - discount;
     const tax = Math.round(net * item.taxRateBps / 10_000);
+    const surcharge = equivalenceSurcharge ? Math.round(net * getEquivalenceSurchargeRateBps(item) / 10_000) : 0;
 
-    return { subtotalMinor: sums.subtotalMinor + net, taxMinor: sums.taxMinor + tax, totalMinor: sums.totalMinor + net + tax };
-  }, { subtotalMinor: 0, taxMinor: 0, totalMinor: 0 });
+    return { subtotalMinor: sums.subtotalMinor + net, taxMinor: sums.taxMinor + tax, equivalenceSurchargeMinor: sums.equivalenceSurchargeMinor + surcharge, totalMinor: sums.totalMinor + net + tax + surcharge };
+  }, { subtotalMinor: 0, taxMinor: 0, equivalenceSurchargeMinor: 0, totalMinor: 0 });
 
-  return { ...totals, withholdingRateBps, withholdingMinor: Math.round(totals.subtotalMinor * withholdingRateBps / 10_000) };
+  return { ...totals, equivalenceSurcharge, withholdingRateBps, withholdingMinor: Math.round(totals.subtotalMinor * withholdingRateBps / 10_000) };
 }
 
 function formatNumber({ prefix, nextNumber, padding }: { prefix: string; nextNumber: number; padding: number }) {
@@ -394,7 +396,7 @@ async function buildInvoiceFromDraft({ organizationId, draft, existing }: { orga
     dueDate: new Date(draft.dueDate).toISOString(),
     paymentMethod: draft.paymentMethod ?? null,
     currency: draft.currency,
-    ...calculateTotals({ items, withholdingRateBps: draft.withholdingRateBps }),
+    ...calculateTotals({ items, withholdingRateBps: draft.withholdingRateBps, equivalenceSurcharge: draft.equivalenceSurcharge ?? customer.equivalenceSurcharge ?? false }),
     notes: draft.notes ?? null,
     terms: draft.terms ?? null,
     templateId: draft.templateId as InvoiceTemplateId,

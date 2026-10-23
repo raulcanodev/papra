@@ -19,6 +19,7 @@ export function createTestContactInput(overrides: Partial<ContactInput> = {}): C
     isCustomer: false,
     isSupplier: false,
     isSalesRepresentative: false,
+    equivalenceSurcharge: false,
     ...overrides,
   };
 }

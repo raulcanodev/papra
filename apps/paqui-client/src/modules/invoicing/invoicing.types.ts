@@ -100,6 +100,8 @@ export type InvoiceDraftInput = {
   templateId: InvoiceTemplateId;
   /** IRPF withholding on the taxable base, in basis points (1500 = 15%) */
   withholdingRateBps: number;
+  /** The customer is a retailer under the equivalence surcharge: each line carries the surcharge of its VAT rate */
+  equivalenceSurcharge?: boolean;
   items: InvoiceItemInput[];
   /** How the customer pays; the due dates are collected in the due dates page */
   paymentMethod?: PaymentMethod | null;
@@ -128,7 +130,9 @@ export type Invoice = {
   currency: string;
   subtotalMinor: number;
   taxMinor: number;
-  /** Taxes included, the amount declared to VERI*FACTU (the withholding is not subtracted) */
+  equivalenceSurcharge?: boolean;
+  equivalenceSurchargeMinor?: number;
+  /** Taxes and surcharge included, the amount declared to VERI*FACTU (the withholding is not subtracted) */
   totalMinor: number;
   withholdingRateBps: number;
   withholdingMinor: number;

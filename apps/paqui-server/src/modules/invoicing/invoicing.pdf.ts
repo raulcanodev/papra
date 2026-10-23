@@ -2,7 +2,7 @@ import type { InvoiceTemplateId } from './invoicing.constants';
 import { Buffer } from 'node:buffer';
 import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
-import { getInvoicePayableMinor } from './invoicing.models';
+import { getEquivalenceSurchargeRateBps, getInvoicePayableMinor, getLineAmounts, getLineEquivalenceSurchargeMinor } from './invoicing.models';
 
 type PartySnapshot = {
   legalName?: string;
@@ -27,6 +27,8 @@ export type PdfInvoice = {
   currency: string;
   subtotalMinor: number;
   taxMinor: number;
+  equivalenceSurcharge?: boolean;
+  equivalenceSurchargeMinor?: number;
   totalMinor: number;
   withholdingRateBps: number;
   withholdingMinor: number;
@@ -87,8 +89,9 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
   let y = 310;
   y = drawItemsHeader(doc, y, accent, line);
 
-  // Room kept at the bottom of a page for the totals and notes, taller when a withholding adds two rows
-  const reservedFooterHeight = invoice.withholdingMinor > 0 ? 230 : 170;
+  // Room kept at the bottom of a page for the totals and notes, taller when a withholding or the surcharge add rows
+  const extraTotalsHeight = (invoice.withholdingMinor > 0 ? 60 : 0) + getEquivalenceSurchargeRows(invoice).length * 22;
+  const reservedFooterHeight = 170 + extraTotalsHeight;
   for (const item of invoice.items) {
     const rowHeight = Math.max(28, doc.heightOfString(item.description, { width: 230 }) + 12);
     if (y + rowHeight > PAGE.height - reservedFooterHeight) {
@@ -99,7 +102,7 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
     y += rowHeight;
   }
 
-  if (y > PAGE.height - 220) {
+  if (y > PAGE.height - 220 - extraTotalsHeight) {
     doc.addPage();
     y = PAGE.margin;
   }
@@ -169,6 +172,23 @@ function drawItemRow({ doc, invoice, item, y, height, muted, line, locale }: { d
   doc.moveTo(PAGE.margin, y + height).lineTo(PAGE.width - PAGE.margin, y + height).strokeColor(line).stroke();
 }
 
+// The surcharge by rate, as the invoice must show each rate and its amount (RD 1619/2012, art. 6)
+function getEquivalenceSurchargeRows(invoice: PdfInvoice) {
+  if (invoice.equivalenceSurcharge !== true) {
+    return [];
+  }
+
+  const byRate = new Map<number, number>();
+  for (const item of invoice.items) {
+    const rateBps = getEquivalenceSurchargeRateBps(item);
+    if (rateBps > 0) {
+      byRate.set(rateBps, (byRate.get(rateBps) ?? 0) + getLineEquivalenceSurchargeMinor({ netMinor: getLineAmounts(item).netMinor, taxRateBps: item.taxRateBps }));
+    }
+  }
+
+  return [...byRate.entries()].toSorted(([a], [b]) => b - a).map(([rateBps, amountMinor]) => ({ rateBps, amountMinor }));
+}
+
 function drawTotals({ doc, invoice, y, accent, muted, line, locale }: { doc: PDFKit.PDFDocument; invoice: PdfInvoice; y: number; accent: string; muted: string; line: string; locale: string }) {
   const labelX = 345;
   const valueX = 445;
@@ -176,25 +196,32 @@ function drawTotals({ doc, invoice, y, accent, muted, line, locale }: { doc: PDF
   doc.text(formatMoney(invoice.subtotalMinor, invoice.currency, locale), valueX, y, { width: 94, align: 'right' });
   doc.text('Tax', labelX, y + 22, { width: 90 });
   doc.text(formatMoney(invoice.taxMinor, invoice.currency, locale), valueX, y + 22, { width: 94, align: 'right' });
-  doc.moveTo(labelX, y + 47).lineTo(539, y + 47).strokeColor(line).stroke();
+  let rowY = y + 22;
+  for (const { rateBps, amountMinor } of getEquivalenceSurchargeRows(invoice)) {
+    rowY += 22;
+    doc.text(`Equivalence surcharge (${rateBps / 100}%)`, labelX, rowY, { width: 100 });
+    doc.text(formatMoney(amountMinor, invoice.currency, locale), valueX, rowY, { width: 94, align: 'right' });
+  }
+  const totalsY = rowY + 25;
+  doc.moveTo(labelX, totalsY).lineTo(539, totalsY).strokeColor(line).stroke();
 
   if (invoice.withholdingMinor <= 0) {
-    doc.font('Helvetica-Bold').fontSize(12).fillColor(accent).text('Total', labelX, y + 59, { width: 90 });
-    doc.text(formatMoney(invoice.totalMinor, invoice.currency, locale), valueX, y + 59, { width: 94, align: 'right' });
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(accent).text('Total', labelX, totalsY + 12, { width: 90 });
+    doc.text(formatMoney(invoice.totalMinor, invoice.currency, locale), valueX, totalsY + 12, { width: 94, align: 'right' });
 
-    return { bottom: y + 75 };
+    return { bottom: totalsY + 28 };
   }
 
   // With a withholding: invoice total (taxes included), the withholding, then what the customer actually pays
-  doc.font('Helvetica-Bold').fontSize(9).fillColor('#111827').text('Total', labelX, y + 59, { width: 90 });
-  doc.text(formatMoney(invoice.totalMinor, invoice.currency, locale), valueX, y + 59, { width: 94, align: 'right' });
-  doc.font('Helvetica').fillColor(muted).text(`IRPF withholding (${invoice.withholdingRateBps / 100}%)`, labelX, y + 81, { width: 100 });
-  doc.text(`-${formatMoney(invoice.withholdingMinor, invoice.currency, locale)}`, valueX, y + 81, { width: 94, align: 'right' });
-  doc.moveTo(labelX, y + 106).lineTo(539, y + 106).strokeColor(line).stroke();
-  doc.font('Helvetica-Bold').fontSize(12).fillColor(accent).text('Amount due', labelX, y + 118, { width: 90 });
-  doc.text(formatMoney(getInvoicePayableMinor(invoice), invoice.currency, locale), valueX, y + 118, { width: 94, align: 'right' });
+  doc.font('Helvetica-Bold').fontSize(9).fillColor('#111827').text('Total', labelX, totalsY + 12, { width: 90 });
+  doc.text(formatMoney(invoice.totalMinor, invoice.currency, locale), valueX, totalsY + 12, { width: 94, align: 'right' });
+  doc.font('Helvetica').fillColor(muted).text(`IRPF withholding (${invoice.withholdingRateBps / 100}%)`, labelX, totalsY + 34, { width: 100 });
+  doc.text(`-${formatMoney(invoice.withholdingMinor, invoice.currency, locale)}`, valueX, totalsY + 34, { width: 94, align: 'right' });
+  doc.moveTo(labelX, totalsY + 59).lineTo(539, totalsY + 59).strokeColor(line).stroke();
+  doc.font('Helvetica-Bold').fontSize(12).fillColor(accent).text('Amount due', labelX, totalsY + 71, { width: 90 });
+  doc.text(formatMoney(getInvoicePayableMinor(invoice), invoice.currency, locale), valueX, totalsY + 71, { width: 94, align: 'right' });
 
-  return { bottom: y + 134 };
+  return { bottom: totalsY + 87 };
 }
 
 function drawNotes({ doc, invoice, branding, representative, y, muted }: { doc: PDFKit.PDFDocument; invoice: PdfInvoice; branding: BrandingSnapshot; representative: PartySnapshot; y: number; muted: string }) {

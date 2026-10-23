@@ -94,6 +94,9 @@ export const invoiceDraftSchema = z.object({
   terms: z.string().trim().max(5_000).optional().nullable(),
   templateId: z.enum(INVOICE_TEMPLATE_IDS).default('minimal'),
   withholdingRateBps: withholdingRateBpsSchema.default(0),
+  // The customer is a retailer under the equivalence surcharge: each line carries the surcharge of its VAT rate.
+  // Absent, a new invoice follows the customer and an edited one keeps its own
+  equivalenceSurcharge: z.boolean().optional(),
   items: z.array(invoiceItemSchema).min(1).max(200),
   paymentMethod: paymentMethodSchema.optional().nullable(),
   // Several due dates when collected in instalments; a single one on the due date when absent

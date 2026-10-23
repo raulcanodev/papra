@@ -26,6 +26,7 @@ export const contactSchema = z.object({
   isCustomer: z.boolean().default(false),
   isSupplier: z.boolean().default(false),
   isSalesRepresentative: z.boolean().default(false),
+  equivalenceSurcharge: z.boolean().default(false),
 }).merge(entityAppearanceSchema);
 
 // Request body: the contact fields plus the values of the custom properties of its roles

@@ -17,6 +17,7 @@ import { queryClient } from '@/modules/shared/query/query-client';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/modules/ui/components/dialog';
+import { SimpleCheckbox } from '@/modules/ui/components/simple-checkbox';
 import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextArea } from '@/modules/ui/components/textarea';
@@ -84,6 +85,7 @@ export function CreateInvoicePage() {
   const [currency, setCurrency] = createSignal('EUR');
   const [templateId, setTemplateId] = createSignal<InvoiceTemplateId>('minimal');
   const [withholdingRateBps, setWithholdingRateBps] = createSignal<number | null>(null);
+  const [equivalenceSurcharge, setEquivalenceSurcharge] = createSignal(false);
   const [notes, setNotes] = createSignal('');
   const [items, setItems] = createSignal<InvoiceItemInput[]>([newLine()]);
   const [deliveryNotes, setDeliveryNotes] = createSignal<InvoiceDeliveryNote[]>([]);
@@ -110,6 +112,7 @@ export function CreateInvoicePage() {
     setCurrency(invoice.currency);
     setTemplateId(invoice.templateId);
     setWithholdingRateBps(invoice.withholdingRateBps);
+    setEquivalenceSurcharge(invoice.equivalenceSurcharge ?? false);
     setNotes(invoice.notes ?? '');
     setItems(invoice.items?.map(item => ({
       productId: item.productId,
@@ -195,6 +198,8 @@ export function CreateInvoicePage() {
       setDeliveryNotesAddedToItems([]);
     }
     setCustomerId(customer.id);
+    // A retailer customer under the equivalence surcharge gets it by default, it can still be unchecked on this invoice
+    setEquivalenceSurcharge(customer.equivalenceSurcharge ?? false);
     setCurrency(customer.currency);
     setDueDate(plusDays(customer.paymentTermsDays));
     setCustomerSearch('');
@@ -228,6 +233,7 @@ export function CreateInvoicePage() {
         currency: currency(),
         templateId: templateId(),
         withholdingRateBps: effectiveWithholdingRateBps(),
+        equivalenceSurcharge: equivalenceSurcharge(),
         notes: notes() || null,
         items: items(),
         deliveryNoteIds: deliveryNotes().map(deliveryNote => deliveryNote.id),
@@ -564,6 +570,10 @@ export function CreateInvoicePage() {
                   }))}
                 />
               </FormField>
+              <div class="sm:col-span-2">
+                <SimpleCheckbox checked={equivalenceSurcharge()} onChange={setEquivalenceSurcharge} label={t('invoicing.editor.equivalence-surcharge')} />
+                <p class="mt-1 pl-6 text-xs text-muted-foreground">{t('invoicing.editor.equivalence-surcharge.description')}</p>
+              </div>
               <FormField label={t('invoicing.editor.notes')} class="sm:col-span-2">
                 <TextArea value={notes()} placeholder={t('invoicing.editor.notes.placeholder')} onInput={event => setNotes(event.currentTarget.value)} />
               </FormField>
@@ -598,6 +608,7 @@ export function CreateInvoicePage() {
             currency={currency()}
             items={items()}
             withholdingRateBps={effectiveWithholdingRateBps()}
+            equivalenceSurcharge={equivalenceSurcharge()}
             notes={notes()}
             customer={selectedCustomer()}
             profile={profileQuery.data?.profile}
