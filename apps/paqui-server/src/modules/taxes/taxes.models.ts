@@ -1,12 +1,12 @@
 import type { ExpenseCategory } from '../purchases/purchases.constants';
 import type { SpanishTaxRules } from './rules/spain.tax-rules';
 import type { IncomeTaxMethod, LegalForm, Quarter, TaxModel, VatRegime } from './taxes.constants';
-import { getLineAmounts } from '../invoicing/invoicing.models';
+import { getLineAmounts, getLineEquivalenceSurchargeMinor } from '../invoicing/invoicing.models';
 
 type Line = { quantityMillis: number; unitPriceMinor: number; discountRateBps: number; taxRateBps: number };
 
 /** An issued invoice counted as income (issued, sent or paid) */
-export type TaxableIssuedInvoice = { issueDate: Date; withholdingMinor: number; items: Line[] };
+export type TaxableIssuedInvoice = { issueDate: Date; withholdingMinor: number; equivalenceSurcharge?: boolean; items: Line[] };
 
 /** A received invoice counted as expense */
 export type TaxablePurchaseInvoice = { issueDate: Date; category: ExpenseCategory; supplierId: string; withholdingMinor: number; items: (Line & { deductibleRateBps: number })[] };
@@ -53,13 +53,15 @@ const isWithin = (date: Date, { start, end }: { start: Date; end: Date }) => dat
 
 // Model 303: VAT charged on the issued invoices of the quarter minus the deductible VAT of the received ones
 export function computeVatReturn({ issuedInvoices, purchaseInvoices, period, quarter }: { issuedInvoices: TaxableIssuedInvoice[]; purchaseInvoices: TaxablePurchaseInvoice[]; period: { start: Date; end: Date }; quarter: Quarter }) {
-  const outputByRate = new Map<number, { baseMinor: number; taxMinor: number }>();
+  const outputByRate = new Map<number, { baseMinor: number; taxMinor: number; equivalenceSurchargeMinor: number }>();
 
   for (const invoice of issuedInvoices.filter(({ issueDate }) => isWithin(issueDate, period))) {
     for (const item of invoice.items) {
       const { netMinor, taxMinor } = getLineAmounts(item);
-      const current = outputByRate.get(item.taxRateBps) ?? { baseMinor: 0, taxMinor: 0 };
-      outputByRate.set(item.taxRateBps, { baseMinor: current.baseMinor + netMinor, taxMinor: current.taxMinor + taxMinor });
+      // The surcharge charged to retailer customers is paid in the 303 with the VAT
+      const equivalenceSurchargeMinor = invoice.equivalenceSurcharge === true ? getLineEquivalenceSurchargeMinor({ netMinor, taxRateBps: item.taxRateBps }) : 0;
+      const current = outputByRate.get(item.taxRateBps) ?? { baseMinor: 0, taxMinor: 0, equivalenceSurchargeMinor: 0 };
+      outputByRate.set(item.taxRateBps, { baseMinor: current.baseMinor + netMinor, taxMinor: current.taxMinor + taxMinor, equivalenceSurchargeMinor: current.equivalenceSurchargeMinor + equivalenceSurchargeMinor });
     }
   }
 
@@ -74,12 +76,14 @@ export function computeVatReturn({ issuedInvoices, purchaseInvoices, period, qua
 
   const output = [...outputByRate.entries()].map(([rateBps, amounts]) => ({ rateBps, ...amounts })).toSorted((a, b) => b.rateBps - a.rateBps);
   const outputTaxMinor = output.reduce((sum, { taxMinor }) => sum + taxMinor, 0);
-  const resultMinor = outputTaxMinor - input.deductibleTaxMinor;
+  const outputEquivalenceSurchargeMinor = output.reduce((sum, { equivalenceSurchargeMinor }) => sum + equivalenceSurchargeMinor, 0);
+  const resultMinor = outputTaxMinor + outputEquivalenceSurchargeMinor - input.deductibleTaxMinor;
 
   return {
     output,
     outputBaseMinor: output.reduce((sum, { baseMinor }) => sum + baseMinor, 0),
     outputTaxMinor,
+    outputEquivalenceSurchargeMinor,
     inputBaseMinor: input.baseMinor,
     inputTaxMinor: input.taxMinor,
     deductibleTaxMinor: input.deductibleTaxMinor,

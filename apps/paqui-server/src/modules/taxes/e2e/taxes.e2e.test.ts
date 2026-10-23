@@ -107,7 +107,7 @@ describe('taxes e2e', () => {
     expect(Object.keys(zip.files).toSorted()).to.eql(['2026-3T-libro-facturas-emitidas.csv', '2026-3T-libro-facturas-recibidas.csv', '2026-3T-resumen.pdf']);
 
     const issuedBook = await zip.file('2026-3T-libro-facturas-emitidas.csv')!.async('string');
-    expect(issuedBook.split('\r\n')[1]).to.eql('2026;3T;05/08/2026;F-2026-0007;B12345678;Acme SL;1000,00;21;210,00;15;150,00;1210,00');
+    expect(issuedBook.split('\r\n')[1]).to.eql('2026;3T;05/08/2026;F-2026-0007;B12345678;Acme SL;1000,00;21;210,00;;;15;150,00;1210,00');
 
     const receivedBook = await zip.file('2026-3T-libro-facturas-recibidas.csv')!.async('string');
     expect(receivedBook.split('\r\n')[1]).to.eql('2026;3T;10/09/2026;NUBE-77;B00000010;Nube Hosting SL;Software y suscripciones;200,00;21;42,00;42,00;0;0,00;242,00');

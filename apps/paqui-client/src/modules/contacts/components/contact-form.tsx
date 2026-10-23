@@ -4,6 +4,7 @@ import { Show } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { FormField } from '@/modules/invoicing/components/catalog-page';
 import { EntityIconPicker } from '@/modules/ui/components/entity-icon';
+import { SimpleCheckbox } from '@/modules/ui/components/simple-checkbox';
 import { TextField } from '@/modules/ui/components/textfield';
 import { getContactFallbackIcon } from '../contacts.constants';
 
@@ -28,6 +29,7 @@ export function emptyContact(overrides: Partial<ContactInput> = {}): ContactInpu
     isCustomer: false,
     isSupplier: false,
     isSalesRepresentative: false,
+    equivalenceSurcharge: false,
     ...overrides,
   };
 }
@@ -53,6 +55,7 @@ export function toContactInput(contact: ContactInput): ContactInput {
     isCustomer: contact.isCustomer,
     isSupplier: contact.isSupplier,
     isSalesRepresentative: contact.isSalesRepresentative,
+    equivalenceSurcharge: contact.equivalenceSurcharge ?? false,
   });
 }
 
@@ -89,6 +92,12 @@ export function ContactFormFields(props: {
       <FormField label={t('invoicing.common.city')}><TextField value={props.value.city ?? ''} onInput={event => set('city', optional(event.currentTarget.value))} /></FormField>
       <Show when={hasBillingTerms()}>
         <FormField label={t('invoicing.customer-form.payment-terms')}><TextField type="number" min="0" max="365" value={props.value.paymentTermsDays} onInput={event => set('paymentTermsDays', Number(event.currentTarget.value))} /></FormField>
+      </Show>
+      <Show when={props.value.isCustomer}>
+        <div class="sm:col-span-2">
+          <SimpleCheckbox checked={props.value.equivalenceSurcharge ?? false} onChange={checked => set('equivalenceSurcharge', checked)} label={t('contacts.form.equivalence-surcharge')} />
+          <p class="mt-1 pl-6 text-xs text-muted-foreground">{t('contacts.form.equivalence-surcharge.description')}</p>
+        </div>
       </Show>
     </>
   );

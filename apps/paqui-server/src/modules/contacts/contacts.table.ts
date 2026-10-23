@@ -30,6 +30,8 @@ export const contactsTable = pgTable('contacts', {
   isCustomer: boolean('is_customer').notNull().default(false),
   isSupplier: boolean('is_supplier').notNull().default(false),
   isSalesRepresentative: boolean('is_sales_representative').notNull().default(false),
+  // A retailer under the equivalence surcharge: its invoices carry the surcharge on top of the VAT
+  equivalenceSurcharge: boolean('equivalence_surcharge').notNull().default(false),
   archivedAt: timestamp('archived_at', { mode: 'date', withTimezone: true, precision: 3 }),
 }, table => [
   index('contacts_organization_id_index').on(table.organizationId),

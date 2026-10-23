@@ -210,11 +210,13 @@ async function getInvoice({ db, organizationId, invoiceId }: { db: Database; org
 async function ensureInvoiceContacts({ db, organizationId, draft }: { db: Database; organizationId: string; draft: InvoiceDraftInput }) {
   const contactsRepository = createContactsRepository({ db });
 
-  await contactsRepository.getContactWithRole({ organizationId, contactId: draft.customerId, role: 'customer' });
+  const { contact: customer } = await contactsRepository.getContactWithRole({ organizationId, contactId: draft.customerId, role: 'customer' });
 
   if (draft.salesRepresentativeId !== undefined && draft.salesRepresentativeId !== null) {
     await contactsRepository.getContactWithRole({ organizationId, contactId: draft.salesRepresentativeId, role: 'sales_representative' });
   }
+
+  return { customer };
 }
 
 // The due dates to collect: those typed by the user, or the whole amount on the due date
@@ -230,10 +232,11 @@ async function saveInvoiceInstalments({ db, organizationId, invoiceId, draft, pa
 }
 
 async function createInvoice({ db, organizationId, draft, userId }: { db: Database; organizationId: string; draft: InvoiceDraftInput; userId: string }) {
-  await ensureInvoiceContacts({ db, organizationId, draft });
+  const { customer } = await ensureInvoiceContacts({ db, organizationId, draft });
   const { profile } = await getFiscalProfile({ db, organizationId });
   const effectiveDraft = {
     ...draft,
+    equivalenceSurcharge: draft.equivalenceSurcharge ?? customer.equivalenceSurcharge,
     notes: draft.notes ?? profile?.defaultNotes ?? null,
     terms: draft.terms ?? profile?.defaultTerms ?? null,
   };
@@ -261,8 +264,9 @@ async function updateInvoice({ db, organizationId, invoiceId, draft, userId }: {
     throw createInvoiceNotEditableError();
   }
   await ensureInvoiceContacts({ db, organizationId, draft });
-  const totals = calculateInvoiceTotals(draft);
-  const { items: invoiceItems, instalments: _instalments, deliveryNoteIds, ...invoiceDraft } = draft;
+  const effectiveDraft = { ...draft, equivalenceSurcharge: draft.equivalenceSurcharge ?? existing.equivalenceSurcharge };
+  const totals = calculateInvoiceTotals(effectiveDraft);
+  const { items: invoiceItems, instalments: _instalments, deliveryNoteIds, ...invoiceDraft } = effectiveDraft;
   await db.transaction(async (tx) => {
     await saveInvoiceInstalments({ db: tx as unknown as Database, organizationId, invoiceId, draft, payableMinor: totals.totalMinor - totals.withholdingMinor });
     await tx.update(invoicesTable).set({ ...invoiceDraft, ...totals, paymentMethod: draft.paymentMethod ?? null, seriesId: draft.seriesId ?? null, salesRepresentativeId: draft.salesRepresentativeId ?? null, updatedAt: new Date() }).where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.organizationId, organizationId)));

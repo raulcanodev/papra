@@ -174,6 +174,23 @@ describe('invoicing repository', () => {
     await expect(db.update(verifactuRecordsTable).set({ hash: 'tampered' }).where(eq(verifactuRecordsTable.id, first.record!.id))).rejects.toThrow('VERI*FACTU fiscal fields are immutable');
     await expect(db.delete(verifactuRecordsTable).where(eq(verifactuRecordsTable.id, first.record!.id))).rejects.toThrow('VERI*FACTU records cannot be deleted');
   });
+
+  test('an invoice to a retailer customer carries the equivalence surcharge by default, and it can be removed on the draft', async () => {
+    const { db } = await createTestDatabase();
+    const invoicing = createInvoicingRepository({ db });
+    const { contact: customer } = await createContactsRepository({ db }).createContact({ organizationId: 'organization-1', contact: createTestContactInput({ name: 'Zapatería Lola', isCustomer: true, equivalenceSurcharge: true }) });
+    const draft = { customerId: customer.id, issueDate: new Date('2026-10-13T00:00:00.000Z'), dueDate: new Date('2026-11-12T00:00:00.000Z'), currency: 'EUR', notes: null, terms: null, templateId: 'minimal' as const, withholdingRateBps: 0, items: [{ description: 'Zapatos', quantityMillis: 1_000, unitPriceMinor: 10_000, taxRateBps: 2_100, discountRateBps: 0 }] };
+
+    const { invoice } = await invoicing.createInvoice({ organizationId: 'organization-1', userId: 'user-1', draft });
+    expect(invoice).toMatchObject({ equivalenceSurcharge: true, subtotalMinor: 10_000, taxMinor: 2_100, equivalenceSurchargeMinor: 520, totalMinor: 12_620 });
+
+    // Saving the draft again without the field keeps it
+    const { invoice: kept } = await invoicing.updateInvoice({ organizationId: 'organization-1', invoiceId: invoice!.id, userId: 'user-1', draft });
+    expect(kept).toMatchObject({ equivalenceSurcharge: true, totalMinor: 12_620 });
+
+    const { invoice: removed } = await invoicing.updateInvoice({ organizationId: 'organization-1', invoiceId: invoice!.id, userId: 'user-1', draft: { ...draft, equivalenceSurcharge: false } });
+    expect(removed).toMatchObject({ equivalenceSurcharge: false, equivalenceSurchargeMinor: 0, totalMinor: 12_100 });
+  });
 });
 
 const cleanups: Array<() => Promise<void>> = [];

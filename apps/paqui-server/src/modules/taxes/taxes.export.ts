@@ -7,7 +7,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import JSZip from 'jszip';
 import PDFDocument from 'pdfkit';
 import { documentsTable } from '../documents/documents.table';
-import { getLineAmounts } from '../invoicing/invoicing.models';
+import { getEquivalenceSurchargeRateBps, getLineAmounts, getLineEquivalenceSurchargeMinor } from '../invoicing/invoicing.models';
 import { collectStreamToFile } from '../shared/streams/stream.convertion';
 
 type QuarterlyTaxData = Awaited<ReturnType<typeof buildQuarterlyTaxReport>>;
@@ -60,7 +60,7 @@ export function buildIssuedInvoicesBook({ data }: { data: QuarterlyTaxData }) {
   const { report } = data;
   const rows = data.issuedInvoices
     .filter(({ issueDate }) => issueDate >= report.period.start)
-    .flatMap(invoice => groupLinesByRate(invoice.items).map(([rateBps, { baseMinor, taxMinor }], index) => [
+    .flatMap(invoice => groupLinesByRate(invoice.items, item => (invoice.equivalenceSurcharge ? getLineEquivalenceSurchargeMinor({ netMinor: getLineAmounts(item).netMinor, taxRateBps: item.taxRateBps }) : 0)).map(([rateBps, { baseMinor, taxMinor, extraMinor }], index) => [
       report.year,
       `${report.quarter}T`,
       formatDate(invoice.issueDate),
@@ -70,6 +70,8 @@ export function buildIssuedInvoicesBook({ data }: { data: QuarterlyTaxData }) {
       formatAmount(baseMinor),
       formatRate(rateBps),
       formatAmount(taxMinor),
+      invoice.equivalenceSurcharge ? formatRate(getEquivalenceSurchargeRateBps({ taxRateBps: rateBps })) : '',
+      invoice.equivalenceSurcharge ? formatAmount(extraMinor) : '',
       // The withholding and the total are invoice level figures, written once on its first row
       index === 0 ? formatRate(invoice.withholdingRateBps) : '',
       index === 0 ? formatAmount(invoice.withholdingMinor) : '',
@@ -77,7 +79,7 @@ export function buildIssuedInvoicesBook({ data }: { data: QuarterlyTaxData }) {
     ]));
 
   return toCsv({
-    header: ['Ejercicio', 'Periodo', 'Fecha expedición', 'Número factura', 'NIF destinatario', 'Nombre destinatario', 'Base imponible', 'Tipo IVA %', 'Cuota IVA repercutida', 'Tipo retención %', 'Retención IRPF', 'Total factura'],
+    header: ['Ejercicio', 'Periodo', 'Fecha expedición', 'Número factura', 'NIF destinatario', 'Nombre destinatario', 'Base imponible', 'Tipo IVA %', 'Cuota IVA repercutida', 'Tipo recargo eq. %', 'Cuota recargo eq.', 'Tipo retención %', 'Retención IRPF', 'Total factura'],
     rows,
   });
 }
@@ -137,6 +139,9 @@ export async function buildSummaryPdf({ data, organizationName }: { data: Quarte
       row(`Base al ${formatRate(rateBps)}% (cuota ${money(taxMinor)})`, money(baseMinor));
     }
     row('IVA repercutido', money(report.vat303.outputTaxMinor));
+    if (report.vat303.outputEquivalenceSurchargeMinor > 0) {
+      row('Recargo de equivalencia repercutido', money(report.vat303.outputEquivalenceSurchargeMinor));
+    }
     row('IVA soportado deducible', `-${money(report.vat303.deductibleTaxMinor)}`);
     row('Resultado', money(report.vat303.resultMinor), { bold: true });
   }

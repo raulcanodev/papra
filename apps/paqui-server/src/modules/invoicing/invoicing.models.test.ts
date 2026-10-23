@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { calculateInvoiceTotals, formatInvoiceNumber, getInvoicePayableMinor } from './invoicing.models';
+import { calculateInvoiceTotals, formatInvoiceNumber, getEquivalenceSurchargeRateBps, getInvoicePayableMinor } from './invoicing.models';
 
 describe('invoicing models', () => {
   test('calculates money with integer minor units and basis points', () => {
@@ -12,6 +12,7 @@ describe('invoicing models', () => {
     })).toEqual({
       subtotalMinor: 15_500,
       taxMinor: 3_255,
+      equivalenceSurchargeMinor: 0,
       totalMinor: 18_755,
       withholdingRateBps: 0,
       withholdingMinor: 0,
@@ -25,7 +26,7 @@ describe('invoicing models', () => {
       items: [{ description: 'Consulting', quantityMillis: 1_000, unitPriceMinor: 100_000, discountRateBps: 0, taxRateBps: 2_100 }],
     });
 
-    expect(totals).toEqual({ subtotalMinor: 100_000, taxMinor: 21_000, totalMinor: 121_000, withholdingRateBps: 1_500, withholdingMinor: 15_000 });
+    expect(totals).toEqual({ subtotalMinor: 100_000, taxMinor: 21_000, equivalenceSurchargeMinor: 0, totalMinor: 121_000, withholdingRateBps: 1_500, withholdingMinor: 15_000 });
     expect(getInvoicePayableMinor(totals)).toBe(106_000);
   });
 
@@ -36,6 +37,25 @@ describe('invoicing models', () => {
     });
 
     expect(withholdingMinor).toBe(233);
+  });
+
+  test('a retailer customer under the equivalence surcharge pays the surcharge of each VAT rate on top of the VAT', () => {
+    // 100 € at 21% and 50 € at 10%: 5,2% of 100 + 1,4% of 50, the total adds VAT and surcharge
+    const totals = calculateInvoiceTotals({
+      withholdingRateBps: 0,
+      equivalenceSurcharge: true,
+      items: [
+        { description: 'Shoes', quantityMillis: 1_000, unitPriceMinor: 10_000, discountRateBps: 0, taxRateBps: 2_100 },
+        { description: 'Bread', quantityMillis: 1_000, unitPriceMinor: 5_000, discountRateBps: 0, taxRateBps: 1_000 },
+        { description: 'Exempt course', quantityMillis: 1_000, unitPriceMinor: 2_000, discountRateBps: 0, taxRateBps: 0 },
+      ],
+    });
+
+    expect(totals).toEqual({ subtotalMinor: 17_000, taxMinor: 2_600, equivalenceSurchargeMinor: 590, totalMinor: 20_190, withholdingRateBps: 0, withholdingMinor: 0 });
+  });
+
+  test('the surcharge rate follows the VAT rate of the line', () => {
+    expect([2_100, 1_000, 500, 400, 200, 0, 1_500].map(taxRateBps => getEquivalenceSurchargeRateBps({ taxRateBps }))).toEqual([520, 140, 62, 50, 26, 0, 0]);
   });
 
   test('formats a stable padded invoice number', () => {

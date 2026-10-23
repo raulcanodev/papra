@@ -29,6 +29,7 @@ const invoiceDraftFields = {
   notes: optionalText(5_000),
   terms: optionalText(5_000),
   withholdingPercent: percentSchema('IRPF withholding applied to the invoice (professionals usually 15, 7 for new self-employed, 0 otherwise).'),
+  equivalenceSurcharge: z.boolean().optional().describe('Add the equivalence surcharge (recargo de equivalencia: 5.2% on 21% VAT, 1.4% on 10%, 0.5% on 4%) for a retailer customer. Omit to follow the customer setting.'),
 };
 
 type StoredInvoiceItem = { productId: string | null; description: string; quantityMillis: number; unitPriceMinor: number; taxRateBps: number; discountRateBps: number };
@@ -44,6 +45,7 @@ type StoredInvoice = {
   terms: string | null;
   templateId: string;
   withholdingRateBps: number;
+  equivalenceSurcharge?: boolean;
   items: StoredInvoiceItem[];
 };
 
@@ -69,7 +71,7 @@ function fromApiItem(item: StoredInvoiceItem): InvoiceLine {
   };
 }
 
-type DraftInput = { customerId: string; issueDate: string; dueDate: string; items: InvoiceLine[]; seriesId?: string | null; salesRepresentativeId?: string | null; currency: string; notes?: string | null; terms?: string | null; withholdingPercent: number; templateId?: string };
+type DraftInput = { customerId: string; issueDate: string; dueDate: string; items: InvoiceLine[]; seriesId?: string | null; salesRepresentativeId?: string | null; currency: string; notes?: string | null; terms?: string | null; withholdingPercent: number; equivalenceSurcharge?: boolean; templateId?: string };
 
 function toDraftBody(draft: DraftInput) {
   return {
@@ -83,6 +85,7 @@ function toDraftBody(draft: DraftInput) {
     terms: draft.terms,
     templateId: draft.templateId,
     withholdingRateBps: percentToBps(draft.withholdingPercent),
+    equivalenceSurcharge: draft.equivalenceSurcharge,
     items: draft.items.map(toApiItem),
   };
 }
@@ -148,6 +151,7 @@ export const invoiceTools = [
       notes: invoiceDraftFields.notes,
       terms: invoiceDraftFields.terms,
       withholdingPercent: invoiceDraftFields.withholdingPercent.optional(),
+      equivalenceSurcharge: invoiceDraftFields.equivalenceSurcharge,
     },
     run: async ({ invoiceId, ...changes }, { api, organizationId }) => {
       const { invoice } = await api.request<{ invoice: StoredInvoice }>('GET', invoicePath(organizationId, invoiceId));
@@ -163,6 +167,7 @@ export const invoiceTools = [
         terms: invoice.terms,
         templateId: invoice.templateId,
         withholdingPercent: bpsToPercent(invoice.withholdingRateBps),
+        equivalenceSurcharge: invoice.equivalenceSurcharge,
         items: invoice.items.map(fromApiItem),
         ...withoutUndefined(changes),
       };

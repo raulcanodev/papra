@@ -2,6 +2,7 @@ import type { FiscalProfile, InvoiceBranding, InvoiceItemInput } from '../invoic
 import type { Contact } from '@/modules/contacts/contacts.types';
 import { For, Show } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
+import { getEquivalenceSurchargeRateBps } from '../invoicing.models';
 
 export function getLineNetMinor(item: InvoiceItemInput) {
   const gross = Math.round(item.quantityMillis * item.unitPriceMinor / 1_000);
@@ -15,6 +16,24 @@ export function getWithholdingMinor({ subtotalMinor, withholdingRateBps }: { sub
 
 export function getLineTaxMinor(item: InvoiceItemInput) {
   return Math.round(getLineNetMinor(item) * item.taxRateBps / 10_000);
+}
+
+// Same rounding as the server: the surcharge is on the taxable base of the line, rounded to the cent line by line
+export function getLineEquivalenceSurchargeMinor(item: InvoiceItemInput) {
+  return Math.round(getLineNetMinor(item) * getEquivalenceSurchargeRateBps(item) / 10_000);
+}
+
+// The surcharge by rate, as the invoice shows each rate and its amount
+export function getEquivalenceSurchargeRows(items: InvoiceItemInput[]) {
+  const byRate = new Map<number, number>();
+  for (const item of items) {
+    const rateBps = getEquivalenceSurchargeRateBps(item);
+    if (rateBps > 0) {
+      byRate.set(rateBps, (byRate.get(rateBps) ?? 0) + getLineEquivalenceSurchargeMinor(item));
+    }
+  }
+
+  return [...byRate.entries()].toSorted(([a], [b]) => b - a).map(([rateBps, amountMinor]) => ({ rateBps, amountMinor }));
 }
 
 function formatMoney(minor: number, currency: string, locale?: string) {
@@ -71,6 +90,7 @@ export function InvoicePreview(props: {
   currency: string;
   items: InvoiceItemInput[];
   withholdingRateBps: number;
+  equivalenceSurcharge?: boolean;
   notes: string;
   customer?: Party | null;
   profile?: FiscalProfile | null;
@@ -80,7 +100,8 @@ export function InvoicePreview(props: {
   const money = (minor: number) => formatMoney(minor, props.currency, getLocale());
   const subtotal = () => props.items.reduce((sum, item) => sum + getLineNetMinor(item), 0);
   const tax = () => props.items.reduce((sum, item) => sum + getLineTaxMinor(item), 0);
-  const total = () => subtotal() + tax();
+  const surchargeRows = () => (props.equivalenceSurcharge ? getEquivalenceSurchargeRows(props.items) : []);
+  const total = () => subtotal() + tax() + surchargeRows().reduce((sum, { amountMinor }) => sum + amountMinor, 0);
   const withholding = () => getWithholdingMinor({ subtotalMinor: subtotal(), withholdingRateBps: props.withholdingRateBps });
   const amountDue = () => total() - withholding();
   const accent = () => props.branding?.accentColor ?? '#18181b';
@@ -155,6 +176,14 @@ export function InvoicePreview(props: {
           <span>{t('invoicing.preview.tax')}</span>
           <span class="tabular-nums">{money(tax())}</span>
         </div>
+        <For each={surchargeRows()}>
+          {row => (
+            <div class="flex justify-between">
+              <span>{t('invoicing.preview.equivalence-surcharge', { rate: row.rateBps / 100 })}</span>
+              <span class="tabular-nums">{money(row.amountMinor)}</span>
+            </div>
+          )}
+        </For>
         <Show when={withholding() > 0}>
           <div class="flex justify-between border-t border-zinc-200 pt-2 font-medium text-zinc-900">
             <span>{t('invoicing.preview.total')}</span>

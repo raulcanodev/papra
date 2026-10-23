@@ -113,7 +113,10 @@ export const invoicesTable = pgTable('invoices', {
   brandingSnapshot: text('branding_snapshot'),
   subtotalMinor: integer('subtotal_minor').notNull().default(0),
   taxMinor: integer('tax_minor').notNull().default(0),
-  // Invoice total, taxes included: the amount declared to VERI*FACTU, the withholding is not subtracted from it
+  // Equivalence surcharge charged to a retailer customer, on top of the VAT of each line
+  equivalenceSurcharge: boolean('equivalence_surcharge').notNull().default(false),
+  equivalenceSurchargeMinor: integer('equivalence_surcharge_minor').notNull().default(0),
+  // Invoice total, taxes and surcharge included: the amount declared to VERI*FACTU, the withholding is not subtracted from it
   totalMinor: integer('total_minor').notNull().default(0),
   // IRPF withholding the customer pays to the tax agency on behalf of the issuer, computed on the subtotal
   withholdingRateBps: integer('withholding_rate_bps').notNull().default(0),
