@@ -27,6 +27,7 @@ import { CreateCustomPropertyPage } from './modules/custom-properties/pages/crea
 import { CustomPropertiesPage } from './modules/custom-properties/pages/custom-properties-list.page';
 import { UpdateCustomPropertyPage } from './modules/custom-properties/pages/update-custom-property.page';
 import { HomePage } from './modules/dashboard/pages/home.page';
+import { DataImportPage } from './modules/data-imports/pages/data-import.page';
 import { DeliveryNoteEditorPage } from './modules/delivery-notes/pages/delivery-note-editor.page';
 import { DeliveryNotesPage } from './modules/delivery-notes/pages/delivery-notes.page';
 import { DeletedDocumentsPage } from './modules/documents/pages/deleted-documents.page';
@@ -446,6 +447,10 @@ export const routes: RouteDefinition[] = [
                   {
                     path: getOrganizationNestedRoutePath('settingsModules'),
                     component: () => <OrganizationPlaceholder pageId="modules" />,
+                  },
+                  {
+                    path: getOrganizationNestedRoutePath('settingsDataImport'),
+                    component: DataImportPage,
                   },
                   {
                     path: getOrganizationNestedRoutePath('settingsTags'),

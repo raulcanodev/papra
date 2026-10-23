@@ -40,6 +40,8 @@ export const organizationRoutes = {
   settingsGeneral: { path: 'settings', surface: 'settings' },
   settingsMembers: { path: 'settings/members', surface: 'settings' },
   settingsModules: { path: 'settings/modules', surface: 'settings' },
+  // Moving from another software: its exports of contacts and products
+  settingsDataImport: { path: 'settings/import', surface: 'settings' },
   settingsTags: { path: 'settings/documents/tags', surface: 'settings' },
   settingsCustomProperties: { path: 'settings/documents/custom-properties', surface: 'settings' },
   settingsAutomations: { path: 'settings/documents/automations', surface: 'settings' },
@@ -81,6 +83,7 @@ export const organizationRouteLabelKeys = {
   settingsGeneral: 'navigation.item.general',
   settingsMembers: 'navigation.item.members',
   settingsModules: 'navigation.item.modules',
+  settingsDataImport: 'navigation.item.data-import',
   settingsTags: 'navigation.item.tags',
   settingsCustomProperties: 'navigation.item.custom-fields',
   settingsAutomations: 'navigation.item.automations',
@@ -169,6 +172,7 @@ const settingsNavigation: readonly NavigationSectionDefinition[] = [
       { routeId: 'settingsGeneral', icon: 'i-tabler-settings' },
       { routeId: 'settingsMembers', icon: 'i-tabler-users' },
       { routeId: 'settingsModules', icon: 'i-tabler-layout-grid' },
+      { routeId: 'settingsDataImport', icon: 'i-tabler-table-import', requires: 'invoicing' },
     ],
   },
   {

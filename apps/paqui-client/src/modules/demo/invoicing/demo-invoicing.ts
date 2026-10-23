@@ -721,6 +721,11 @@ export async function saveDemoProduct({ product }: { product: Stored }) {
   await db().products.setItem(product.id, product);
 }
 
+/** A contact created or completed by the import, with the defaults of a new one */
+export async function saveDemoContact({ contact }: { contact: Stored }) {
+  await db().contacts.setItem(contact.id, { ...emptyDemoContact(), customProperties: {}, ...contact });
+}
+
 /** A due date collected (or returned) from the due dates page: the invoice is paid once collected, owed again otherwise */
 export async function setDemoInvoicePaidState({ invoiceId, isPaid }: { invoiceId: string; isPaid: boolean }) {
   const invoice = await db().invoices.getItem(invoiceId);

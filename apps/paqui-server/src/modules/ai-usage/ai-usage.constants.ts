@@ -8,6 +8,7 @@ export const AI_FEATURES = {
   DELIVERY_NOTE_READING: 'delivery_note_reading',
   PRODUCT_CATALOG_SCAN: 'product_catalog_scan',
   PRICING_IMPORT: 'pricing_import',
+  DATA_IMPORT: 'data_import',
   FINANCE_RULE_SUGGESTIONS: 'finance_rule_suggestions',
 } as const;
 

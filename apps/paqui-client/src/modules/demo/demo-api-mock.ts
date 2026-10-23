@@ -15,6 +15,7 @@ import { get } from '../shared/utils/get';
 import { aiHandlers } from './ai/demo-ai';
 import { capturesHandlers } from './captures/demo-captures';
 import { computeDemoDashboardMetrics } from './dashboard/demo-dashboard';
+import { dataImportsHandlers } from './data-imports/demo-data-imports';
 import { deliveryNotesHandlers } from './delivery-notes/demo-delivery-notes';
 import { defineHandler } from './demo-api-mock.models';
 import { createId, randomString } from './demo.models';
@@ -208,6 +209,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
   ...invoicingHandlers,
   ...pricingHandlers,
   ...pricingImportHandlers,
+  ...dataImportsHandlers,
   ...contactsHandlers,
   ...purchasesHandlers,
   ...deliveryNotesHandlers,
