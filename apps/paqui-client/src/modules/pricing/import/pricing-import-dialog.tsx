@@ -4,6 +4,7 @@ import type { TranslationKeys } from '@/modules/i18n/locales.types';
 import { useNavigate } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For, Match, Show, Switch } from 'solid-js';
+import { usePageFilesDrop } from '@/modules/documents/components/global-drop-area.component';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { getProductsQueryKey } from '@/modules/invoicing/components/product-form';
 import { fetchProducts } from '@/modules/invoicing/invoicing.services';
@@ -35,7 +36,6 @@ export function PricingImportDialog(props: { organizationId: string; open: boole
   const { t } = useI18n();
   const navigate = useNavigate();
   const [step, setStep] = createSignal<Step>('pick');
-  const [isDragging, setIsDragging] = createSignal(false);
   const [proposal, setProposal] = createSignal<PricingImportProposal | null>(null);
   const [decisions, setDecisions] = createSignal<ImportDecisions>({ includedBlockIds: new Set(), treatments: {}, productTargets: {} });
   const [priceList, setPriceList] = createSignal<ImportPriceListChoice>({ mode: 'new', name: '' });
@@ -89,6 +89,16 @@ export function PricingImportDialog(props: { organizationId: string; open: boole
       setStep('pick');
     }
   };
+
+  // A spreadsheet dropped anywhere on the page is imported here, not stored as a plain document: the dialog opens on
+  // its reading and then its review, so nothing is saved before the mapping is checked
+  usePageFilesDrop((files) => {
+    if (step() === 'reading' || isSaving()) {
+      return;
+    }
+    props.onOpenChange(true);
+    void read(files[0]);
+  }, { description: () => t('pricing.import.drop-area') });
 
   const imported = createMemo(() => {
     const current = proposal();
@@ -172,18 +182,8 @@ export function PricingImportDialog(props: { organizationId: string; open: boole
           <Match when={step() === 'pick'}>
             <button
               type="button"
-              class={cn('flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center text-muted-foreground transition-colors hover:border-primary/50', isDragging() && 'border-primary bg-primary/5')}
+              class="flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center text-muted-foreground transition-colors hover:border-primary/50"
               onClick={() => fileInput?.click()}
-              onDragOver={(event) => {
-                event.preventDefault();
-                setIsDragging(true);
-              }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={(event) => {
-                event.preventDefault();
-                setIsDragging(false);
-                void read(event.dataTransfer?.files[0]);
-              }}
             >
               <div class="i-tabler-table-import size-8" />
               <span class="text-sm font-medium text-foreground">{t('pricing.import.pick.drop')}</span>
