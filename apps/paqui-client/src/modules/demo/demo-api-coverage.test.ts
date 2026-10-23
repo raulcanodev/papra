@@ -9,6 +9,7 @@ const EXEMPTIONS: Array<{ prefix: RegExp; reason: string }> = [
   { prefix: /^\/api\/admin\//, reason: 'back office, not reachable from the demo' },
   { prefix: /^\/api\/organizations\/[^/]+\/finances\//, reason: 'personal finances is behind a feature flag the demo user does not have' },
   { prefix: /^\/api\/organizations\/[^/]+\/ai\/chat$/, reason: 'the demo assistant streams from the browser (demoStreamChatMessage)' },
+  { prefix: /^\/api\/auth\/impersonation\//, reason: 'only an instance admin starts it, from the back office; the demo session is never impersonated, so its banner never shows' },
 ];
 
 const METHOD_PATTERN = /method: '(GET|POST|PUT|PATCH|DELETE)'/;
