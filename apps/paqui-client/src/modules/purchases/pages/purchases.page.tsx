@@ -140,7 +140,7 @@ export function PurchasesPage() {
   };
 
   // Invoices dropped anywhere on this page are uploaded and read as purchases, not as plain documents
-  usePageFilesDrop(files => void uploadFiles(files));
+  usePageFilesDrop(files => void uploadFiles(files), { description: () => t('purchases.drop-area') });
 
   const photoCapture = createPhotoCapture({ organizationId: params.organizationId, purpose: 'purchase', onFiles: files => void uploadFiles(files), onDocuments: reviewDocuments });
 

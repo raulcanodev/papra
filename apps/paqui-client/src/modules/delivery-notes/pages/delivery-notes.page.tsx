@@ -133,7 +133,7 @@ export function DeliveryNotesPage() {
     }
   };
 
-  usePageFilesDrop(files => void uploadFiles(files));
+  usePageFilesDrop(files => void uploadFiles(files), { description: () => t('delivery-notes.drop-area') });
   const photoCapture = createPhotoCapture({ organizationId: params.organizationId, purpose: 'delivery_note', onFiles: files => void uploadFiles(files), onDocuments: reviewDocuments });
 
   return (

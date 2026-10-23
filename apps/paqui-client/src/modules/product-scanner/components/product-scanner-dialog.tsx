@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For, Match, Show, Switch } from 'solid-js';
 import { preparePhotoForUpload } from '@/modules/captures/captures.models';
 import { fetchCustomPropertyDefinitions } from '@/modules/custom-properties/custom-properties.services';
+import { useFilesDropWhile } from '@/modules/documents/components/global-drop-area.component';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { getProductsQueryKey } from '@/modules/invoicing/components/product-form';
 import { queryClient } from '@/modules/shared/query/query-client';
@@ -35,7 +36,6 @@ export function ProductScannerDialog(props: { organizationId: string; contactId:
   const { t } = useI18n();
   const [step, setStep] = createSignal<Step>('pick');
   const [files, setFiles] = createSignal<File[]>([]);
-  const [isDragging, setIsDragging] = createSignal(false);
   const [proposal, setProposal] = createSignal<ProductScanProposal | null>(null);
   const [selected, setSelected] = createSignal<ReadonlySet<number>>(new Set());
   const [fieldTargets, setFieldTargets] = createSignal<Record<string, string>>({});
@@ -73,6 +73,9 @@ export function ProductScannerDialog(props: { organizationId: string; contactId:
     const prepared = await Promise.all(added.map(async file => preparePhotoForUpload({ file })));
     setFiles(current => [...current, ...prepared].slice(0, MAX_SCANNED_FILES));
   };
+
+  // Files dropped while the dialog is picking go to the list to read, not to the plain document upload
+  useFilesDropWhile(() => props.open && step() === 'pick', files => void addFiles(files), { description: () => t('product-scanner.drop-area') });
 
   const readCatalog = async () => {
     setStep('reading');
@@ -199,18 +202,8 @@ export function ProductScannerDialog(props: { organizationId: string; contactId:
 
               <button
                 type="button"
-                class={cn('hidden flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center text-muted-foreground transition-colors hover:border-primary/50 md:flex', isDragging() && 'border-primary bg-primary/5')}
+                class="hidden flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center text-muted-foreground transition-colors hover:border-primary/50 md:flex"
                 onClick={() => fileInput?.click()}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  setIsDragging(true);
-                }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  setIsDragging(false);
-                  void addFiles([...(event.dataTransfer?.files ?? [])]);
-                }}
               >
                 <div class="i-tabler-file-upload size-8" />
                 <span class="text-sm font-medium text-foreground">{t('product-scanner.pick.drop')}</span>

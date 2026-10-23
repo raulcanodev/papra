@@ -1,15 +1,32 @@
 import type { Component } from 'solid-js';
-import { createSignal, onCleanup } from 'solid-js';
+import { createEffect, createSignal, onCleanup } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cn } from '@/modules/shared/style/cn';
 
-// A page can take the files dropped on it for itself instead of the plain document upload
-// (the purchases page reads them as invoices to pay); only while it is mounted
-const [getPageFilesDropHandler, setPageFilesDropHandler] = createSignal<((files: File[]) => void) | undefined>();
+type FilesDropHandler = { onFiles: (files: File[]) => void; description?: () => string };
 
-export function usePageFilesDrop(handler: (files: File[]) => void) {
-  setPageFilesDropHandler(() => handler);
-  onCleanup(() => setPageFilesDropHandler(undefined));
+// A page or an open dialog can take the files dropped on it for itself instead of the plain document upload (the
+// purchases page reads them as invoices to pay, the price list import reads the spreadsheet). The last one registered
+// wins, so an open dialog gets the files before the page under it
+const [getFilesDropHandlers, setFilesDropHandlers] = createSignal<FilesDropHandler[]>([]);
+
+function registerFilesDropHandler(handler: FilesDropHandler) {
+  setFilesDropHandlers(handlers => [...handlers, handler]);
+
+  return () => setFilesDropHandlers(handlers => handlers.filter(current => current !== handler));
+}
+
+export function usePageFilesDrop(onFiles: (files: File[]) => void, options: { description?: () => string } = {}) {
+  onCleanup(registerFilesDropHandler({ onFiles, description: options.description }));
+}
+
+// Only while the condition holds, a dialog open on its file picking step for instance
+export function useFilesDropWhile(when: () => boolean, onFiles: (files: File[]) => void, options: { description?: () => string } = {}) {
+  createEffect(() => {
+    if (when()) {
+      onCleanup(registerFilesDropHandler({ onFiles, description: options.description }));
+    }
+  });
 }
 
 export const GlobalDropArea: Component<{ onFilesDrop?: (args: { files: File[] }) => void }> = (props) => {
@@ -36,9 +53,9 @@ export const GlobalDropArea: Component<{ onFilesDrop?: (args: { files: File[] })
       return;
     }
 
-    const pageHandler = getPageFilesDropHandler();
-    if (pageHandler) {
-      pageHandler(files);
+    const handler = getFilesDropHandlers().at(-1);
+    if (handler) {
+      handler.onFiles(files);
       return;
     }
 
@@ -67,7 +84,7 @@ export const GlobalDropArea: Component<{ onFilesDrop?: (args: { files: File[] })
           {t('documents.drop-area.title')}
         </div>
         <div class="text-base text-muted-foreground">
-          {t('documents.drop-area.description')}
+          {getFilesDropHandlers().at(-1)?.description?.() ?? t('documents.drop-area.description')}
         </div>
       </div>
     </div>
