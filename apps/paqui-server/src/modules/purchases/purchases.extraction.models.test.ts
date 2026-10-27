@@ -4,7 +4,7 @@ import { normalizeTaxId } from '../contacts/contacts.models';
 import { getCompanyNameSimilarity, getInvoiceDirection, normalizeCompanyName, resolveSupplier, toPurchaseInvoiceDraft } from './purchases.extraction.models';
 import { calculatePurchaseInvoiceTotals } from './purchases.models';
 
-const party = (overrides: Partial<InvoiceExtraction['issuer']> = {}): InvoiceExtraction['issuer'] => ({ name: 'Acme', taxId: null, email: null, phone: null, addressLine1: null, postalCode: null, city: null, country: 'ES', ...overrides });
+const party = (overrides: Partial<InvoiceExtraction['issuer']> = {}): InvoiceExtraction['issuer'] => ({ name: 'Acme', taxId: null, email: null, phone: null, addressLine1: null, postalCode: null, city: null, country: 'ES', bankAccount: null, ...overrides });
 
 function extraction(overrides: Partial<InvoiceExtraction> = {}): InvoiceExtraction {
   return {

@@ -115,6 +115,8 @@ export type PurchaseInvoiceExtraction = {
     postalCode: string | null;
     city: string | null;
     country: string | null;
+    /** Readings made before the bank account was read have none */
+    bankAccount?: string | null;
   };
   warnings: string[];
   printedTotal: number | null;

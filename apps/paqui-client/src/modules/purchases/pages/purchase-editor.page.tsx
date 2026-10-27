@@ -237,6 +237,7 @@ export function PurchaseEditorPage() {
           city: counterparty.city,
           region: null,
           country: counterparty.country,
+          bankAccount: counterparty.bankAccount ?? null,
           currency: currency(),
           paymentTermsDays: 30,
           notes: null,

@@ -224,7 +224,7 @@ export function buildDemoExtraction({ documentId, now = new Date() }: { document
       metadata: [{ label: 'Forma de pago', value: 'Giro a 30 y 60 días' }, { label: 'Pedido', value: 'PED-2026-0412' }],
       items,
     },
-    counterparty: { status: 'create', contactId: null, matchedBy: null, hasSupplierRole: false, candidates: [], name: 'Textiles Ejemplo SL', taxId: 'B00000020', email: 'facturas@textiles.example', phone: null, addressLine1: 'Calle del Telar 8', postalCode: '03801', city: 'Alcoy', country: 'ES' },
+    counterparty: { status: 'create', contactId: null, matchedBy: null, hasSupplierRole: false, candidates: [], name: 'Textiles Ejemplo SL', taxId: 'B00000020', email: 'facturas@textiles.example', phone: null, addressLine1: 'Calle del Telar 8', postalCode: '03801', city: 'Alcoy', country: 'ES', bankAccount: 'ES00 0000 0000 0000 0000 0000' },
     warnings: [],
     printedTotal: 184_223,
   };

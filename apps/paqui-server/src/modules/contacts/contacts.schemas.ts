@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { entityCustomPropertiesInputSchema } from '../custom-properties/entity-custom-properties.usecases';
 import { entityAppearanceSchema } from '../shared/appearance/appearance.schemas';
 import { CONTACT_KINDS, CONTACT_ROLES } from './contacts.constants';
+import { normalizeBankAccount } from './contacts.models';
 
 const optionalText = z.string().trim().max(500).optional().nullable();
 const currencySchema = z.string().trim().length(3).transform(value => value.toUpperCase());
@@ -20,6 +21,8 @@ export const contactSchema = z.object({
   city: optionalText,
   region: optionalText,
   country: optionalText,
+  // IBAN or any other account number for transfers
+  bankAccount: optionalText.transform(bankAccount => normalizeBankAccount({ bankAccount })),
   currency: currencySchema.default('EUR'),
   paymentTermsDays: z.number().int().min(0).max(365).nullable().default(null),
   notes: z.string().trim().max(5_000).optional().nullable(),

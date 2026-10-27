@@ -29,6 +29,7 @@ import { equivalenceSurchargeMigration } from './list/0026-equivalence-surcharge
 import { optionalPaymentTermsMigration } from './list/0027-optional-payment-terms.migration';
 import { invoiceItemFixedDiscountMigration } from './list/0028-invoice-item-fixed-discount.migration';
 import { optionalDefaultPaymentTermsMigration } from './list/0029-optional-default-payment-terms.migration';
+import { contactBankAccountMigration } from './list/0030-contact-bank-account.migration';
 
 export const migrations: Migration[] = [
   postgresInitialSchemaMigration,
@@ -60,4 +61,5 @@ export const migrations: Migration[] = [
   optionalPaymentTermsMigration,
   invoiceItemFixedDiscountMigration,
   optionalDefaultPaymentTermsMigration,
+  contactBankAccountMigration,
 ];

@@ -33,6 +33,7 @@ export type ImportedContact = {
   city: string | null;
   region: string | null;
   country: string | null;
+  bankAccount: string | null;
   paymentTermsDays: number | null;
   notes: string | null;
 };

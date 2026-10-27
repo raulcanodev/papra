@@ -11,7 +11,7 @@ import { extractPurchaseInvoiceFromDocument } from './purchases.extraction.useca
 
 const ORG_ID = 'org_111111111111111111111111';
 
-const party = (name: string | null, taxId: string | null) => ({ name, taxId, email: null, phone: null, addressLine1: null, postalCode: null, city: null, country: 'ES' });
+const party = (name: string | null, taxId: string | null) => ({ name, taxId, email: null, phone: null, addressLine1: null, postalCode: null, city: null, country: 'ES', bankAccount: null as string | null });
 
 const extraction: InvoiceExtraction = {
   documentKind: 'invoice',
@@ -70,6 +70,25 @@ describe('purchases extraction usecases', () => {
     expect(result.draft).to.include({ supplierId: 'ctc_nube', kind: 'invoice', number: 'NUBE-2026-77', category: 'software', documentId: 'doc_1' });
     expect(result.draft.metadata).to.eql([{ label: 'Forma de pago', value: 'Domiciliación' }]);
     expect(result.printedTotal).to.eql(5_445);
+  });
+
+  test('the bank account read on the paper completes a known supplier that has none, never replaces one', async () => {
+    const { db, extract } = await setup();
+    await db.insert(contactsTable).values([
+      { id: 'ctc_nube', organizationId: ORG_ID, name: 'Nube Hosting', taxId: 'B00000010', isSupplier: true },
+      { id: 'ctc_luz', organizationId: ORG_ID, name: 'Luz del Sur', taxId: 'B00000011', isSupplier: true, bankAccount: 'ES11 1111 1111 1111 1111 1111' },
+    ]);
+    const withBankAccount = (name: string, taxId: string) => ({ ...extraction, issuer: { ...party(name, taxId), bankAccount: 'ES91 2100 0418 4502 0005 1332' } });
+
+    const result = await extract({ reader: async () => withBankAccount('Nube Hosting SL', 'B00000010') });
+    await extract({ reader: async () => withBankAccount('Luz del Sur SL', 'B00000011') });
+
+    expect(result.counterparty.bankAccount).to.eql('ES91 2100 0418 4502 0005 1332');
+    const contacts = await db.select({ id: contactsTable.id, bankAccount: contactsTable.bankAccount }).from(contactsTable).orderBy(contactsTable.id);
+    expect(contacts).to.eql([
+      { id: 'ctc_luz', bankAccount: 'ES11 1111 1111 1111 1111 1111' },
+      { id: 'ctc_nube', bankAccount: 'ES91 2100 0418 4502 0005 1332' },
+    ]);
   });
 
   test('a known contact without the supplier role is suggested, not used as supplier', async () => {

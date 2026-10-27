@@ -13,6 +13,7 @@ export function createTestContactInput(overrides: Partial<ContactInput> = {}): C
     city: null,
     region: null,
     country: 'ES',
+    bankAccount: null,
     currency: 'EUR',
     paymentTermsDays: 30,
     notes: null,

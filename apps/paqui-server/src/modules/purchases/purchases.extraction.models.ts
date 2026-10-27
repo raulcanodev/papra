@@ -1,14 +1,14 @@
 import type { Contact } from '../contacts/contacts.models';
 import type { ExpenseCategory, PurchaseDocumentKind } from './purchases.constants';
 import { z } from 'zod';
-import { normalizeTaxId } from '../contacts/contacts.models';
+import { normalizeBankAccount, normalizeTaxId } from '../contacts/contacts.models';
 import { PAYMENT_METHODS } from '../due-dates/due-dates.constants';
 import { computeInstalments } from '../due-dates/due-dates.models';
 import { calculateInvoiceTotals } from '../invoicing/invoicing.models';
 import { EXPENSE_CATEGORIES, MAX_PURCHASE_METADATA_ENTRIES } from './purchases.constants';
 
 // Bumped whenever the shape below changes, so a stored or cached reading can be told apart from a newer one
-export const INVOICE_EXTRACTION_SCHEMA_VERSION = 3;
+export const INVOICE_EXTRACTION_SCHEMA_VERSION = 4;
 
 const partySchema = z.object({
   name: z.string().nullable().describe('Legal or trade name as printed, null when no name can be read (a logo alone, a torn header...)'),
@@ -20,14 +20,17 @@ const partySchema = z.object({
   postalCode: z.string().describe('Empty when absent'),
   city: z.string().describe('Empty when absent'),
   country: z.string().describe('ISO 3166-1 alpha-2 country code, e.g. ES, empty when unknown'),
+  bankAccount: z.string().describe('The IBAN (or other account number) where this party gets paid by bank transfer, as printed next to "IBAN", "Cuenta", "Nº de cuenta", "Transferencia a", "CCC". Usually the issuer\'s. A direct debit account (domiciliación) belongs to the recipient. Empty when absent'),
 });
 
 type ReadParty = z.infer<typeof partySchema>;
 export type InvoiceParty = { [Key in keyof ReadParty]: string | null };
 
-// Back to the null the rest of the app uses for what is not printed
+// Back to the null the rest of the app uses for what is not printed, the bank account written as the contacts keep it
 export function normalizeReadParty({ party }: { party: ReadParty }): InvoiceParty {
-  return Object.fromEntries(Object.entries(party).map(([key, value]) => [key, typeof value === 'string' && value.trim() === '' ? null : value])) as InvoiceParty;
+  const normalized = Object.fromEntries(Object.entries(party).map(([key, value]) => [key, typeof value === 'string' && value.trim() === '' ? null : value])) as InvoiceParty;
+
+  return { ...normalized, bankAccount: normalizeBankAccount({ bankAccount: normalized.bankAccount }) };
 }
 
 // What the model is asked to read from the paper, always this exact shape. Amounts as decimals in the document
@@ -57,9 +60,9 @@ export const invoiceExtractionSchema = z.object({
   total: z.number().nullable().describe('Total, taxes included, as printed, null when not printed'),
   category: z.enum(EXPENSE_CATEGORIES).describe('Best matching expense category for the recipient'),
   metadata: z.array(z.object({
-    label: z.string().describe('Short name of the data, in the language of the document, e.g. "Forma de pago", "Pedido", "IBAN"'),
+    label: z.string().describe('Short name of the data, in the language of the document, e.g. "Forma de pago", "Pedido", "Albarán"'),
     value: z.string(),
-  })).describe('Every other useful data printed that has no field above: payment method, IBAN, order or delivery references, related delivery notes, delivery address, lot numbers, observations, signature... Never repeat a field above'),
+  })).describe('Every other useful data printed that has no field above: order or delivery references, related delivery notes, delivery address, lot numbers, observations, signature... Never repeat a field above: the payment method and the IBAN or bank account have their own fields'),
   warnings: z.array(z.string()).describe('Short notes for the reviewer about what could be misread: blurry or cut off parts, handwritten amounts, totals that do not add up. Empty when everything is clear'),
 });
 

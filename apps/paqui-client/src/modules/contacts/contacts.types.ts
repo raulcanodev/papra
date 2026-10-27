@@ -19,6 +19,8 @@ export type Contact = {
   city: string | null;
   region: string | null;
   country: string | null;
+  /** IBAN or any other account number for transfers */
+  bankAccount: string | null;
   currency: string;
   paymentTermsDays: number | null;
   notes: string | null;

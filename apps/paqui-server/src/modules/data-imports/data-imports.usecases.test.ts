@@ -31,7 +31,7 @@ async function setup() {
   return { db, config, documentsStorageService };
 }
 
-const baseContact = { existingContactId: null, kind: 'company' as const, taxId: null, email: null, phone: null, addressLine1: null, addressLine2: null, postalCode: null, city: null, region: null, country: null, paymentTermsDays: null, notes: null };
+const baseContact = { existingContactId: null, kind: 'company' as const, taxId: null, email: null, phone: null, addressLine1: null, addressLine2: null, postalCode: null, city: null, region: null, country: null, bankAccount: null, paymentTermsDays: null, notes: null };
 
 describe('data imports usecases', () => {
   test('the model points to the header and the columns, every row is read from the cells', async () => {

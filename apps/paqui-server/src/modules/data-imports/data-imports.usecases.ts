@@ -38,6 +38,7 @@ const FIELD_DESCRIPTIONS: Record<DataImportEntity, string> = {
 - email, phone: the main email address and phone number
 - addressLine1: the street address; addressLine2: a second line of it
 - postalCode, city, region (province, state), country
+- bankAccount: the IBAN or bank account number for transfers
 - paymentTermsDays: the number of days the customer has to pay
 - notes: remarks about the contact`,
   products: `The file lists the products or services a company sells, one per row. The fields:

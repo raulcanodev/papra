@@ -21,7 +21,7 @@ type PurchaseLine = z.infer<typeof purchaseLineSchema>;
 const PURCHASE_DOCUMENT_KINDS = ['invoice', 'simplified_invoice', 'delivery_note'] as const;
 
 const metadataEntrySchema = z.object({
-  label: z.string().trim().min(1).max(200).describe('Short name of the data as printed, e.g. "Forma de pago", "Pedido", "IBAN"'),
+  label: z.string().trim().min(1).max(200).describe('Short name of the data as printed, e.g. "Pedido", "Albarán", "Lote"'),
   value: z.string().trim().min(1).max(2_000),
 });
 
@@ -31,7 +31,7 @@ const purchaseFields = {
   supplierId: idSchema('Contact ID of the supplier (use search_workspace or list_contacts with role supplier)'),
   number: z.string().trim().min(1).max(100).describe('Invoice number printed by the supplier'),
   kind: z.enum(PURCHASE_DOCUMENT_KINDS).describe('invoice (factura), simplified_invoice (ticket) or delivery_note (albarán: goods received, does not count for VAT nor income tax until its invoice arrives)'),
-  metadata: z.array(metadataEntrySchema).max(50).describe('Data printed on the paper that has no field of its own (payment method, IBAN, order or delivery references, observations...)'),
+  metadata: z.array(metadataEntrySchema).max(50).describe('Data printed on the paper that has no field of its own (order or delivery references, observations...). Never the IBAN or bank account: it goes in bankAccount of the supplier contact (update_contact when it has none)'),
   issueDate: isoDateSchema('Date on the supplier invoice'),
   dueDate: isoDateSchema('Payment due date').nullable().optional(),
   items: z.array(purchaseLineSchema).min(1).max(200),

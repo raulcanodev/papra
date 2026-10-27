@@ -48,3 +48,21 @@ export function normalizeTaxId({ taxId }: { taxId: string | null | undefined }) 
 
   return normalized === '' ? null : normalized;
 }
+
+// "es91 2100-0418 4502 0005 1332" and "ES9121000418450200051332" are the same IBAN: stored in groups of four, as printed
+// on a bank statement. Any other account number (a US routing and account number...) is kept as written.
+export function normalizeBankAccount({ bankAccount }: { bankAccount: string | null | undefined }) {
+  if (bankAccount === null || bankAccount === undefined) {
+    return null;
+  }
+
+  const trimmed = bankAccount.trim().replace(/\s+/g, ' ');
+  if (trimmed === '') {
+    return null;
+  }
+
+  const compact = trimmed.toUpperCase().replace(/^IBAN[:\s]*/, '').replace(/[\s.-]/g, '');
+  const isIban = /^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(compact);
+
+  return isIban ? compact.replace(/(.{4})(?=.)/g, '$1 ') : trimmed;
+}

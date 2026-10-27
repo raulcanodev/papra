@@ -2,7 +2,7 @@ import type { DataImportEntity, DataImportProposal, ImportedContact, ImportedPro
 
 // The fields a column can fill, in the order they are offered. Same list as the server.
 export const DATA_IMPORT_FIELDS = {
-  contacts: ['name', 'taxId', 'email', 'phone', 'addressLine1', 'addressLine2', 'postalCode', 'city', 'region', 'country', 'paymentTermsDays', 'notes'],
+  contacts: ['name', 'taxId', 'email', 'phone', 'addressLine1', 'addressLine2', 'postalCode', 'city', 'region', 'country', 'bankAccount', 'paymentTermsDays', 'notes'],
   products: ['name', 'description', 'unit', 'unitPrice', 'taxRate'],
 } as const satisfies Record<DataImportEntity, readonly string[]>;
 
@@ -196,6 +196,7 @@ export function buildContactRows({ proposal, mapping, existingPolicy }: { propos
         city: cell('city'),
         region: cell('region'),
         country: cell('country'),
+        bankAccount: cell('bankAccount'),
         paymentTermsDays: paymentTerms === null ? null : parsePaymentTermsDays(paymentTerms),
         notes: cell('notes'),
       },

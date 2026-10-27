@@ -20,6 +20,7 @@ const contactFields = {
   city: optionalText(),
   region: optionalText(),
   country: optionalText().describe('Country name or ISO code'),
+  bankAccount: optionalText().describe('IBAN or bank account number the contact is paid or charged through by transfer (cuenta bancaria, IBAN, CCC). Always here, never as a custom property or a note'),
   currency: currencySchema,
   paymentTermsDays: z.number().int().min(0).max(365).nullable().describe('Days between the issue date and the due date. Optional: null when the contact has none'),
   notes: z.string().trim().max(5_000).nullable().optional(),

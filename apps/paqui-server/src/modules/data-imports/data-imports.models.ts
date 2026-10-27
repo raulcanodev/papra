@@ -43,6 +43,7 @@ const FIELD_SYNONYMS: { [E in DataImportEntity]: Record<DataImportField<E>, stri
     city: ['poblacion', 'localidad', 'ciudad', 'municipio', 'city', 'town'],
     region: ['provincia', 'region', 'comunidad', 'state', 'province'],
     country: ['pais', 'country'],
+    bankAccount: ['iban', 'cuenta', 'cuenta bancaria', 'n cuenta', 'numero de cuenta', 'ccc', 'cuenta corriente', 'bank account', 'account number'],
     paymentTermsDays: ['dias pago', 'dias de pago', 'plazo pago', 'plazo de pago', 'dias vencimiento', 'payment terms'],
     notes: ['observaciones', 'notas', 'comentarios', 'notes', 'comments'],
   },

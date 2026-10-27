@@ -4,7 +4,7 @@ export type DataImportEntity = typeof DATA_IMPORT_ENTITIES[number];
 
 // The fields a column of the file can fill, per entity. The client has the same list to let the user change the mapping.
 export const DATA_IMPORT_FIELDS = {
-  contacts: ['name', 'taxId', 'email', 'phone', 'addressLine1', 'addressLine2', 'postalCode', 'city', 'region', 'country', 'paymentTermsDays', 'notes'],
+  contacts: ['name', 'taxId', 'email', 'phone', 'addressLine1', 'addressLine2', 'postalCode', 'city', 'region', 'country', 'bankAccount', 'paymentTermsDays', 'notes'],
   products: ['name', 'description', 'unit', 'unitPrice', 'taxRate'],
 } as const satisfies Record<DataImportEntity, readonly string[]>;
 

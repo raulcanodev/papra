@@ -10,7 +10,7 @@ export const PURCHASE_DOCUMENT_KINDS = ['invoice', 'simplified_invoice', 'delive
 export type PurchaseDocumentKind = typeof PURCHASE_DOCUMENT_KINDS[number];
 export const NON_TAXABLE_PURCHASE_DOCUMENT_KINDS = ['delivery_note'] as const satisfies PurchaseDocumentKind[];
 
-// Data read on the paper that has no column of its own (order reference, payment method, IBAN...), kept as label and value
+// Data read on the paper that has no column of its own (order reference, delivery notes, observations...), kept as label and value
 export const MAX_PURCHASE_METADATA_ENTRIES = 50;
 
 // Expense categories the accountant needs to book the expenses (and that the income tax estimation groups by)

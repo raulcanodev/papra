@@ -144,6 +144,11 @@ export async function extractPurchaseInvoiceFromDocument({
   const supplier = resolveSupplier({ party: counterparty, contacts });
   const matchedContact = supplier.status === 'matched' ? contacts.find(contact => contact.id === supplier.contactId) : undefined;
 
+  // The bank account printed on the paper completes a known contact that has none, it never replaces one
+  if (matchedContact && matchedContact.bankAccount === null && counterparty.bankAccount !== null) {
+    await createContactsRepository({ db }).setMissingBankAccount({ organizationId, contactId: matchedContact.id, bankAccount: counterparty.bankAccount });
+  }
+
   return {
     schemaVersion: INVOICE_EXTRACTION_SCHEMA_VERSION,
     direction,

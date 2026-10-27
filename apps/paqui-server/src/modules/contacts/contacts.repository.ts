@@ -17,6 +17,7 @@ export function createContactsRepository({ db }: { db: Database }) {
     createContact: async (args: { organizationId: string; contact: ContactInput }) => createContact({ db, ...args }),
     updateContact: async (args: { organizationId: string; contactId: string; contact: ContactInput }) => updateContact({ db, ...args }),
     archiveContact: async (args: { organizationId: string; contactId: string }) => archiveContact({ db, ...args }),
+    setMissingBankAccount: async (args: { organizationId: string; contactId: string; bankAccount: string }) => setMissingBankAccount({ db, ...args }),
   };
 }
 
@@ -108,6 +109,14 @@ async function updateContact({ db, organizationId, contactId, contact }: { db: D
   }
 
   return { contact: updated };
+}
+
+// Fills the bank account of a contact that has none (read on one of its invoices), never overwrites one
+async function setMissingBankAccount({ db, organizationId, contactId, bankAccount }: { db: Database; organizationId: string; contactId: string; bankAccount: string }) {
+  await db
+    .update(contactsTable)
+    .set({ bankAccount, updatedAt: new Date() })
+    .where(and(eq(contactsTable.id, contactId), eq(contactsTable.organizationId, organizationId), isNull(contactsTable.bankAccount)));
 }
 
 // Contacts are archived, never deleted: issued invoices, received invoices and document folders keep pointing at them

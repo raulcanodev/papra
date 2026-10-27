@@ -20,7 +20,7 @@ const OTHER_USER_ID = 'usr_333333333333333333333333';
 const OTHER_ORG_ID = 'org_444444444444444444444444';
 const NOW = new Date('2026-10-17T09:00:00.000Z');
 
-const party = (name: string, taxId: string) => ({ name, taxId, email: null, phone: null, addressLine1: null, postalCode: null, city: null, country: 'ES' });
+const party = (name: string, taxId: string) => ({ name, taxId, email: null, phone: null, addressLine1: null, postalCode: null, city: null, country: 'ES', bankAccount: null });
 
 // "Giro a 30 y 60 días" on a received invoice issued on October 15th
 const extraction: InvoiceExtraction = {

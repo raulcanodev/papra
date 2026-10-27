@@ -55,6 +55,7 @@ const FIELD_LABEL_KEYS: Record<string, TranslationKeys> = {
   email: 'ai-assistant.field.email',
   phone: 'ai-assistant.field.phone',
   taxId: 'ai-assistant.field.tax-id',
+  bankAccount: 'ai-assistant.field.bank-account',
   address: 'ai-assistant.field.address',
   country: 'ai-assistant.field.country',
   currency: 'ai-assistant.field.currency',

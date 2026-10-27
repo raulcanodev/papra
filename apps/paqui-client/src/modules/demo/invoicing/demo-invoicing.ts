@@ -82,7 +82,7 @@ const byCreatedAt = (a: Stored, b: Stored) => String(a.createdAt).localeCompare(
 const CONTACT_ROLE_FLAGS = { customer: 'isCustomer', supplier: 'isSupplier', sales_representative: 'isSalesRepresentative' } as const;
 
 function emptyDemoContact(): Stored {
-  return { kind: 'company', icon: null, iconColor: null, email: null, phone: null, taxId: null, addressLine1: null, addressLine2: null, postalCode: null, city: null, region: null, country: null, currency: 'EUR', paymentTermsDays: 30, notes: null, isCustomer: false, isSupplier: false, isSalesRepresentative: false, archivedAt: null };
+  return { kind: 'company', icon: null, iconColor: null, email: null, phone: null, taxId: null, addressLine1: null, addressLine2: null, postalCode: null, city: null, region: null, country: null, bankAccount: null, currency: 'EUR', paymentTermsDays: 30, notes: null, isCustomer: false, isSupplier: false, isSalesRepresentative: false, archivedAt: null };
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

@@ -22,6 +22,8 @@ export const contactsTable = pgTable('contacts', {
   city: text('city'),
   region: text('region'),
   country: text('country'),
+  // IBAN or any other account number the transfers to or from the contact go through
+  bankAccount: text('bank_account'),
   currency: text('currency').notNull().default('EUR'),
   paymentTermsDays: integer('payment_terms_days'),
   notes: text('notes'),

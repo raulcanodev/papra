@@ -21,6 +21,7 @@ export function emptyContact(overrides: Partial<ContactInput> = {}): ContactInpu
     city: null,
     region: null,
     country: null,
+    bankAccount: null,
     currency: 'EUR',
     paymentTermsDays: null,
     notes: null,
@@ -47,6 +48,7 @@ export function toContactInput(contact: ContactInput): ContactInput {
     city: contact.city,
     region: contact.region,
     country: contact.country,
+    bankAccount: contact.bankAccount,
     currency: contact.currency,
     paymentTermsDays: contact.paymentTermsDays,
     notes: contact.notes,
@@ -90,6 +92,9 @@ export function ContactFormFields(props: {
       <FormField label={t('invoicing.common.address')} class="sm:col-span-2"><TextField value={props.value.addressLine1 ?? ''} onInput={event => set('addressLine1', optional(event.currentTarget.value))} /></FormField>
       <FormField label={t('invoicing.common.postal-code')}><TextField value={props.value.postalCode ?? ''} onInput={event => set('postalCode', optional(event.currentTarget.value))} /></FormField>
       <FormField label={t('invoicing.common.city')}><TextField value={props.value.city ?? ''} onInput={event => set('city', optional(event.currentTarget.value))} /></FormField>
+      <FormField label={t('contacts.form.bank-account')} class="sm:col-span-2">
+        <TextField value={props.value.bankAccount ?? ''} placeholder={t('contacts.form.bank-account.placeholder')} autocomplete="off" spellcheck={false} class="font-mono" onInput={event => set('bankAccount', optional(event.currentTarget.value))} />
+      </FormField>
       <Show when={hasBillingTerms()}>
         <FormField label={t('invoicing.customer-form.payment-terms')}><TextField type="number" min="0" max="365" value={props.value.paymentTermsDays ?? ''} onInput={event => set('paymentTermsDays', event.currentTarget.value === '' ? null : Number(event.currentTarget.value))} /></FormField>
       </Show>

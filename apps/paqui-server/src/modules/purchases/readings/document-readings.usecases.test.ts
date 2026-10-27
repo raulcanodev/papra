@@ -10,7 +10,7 @@ import { createDocumentReadingsRunner, formatReadingsForApi, getOrReadPurchaseDo
 
 const ORG_ID = 'org_111111111111111111111111';
 const config = overrideConfig({ env: 'test' });
-const party = (name: string | null, taxId: string | null) => ({ name, taxId, email: null, phone: null, addressLine1: null, postalCode: null, city: null, country: 'ES' });
+const party = (name: string | null, taxId: string | null) => ({ name, taxId, email: null, phone: null, addressLine1: null, postalCode: null, city: null, country: 'ES', bankAccount: null });
 
 function extraction(overrides: Partial<InvoiceExtraction> = {}): InvoiceExtraction {
   return {

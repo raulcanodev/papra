@@ -43,6 +43,7 @@ export const confirmContactsImportSchema = z.object({
     city: optionalText(500),
     region: optionalText(500),
     country: optionalText(500),
+    bankAccount: optionalText(500),
     paymentTermsDays: z.number().int().min(0).max(365).nullable(),
     notes: optionalText(5_000),
   })).min(1).max(MAX_DATA_IMPORT_ROWS),
