@@ -4,3 +4,8 @@ declare module '*.yml' {
   const value: Record<LocaleKeys, string>;
   export default value;
 }
+
+declare module 'virtual:entity-icon-set' {
+  const set: Array<[name: string, body: string, keywords: string]>;
+  export default set;
+}

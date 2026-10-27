@@ -66,6 +66,7 @@
     "@antfu/eslint-config": "catalog:",
     "@iconify-json/tabler": "catalog:",
     "@paqui/lecture": "workspace:*",
+    "@phosphor-icons/core": "^2.1.1",
     "@types/node": "catalog:",
     "@unocss/preset-typography": "^66.6.8",
     "eslint": "catalog:",

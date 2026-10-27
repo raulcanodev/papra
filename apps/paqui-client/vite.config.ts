@@ -5,6 +5,7 @@ import { env } from 'node:process';
 import unoCssPlugin from 'unocss/vite';
 import { defineConfig } from 'vite';
 import solidPlugin from 'vite-plugin-solid';
+import { entityIconSetPlugin } from './src/modules/ui/icons/entity-icon-set.vite-plugin';
 
 const isDemoMode = env.VITE_IS_DEMO_MODE === 'true';
 
@@ -12,6 +13,7 @@ export default defineConfig({
   plugins: [
     unoCssPlugin(),
     solidPlugin(),
+    entityIconSetPlugin(),
     demoSecurityPlugin(),
   ],
   server: {
