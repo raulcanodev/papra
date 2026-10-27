@@ -69,7 +69,7 @@ export function ChoiceCards<T extends string>(props: {
 /** Small pill buttons for quick picks, e.g. payment terms. */
 export function ChoiceChips<T extends string | number>(props: {
   options: readonly { id: T; label: string }[];
-  value: T;
+  value: T | null;
   onChange: (value: T) => void;
   disabled?: boolean;
 }) {

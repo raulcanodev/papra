@@ -59,7 +59,7 @@ export async function renderDemoInvoicePdf({ invoice, seller, branding }: { invo
   doc.setFont('helvetica', 'normal').setTextColor(17, 24, 39);
   for (const item of invoice.items ?? []) {
     const gross = Math.round(item.quantityMillis * item.unitPriceMinor / 1_000);
-    const net = gross - Math.round(gross * item.discountRateBps / 10_000);
+    const net = Math.max(0, gross - Math.round(gross * item.discountRateBps / 10_000) - (item.discountMinor ?? 0));
     y += 20;
     doc.text(String(item.description).slice(0, 52), left + 8, y);
     doc.text(String(item.quantityMillis / 1_000), 330, y, { align: 'right' });

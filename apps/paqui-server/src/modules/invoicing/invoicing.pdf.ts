@@ -46,6 +46,7 @@ export type PdfInvoice = {
     unitPriceMinor: number;
     taxRateBps: number;
     discountRateBps: number;
+    discountMinor?: number;
   }>;
 };
 
@@ -160,9 +161,8 @@ function drawItemsHeader(doc: PDFKit.PDFDocument, y: number, accent: string, lin
 }
 
 function drawItemRow({ doc, invoice, item, y, height, muted, line, locale }: { doc: PDFKit.PDFDocument; invoice: PdfInvoice; item: PdfInvoice['items'][number]; y: number; height: number; muted: string; line: string; locale: string }) {
-  const gross = Math.round(item.quantityMillis * item.unitPriceMinor / 1_000);
-  const net = gross - Math.round(gross * item.discountRateBps / 10_000);
-  const total = net + Math.round(net * item.taxRateBps / 10_000);
+  const { netMinor, taxMinor } = getLineAmounts(item);
+  const total = netMinor + taxMinor;
   doc.font('Helvetica').fontSize(9).fillColor('#111827');
   doc.text(item.description, PAGE.margin + 8, y + 9, { width: 225 });
   doc.fillColor(muted).text(formatQuantity(item.quantityMillis, locale), 285, y + 9, { width: 45, align: 'right' });

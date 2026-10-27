@@ -6,7 +6,7 @@ import { getEquivalenceSurchargeRateBps } from '../invoicing.models';
 
 export function getLineNetMinor(item: InvoiceItemInput) {
   const gross = Math.round(item.quantityMillis * item.unitPriceMinor / 1_000);
-  return gross - Math.round(gross * item.discountRateBps / 10_000);
+  return Math.max(0, gross - Math.round(gross * item.discountRateBps / 10_000) - (item.discountMinor ?? 0));
 }
 
 // Same rounding as the server: the withholding is computed on the taxable base

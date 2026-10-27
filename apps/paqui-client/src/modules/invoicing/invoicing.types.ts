@@ -52,7 +52,7 @@ export type FiscalProfile = {
   country: string | null;
   currency: string;
   locale: string;
-  paymentTermsDays: number;
+  paymentTermsDays: number | null;
   defaultNotes: string | null;
   defaultTerms: string | null;
   templateId: InvoiceTemplateId;
@@ -86,6 +86,8 @@ export type InvoiceItemInput = {
   unitPriceMinor: number;
   taxRateBps: number;
   discountRateBps: number;
+  // A fixed amount off the whole line, after the percentage discount
+  discountMinor?: number;
 };
 
 export type InvoiceDraftInput = {

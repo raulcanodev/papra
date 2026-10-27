@@ -23,7 +23,7 @@ export const invoicingProfilesTable = pgTable('invoicing_profiles', {
   country: text('country'),
   currency: text('currency').notNull().default('EUR'),
   locale: text('locale').notNull().default('es-ES'),
-  paymentTermsDays: integer('payment_terms_days').notNull().default(30),
+  paymentTermsDays: integer('payment_terms_days'),
   defaultNotes: text('default_notes'),
   defaultTerms: text('default_terms'),
   templateId: text('template_id').notNull().default('minimal'),
@@ -146,6 +146,7 @@ export const invoiceItemsTable = pgTable('invoice_items', {
   unitPriceMinor: integer('unit_price_minor').notNull(),
   taxRateBps: integer('tax_rate_bps').notNull().default(0),
   discountRateBps: integer('discount_rate_bps').notNull().default(0),
+  discountMinor: integer('discount_minor').notNull().default(0),
   position: integer('position').notNull().default(0),
 }, table => [
   index('invoice_items_invoice_id_index').on(table.invoiceId),

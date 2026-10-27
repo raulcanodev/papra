@@ -16,7 +16,7 @@ import { TextField } from '@/modules/ui/components/textfield';
 import { WITHHOLDING_RATES_BPS } from '../invoicing.constants';
 import { fetchFiscalProfile, saveFiscalProfile } from '../invoicing.services';
 
-const emptyProfile = (): FiscalProfileInput => ({ legalName: '', taxId: null, email: null, addressLine1: null, addressLine2: null, postalCode: null, city: null, region: null, country: null, currency: 'EUR', locale: 'es-ES', paymentTermsDays: 30, defaultNotes: null, defaultTerms: null, templateId: 'minimal', defaultWithholdingRateBps: 0, legalForm: null, vatRegime: 'general', incomeTaxMethod: 'direct_simplified', lastCorporateTaxQuotaMinor: null, accountantEmail: null });
+const emptyProfile = (): FiscalProfileInput => ({ legalName: '', taxId: null, email: null, addressLine1: null, addressLine2: null, postalCode: null, city: null, region: null, country: null, currency: 'EUR', locale: 'es-ES', paymentTermsDays: null, defaultNotes: null, defaultTerms: null, templateId: 'minimal', defaultWithholdingRateBps: 0, legalForm: null, vatRegime: 'general', incomeTaxMethod: 'direct_simplified', lastCorporateTaxQuotaMinor: null, accountantEmail: null });
 
 export function FiscalProfilePage() {
   const { t } = useI18n();
@@ -107,7 +107,7 @@ export function FiscalProfilePage() {
                 </label>
                 <label class="text-sm font-medium">
                   {t('invoicing.fiscal-profile.payment-terms')}
-                  <TextField class="mt-1.5" type="number" min="0" max="365" value={profile().paymentTermsDays} onInput={event => field('paymentTermsDays', Number(event.currentTarget.value))} />
+                  <TextField class="mt-1.5" type="number" min="0" max="365" value={profile().paymentTermsDays ?? ''} onInput={event => field('paymentTermsDays', event.currentTarget.value === '' ? null : Number(event.currentTarget.value))} />
                 </label>
                 <div class="text-sm font-medium">
                   {t('invoicing.fiscal-profile.default-withholding')}

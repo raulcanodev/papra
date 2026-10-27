@@ -163,7 +163,8 @@ export const OnboardingFlow: Component<{
     country: t('onboarding.defaults.country'),
     currency: 'EUR',
     locale: getLocale() === 'es' ? 'es-ES' : 'en-US',
-    paymentTermsDays: 30,
+    // Optional: none until the user picks one
+    paymentTermsDays: null as number | null,
     templateId: 'minimal' as InvoiceTemplateId,
     defaultNotes: null as string | null,
     defaultTerms: null as string | null,
@@ -648,7 +649,8 @@ export const OnboardingFlow: Component<{
                       <ChoiceChips
                         options={PAYMENT_TERMS.map(days => ({ id: days, label: days === 0 ? t('onboarding.invoicing.payment-terms.immediate') : t('onboarding.invoicing.payment-terms.days', { days }) }))}
                         value={values.paymentTermsDays}
-                        onChange={paymentTermsDays => setValues({ paymentTermsDays })}
+                        // Picking the chosen one again leaves the payment terms unset
+                        onChange={paymentTermsDays => setValues({ paymentTermsDays: paymentTermsDays === values.paymentTermsDays ? null : paymentTermsDays })}
                       />
                       <span class="text-xs text-muted-foreground">{t('onboarding.invoicing.payment-terms.hint')}</span>
                     </div>

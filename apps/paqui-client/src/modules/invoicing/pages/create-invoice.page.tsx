@@ -42,7 +42,7 @@ function plusDays(days: number) {
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
-const newLine = (taxRateBps = 2_100): InvoiceItemInput => ({ description: '', quantityMillis: 1_000, unitPriceMinor: 0, taxRateBps, discountRateBps: 0 });
+const newLine = (taxRateBps = 2_100): InvoiceItemInput => ({ description: '', quantityMillis: 1_000, unitPriceMinor: 0, taxRateBps, discountRateBps: 0, discountMinor: 0 });
 
 function formatMoney(minor: number, currency: string) {
   try {
@@ -50,6 +50,23 @@ function formatMoney(minor: number, currency: string) {
   } catch {
     return `${(minor / 100).toFixed(2)} ${currency}`;
   }
+}
+
+function IssuedChoice(props: { icon: string; primary?: boolean; disabled?: boolean; onClick: () => void; children: string }) {
+  return (
+    <button
+      type="button"
+      disabled={props.disabled}
+      onClick={() => props.onClick()}
+      class={cn(
+        'flex min-h-14 w-full items-center gap-3 rounded-lg border px-4 py-3 text-left text-sm font-medium transition-colors disabled:(cursor-not-allowed opacity-50)',
+        props.primary ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90' : 'hover:bg-muted',
+      )}
+    >
+      <div class={cn('size-5 shrink-0', props.icon)} />
+      <span class="min-w-0 [overflow-wrap:anywhere]">{props.children}</span>
+    </button>
+  );
 }
 
 function SectionTitle(props: { children?: string }) {
@@ -94,6 +111,9 @@ export function CreateInvoicePage() {
   const [newCustomer, setNewCustomer] = createSignal(emptyContact({ isCustomer: true }));
   // The lines whose discount field is open: a line with a discount always shows it
   const [discountLines, setDiscountLines] = createSignal<number[]>([]);
+  // The lines whose discount is a fixed amount instead of a percentage: a line with an amount off always is
+  const [amountDiscountLines, setAmountDiscountLines] = createSignal<number[]>([]);
+  const isAmountDiscount = (index: number) => (items()[index]?.discountMinor ?? 0) > 0 || amountDiscountLines().includes(index);
   // The invoice just issued: the dialog then offers to send it or download it
   const [issuedInvoice, setIssuedInvoice] = createSignal<Invoice | null>(null);
 
@@ -123,6 +143,7 @@ export function CreateInvoicePage() {
       unitPriceMinor: item.unitPriceMinor,
       taxRateBps: item.taxRateBps,
       discountRateBps: item.discountRateBps,
+      discountMinor: item.discountMinor ?? 0,
     })) ?? [newLine()]);
     setDeliveryNotes(invoice.deliveryNotes ?? []);
     setSavedDeliveryNotes(invoice.deliveryNotes ?? []);
@@ -269,6 +290,10 @@ export function CreateInvoicePage() {
   };
 
   const updateItem = (index: number, patch: Partial<InvoiceItemInput>) => setItems(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item));
+  const setDiscountMode = (index: number, mode: 'percent' | 'amount') => {
+    updateItem(index, { discountRateBps: 0, discountMinor: 0 });
+    setAmountDiscountLines(current => mode === 'amount' ? [...new Set([...current, index])] : current.filter(line => line !== index));
+  };
   const applyProduct = (index: number, name: string, product: InvoicingProduct | null) => {
     updateItem(index, product
       ? { productId: product.id, description: product.name, taxRateBps: product.taxRateBps, ...getProductPricing(product) }
@@ -320,7 +345,8 @@ export function CreateInvoicePage() {
           && existing.description === line.description
           && existing.unitPriceMinor === line.unitPriceMinor
           && existing.taxRateBps === line.taxRateBps
-          && existing.discountRateBps === line.discountRateBps);
+          && existing.discountRateBps === line.discountRateBps
+          && (existing.discountMinor ?? 0) === (line.discountMinor ?? 0));
         if (index === -1) {
           next.push(line);
         } else {
@@ -426,7 +452,9 @@ export function CreateInvoicePage() {
                           aria-label={t('invoicing.editor.item.remove')}
                           onClick={() => {
                             setItems(current => current.filter((_, itemIndex) => itemIndex !== index));
-                            setDiscountLines(current => current.filter(line => line !== index).map(line => (line > index ? line - 1 : line)));
+                            const shift = (lines: number[]) => lines.filter(line => line !== index).map(line => (line > index ? line - 1 : line));
+                            setDiscountLines(shift);
+                            setAmountDiscountLines(shift);
                           }}
                         >
                           <div class="i-tabler-trash size-4" />
@@ -478,7 +506,7 @@ export function CreateInvoicePage() {
                       </div>
 
                       <Show
-                        when={item().discountRateBps > 0 || discountLines().includes(index)}
+                        when={item().discountRateBps > 0 || (item().discountMinor ?? 0) > 0 || discountLines().includes(index)}
                         fallback={(
                           <button type="button" class="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground" onClick={() => setDiscountLines(current => [...current, index])}>
                             <div class="i-tabler-discount size-3.5" />
@@ -488,19 +516,51 @@ export function CreateInvoicePage() {
                       >
                         <div class="flex items-center justify-between gap-4">
                           <div class="text-sm font-medium">{t('invoicing.editor.item.discount')}</div>
-                          <div class="flex items-center gap-1">
-                            <div class="relative w-24">
+                          <div class="flex items-center gap-1.5">
+                            <Show
+                              when={isAmountDiscount(index)}
+                              fallback={(
+                                <TextField
+                                  class="no-spinner h-8 w-24 text-right"
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.01"
+                                  aria-label={t('invoicing.editor.item.discount')}
+                                  value={item().discountRateBps / 100}
+                                  onInput={event => updateItem(index, { discountRateBps: Math.min(10_000, Math.max(0, Math.round(Number(event.currentTarget.value) * 100))) })}
+                                />
+                              )}
+                            >
                               <TextField
-                                class="no-spinner h-8 pr-7 text-right"
+                                class="no-spinner h-8 w-24 text-right"
                                 type="number"
                                 min="0"
-                                max="100"
                                 step="0.01"
                                 aria-label={t('invoicing.editor.item.discount')}
-                                value={item().discountRateBps / 100}
-                                onInput={event => updateItem(index, { discountRateBps: Math.min(10_000, Math.max(0, Math.round(Number(event.currentTarget.value) * 100))) })}
+                                value={(item().discountMinor ?? 0) / 100}
+                                onInput={event => updateItem(index, { discountMinor: Math.max(0, Math.round(Number(event.currentTarget.value) * 100)) })}
                               />
-                              <span class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                            </Show>
+                            <div class="inline-flex h-8 items-center rounded-md bg-muted p-0.5" role="group" aria-label={t('invoicing.editor.item.discount.kind')}>
+                              <button
+                                type="button"
+                                class={cn('h-7 rounded px-2 text-xs font-medium transition-colors', isAmountDiscount(index) ? 'text-muted-foreground hover:text-foreground' : 'bg-background text-foreground shadow-sm')}
+                                aria-pressed={!isAmountDiscount(index)}
+                                aria-label={t('invoicing.editor.item.discount.percent')}
+                                onClick={() => isAmountDiscount(index) && setDiscountMode(index, 'percent')}
+                              >
+                                %
+                              </button>
+                              <button
+                                type="button"
+                                class={cn('h-7 rounded px-2 text-xs font-medium transition-colors', isAmountDiscount(index) ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+                                aria-pressed={isAmountDiscount(index)}
+                                aria-label={t('invoicing.editor.item.discount.amount')}
+                                onClick={() => !isAmountDiscount(index) && setDiscountMode(index, 'amount')}
+                              >
+                                {currency()}
+                              </button>
                             </div>
                             <Button
                               type="button"
@@ -509,8 +569,9 @@ export function CreateInvoicePage() {
                               class="size-7 text-muted-foreground"
                               aria-label={t('invoicing.editor.item.discount.remove')}
                               onClick={() => {
-                                updateItem(index, { discountRateBps: 0 });
+                                updateItem(index, { discountRateBps: 0, discountMinor: 0 });
                                 setDiscountLines(current => current.filter(line => line !== index));
+                                setAmountDiscountLines(current => current.filter(line => line !== index));
                               }}
                             >
                               <div class="i-tabler-x size-3.5" />
@@ -679,24 +740,28 @@ export function CreateInvoicePage() {
                   <DialogTitle>{t('invoicing.editor.issued.title', { number: invoice().number ?? '' })}</DialogTitle>
                   <DialogDescription>{t('invoicing.editor.issued.description')}</DialogDescription>
                 </DialogHeader>
+                {/* Big choice tiles, one per way to finish: hard to hit the wrong one on a phone */}
                 <div class="flex flex-col gap-2">
-                  <Button
-                    type="button"
-                    class="justify-start gap-2"
-                    disabled={!selectedCustomer()?.email}
-                    isLoading={sendMutation.isPending}
+                  <IssuedChoice
+                    icon={sendMutation.isPending ? 'i-tabler-loader-2 animate-spin' : 'i-tabler-send'}
+                    primary
+                    disabled={!selectedCustomer()?.email || sendMutation.isPending}
                     onClick={() => sendMutation.mutate(invoice().id)}
                   >
-                    <div class="i-tabler-send size-4" />
                     {selectedCustomer()?.email ? t('invoicing.editor.issued.send', { email: selectedCustomer()!.email! }) : t('invoicing.editor.issued.no-email')}
-                  </Button>
-                  <Button type="button" variant="secondary" class="justify-start gap-2" onClick={() => void downloadIssuedInvoice(invoice())}>
-                    <div class="i-tabler-download size-4" />
+                  </IssuedChoice>
+                  <IssuedChoice
+                    icon="i-tabler-download"
+                    onClick={async () => {
+                      await downloadIssuedInvoice(invoice());
+                      navigate(returnHref());
+                    }}
+                  >
                     {t('invoicing.editor.issued.download')}
-                  </Button>
-                  <Button type="button" variant="ghost" class="text-muted-foreground" onClick={() => navigate(returnHref())}>
+                  </IssuedChoice>
+                  <IssuedChoice icon="i-tabler-clock" onClick={() => navigate(returnHref())}>
                     {t('invoicing.editor.issued.done')}
-                  </Button>
+                  </IssuedChoice>
                 </div>
               </>
             )}

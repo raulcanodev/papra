@@ -124,14 +124,14 @@ describe('invoice tools', () => {
     const { api, calls } = createFakeApi();
 
     await getTool('create_invoice_draft').run(
-      { customerId: 'ctc_1', issueDate: '2026-03-01', dueDate: '2026-03-31', currency: 'EUR', withholdingPercent: 15, items: [{ description: 'Consulting', quantity: 2.5, unitPrice: 100.5, taxRatePercent: 21, discountPercent: 10 }] },
+      { customerId: 'ctc_1', issueDate: '2026-03-01', dueDate: '2026-03-31', currency: 'EUR', withholdingPercent: 15, items: [{ description: 'Consulting', quantity: 2.5, unitPrice: 100.5, taxRatePercent: 21, discountPercent: 10, discountAmount: 5 }] },
       { api, organizationId: 'org_1' },
     );
 
     expect(calls[0]?.path).toBe('/api/organizations/org_1/invoicing/invoices');
     expect(calls[0]?.body).toMatchObject({
       withholdingRateBps: 1_500,
-      items: [{ quantityMillis: 2_500, unitPriceMinor: 10_050, taxRateBps: 2_100, discountRateBps: 1_000 }],
+      items: [{ quantityMillis: 2_500, unitPriceMinor: 10_050, taxRateBps: 2_100, discountRateBps: 1_000, discountMinor: 500 }],
     });
   });
 

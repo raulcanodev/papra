@@ -27,6 +27,8 @@ import { intakeEmailAliasesMigration } from './list/0024-intake-email-aliases.mi
 import { adminImpersonationsMigration } from './list/0025-admin-impersonations.migration';
 import { equivalenceSurchargeMigration } from './list/0026-equivalence-surcharge.migration';
 import { optionalPaymentTermsMigration } from './list/0027-optional-payment-terms.migration';
+import { invoiceItemFixedDiscountMigration } from './list/0028-invoice-item-fixed-discount.migration';
+import { optionalDefaultPaymentTermsMigration } from './list/0029-optional-default-payment-terms.migration';
 
 export const migrations: Migration[] = [
   postgresInitialSchemaMigration,
@@ -56,4 +58,6 @@ export const migrations: Migration[] = [
   adminImpersonationsMigration,
   equivalenceSurchargeMigration,
   optionalPaymentTermsMigration,
+  invoiceItemFixedDiscountMigration,
+  optionalDefaultPaymentTermsMigration,
 ];

@@ -3,7 +3,7 @@ import type { SpanishTaxRules } from './rules/spain.tax-rules';
 import type { IncomeTaxMethod, LegalForm, Quarter, TaxModel, VatRegime } from './taxes.constants';
 import { getLineAmounts, getLineEquivalenceSurchargeMinor } from '../invoicing/invoicing.models';
 
-type Line = { quantityMillis: number; unitPriceMinor: number; discountRateBps: number; taxRateBps: number };
+type Line = { quantityMillis: number; unitPriceMinor: number; discountRateBps: number; discountMinor?: number; taxRateBps: number };
 
 /** An issued invoice counted as income (issued, sent or paid) */
 export type TaxableIssuedInvoice = { issueDate: Date; withholdingMinor: number; equivalenceSurcharge?: boolean; items: Line[] };

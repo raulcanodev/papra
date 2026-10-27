@@ -55,7 +55,7 @@ export const fiscalProfileTools = [
       city: optionalText(),
       region: optionalText(),
       country: optionalText(),
-      paymentTermsDays: z.number().int().min(0).max(365).optional(),
+      paymentTermsDays: z.number().int().min(0).max(365).nullable().optional(),
       defaultWithholdingPercent: percentSchema('Default IRPF withholding on issued invoices.').optional(),
       legalForm: z.enum(['self_employed', 'company']).nullable().optional().describe('self_employed = autónomo, company = sociedad (SL, SA...)'),
       vatRegime: z.enum(['general', 'equivalence_surcharge', 'exempt']).optional(),

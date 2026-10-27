@@ -59,11 +59,11 @@ function fail(message: string, status: number): never {
 }
 
 // Same computation as the server invoicing models
-export function calculateTotals({ items, withholdingRateBps = 0, equivalenceSurcharge = false }: { items: Array<{ quantityMillis: number; unitPriceMinor: number; discountRateBps: number; taxRateBps: number }>; withholdingRateBps?: number; equivalenceSurcharge?: boolean }) {
+export function calculateTotals({ items, withholdingRateBps = 0, equivalenceSurcharge = false }: { items: Array<{ quantityMillis: number; unitPriceMinor: number; discountRateBps: number; discountMinor?: number; taxRateBps: number }>; withholdingRateBps?: number; equivalenceSurcharge?: boolean }) {
   const totals = items.reduce((sums, item) => {
     const gross = Math.round(item.quantityMillis * item.unitPriceMinor / 1_000);
     const discount = Math.round(gross * item.discountRateBps / 10_000);
-    const net = gross - discount;
+    const net = Math.max(0, gross - discount - (item.discountMinor ?? 0));
     const tax = Math.round(net * item.taxRateBps / 10_000);
     const surcharge = equivalenceSurcharge ? Math.round(net * getEquivalenceSurchargeRateBps(item) / 10_000) : 0;
 
@@ -377,6 +377,7 @@ async function buildInvoiceFromDraft({ organizationId, draft, existing }: { orga
     unitPriceMinor: item.unitPriceMinor,
     taxRateBps: item.taxRateBps,
     discountRateBps: item.discountRateBps,
+    discountMinor: item.discountMinor ?? 0,
   }));
   const id = existing?.id ?? createId({ prefix: 'inv' });
 

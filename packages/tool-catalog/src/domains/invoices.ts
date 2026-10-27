@@ -14,6 +14,7 @@ const invoiceLineSchema = z.object({
   unitPrice: amountSchema('Unit price WITHOUT tax.'),
   taxRatePercent: percentSchema('VAT rate of the line: 21 general, 10 reduced, 4 super reduced, 0 exempt.').default(21),
   discountPercent: percentSchema('Discount on the line.').default(0),
+  discountAmount: amountSchema('Fixed amount off the whole line WITHOUT tax, after the percentage discount.').default(0),
 });
 
 type InvoiceLine = z.infer<typeof invoiceLineSchema>;
@@ -32,7 +33,7 @@ const invoiceDraftFields = {
   equivalenceSurcharge: z.boolean().optional().describe('Add the equivalence surcharge (recargo de equivalencia: 5.2% on 21% VAT, 1.4% on 10%, 0.5% on 4%) for a retailer customer. Omit to follow the customer setting.'),
 };
 
-type StoredInvoiceItem = { productId: string | null; description: string; quantityMillis: number; unitPriceMinor: number; taxRateBps: number; discountRateBps: number };
+type StoredInvoiceItem = { productId: string | null; description: string; quantityMillis: number; unitPriceMinor: number; taxRateBps: number; discountRateBps: number; discountMinor?: number };
 
 type StoredInvoice = {
   customerId: string;
@@ -57,6 +58,7 @@ function toApiItem(line: InvoiceLine) {
     unitPriceMinor: amountToMinor(line.unitPrice),
     taxRateBps: percentToBps(line.taxRatePercent),
     discountRateBps: percentToBps(line.discountPercent),
+    discountMinor: amountToMinor(line.discountAmount),
   };
 }
 
@@ -68,6 +70,7 @@ function fromApiItem(item: StoredInvoiceItem): InvoiceLine {
     unitPrice: minorToAmount(item.unitPriceMinor),
     taxRatePercent: bpsToPercent(item.taxRateBps),
     discountPercent: bpsToPercent(item.discountRateBps),
+    discountAmount: minorToAmount(item.discountMinor ?? 0),
   };
 }
 

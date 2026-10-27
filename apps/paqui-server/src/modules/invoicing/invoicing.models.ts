@@ -9,9 +9,11 @@ export type InvoiceSeriesInput = z.infer<typeof invoiceSeriesSchema>;
 export type InvoiceBrandingInput = z.infer<typeof invoiceBrandingSchema>;
 
 // Amounts of one line, rounded to the cent line by line: the single place every total (invoices, purchases, taxes) comes from
-export function getLineAmounts(item: Pick<InvoiceDraftInput['items'][number], 'quantityMillis' | 'unitPriceMinor' | 'discountRateBps' | 'taxRateBps'>) {
+// The fixed discount (invoices only, purchases have none) comes off after the percentage one, never below zero
+export function getLineAmounts(item: Pick<InvoiceDraftInput['items'][number], 'quantityMillis' | 'unitPriceMinor' | 'discountRateBps' | 'taxRateBps'> & { discountMinor?: number }) {
   const gross = Math.round(item.quantityMillis * item.unitPriceMinor / 1_000);
-  const netMinor = gross - Math.round(gross * item.discountRateBps / 10_000);
+  const afterRate = gross - Math.round(gross * item.discountRateBps / 10_000);
+  const netMinor = Math.max(0, afterRate - (item.discountMinor ?? 0));
   const taxMinor = Math.round(netMinor * item.taxRateBps / 10_000);
 
   return { netMinor, taxMinor };

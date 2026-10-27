@@ -22,7 +22,7 @@ export const fiscalProfileSchema = z.object({
   country: optionalText,
   currency: currencySchema.default('EUR'),
   locale: z.string().trim().min(2).max(20).default('es-ES'),
-  paymentTermsDays: z.number().int().min(0).max(365).default(30),
+  paymentTermsDays: z.number().int().min(0).max(365).nullable().default(null),
   defaultNotes: z.string().trim().max(5_000).optional().nullable(),
   defaultTerms: z.string().trim().max(5_000).optional().nullable(),
   templateId: z.enum(INVOICE_TEMPLATE_IDS).default('minimal'),
@@ -81,6 +81,8 @@ export const invoiceItemSchema = z.object({
   unitPriceMinor: z.number().int().min(0).max(1_000_000_000),
   taxRateBps: z.number().int().min(0).max(10_000).default(0),
   discountRateBps: z.number().int().min(0).max(10_000).default(0),
+  // A fixed amount off the whole line, after the percentage discount
+  discountMinor: z.number().int().min(0).max(1_000_000_000).optional(),
 });
 
 export const invoiceDraftSchema = z.object({
