@@ -38,6 +38,7 @@ export const MobileTabBar: Component = () => {
     <>
       <nav
         aria-label={t('layout.mobile.navigation')}
+        data-mobile-tab-bar
         class="fixed inset-x-0 bottom-0 z-40 grid h-[calc(4rem+env(safe-area-inset-bottom))] grid-cols-5 border-t border-border/80 bg-background/90 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
       >
         <For each={getTabs().slice(0, 2)}>{renderTab}</For>

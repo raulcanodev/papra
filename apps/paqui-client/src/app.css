@@ -294,3 +294,17 @@ input[type="week"]::-webkit-date-and-time-value {
     content: none;
   }
 }
+
+/* The tab bar would sit on the keyboard, or behind it, while typing (see keyboard-viewport.ts) */
+html[data-keyboard-open] [data-mobile-tab-bar] {
+  display: none;
+}
+
+html[data-keyboard-open] [data-tab-bar-room] {
+  padding-bottom: 0;
+}
+
+/* The home indicator is under the keyboard: its safe area would leave a gap above it */
+html[data-keyboard-open] [data-composer] {
+  padding-bottom: 0.75rem;
+}

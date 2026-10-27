@@ -62,7 +62,7 @@ export const AppShell: ParentComponent<{
   const isSidebarOpen = () => props.isSidebarOpen?.() ?? true;
 
   return (
-    <div class="flex h-dvh min-h-0 w-full bg-sidebar pt-[env(safe-area-inset-top)] text-sidebar-foreground">
+    <div class="flex h-[var(--app-height,100dvh)] min-h-0 w-full bg-sidebar pt-[env(safe-area-inset-top)] text-sidebar-foreground">
       <div class={cn('hidden shrink-0 overflow-hidden transition-[width] duration-200 ease-linear md:block', isSidebarOpen() ? 'w-64' : 'w-0')}>
         <div class="h-full w-64">
           <props.sideNav />
@@ -109,7 +109,7 @@ export const AppShell: ParentComponent<{
             </header>
 
             {/* Room for the bottom bar, so the end of every page stays reachable above it */}
-            <main class={cn('relative min-h-0 flex-1 overflow-y-auto', props.mobileNav && 'pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0')}>
+            <main data-tab-bar-room={props.mobileNav ? '' : undefined} class={cn('relative min-h-0 flex-1 overflow-y-auto', props.mobileNav && 'pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0')}>
               <Suspense>
                 {props.children}
               </Suspense>
@@ -199,7 +199,7 @@ export const SidenavLayout: ParentComponent<{
       aside={() => (
         <Show when={props.rightPanel && (props.isRightPanelOpen?.() ?? true)}>
           <aside
-            class="fixed inset-0 z-50 flex h-dvh min-h-0 w-full shrink-0 overflow-hidden bg-card pt-[env(safe-area-inset-top)] md:(relative h-full pt-0 z-auto w-[var(--right-panel-width)] max-w-[55vw] border-l)"
+            class="fixed inset-x-0 top-0 z-50 flex h-[var(--app-height,100dvh)] min-h-0 w-full shrink-0 overflow-hidden bg-card pt-[env(safe-area-inset-top)] md:(relative h-full pt-0 z-auto w-[var(--right-panel-width)] max-w-[55vw] border-l)"
             style={{ '--right-panel-width': `${rightPanelWidth()}px` }}
           >
             <button

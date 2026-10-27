@@ -121,6 +121,15 @@ export async function uploadChatAttachment({ organizationId, file }: { organizat
   return { attachment: { documentId: document.id, name: document.name, mimeType: document.mimeType, size: document.originalSize } };
 }
 
+// The text of a dictated message, in the language of the interface (a hint that makes short clips more accurate)
+export async function transcribeDictation({ organizationId, audio, fileName, language }: { organizationId: string; audio: Blob; fileName: string; language: string }): Promise<{ text: string }> {
+  return apiClient<{ text: string }>({
+    method: 'POST',
+    path: `/api/organizations/${organizationId}/ai/transcriptions?language=${encodeURIComponent(language)}`,
+    body: getFormData({ file: new File([audio], fileName, { type: audio.type }) }),
+  });
+}
+
 function serializeMessages(messages: ChatMessage[]): Array<{ role: string; content: string; attachments?: { documentId: string }[] }> {
   return messages.map((m) => {
     let content = m.content;

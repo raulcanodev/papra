@@ -12,7 +12,7 @@ import { getRequestAiUsageContext } from '../ai-usage/ai-usage.context';
 import { getAiCallCostUsdMicros } from '../ai-usage/ai-usage.prices';
 import { createAiUsageRepository } from '../ai-usage/ai-usage.repository';
 import { createUsageTrackedModel } from '../ai-usage/ai-usage.tracking';
-import { createAiNotConfiguredError } from './ai-assistant.errors';
+import { createAiNotConfiguredError, createTranscriptionFailedError } from './ai-assistant.errors';
 import { AI_PROVIDERS, DEFAULT_MODELS, DEFAULT_REASONING_EFFORTS, findAiModel, PROVIDER_PRIORITY } from './ai-assistant.models';
 
 // THE ONLY PLACE LANGUAGE MODELS ARE CREATED. Every AI feature gets its model from getAiModel, which:
@@ -187,4 +187,97 @@ export function getAiModel({ config, db, feature, organizationId, userId }: {
         .catch(error => logger.error({ error, feature }, 'Could not record the AI usage'));
     },
   });
+}
+
+// Speech to text for dictating to the assistant: gpt-4o-transcribe, the most accurate one in Spanish of the providers
+// already configured, and fast on the few seconds of a dictated message. Called directly, the AI SDK has no usage for it.
+export const TRANSCRIPTION_MODEL = {
+  id: 'gpt-4o-transcribe',
+  provider: 'openai',
+  // US dollars per million tokens (https://platform.openai.com/docs/pricing): about $0.006 per minute of audio
+  prices: { audioInput: 6, textInput: 2.50, output: 10 },
+} as const;
+
+// Words the model would otherwise spell like everyday ones, read as a hint of the vocabulary to expect
+const TRANSCRIPTION_VOCABULARY_HINTS: Record<string, string> = {
+  es: 'Paqui, factura, albarán, presupuesto, proforma, IVA, IRPF, NIF, CIF, recargo de equivalencia, Verifactu, modelo 303.',
+};
+
+type OpenAiTranscriptionResponse = {
+  text: string;
+  usage?: { type: 'tokens'; input_tokens: number; output_tokens: number; input_token_details?: { audio_tokens?: number; text_tokens?: number } };
+};
+
+export async function transcribeAudio({ config, db, feature, audio, fileName, mimeType, language, organizationId, userId }: {
+  config: Config;
+  db: Database;
+  feature: AiFeature;
+  audio: Blob;
+  fileName: string;
+  mimeType: string;
+  // ISO 639-1, when the speaker's language is known: guessing it costs accuracy on short clips
+  language?: string;
+  organizationId?: string | null;
+  userId?: string | null;
+}): Promise<{ text: string }> {
+  const { openaiApiKey } = getApiKeys({ config });
+
+  if (!isKeySet(openaiApiKey)) {
+    throw createAiNotConfiguredError();
+  }
+
+  const requestContext = getRequestAiUsageContext();
+  const attribution = { feature, organizationId: organizationId ?? requestContext.organizationId, userId: userId ?? requestContext.userId };
+
+  const form = new FormData();
+  form.set('file', new File([audio], fileName, { type: mimeType }));
+  form.set('model', TRANSCRIPTION_MODEL.id);
+  form.set('response_format', 'json');
+  if (language !== undefined) {
+    form.set('language', language);
+    const hint = TRANSCRIPTION_VOCABULARY_HINTS[language];
+    if (hint !== undefined) {
+      form.set('prompt', hint);
+    }
+  }
+
+  const startedAt = Date.now();
+  const record = ({ status, usage }: { status: 'success' | 'error'; usage?: OpenAiTranscriptionResponse['usage'] }) => {
+    const audioTokens = usage?.input_token_details?.audio_tokens ?? usage?.input_tokens ?? 0;
+    const textTokens = usage?.input_token_details?.text_tokens ?? 0;
+    const outputTokens = usage?.output_tokens ?? 0;
+    const { prices } = TRANSCRIPTION_MODEL;
+
+    createAiUsageRepository({ db })
+      .recordUsage({
+        usage: {
+          ...attribution,
+          provider: TRANSCRIPTION_MODEL.provider,
+          model: TRANSCRIPTION_MODEL.id,
+          inputTokens: audioTokens + textTokens,
+          outputTokens,
+          costUsdMicros: usage ? Math.round(audioTokens * prices.audioInput + textTokens * prices.textInput + outputTokens * prices.output) : null,
+          durationMs: Date.now() - startedAt,
+          status,
+        },
+      })
+      .catch(error => logger.error({ error, feature }, 'Could not record the AI usage'));
+  };
+
+  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${openaiApiKey}` },
+    body: form,
+  });
+
+  if (!response.ok) {
+    record({ status: 'error' });
+    logger.error({ status: response.status, body: (await response.text()).slice(0, 500) }, 'Audio transcription failed');
+    throw createTranscriptionFailedError();
+  }
+
+  const result = await response.json() as OpenAiTranscriptionResponse;
+  record({ status: 'success', usage: result.usage });
+
+  return { text: result.text.trim() };
 }

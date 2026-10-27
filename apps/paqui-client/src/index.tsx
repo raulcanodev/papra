@@ -23,11 +23,13 @@ import { IdentifyUser } from './modules/tracking/components/identify-user.compon
 import { PageViewTracker } from './modules/tracking/components/pageview-tracker.component';
 import { AppLoader } from './modules/ui/components/app-loader';
 import { Toaster } from './modules/ui/components/sonner';
+import { trackKeyboardViewport } from './modules/ui/viewport/keyboard-viewport';
 import { routes } from './routes';
 import 'virtual:uno.css';
 import './app.css';
 
 applyBrandMetadata();
+trackKeyboardViewport();
 
 // Installable app: the browser offers the installation once, early, so it is caught from the start.
 // No service worker in development (it would serve stale modules) nor in the public demo.

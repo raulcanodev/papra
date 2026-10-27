@@ -10,6 +10,7 @@ export const AI_FEATURES = {
   PRICING_IMPORT: 'pricing_import',
   DATA_IMPORT: 'data_import',
   FINANCE_RULE_SUGGESTIONS: 'finance_rule_suggestions',
+  VOICE_DICTATION: 'voice_dictation',
 } as const;
 
 export type AiFeature = typeof AI_FEATURES[keyof typeof AI_FEATURES];

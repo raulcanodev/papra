@@ -17,6 +17,7 @@ import { AI_MODELS, AI_PROVIDER_LABELS } from './ai-assistant.models';
 import { buildSystemPrompt } from './ai-assistant.prompt';
 import { getAiModel, getAiModelSelection, isAiConfigured } from './ai-assistant.providers';
 import { createAiAssistantRepository } from './ai-assistant.repository';
+import { registerAiTranscriptionRoutes } from './ai-assistant.transcription.routes';
 import { MAX_CHAT_ATTACHMENTS } from './attachments/attachments.constants';
 import { toChatAttachment } from './attachments/attachments.models';
 import { registerAiAttachmentsRoutes } from './attachments/attachments.routes';
@@ -45,6 +46,7 @@ export function registerAiAssistantRoutes(routeContext: RouteDefinitionContext) 
   const aiAssistantRepository = createAiAssistantRepository({ db });
 
   registerAiAttachmentsRoutes(routeContext);
+  registerAiTranscriptionRoutes(routeContext);
 
   app.post(
     '/api/organizations/:organizationId/ai/chat',

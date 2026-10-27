@@ -8,6 +8,7 @@ import remarkGfm from 'remark-gfm';
 import { createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { SolidMarkdown } from 'solid-markdown';
 import { toast } from 'solid-sonner';
+import { isTouchDevice } from '@/modules/captures/captures.models';
 import { isDemoMode } from '@/modules/config/config';
 import { fetchDocument } from '@/modules/documents/documents.services';
 import { getClassificationLabelKey } from '@/modules/finances/finances-labels';
@@ -17,9 +18,10 @@ import { Button } from '@/modules/ui/components/button';
 import { buildOrganizationSettingsNavigation, buildOrganizationWorkspaceNavigation } from '@/modules/ui/navigation/organization-navigation';
 import { useNavigationCapabilities } from '@/modules/ui/navigation/use-navigation-capabilities';
 import { useAiAssistantPanel } from '../ai-assistant-panel.provider';
-import { deleteChatSession, executeToolAction, fetchChatSession, fetchChatSessions, renameChatSession, streamChatMessage, updateMessageMetadata, uploadChatAttachment } from '../ai-assistant.services';
+import { deleteChatSession, executeToolAction, fetchChatSession, fetchChatSessions, renameChatSession, streamChatMessage, transcribeDictation, updateMessageMetadata, uploadChatAttachment } from '../ai-assistant.services';
 import { getActionFailure, PendingActionsBar, ResolvedActionLine } from '../components/action-approval';
 import { AttachmentChip, ChatAttachMenu, MAX_CHAT_ATTACHMENTS } from '../components/chat-attachments';
+import { createVoiceDictation, isVoiceDictationSupported, VoiceWaveform } from '../components/voice-dictation';
 import { buildPageContext } from '../page-context/build-page-context';
 import { capturePageSnapshot } from '../page-context/capture-page-snapshot';
 
@@ -515,7 +517,7 @@ type AiAssistantProps = {
 };
 
 export const AiAssistant: Component<AiAssistantProps> = (props) => {
-  const { t } = useI18n();
+  const { t, getLocale } = useI18n();
   const params = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -594,8 +596,13 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
       return updated;
     });
   }
-  // The actions still waiting for a yes or no, answered in the bar above the input
-  const pendingConfirmations = () => (isStreaming() ? [] : messages().flatMap(message => (message.toolConfirmations ?? []).filter(confirmation => confirmation.status === 'pending')));
+  // The actions still waiting for a yes or no, answered in the bar above the input. Only those of the
+  // latest answer: once the user wrote again, older ones are stale even if their answer was never saved
+  const pendingConfirmations = () => (isStreaming()
+    ? []
+    : messages()
+        .slice(messages().findLastIndex(message => message.role === 'user') + 1)
+        .flatMap(message => (message.toolConfirmations ?? []).filter(confirmation => confirmation.status === 'pending')));
 
   async function approveAction(confirmation: ToolConfirmation) {
     if (busyActionIds().length > 0) {
@@ -690,6 +697,33 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
     textareaRef.style.height = `${desired}px`;
     textareaRef.style.overflowY = desired >= 160 ? 'auto' : 'hidden';
   }
+
+  // The dictated text lands in the input, after what was already written, to be read over before sending
+  const dictation = createVoiceDictation({
+    onRecorded: async ({ audio, fileName }) => {
+      const { text } = await transcribeDictation({ organizationId: orgId(), audio, fileName, language: getLocale().slice(0, 2) });
+      if (!text) {
+        toast.info(t('ai-assistant.voice.empty'));
+        return;
+      }
+      if (!textareaRef) {
+        return;
+      }
+      const current = textareaRef.value.trimEnd();
+      textareaRef.value = current ? `${current} ${text}` : text;
+      setHasInput(true);
+      requestAnimationFrame(() => {
+        autoResizeTextarea();
+        // On a phone the keyboard would cover the answer: the text is there to send or tap to edit
+        if (!isTouchDevice()) {
+          textareaRef?.focus();
+          textareaRef?.setSelectionRange(textareaRef.value.length, textareaRef.value.length);
+        }
+      });
+    },
+    onError: ({ reason }) => toast.error(t(`ai-assistant.voice.${reason}`)),
+  });
+  const isDictating = () => dictation.state() !== 'idle';
 
   const readyAttachments = () => pendingAttachments().flatMap(pending => (pending.status === 'ready' && pending.attachment ? [pending.attachment] : []));
   const isUploadingAttachments = () => pendingAttachments().some(pending => pending.status === 'uploading');
@@ -1066,7 +1100,7 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
         </div>
 
         {/* Input area */}
-        <div class={cn('bg-white dark:bg-card flex flex-col shrink-0 min-h-0 max-h-[65%]', isPanel() ? 'px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]' : 'px-3 py-3 sm:px-6 sm:py-4')}>
+        <div data-composer class={cn('bg-white dark:bg-card flex flex-col shrink-0 min-h-0 max-h-[65%]', isPanel() ? 'px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]' : 'px-3 py-3 sm:px-6 sm:py-4')}>
           <div class="mx-auto flex min-h-0 w-full max-w-3xl flex-col">
             <Show when={pendingConfirmations().length > 0}>
               <PendingActionsBar
@@ -1112,15 +1146,39 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
                   </For>
                 </div>
               </Show>
-              <div class="flex items-end gap-1">
-                <div class="pb-1.5 pl-2">
-                  <ChatAttachMenu
-                    organizationId={orgId()}
-                    disabled={isStreaming() || pendingAttachments().length >= MAX_CHAT_ATTACHMENTS}
-                    onFiles={addAttachmentFiles}
-                    onDocuments={addAttachmentDocuments}
-                  />
-                </div>
+              {/* Every control is exactly as tall as one line of text, so they stay aligned whatever the font */}
+              <div class="flex items-end gap-1 p-1.5 sm:p-2">
+                <Show
+                  when={isDictating()}
+                  fallback={(
+                    <ChatAttachMenu
+                      organizationId={orgId()}
+                      disabled={isStreaming() || pendingAttachments().length >= MAX_CHAT_ATTACHMENTS}
+                      onFiles={addAttachmentFiles}
+                      onDocuments={addAttachmentDocuments}
+                    />
+                  )}
+                >
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    class="size-11 sm:size-8 shrink-0 p-0 rounded-full text-muted-foreground"
+                    aria-label={t('ai-assistant.voice.cancel')}
+                    disabled={dictation.state() === 'transcribing'}
+                    onClick={() => dictation.cancel()}
+                  >
+                    <div class="i-tabler-x size-5 sm:size-4" />
+                  </Button>
+                </Show>
+                <Show when={dictation.state() === 'recording'}>
+                  <VoiceWaveform levels={dictation.levels()} elapsedMs={dictation.elapsedMs()} class="h-11 sm:h-8 px-1" />
+                </Show>
+                <Show when={dictation.state() === 'transcribing'}>
+                  <div class="flex h-11 sm:h-8 min-w-0 flex-1 items-center gap-2 px-1 text-base sm:text-sm text-muted-foreground" role="status">
+                    <div class="i-tabler-loader-2 size-4 shrink-0 animate-spin" />
+                    <span class="truncate">{t('ai-assistant.voice.transcribing')}</span>
+                  </div>
+                </Show>
                 <textarea
                   ref={textareaRef}
                   placeholder={isAskingSomethingElse() ? t('ai-assistant.approval.something-else.placeholder') : t('ai-assistant.input.placeholder')}
@@ -1138,9 +1196,13 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
                   }}
                   disabled={isStreaming()}
                   rows={1}
-                  class="min-w-0 flex-1 resize-none bg-transparent px-2 py-3 text-base sm:text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50 max-h-[160px]"
+                  class={cn(
+                    'block min-w-0 flex-1 resize-none bg-transparent px-1 outline-none placeholder:text-muted-foreground disabled:opacity-50 max-h-[160px]',
+                    'min-h-11 py-2.5 text-base leading-6 sm:min-h-8 sm:py-1.5 sm:text-sm sm:leading-5',
+                    isDictating() && 'hidden',
+                  )}
                 />
-                <div class="flex items-center gap-1 pb-1.5 pr-2">
+                <div class="flex shrink-0 items-center gap-1">
                   <Show when={isStreaming()}>
                     <Button
                       variant="ghost"
@@ -1152,15 +1214,44 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
                       <div class="i-tabler-player-stop-filled size-4" />
                     </Button>
                   </Show>
-                  <Button
-                    size="sm"
-                    class="size-11 sm:size-8 shrink-0 p-0 rounded-full border border-black/10 bg-white text-neutral-900 shadow-xs hover:bg-neutral-100"
-                    aria-label={t('ai-assistant.input.send')}
-                    onClick={() => void sendMessage()}
-                    disabled={isStreaming() || busyActionIds().length > 0 || isUploadingAttachments() || (!hasInput() && readyAttachments().length === 0)}
-                  >
-                    <div class="i-tabler-arrow-up size-4" />
-                  </Button>
+                  {/* Not in the public demo: there is no transcription behind it */}
+                  <Show when={isVoiceDictationSupported() && !isDemoMode && !isStreaming()}>
+                    <Show
+                      when={dictation.state() === 'recording'}
+                      fallback={(
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          class="size-11 sm:size-8 shrink-0 p-0 rounded-full text-muted-foreground hover:text-foreground"
+                          aria-label={t('ai-assistant.voice.start')}
+                          disabled={dictation.state() === 'transcribing' || busyActionIds().length > 0}
+                          onClick={() => void dictation.start()}
+                        >
+                          <div class="i-tabler-microphone size-5 sm:size-4.5" />
+                        </Button>
+                      )}
+                    >
+                      <Button
+                        size="sm"
+                        class="size-11 sm:size-8 shrink-0 p-0 rounded-full"
+                        aria-label={t('ai-assistant.voice.stop')}
+                        onClick={() => dictation.stop()}
+                      >
+                        <div class="size-3.5 rounded-[3px] bg-current" />
+                      </Button>
+                    </Show>
+                  </Show>
+                  <Show when={!isDictating()}>
+                    <Button
+                      size="sm"
+                      class="size-11 sm:size-8 shrink-0 p-0 rounded-full border border-black/10 bg-white text-neutral-900 shadow-xs hover:bg-neutral-100"
+                      aria-label={t('ai-assistant.input.send')}
+                      onClick={() => void sendMessage()}
+                      disabled={isStreaming() || busyActionIds().length > 0 || isUploadingAttachments() || (!hasInput() && readyAttachments().length === 0)}
+                    >
+                      <div class="i-tabler-arrow-up size-5 sm:size-4" />
+                    </Button>
+                  </Show>
                 </div>
               </div>
             </div>

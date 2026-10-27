@@ -7,3 +7,11 @@ export function createAiNotConfiguredError() {
     statusCode: 503,
   });
 }
+
+export function createTranscriptionFailedError() {
+  return createError({
+    message: 'The audio could not be transcribed.',
+    code: 'ai_assistant.transcription_failed',
+    statusCode: 502,
+  });
+}
