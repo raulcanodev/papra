@@ -52,7 +52,7 @@ export function AttachmentChip(props: { name: string; mimeType: string; size: nu
 
   return (
     <div
-      class={cn('flex max-w-60 items-center gap-2 rounded-xl border bg-background py-1.5 pl-1.5 pr-2 text-xs shadow-xs', props.status === 'error' && 'border-red-500/40')}
+      class={cn('flex min-w-0 max-w-full sm:max-w-60 items-center gap-2 rounded-xl border bg-background py-1.5 pl-1.5 pr-2 text-xs shadow-xs', props.status === 'error' && 'border-red-500/40')}
       title={props.name}
     >
       <div class={cn('flex size-7 shrink-0 items-center justify-center rounded-lg', appearance().color)}>
@@ -65,7 +65,7 @@ export function AttachmentChip(props: { name: string; mimeType: string; size: nu
         </div>
       </div>
       <Show when={props.onRemove}>
-        <button type="button" class="ml-0.5 shrink-0 rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={t('ai-assistant.attachments.remove')} onClick={() => props.onRemove?.()}>
+        <button type="button" class="ml-0.5 flex size-9 sm:size-5 items-center justify-center shrink-0 rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={t('ai-assistant.attachments.remove')} onClick={() => props.onRemove?.()}>
           <div class="i-tabler-x size-3.5" />
         </button>
       </Show>
@@ -97,7 +97,7 @@ export function ChatAttachMenu(props: { organizationId: string; disabled?: boole
         <DropdownMenuTrigger
           disabled={props.disabled}
           aria-label={t('ai-assistant.attachments.menu')}
-          class="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+          class="flex size-11 sm:size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
         >
           <div class="i-tabler-plus size-4.5" />
         </DropdownMenuTrigger>

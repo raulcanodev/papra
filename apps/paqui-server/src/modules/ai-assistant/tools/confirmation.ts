@@ -1,4 +1,4 @@
-// A write tool does not act: it returns this, the client shows an approve / skip card, and approving calls the executor.
+// A write tool does not act: it returns this, the client shows the action in a bar above the input, and approving calls the executor.
 export function createConfirmationResult({ toolName, description, args }: { toolName: string; description: string; args: Record<string, unknown> }) {
   return {
     requiresConfirmation: true,
@@ -6,6 +6,6 @@ export function createConfirmationResult({ toolName, description, args }: { tool
     description,
     args,
     status: 'PENDING_USER_APPROVAL',
-    message: 'This action has NOT been executed yet. A confirmation card is now shown to the user. Do NOT say you created/updated/deleted anything — say the action is pending approval. Wait for the user to respond before continuing.',
+    message: 'NOT executed yet. The user now sees this action, with its data, right above the message input, with Approve / Reject / Something else. Do NOT say you created/updated/deleted anything, do NOT repeat its fields, and do NOT mention cards, buttons, tools or approvals: the user already sees them. Stop and wait for their answer.',
   };
 }

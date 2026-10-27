@@ -13,5 +13,6 @@ export function createCorsMiddleware({ config }: { config: Config }) {
       return allowedOrigins.find(allowedOrigin => allowedOrigin === origin);
     },
     credentials: true,
+    exposeHeaders: ['X-Session-Id', 'X-Assistant-Message-Id'],
   });
 }

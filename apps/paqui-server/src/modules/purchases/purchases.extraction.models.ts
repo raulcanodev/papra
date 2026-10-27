@@ -13,13 +13,22 @@ export const INVOICE_EXTRACTION_SCHEMA_VERSION = 3;
 const partySchema = z.object({
   name: z.string().nullable().describe('Legal or trade name as printed, null when no name can be read (a logo alone, a torn header...)'),
   taxId: z.string().nullable().describe('Tax identification number (NIF, CIF, VAT number), exactly as printed, null when absent'),
-  email: z.string().nullable(),
-  phone: z.string().nullable(),
-  addressLine1: z.string().nullable(),
-  postalCode: z.string().nullable(),
-  city: z.string().nullable(),
-  country: z.string().nullable().describe('ISO 3166-1 alpha-2 country code, e.g. ES'),
+  // Empty instead of null: Anthropic structured outputs accept at most 16 nullable fields per schema
+  email: z.string().describe('Empty when absent'),
+  phone: z.string().describe('Empty when absent'),
+  addressLine1: z.string().describe('Empty when absent'),
+  postalCode: z.string().describe('Empty when absent'),
+  city: z.string().describe('Empty when absent'),
+  country: z.string().describe('ISO 3166-1 alpha-2 country code, e.g. ES, empty when unknown'),
 });
+
+type ReadParty = z.infer<typeof partySchema>;
+export type InvoiceParty = { [Key in keyof ReadParty]: string | null };
+
+// Back to the null the rest of the app uses for what is not printed
+export function normalizeReadParty({ party }: { party: ReadParty }): InvoiceParty {
+  return Object.fromEntries(Object.entries(party).map(([key, value]) => [key, typeof value === 'string' && value.trim() === '' ? null : value])) as InvoiceParty;
+}
 
 // What the model is asked to read from the paper, always this exact shape. Amounts as decimals in the document
 // currency, converted to minor units by the server: models are much more reliable with "12.50" than with "1250 cents".
@@ -54,7 +63,7 @@ export const invoiceExtractionSchema = z.object({
   warnings: z.array(z.string()).describe('Short notes for the reviewer about what could be misread: blurry or cut off parts, handwritten amounts, totals that do not add up. Empty when everything is clear'),
 });
 
-export type InvoiceExtraction = z.infer<typeof invoiceExtractionSchema>;
+export type InvoiceExtraction = Omit<z.infer<typeof invoiceExtractionSchema>, 'issuer' | 'recipient'> & { issuer: InvoiceParty; recipient: InvoiceParty };
 
 export type InvoiceDirection = 'received' | 'issued' | 'unknown';
 

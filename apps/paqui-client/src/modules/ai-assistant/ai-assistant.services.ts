@@ -146,7 +146,7 @@ function serializeMessages(messages: ChatMessage[]): Array<{ role: string; conte
   });
 }
 
-export async function streamChatMessage({ organizationId, messages, sessionId, onChunk, onThinking, onToolConfirmation, onToolActivity, onToolDone, onWebSources, onNavigate, onSessionId, pageContext, signal }: {
+export async function streamChatMessage({ organizationId, messages, sessionId, onChunk, onThinking, onToolConfirmation, onToolActivity, onToolDone, onWebSources, onNavigate, onSessionId, onAssistantMessageId, pageContext, signal }: {
   organizationId: string;
   messages: ChatMessage[];
   sessionId?: string;
@@ -160,6 +160,8 @@ export async function streamChatMessage({ organizationId, messages, sessionId, o
   onWebSources?: (sources: WebSource[]) => void;
   onNavigate?: (navigation: NavigationRequest) => void;
   onSessionId?: (id: string) => void;
+  /** The id the answer is saved with, to save later what the user decides on its actions */
+  onAssistantMessageId?: (id: string) => void;
   signal?: AbortSignal;
 }) {
   if (isDemoMode) {
@@ -185,6 +187,11 @@ export async function streamChatMessage({ organizationId, messages, sessionId, o
   const returnedSessionId = response.headers.get('X-Session-Id');
   if (returnedSessionId && onSessionId) {
     onSessionId(returnedSessionId);
+  }
+
+  const assistantMessageId = response.headers.get('X-Assistant-Message-Id');
+  if (assistantMessageId && onAssistantMessageId) {
+    onAssistantMessageId(assistantMessageId);
   }
 
   const reader = response.body?.getReader();

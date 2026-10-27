@@ -8,9 +8,10 @@ import { getUser } from '../app/auth/auth.models';
 import { organizationIdSchema } from '../organizations/organization.schemas.legacy';
 import { createOrganizationsRepository } from '../organizations/organizations.repository';
 import { ensureUserIsInOrganization } from '../organizations/organizations.usecases';
+import { generateId } from '../shared/random/ids';
 import { legacyValidateJsonBody, legacyValidateParams } from '../shared/validation/validation.legacy';
 import { getAssistantCapabilities } from './ai-assistant.capabilities.usecases';
-import { AI_CHAT_SESSION_ID_REGEX } from './ai-assistant.constants';
+import { AI_CHAT_MESSAGE_ID_PREFIX, AI_CHAT_SESSION_ID_REGEX } from './ai-assistant.constants';
 import { createAiNotConfiguredError } from './ai-assistant.errors';
 import { AI_MODELS, AI_PROVIDER_LABELS } from './ai-assistant.models';
 import { buildSystemPrompt } from './ai-assistant.prompt';
@@ -159,6 +160,8 @@ export function registerAiAssistantRoutes(routeContext: RouteDefinitionContext) 
         config,
       });
 
+      // Known before the answer is streamed, so the client can save what the user decides on its approvals
+      const assistantMessageId = generateId({ prefix: AI_CHAT_MESSAGE_ID_PREFIX });
       const collectedSources: Array<{ title: string; url: string }> = [];
       const collectedConfirmations: Array<{ toolCallId: string; toolName: string; description: string; args: Record<string, unknown>; status: 'pending' }> = [];
 
@@ -171,29 +174,18 @@ export function registerAiAssistantRoutes(routeContext: RouteDefinitionContext) 
         onError: ({ error }) => {
           console.error('[AI Chat] streamText onError:', error);
         },
-        onFinish: async ({ text }) => {
-          if (activeSessionId && text) {
-            const hasMeta = collectedSources.length > 0 || collectedConfirmations.length > 0;
-            const metadata = hasMeta
-              ? JSON.stringify({ webSources: collectedSources, toolConfirmations: collectedConfirmations })
-              : undefined;
-            await aiAssistantRepository.addChatMessage({
-              sessionId: activeSessionId,
-              role: 'assistant',
-              content: text,
-              metadata,
-            });
-          }
-        },
+
       });
 
       // Build a combined stream from fullStream: text + reasoning + tool confirmations
       const encoder = new TextEncoder();
       const combinedStream = new ReadableStream({
         async start(controller) {
+          let assistantText = '';
           try {
             for await (const part of result.fullStream) {
               if (part.type === 'text-delta') {
+                assistantText += part.text;
                 controller.enqueue(encoder.encode(`0:${JSON.stringify(part.text)}\n`));
               } else if (part.type === 'reasoning-delta') {
                 controller.enqueue(encoder.encode(`r:${JSON.stringify(part.text)}\n`));
@@ -228,6 +220,16 @@ export function registerAiAssistantRoutes(routeContext: RouteDefinitionContext) 
                 }
               }
             }
+            // Persist only after consuming every event, including confirmations from the last step.
+            if (activeSessionId && (assistantText !== '' || collectedConfirmations.length > 0)) {
+              await aiAssistantRepository.addChatMessage({
+                id: assistantMessageId,
+                sessionId: activeSessionId,
+                role: 'assistant',
+                content: assistantText,
+                metadata: JSON.stringify({ webSources: collectedSources, toolConfirmations: collectedConfirmations }),
+              });
+            }
           } catch (streamError) {
             console.error('[AI Chat] fullStream error:', streamError);
           } finally {
@@ -240,6 +242,7 @@ export function registerAiAssistantRoutes(routeContext: RouteDefinitionContext) 
         headers: {
           'Content-Type': 'text/plain; charset=utf-8',
           'X-Session-Id': activeSessionId,
+          'X-Assistant-Message-Id': assistantMessageId,
         },
       });
     },
@@ -368,7 +371,7 @@ export function registerAiAssistantRoutes(routeContext: RouteDefinitionContext) 
         return context.json({ error: 'Session not found' }, 404);
       }
 
-      await aiAssistantRepository.updateChatMessageMetadata({ messageId, metadata });
+      await aiAssistantRepository.updateChatMessageMetadata({ sessionId, messageId, metadata });
 
       return context.json({ success: true });
     },

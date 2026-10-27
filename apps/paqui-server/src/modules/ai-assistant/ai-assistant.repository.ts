@@ -115,14 +115,17 @@ async function getChatMessages({ db, sessionId }: {
   return { messages };
 }
 
-async function addChatMessage({ db, sessionId, role, content, metadata }: {
+async function addChatMessage({ db, id, sessionId, role, content, metadata }: {
   db: Database;
+  // Given when the client already knows it: the assistant message gets its id before its answer is streamed
+  id?: string;
   sessionId: string;
   role: string;
   content: string;
   metadata?: string;
 }) {
   const [message] = await db.insert(aiChatMessagesTable).values({
+    id,
     sessionId,
     role,
     content,
@@ -136,14 +139,16 @@ async function addChatMessage({ db, sessionId, role, content, metadata }: {
   return { message: message! };
 }
 
-async function updateChatMessageMetadata({ db, messageId, metadata }: {
+async function updateChatMessageMetadata({ db, sessionId, messageId, metadata }: {
   db: Database;
+  sessionId: string;
   messageId: string;
   metadata: string;
 }) {
+  // Scoped to the session, which the caller checked belongs to the user
   await db.update(aiChatMessagesTable)
     .set({ metadata })
-    .where(eq(aiChatMessagesTable.id, messageId));
+    .where(and(eq(aiChatMessagesTable.id, messageId), eq(aiChatMessagesTable.sessionId, sessionId)));
 }
 
 async function addChatMessages({ db, sessionId, messages }: {

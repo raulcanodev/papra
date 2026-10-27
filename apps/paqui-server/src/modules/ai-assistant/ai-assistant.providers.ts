@@ -106,8 +106,26 @@ function createProviderModel({ provider, apiKey, model }: { provider: AiProvider
   return createOpenAI({ apiKey })(model);
 }
 
+// Anthropic structured outputs reject a schema with more parameters typed as a union (nullable, anyOf) than this
+const ANTHROPIC_MAX_UNION_PARAMETERS = 16;
+
+export function countUnionParameters({ schema }: { schema: unknown }): number {
+  if (Array.isArray(schema)) {
+    return schema.reduce((count: number, item) => count + countUnionParameters({ schema: item }), 0);
+  }
+
+  if (schema === null || typeof schema !== 'object') {
+    return 0;
+  }
+
+  const node = schema as Record<string, unknown>;
+  const isUnion = Array.isArray(node.type) || Array.isArray(node.anyOf) || Array.isArray(node.oneOf);
+
+  return (isUnion ? 1 : 0) + Object.values(node).reduce((count: number, value) => count + countUnionParameters({ schema: value }), 0);
+}
+
 // The reasoning effort in the shape each provider expects, merged with what the call already asks for
-function withReasoningEffort({ options, selection }: { options: LanguageModelV3CallOptions; selection: AiModelSelection }): LanguageModelV3CallOptions {
+export function withReasoningEffort({ options, selection }: { options: LanguageModelV3CallOptions; selection: AiModelSelection }): LanguageModelV3CallOptions {
   const effort = selection.reasoningEffort;
   const model = findAiModel({ modelId: selection.model });
 
@@ -118,6 +136,12 @@ function withReasoningEffort({ options, selection }: { options: LanguageModelV3C
   const providerOptions = { ...options.providerOptions };
 
   if (selection.provider === 'anthropic') {
+    // Thinking needs the native output format, which refuses schemas with many nullable fields: those are read without it
+    if (options.responseFormat?.type === 'json' && countUnionParameters({ schema: options.responseFormat.schema }) > ANTHROPIC_MAX_UNION_PARAMETERS) {
+      logger.warn({ model: selection.model }, 'Structured output schema has too many nullable fields for thinking, reading it without');
+      return { ...options, providerOptions: { ...providerOptions, anthropic: { ...providerOptions.anthropic, thinking: { type: 'disabled' }, structuredOutputMode: 'jsonTool' } } };
+    }
+
     // Structured outputs through the native output format: forcing a tool is not allowed while thinking
     providerOptions.anthropic = { effort, thinking: { type: 'adaptive' }, structuredOutputMode: 'outputFormat', ...providerOptions.anthropic };
   } else if (selection.provider === 'openai' || selection.provider === 'xai') {

@@ -7,6 +7,7 @@ import { useLocation, useNavigate, useParams } from '@solidjs/router';
 import remarkGfm from 'remark-gfm';
 import { createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { SolidMarkdown } from 'solid-markdown';
+import { toast } from 'solid-sonner';
 import { isDemoMode } from '@/modules/config/config';
 import { fetchDocument } from '@/modules/documents/documents.services';
 import { getClassificationLabelKey } from '@/modules/finances/finances-labels';
@@ -17,6 +18,7 @@ import { buildOrganizationSettingsNavigation, buildOrganizationWorkspaceNavigati
 import { useNavigationCapabilities } from '@/modules/ui/navigation/use-navigation-capabilities';
 import { useAiAssistantPanel } from '../ai-assistant-panel.provider';
 import { deleteChatSession, executeToolAction, fetchChatSession, fetchChatSessions, renameChatSession, streamChatMessage, updateMessageMetadata, uploadChatAttachment } from '../ai-assistant.services';
+import { getActionFailure, PendingActionsBar, ResolvedActionLine } from '../components/action-approval';
 import { AttachmentChip, ChatAttachMenu, MAX_CHAT_ATTACHMENTS } from '../components/chat-attachments';
 import { buildPageContext } from '../page-context/build-page-context';
 import { capturePageSnapshot } from '../page-context/capture-page-snapshot';
@@ -39,15 +41,6 @@ const DEMO_SUGGESTION_CONFIG = [
   { icon: 'i-tabler-chart-bar', key: 'ai-assistant.suggestion.demo-total' as const },
   { icon: 'i-tabler-users', key: 'ai-assistant.suggestion.demo-customers' as const },
 ];
-
-const TOOL_LABEL_KEYS: Record<string, TranslationKeys> = {
-  createClassificationRule: 'ai-assistant.tool.create-classification-rule',
-  updateClassificationRule: 'ai-assistant.tool.update-classification-rule',
-  deleteClassificationRule: 'ai-assistant.tool.delete-classification-rule',
-  createTaggingRule: 'ai-assistant.tool.create-tagging-rule',
-  updateTaggingRule: 'ai-assistant.tool.update-tagging-rule',
-  deleteTaggingRule: 'ai-assistant.tool.delete-tagging-rule',
-};
 
 const CLASSIFICATION_COLORS: Record<string, string> = {
   expense: 'text-red-600 bg-red-500/10',
@@ -283,151 +276,6 @@ const markdownComponents = {
   },
 };
 
-const ToolConfirmationCard: Component<{
-  confirmation: ToolConfirmation;
-  organizationId: string;
-  onStatusChange: (toolCallId: string, status: 'approved' | 'rejected', result?: unknown) => void;
-}> = (props) => {
-  const { t } = useI18n();
-  const [isLoading, setIsLoading] = createSignal(false);
-
-  const handleApprove = async () => {
-    setIsLoading(true);
-    try {
-      const result = await executeToolAction({
-        organizationId: props.organizationId,
-        toolName: props.confirmation.toolName,
-        args: props.confirmation.args,
-      });
-      props.onStatusChange(props.confirmation.toolCallId, 'approved', result);
-    } catch (err) {
-      props.onStatusChange(props.confirmation.toolCallId, 'approved', { error: err instanceof Error ? err.message : t('ai-assistant.confirmation.failed') });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const statusBorder = () => {
-    if (props.confirmation.status === 'approved') {
-      return 'border-green-500/40';
-    }
-    if (props.confirmation.status === 'rejected') {
-      return 'border-muted-foreground/20 opacity-60';
-    }
-    return 'border-primary/40';
-  };
-
-  const isRuleTool = () => ['createClassificationRule', 'updateClassificationRule', 'createTaggingRule', 'updateTaggingRule'].includes(props.confirmation.toolName);
-  const isDelete = () => ['deleteClassificationRule', 'deleteTaggingRule'].includes(props.confirmation.toolName);
-
-  const args = () => props.confirmation.args as Record<string, unknown>;
-
-  return (
-    <div class={cn('not-prose rounded-lg border-2 mt-3 overflow-hidden transition-colors', statusBorder())}>
-      {/* Header */}
-      <div class={cn(
-        'flex items-center gap-2 px-3 py-2',
-        props.confirmation.status === 'approved' ? 'bg-green-500/5' : props.confirmation.status === 'rejected' ? 'bg-muted/30' : 'bg-primary/5',
-      )}
-      >
-        <div class={cn(
-          'size-4 shrink-0',
-          props.confirmation.status === 'approved' ? 'i-tabler-check text-green-600' : props.confirmation.status === 'rejected' ? 'i-tabler-x text-muted-foreground' : isDelete() ? 'i-tabler-trash text-destructive' : 'i-tabler-rule text-primary',
-        )}
-        />
-        <span class="text-sm font-medium flex-1">
-          {TOOL_LABEL_KEYS[props.confirmation.toolName] ? t(TOOL_LABEL_KEYS[props.confirmation.toolName]!) : props.confirmation.toolName}
-        </span>
-        <Show when={props.confirmation.status === 'approved'}>
-          <span class="text-xs font-medium text-green-600">{t('ai-assistant.confirmation.approved')}</span>
-        </Show>
-        <Show when={props.confirmation.status === 'rejected'}>
-          <span class="text-xs text-muted-foreground">{t('ai-assistant.confirmation.skipped')}</span>
-        </Show>
-      </div>
-
-      {/* Rule preview body */}
-      <Show when={isRuleTool()}>
-        <div class="px-3 py-2 space-y-1.5 border-t border-border/30">
-          <Show when={args().name}>
-            <div class="flex items-center gap-2">
-              <span class="text-xs text-muted-foreground shrink-0">{t('ai-assistant.rule.name')}</span>
-              <span class="text-xs font-medium text-foreground">{args().name as string}</span>
-            </div>
-          </Show>
-          <Show when={args().classification}>
-            <div class="flex items-center gap-2">
-              <span class="text-xs text-muted-foreground shrink-0">{t('ai-assistant.rule.classification')}</span>
-              <span class={cn('text-xs font-medium px-1.5 py-0.5 rounded', CLASSIFICATION_COLORS[args().classification as string] ?? 'text-foreground bg-muted')}>
-                {getClassificationLabelKey(args().classification as string) ? t(getClassificationLabelKey(args().classification as string)!) : (args().classification as string)}
-              </span>
-            </div>
-          </Show>
-          <Show when={Array.isArray(args().conditions) && (args().conditions as unknown[]).length > 0}>
-            <div class="flex items-start gap-2">
-              <span class="text-xs text-muted-foreground mt-0.5 shrink-0">
-                {(args().conditionMatchMode as string) === 'any' ? t('ai-assistant.rule.any-of') : t('ai-assistant.rule.all-of')}
-              </span>
-              <div class="flex flex-col gap-1">
-                <For each={args().conditions as Array<{ field: string; operator: string; value: string }>}>
-                  {cond => (
-                    <div class="text-xs flex items-center gap-1 flex-wrap">
-                      <span class="font-medium text-foreground">{cond.field}</span>
-                      <span class="text-muted-foreground">{cond.operator}</span>
-                      <span class="font-mono text-primary bg-primary/5 px-1 rounded">
-                        "
-                        {cond.value}
-                        "
-                      </span>
-                    </div>
-                  )}
-                </For>
-              </div>
-            </div>
-          </Show>
-        </div>
-      </Show>
-
-      {/* Delete body */}
-      <Show when={isDelete()}>
-        <div class="px-3 py-2 border-t border-border/30">
-          <p class="text-xs text-destructive/80">{props.confirmation.description}</p>
-        </div>
-      </Show>
-
-      {/* Generic fallback for unknown tools */}
-      <Show when={!isRuleTool() && !isDelete()}>
-        <div class="px-3 py-2 border-t border-border/30">
-          <p class="text-xs text-muted-foreground">{props.confirmation.description}</p>
-        </div>
-      </Show>
-
-      {/* Actions */}
-      <Show when={props.confirmation.status === 'pending'}>
-        <div class="flex gap-2 px-3 py-2 border-t border-border/30 bg-muted/20">
-          <Button size="sm" class="h-7 text-xs gap-1" onClick={() => void handleApprove()} disabled={isLoading()} isLoading={isLoading()}>
-            <div class="i-tabler-check size-3.5" />
-            {t('ai-assistant.confirmation.approve')}
-          </Button>
-          <Button variant="outline" size="sm" class="h-7 text-xs gap-1" onClick={() => props.onStatusChange(props.confirmation.toolCallId, 'rejected')} disabled={isLoading()}>
-            <div class="i-tabler-x size-3.5" />
-            {t('ai-assistant.confirmation.skip')}
-          </Button>
-        </div>
-      </Show>
-
-      {/* Result after approval */}
-      <Show when={props.confirmation.status === 'approved' && props.confirmation.result}>
-        <div class="px-3 py-1.5 border-t border-green-500/20 bg-green-500/5">
-          <p class="text-xs text-green-600">
-            {(props.confirmation.result as Record<string, string>)?.message ?? t('ai-assistant.confirmation.done')}
-          </p>
-        </div>
-      </Show>
-    </div>
-  );
-};
-
 const TOOL_ACTIVITY_LABELS: Record<string, { icon: string; labelKey: TranslationKeys }> = {
   webSearch: { icon: 'i-tabler-world-search', labelKey: 'ai-assistant.activity.web-search' },
   searchDocuments: { icon: 'i-tabler-file-search', labelKey: 'ai-assistant.activity.search-documents' },
@@ -502,7 +350,7 @@ function WebSourceBadges(props: { sources: Array<{ title: string; url: string }>
   );
 }
 
-const MessageBubble: Component<{ message: ChatMessage; isStreaming?: boolean; organizationId: string; onToolStatusChange?: (toolCallId: string, status: 'approved' | 'rejected', result?: unknown) => void }> = (props) => {
+const MessageBubble: Component<{ message: ChatMessage; isStreaming?: boolean }> = (props) => {
   const { t } = useI18n();
   const isUser = () => props.message.role === 'user';
   const [thinkingOpen, setThinkingOpen] = createSignal(false);
@@ -522,13 +370,13 @@ const MessageBubble: Component<{ message: ChatMessage; isStreaming?: boolean; or
             </div>
           </Show>
           <Show when={props.message.content}>
-            <div class="rounded-2xl bg-muted text-foreground rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words max-w-full">
+            <div class="rounded-2xl bg-muted text-foreground rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere] max-w-full">
               {props.message.content}
             </div>
           </Show>
         </Show>
         <Show when={!isUser()}>
-          <div class="text-sm leading-relaxed break-words max-w-full prose prose-sm prose-neutral dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-pre:my-2 prose-pre:bg-muted prose-pre:text-foreground prose-code:text-foreground prose-code:before:content-none prose-code:after:content-none">
+          <div class="text-sm leading-relaxed break-words min-w-0 [overflow-wrap:anywhere] max-w-full prose prose-sm prose-neutral dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-pre:my-2 prose-pre:bg-muted prose-pre:text-foreground prose-code:text-foreground prose-code:before:content-none prose-code:after:content-none">
             <Show when={hasThinking()}>
               <Show when={isThinkingLive()}>
                 <div class="flex items-center gap-2 py-1.5 px-2 mb-2 rounded-md bg-muted/50 border border-border/50 text-muted-foreground text-xs">
@@ -576,17 +424,10 @@ const MessageBubble: Component<{ message: ChatMessage; isStreaming?: boolean; or
                 <WebSourceBadges sources={props.message.webSources!} />
               </Show>
             </Show>
-            <Show when={!props.isStreaming && (props.message.toolConfirmations ?? []).length > 0}>
-              <For each={props.message.toolConfirmations}>
-                {confirmation => (
-                  <ToolConfirmationCard
-                    confirmation={confirmation}
-                    organizationId={props.organizationId}
-                    onStatusChange={(id, status, result) => props.onToolStatusChange?.(id, status, result)}
-                  />
-                )}
-              </For>
-            </Show>
+            {/* Pending actions are answered in the bar above the input, here only what was decided */}
+            <For each={(props.message.toolConfirmations ?? []).filter(confirmation => confirmation.status !== 'pending')}>
+              {confirmation => <ResolvedActionLine confirmation={confirmation} />}
+            </For>
           </div>
         </Show>
       </div>
@@ -626,7 +467,7 @@ const ChatHistoryItem: Component<{
         <div class="w-full px-3 py-1.5 rounded-lg bg-muted flex items-center gap-2">
           <input
             ref={inputRef}
-            class="flex-1 text-sm bg-transparent outline-none min-w-0"
+            class="min-h-11 flex-1 text-base sm:text-sm bg-transparent outline-none min-w-0"
             value={props.session.title}
             onBlur={commitEdit}
             onKeyDown={(e) => {
@@ -641,47 +482,28 @@ const ChatHistoryItem: Component<{
         </div>
       )}
     >
-      <button
-        type="button"
-        class={cn(
-          'w-full text-left px-3 py-2 rounded-lg text-sm truncate transition-colors group flex items-center gap-2',
-          props.isActive
-            ? 'bg-muted font-medium'
-            : 'hover:bg-muted/50 text-muted-foreground',
-        )}
-        onClick={() => props.onSelect()}
-      >
-        <div class="i-tabler-message size-3.5 shrink-0 opacity-50" />
-        <span class="truncate flex-1">{props.session.title}</span>
-        <div
-          role="button"
-          tabIndex={0}
+      <div class={cn('flex w-full min-w-0 items-center gap-1 rounded-lg px-2 group', props.isActive ? 'bg-muted font-medium' : 'hover:bg-muted/50 text-muted-foreground')}>
+        <button type="button" class="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left text-sm" onClick={() => props.onSelect()}>
+          <div class="i-tabler-message size-3.5 shrink-0 opacity-50" />
+          <span class="truncate">{props.session.title}</span>
+        </button>
+        <button
+          type="button"
           aria-label={t('ai-assistant.history.rename')}
-          class="i-tabler-pencil size-3.5 shrink-0 opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity"
+          class="flex size-11 sm:size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground sm:opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-muted"
           onClick={startEdit}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              startEdit(e);
-            }
-          }}
-        />
-        <div
-          role="button"
-          tabIndex={0}
+        >
+          <div class="i-tabler-pencil size-4" />
+        </button>
+        <button
+          type="button"
           aria-label={t('ai-assistant.history.delete')}
-          class="i-tabler-x size-3.5 shrink-0 opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity"
-          onClick={(e) => {
-            e.stopPropagation();
-            props.onDelete();
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.stopPropagation();
-              props.onDelete();
-            }
-          }}
-        />
-      </button>
+          class="flex size-11 sm:size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground sm:opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-muted"
+          onClick={() => props.onDelete()}
+        >
+          <div class="i-tabler-x size-4" />
+        </button>
+      </div>
     </Show>
   );
 };
@@ -705,6 +527,9 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
   const [activeChatId, setActiveChatId] = createSignal<string | undefined>(sessionStorage.getItem('paqui-ai-chat') ?? undefined);
   const [showHistory, setShowHistory] = createSignal(false);
   const [pendingAttachments, setPendingAttachments] = createSignal<PendingAttachment[]>([]);
+  const [busyActionIds, setBusyActionIds] = createSignal<string[]>([]);
+  const [actionErrors, setActionErrors] = createSignal<Record<string, string>>({});
+  const [isAskingSomethingElse, setIsAskingSomethingElse] = createSignal(false);
   const [isDraggingFiles, setIsDraggingFiles] = createSignal(false);
   let abortController: AbortController | undefined;
   let pendingNavigation: string | undefined;
@@ -738,10 +563,12 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
     navigate(path);
   }
 
+  let metadataUpdates = Promise.resolve();
+
   function handleToolStatusChange(toolCallId: string, status: 'approved' | 'rejected', result?: unknown) {
     setMessages((prev) => {
       const updated = prev.map((msg) => {
-        if (!msg.toolConfirmations) {
+        if (!msg.toolConfirmations?.some(tc => tc.toolCallId === toolCallId)) {
           return msg;
         }
         const updatedConfs = msg.toolConfirmations.map(tc =>
@@ -757,13 +584,56 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
             webSources: updatedMsg.webSources ?? [],
             toolConfirmations: updatedConfs,
           });
-          void updateMessageMetadata({ organizationId: orgId(), sessionId: activeChatId()!, messageId: updatedMsg.id, metadata });
+          const target = { organizationId: orgId(), sessionId: activeChatId()!, messageId: updatedMsg.id, metadata };
+          metadataUpdates = metadataUpdates.then(() => updateMessageMetadata(target)).then(() => {}).catch(() => {
+            toast.error(t('ai-assistant.approval.save-failed'));
+          });
         }
         return updatedMsg;
       });
       return updated;
     });
   }
+  // The actions still waiting for a yes or no, answered in the bar above the input
+  const pendingConfirmations = () => (isStreaming() ? [] : messages().flatMap(message => (message.toolConfirmations ?? []).filter(confirmation => confirmation.status === 'pending')));
+
+  async function approveAction(confirmation: ToolConfirmation) {
+    if (busyActionIds().length > 0) {
+      return false;
+    }
+    setActionErrors(errors => ({ ...errors, [confirmation.toolCallId]: '' }));
+    setBusyActionIds(ids => [...ids, confirmation.toolCallId]);
+    try {
+      const result = await executeToolAction({ organizationId: orgId(), toolName: confirmation.toolName, args: confirmation.args });
+      const failure = getActionFailure({ confirmation: { ...confirmation, result } });
+      if (failure) {
+        setActionErrors(errors => ({ ...errors, [confirmation.toolCallId]: failure }));
+        return false;
+      }
+      handleToolStatusChange(confirmation.toolCallId, 'approved', result);
+      return true;
+    } catch (error) {
+      setActionErrors(errors => ({ ...errors, [confirmation.toolCallId]: error instanceof Error ? error.message : t('ai-assistant.error.generic') }));
+      return false;
+    } finally {
+      setBusyActionIds(ids => ids.filter(id => id !== confirmation.toolCallId));
+    }
+  }
+
+  // One after the other: a later action may need what an earlier one created
+  async function approveAllActions() {
+    for (const confirmation of pendingConfirmations()) {
+      if (!await approveAction(confirmation)) {
+        break;
+      }
+    }
+  }
+
+  function askSomethingElse() {
+    setIsAskingSomethingElse(true);
+    textareaRef?.focus();
+  }
+
   const [sessionsData, { refetch: refetchSessions }] = createResource(orgId, organizationId => fetchChatSessions({ organizationId }));
 
   const sessions = () => sessionsData()?.sessions ?? [];
@@ -805,7 +675,7 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
         return;
       }
 
-      messagesScrollRef.scrollTo({ top: messagesScrollRef.scrollHeight, behavior: 'smooth' });
+      messagesScrollRef.scrollTo({ top: messages().length > 0 ? messagesScrollRef.scrollHeight : 0, behavior: 'smooth' });
     });
   }
 
@@ -852,13 +722,19 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
   async function sendMessage(text?: string) {
     const content = (text ?? textareaRef?.value ?? '').trim();
     const attachments = text === undefined ? readyAttachments() : [];
-    if ((!content && attachments.length === 0) || isStreaming() || (text === undefined && isUploadingAttachments())) {
+    if ((!content && attachments.length === 0) || isStreaming() || busyActionIds().length > 0 || (text === undefined && isUploadingAttachments())) {
       return;
     }
 
     if (text === undefined) {
       setPendingAttachments([]);
     }
+
+    // Writing instead of answering turns down what was still waiting: the message says what to do instead
+    for (const confirmation of pendingConfirmations()) {
+      handleToolStatusChange(confirmation.toolCallId, 'rejected');
+    }
+    setIsAskingSomethingElse(false);
 
     setHasInput(false);
     if (textareaRef) {
@@ -886,6 +762,9 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
         signal: abortController.signal,
         onNavigate: (navigation) => {
           pendingNavigation = navigation.path;
+        },
+        onAssistantMessageId: (id) => {
+          setMessages(prev => prev.map((message, index) => (index === prev.length - 1 && message.role === 'assistant' ? { ...message, id } : message)));
         },
         onSessionId: (id) => {
           setActiveChat(id);
@@ -1009,6 +888,12 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
   }
 
   function handleNewChat() {
+    if (busyActionIds().length > 0) {
+      return;
+    }
+    setActionErrors({});
+    setIsAskingSomethingElse(false);
+    setShowHistory(false);
     abortController?.abort();
     setMessages([]);
     setPendingAttachments([]);
@@ -1022,16 +907,27 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
   }
 
   async function loadChat(session: ChatSession) {
+    if (busyActionIds().length > 0) {
+      return;
+    }
+    await metadataUpdates;
+    setActionErrors({});
+    setIsAskingSomethingElse(false);
+    setShowHistory(false);
     abortController?.abort();
     setIsStreaming(false);
 
     const data = await fetchChatSession({ organizationId: orgId(), sessionId: session.id });
     setActiveChat(session.id);
+    setShowHistory(false);
     setMessages(data.messages);
     scrollToBottom();
   }
 
   async function handleDeleteChat(sessionId: string) {
+    if (busyActionIds().length > 0) {
+      return;
+    }
     await deleteChatSession({ organizationId: orgId(), sessionId });
     void refetchSessions();
     if (activeChatId() === sessionId) {
@@ -1051,16 +947,19 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
       <Show when={showHistory()}>
         <div class={cn(
           'border-r bg-white dark:bg-card shrink-0 flex flex-col min-h-0 h-full',
-          isPanel() ? 'absolute inset-0 z-20 w-full' : 'w-64',
+          isPanel() ? 'absolute inset-0 z-20 w-full' : 'absolute inset-0 z-20 w-full md:relative md:inset-auto md:z-auto md:w-64',
         )}
         >
           <div class="p-3 border-b flex items-center justify-between">
             <span class="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('ai-assistant.history.title')}</span>
             <button
               type="button"
-              class="i-tabler-x size-4 text-muted-foreground hover:text-foreground transition-colors"
+              class="flex size-11 sm:size-6 items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={t('ai-assistant.history.close')}
               onClick={() => setShowHistory(false)}
-            />
+            >
+              <div class="i-tabler-x size-5" />
+            </button>
           </div>
           <div class="flex-1 overflow-y-auto p-2 flex flex-col gap-0.5">
             <Show
@@ -1088,21 +987,21 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
       {/* Main chat area */}
       <div class="flex flex-col flex-1 min-w-0 min-h-0">
         {/* Header */}
-        <div class={cn('border-b flex items-center justify-between shrink-0 bg-white dark:bg-card', isPanel() ? 'px-3 py-2' : 'px-5 py-2.5')}>
+        <div class={cn('border-b flex items-center justify-between shrink-0 bg-white dark:bg-card', isPanel() ? 'px-3 py-2' : 'px-3 sm:px-5 py-2.5')}>
           <div class="flex items-center gap-2">
             <Button
               type="button"
               size="sm"
-              class="h-7 px-2.5 text-xs"
+              class="h-11 sm:h-7 px-2.5 text-xs"
               aria-expanded={showHistory()}
               onClick={() => setShowHistory(!showHistory())}
             >
               {t('ai-assistant.history.title')}
             </Button>
-            <Button size="sm" class="h-7 px-2.5 text-xs" onClick={handleNewChat}>
+            <Button size="sm" class="h-11 sm:h-7 px-2.5 text-xs" onClick={handleNewChat}>
               {t('ai-assistant.new-chat')}
             </Button>
-            <div class={cn('flex items-center gap-2', isPanel() && 'sr-only')}>
+            <div class={cn('hidden md:flex items-center gap-2', isPanel() && 'sr-only')}>
               <img src="/logo.svg" alt="Paqui" class="size-8 shrink-0 [image-rendering:pixelated]" />
               <div>
                 <p class="text-xs text-muted-foreground mt-0.5">{t('ai-assistant.subtitle')}</p>
@@ -1111,10 +1010,10 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
           </div>
           <div class="flex items-center gap-2">
             <Show when={isPanel()}>
-              <Button variant="ghost" size="icon-sm" class="rounded-full" onClick={props.onExpand} aria-label={t('ai-assistant.open-full-page')}>
+              <Button variant="ghost" size="icon-sm" class="size-11 sm:size-8 shrink-0 rounded-full" onClick={props.onExpand} aria-label={t('ai-assistant.open-full-page')}>
                 <div class="i-tabler-arrows-maximize size-4" />
               </Button>
-              <Button variant="ghost" size="icon-sm" class="rounded-full" onClick={props.onClose} aria-label={t('ai-assistant.close-panel')}>
+              <Button variant="ghost" size="icon-sm" class="size-11 sm:size-8 shrink-0 rounded-full" onClick={props.onClose} aria-label={t('ai-assistant.close-panel')}>
                 <div class="i-tabler-x size-4" />
               </Button>
             </Show>
@@ -1122,12 +1021,12 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
         </div>
 
         {/* Messages area */}
-        <div ref={messagesScrollRef} class="flex-1 overflow-y-auto overscroll-contain">
-          <div class={cn('mx-auto w-full', isPanel() ? 'max-w-xl px-4' : 'max-w-3xl px-6')}>
+        <div ref={messagesScrollRef} class="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
+          <div class={cn('mx-auto w-full', isPanel() ? 'max-w-xl px-4' : 'max-w-3xl px-3 sm:px-6')}>
             <Show
               when={messages().length > 0}
               fallback={(
-                <div class={cn('flex flex-col items-center justify-center h-full gap-8 py-10', isPanel() ? 'min-h-[28rem]' : 'min-h-[calc(100vh-14rem)]')}>
+                <div class={cn('flex flex-col items-center justify-center h-full gap-8 py-10', isPanel() ? 'min-h-[28rem]' : 'min-h-[calc(100dvh-14rem)]')}>
                   <div class="text-center">
                     <img src="/logo.svg" alt="Paqui" class="mx-auto mb-3 size-14 [image-rendering:pixelated]" />
                     <p class="text-muted-foreground text-sm max-w-md">
@@ -1157,8 +1056,6 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
                     <MessageBubble
                       message={message}
                       isStreaming={isStreaming() && i() === messages().length - 1 && message.role === 'assistant'}
-                      organizationId={orgId()}
-                      onToolStatusChange={handleToolStatusChange}
                     />
                   )}
                 </For>
@@ -1169,10 +1066,21 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
         </div>
 
         {/* Input area */}
-        <div class={cn('bg-white dark:bg-card shrink-0', isPanel() ? 'px-3 py-3' : 'px-6 py-4')}>
-          <div class="max-w-3xl mx-auto">
+        <div class={cn('bg-white dark:bg-card flex flex-col shrink-0 min-h-0 max-h-[65%]', isPanel() ? 'px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]' : 'px-3 py-3 sm:px-6 sm:py-4')}>
+          <div class="mx-auto flex min-h-0 w-full max-w-3xl flex-col">
+            <Show when={pendingConfirmations().length > 0}>
+              <PendingActionsBar
+                confirmations={pendingConfirmations()}
+                busyIds={busyActionIds()}
+                errors={actionErrors()}
+                onApprove={confirmation => void approveAction(confirmation)}
+                onApproveAll={() => void approveAllActions()}
+                onReject={confirmation => handleToolStatusChange(confirmation.toolCallId, 'rejected')}
+                onSomethingElse={askSomethingElse}
+              />
+            </Show>
             <div
-              class={cn('relative flex flex-col rounded-2xl border border-border bg-background shadow-sm transition-shadow focus-within:ring-1 focus-within:ring-ring', isDraggingFiles() && 'ring-2 ring-primary/60')}
+              class={cn('relative flex shrink-0 flex-col rounded-2xl border border-border bg-background shadow-sm transition-shadow focus-within:ring-1 focus-within:ring-ring', isDraggingFiles() && 'ring-2 ring-primary/60')}
               onDragOver={(event) => {
                 if (event.dataTransfer?.types.includes('Files')) {
                   event.preventDefault();
@@ -1190,7 +1098,7 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
               }}
             >
               <Show when={pendingAttachments().length > 0}>
-                <div class="flex flex-wrap gap-1.5 px-3 pt-3">
+                <div class="flex max-h-24 overflow-y-auto overscroll-contain flex-wrap gap-1.5 px-3 pt-3">
                   <For each={pendingAttachments()}>
                     {pending => (
                       <AttachmentChip
@@ -1215,7 +1123,7 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
                 </div>
                 <textarea
                   ref={textareaRef}
-                  placeholder={t('ai-assistant.input.placeholder')}
+                  placeholder={isAskingSomethingElse() ? t('ai-assistant.approval.something-else.placeholder') : t('ai-assistant.input.placeholder')}
                   onInput={(e) => {
                     setHasInput(!!e.currentTarget.value.trim());
                     autoResizeTextarea();
@@ -1230,14 +1138,15 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
                   }}
                   disabled={isStreaming()}
                   rows={1}
-                  class="flex-1 resize-none bg-transparent px-2 py-3 text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50 max-h-[160px]"
+                  class="min-w-0 flex-1 resize-none bg-transparent px-2 py-3 text-base sm:text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50 max-h-[160px]"
                 />
                 <div class="flex items-center gap-1 pb-1.5 pr-2">
                   <Show when={isStreaming()}>
                     <Button
                       variant="ghost"
                       size="sm"
-                      class="h-8 w-8 p-0 rounded-full"
+                      class="size-11 sm:size-8 shrink-0 p-0 rounded-full"
+                      aria-label={t('ai-assistant.input.stop')}
                       onClick={() => abortController?.abort()}
                     >
                       <div class="i-tabler-player-stop-filled size-4" />
@@ -1245,9 +1154,10 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
                   </Show>
                   <Button
                     size="sm"
-                    class="h-8 w-8 p-0 rounded-full border border-black/10 bg-white text-neutral-900 shadow-xs hover:bg-neutral-100"
+                    class="size-11 sm:size-8 shrink-0 p-0 rounded-full border border-black/10 bg-white text-neutral-900 shadow-xs hover:bg-neutral-100"
+                    aria-label={t('ai-assistant.input.send')}
                     onClick={() => void sendMessage()}
-                    disabled={isStreaming() || isUploadingAttachments() || (!hasInput() && readyAttachments().length === 0)}
+                    disabled={isStreaming() || busyActionIds().length > 0 || isUploadingAttachments() || (!hasInput() && readyAttachments().length === 0)}
                   >
                     <div class="i-tabler-arrow-up size-4" />
                   </Button>

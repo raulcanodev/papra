@@ -199,7 +199,7 @@ export const SidenavLayout: ParentComponent<{
       aside={() => (
         <Show when={props.rightPanel && (props.isRightPanelOpen?.() ?? true)}>
           <aside
-            class="fixed inset-0 z-50 flex h-full min-h-0 w-full shrink-0 overflow-hidden bg-card md:(relative z-auto w-[var(--right-panel-width)] max-w-[55vw] border-l)"
+            class="fixed inset-0 z-50 flex h-dvh min-h-0 w-full shrink-0 overflow-hidden bg-card pt-[env(safe-area-inset-top)] md:(relative h-full pt-0 z-auto w-[var(--right-panel-width)] max-w-[55vw] border-l)"
             style={{ '--right-panel-width': `${rightPanelWidth()}px` }}
           >
             <button

@@ -15,7 +15,7 @@ import { invoicingProfilesTable } from '../invoicing/invoicing.tables';
 import { collectStreamToFile } from '../shared/streams/stream.convertion';
 import { EXTRACTABLE_DOCUMENT_MIME_TYPES, MAX_EXTRACTABLE_DOCUMENT_SIZE_BYTES } from './purchases.constants';
 import { createPurchaseDocumentNotExtractableError, createPurchaseExtractionFailedError } from './purchases.errors';
-import { getInvoiceDirection, INVOICE_EXTRACTION_SCHEMA_VERSION, invoiceExtractionSchema, resolveSupplier, toPurchaseInvoiceDraft } from './purchases.extraction.models';
+import { getInvoiceDirection, INVOICE_EXTRACTION_SCHEMA_VERSION, invoiceExtractionSchema, normalizeReadParty, resolveSupplier, toPurchaseInvoiceDraft } from './purchases.extraction.models';
 
 // Reads the paper from its text when it has a text layer (cheaper, any provider), from the file itself otherwise:
 // a photo goes to the vision model, with the text already extracted from it (if any) as a hint
@@ -64,7 +64,7 @@ export function createAiInvoiceReader({ config, db, organizationId }: { config: 
       }],
     });
 
-    return object;
+    return { ...object, issuer: normalizeReadParty({ party: object.issuer }), recipient: normalizeReadParty({ party: object.recipient }) };
   };
 }
 
