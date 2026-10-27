@@ -300,13 +300,13 @@ function ToolActivityIndicator(props: { toolNames: string[] }) {
   const { t } = useI18n();
   const info = () => {
     const known = [...props.toolNames].reverse().find(name => TOOL_ACTIVITY_LABELS[name]);
-    const activity = known ? TOOL_ACTIVITY_LABELS[known]! : { icon: 'i-tabler-loader-2', labelKey: 'ai-assistant.activity.working' as const };
-    return { icon: activity.icon, label: t(activity.labelKey), animation: known ? 'animate-pulse' : 'animate-spin' };
+    const activity = known ? TOOL_ACTIVITY_LABELS[known]! : { icon: 'i-tabler-hammer', labelKey: 'ai-assistant.activity.working' as const };
+    return { icon: activity.icon, label: t(activity.labelKey) };
   };
 
   return (
     <div class="flex items-center gap-2 py-1 text-sm text-muted-foreground">
-      <div class={cn(info().icon, info().animation, 'size-4 shrink-0')} />
+      <div class={cn(info().icon, 'size-4 shrink-0 animate-pulse')} />
       <span>{info().label}</span>
     </div>
   );
