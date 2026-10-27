@@ -12,7 +12,7 @@ const DAY = 24 * 60 * 60 * 1000;
 
 function lineAmounts(item: Line) {
   const gross = Math.round(item.quantityMillis * item.unitPriceMinor / 1_000);
-  const netMinor = Math.max(0, gross - Math.round(gross * item.discountRateBps / 10_000) - (item.discountMinor ?? 0));
+  const netMinor = gross - Math.round(gross * item.discountRateBps / 10_000) - (item.discountMinor ?? 0);
   return { netMinor, taxMinor: Math.round(netMinor * item.taxRateBps / 10_000) };
 }
 

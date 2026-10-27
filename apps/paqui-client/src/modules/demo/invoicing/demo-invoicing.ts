@@ -63,7 +63,7 @@ export function calculateTotals({ items, withholdingRateBps = 0, equivalenceSurc
   const totals = items.reduce((sums, item) => {
     const gross = Math.round(item.quantityMillis * item.unitPriceMinor / 1_000);
     const discount = Math.round(gross * item.discountRateBps / 10_000);
-    const net = Math.max(0, gross - discount - (item.discountMinor ?? 0));
+    const net = gross - discount - (item.discountMinor ?? 0);
     const tax = Math.round(net * item.taxRateBps / 10_000);
     const surcharge = equivalenceSurcharge ? Math.round(net * getEquivalenceSurchargeRateBps(item) / 10_000) : 0;
 

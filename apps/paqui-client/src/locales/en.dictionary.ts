@@ -2284,6 +2284,7 @@ export const translations = {
   'invoicing.preview.table.unit-price': 'Unit price',
   'invoicing.preview.table.tax': 'Tax',
   'invoicing.preview.table.total': 'Total',
+  'invoicing.preview.table.discount': 'Discount',
   'invoicing.preview.subtotal': 'Total excluding tax',
   'invoicing.preview.tax': 'Tax',
   'invoicing.preview.amount-due': 'Amount due',

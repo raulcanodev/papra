@@ -94,7 +94,7 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
   const extraTotalsHeight = (invoice.withholdingMinor > 0 ? 60 : 0) + getEquivalenceSurchargeRows(invoice).length * 22;
   const reservedFooterHeight = 170 + extraTotalsHeight;
   for (const item of invoice.items) {
-    const rowHeight = Math.max(28, doc.heightOfString(item.description, { width: 230 }) + 12);
+    const rowHeight = Math.max(28, doc.heightOfString(item.description, { width: 230 }) + 12) + (getLineDiscountMinor(item) !== 0 ? 12 : 0);
     if (y + rowHeight > PAGE.height - reservedFooterHeight) {
       doc.addPage();
       y = drawItemsHeader(doc, PAGE.margin, accent, line);
@@ -165,11 +165,21 @@ function drawItemRow({ doc, invoice, item, y, height, muted, line, locale }: { d
   const total = netMinor + taxMinor;
   doc.font('Helvetica').fontSize(9).fillColor('#111827');
   doc.text(item.description, PAGE.margin + 8, y + 9, { width: 225 });
+  const discountMinor = getLineDiscountMinor(item);
+  if (discountMinor !== 0) {
+    doc.fontSize(8).fillColor(muted).text(['Discount', item.discountRateBps > 0 ? `${item.discountRateBps / 100}%` : null, formatMoney(-discountMinor, invoice.currency, locale)].filter(Boolean).join(' '), PAGE.margin + 8, doc.y + 2, { width: 225 });
+    doc.fontSize(9);
+  }
   doc.fillColor(muted).text(formatQuantity(item.quantityMillis, locale), 285, y + 9, { width: 45, align: 'right' });
   doc.text(formatMoney(item.unitPriceMinor, invoice.currency, locale), 340, y + 9, { width: 65, align: 'right' });
   doc.text(`${item.taxRateBps / 100}%`, 415, y + 9, { width: 45, align: 'right' });
   doc.font('Helvetica-Bold').fillColor('#111827').text(formatMoney(total, invoice.currency, locale), 470, y + 9, { width: 69, align: 'right' });
   doc.moveTo(PAGE.margin, y + height).lineTo(PAGE.width - PAGE.margin, y + height).strokeColor(line).stroke();
+}
+
+// Everything taken off the line, the percentage and the fixed amount
+function getLineDiscountMinor(item: PdfInvoice['items'][number]) {
+  return Math.round(item.quantityMillis * item.unitPriceMinor / 1_000) - getLineAmounts(item).netMinor;
 }
 
 // The surcharge by rate, as the invoice must show each rate and its amount (RD 1619/2012, art. 6)

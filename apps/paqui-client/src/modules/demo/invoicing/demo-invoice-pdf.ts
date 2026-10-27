@@ -59,13 +59,19 @@ export async function renderDemoInvoicePdf({ invoice, seller, branding }: { invo
   doc.setFont('helvetica', 'normal').setTextColor(17, 24, 39);
   for (const item of invoice.items ?? []) {
     const gross = Math.round(item.quantityMillis * item.unitPriceMinor / 1_000);
-    const net = Math.max(0, gross - Math.round(gross * item.discountRateBps / 10_000) - (item.discountMinor ?? 0));
+    const net = gross - Math.round(gross * item.discountRateBps / 10_000) - (item.discountMinor ?? 0);
     y += 20;
     doc.text(String(item.description).slice(0, 52), left + 8, y);
     doc.text(String(item.quantityMillis / 1_000), 330, y, { align: 'right' });
     doc.text(money(item.unitPriceMinor), 410, y, { align: 'right' });
     doc.text(`${item.taxRateBps / 100}%`, 450, y, { align: 'right' });
     doc.text(money(net), right - 8, y, { align: 'right' });
+    if (gross !== net) {
+      y += 12;
+      doc.setFontSize(8).setTextColor(107, 114, 128);
+      doc.text([locale === 'es' ? 'Descuento' : 'Discount', item.discountRateBps > 0 ? `${item.discountRateBps / 100}%` : null, money(net - gross)].filter(Boolean).join(' '), left + 8, y);
+      doc.setFontSize(9).setTextColor(17, 24, 39);
+    }
     doc.setDrawColor(229, 231, 235).line(left, y + 7, right, y + 7);
   }
 

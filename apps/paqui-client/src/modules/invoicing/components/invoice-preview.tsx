@@ -4,9 +4,19 @@ import { For, Show } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { getEquivalenceSurchargeRateBps } from '../invoicing.models';
 
+function getLineGrossMinor(item: InvoiceItemInput) {
+  return Math.round(item.quantityMillis * item.unitPriceMinor / 1_000);
+}
+
+// Same as the server: the fixed discount can take the line below zero, taking that amount off the rest of the invoice
 export function getLineNetMinor(item: InvoiceItemInput) {
-  const gross = Math.round(item.quantityMillis * item.unitPriceMinor / 1_000);
-  return Math.max(0, gross - Math.round(gross * item.discountRateBps / 10_000) - (item.discountMinor ?? 0));
+  const gross = getLineGrossMinor(item);
+  return gross - Math.round(gross * item.discountRateBps / 10_000) - (item.discountMinor ?? 0);
+}
+
+// Everything taken off the line, the percentage and the fixed amount
+export function getLineDiscountMinor(item: InvoiceItemInput) {
+  return getLineGrossMinor(item) - getLineNetMinor(item);
 }
 
 // Same rounding as the server: the withholding is computed on the taxable base
@@ -146,21 +156,28 @@ export function InvoicePreview(props: {
         <thead>
           <tr class="border-b border-zinc-200 text-left text-[10px] text-zinc-900">
             <th class="pb-2 font-medium">{t('invoicing.preview.table.item')}</th>
-            <th class="pb-2 text-right font-medium">{t('invoicing.preview.table.quantity')}</th>
-            <th class="pb-2 text-right font-medium">{t('invoicing.preview.table.unit-price')}</th>
-            <th class="pb-2 text-right font-medium">{t('invoicing.preview.table.tax')}</th>
-            <th class="pb-2 text-right font-medium">{t('invoicing.preview.table.total')}</th>
+            <th class="whitespace-nowrap pb-2 pl-3 text-right font-medium">{t('invoicing.preview.table.quantity')}</th>
+            <th class="whitespace-nowrap pb-2 pl-3 text-right font-medium">{t('invoicing.preview.table.unit-price')}</th>
+            <th class="whitespace-nowrap pb-2 pl-3 text-right font-medium">{t('invoicing.preview.table.tax')}</th>
+            <th class="whitespace-nowrap pb-2 pl-3 text-right font-medium">{t('invoicing.preview.table.total')}</th>
           </tr>
         </thead>
         <tbody>
           <For each={visibleItems()}>
             {item => (
               <tr class="border-b border-zinc-100 align-top">
-                <td class="py-2 pr-2 text-zinc-900">{item.description || '—'}</td>
-                <td class="py-2 text-right tabular-nums">{item.quantityMillis / 1_000}</td>
-                <td class="py-2 text-right tabular-nums">{money(item.unitPriceMinor)}</td>
-                <td class="py-2 text-right tabular-nums">{`${item.taxRateBps / 100}%`}</td>
-                <td class="py-2 text-right tabular-nums text-zinc-900">{money(getLineNetMinor(item))}</td>
+                <td class="py-2 pr-2 text-zinc-900">
+                  {item.description || '—'}
+                  <Show when={getLineDiscountMinor(item) !== 0}>
+                    <div class="text-zinc-500">
+                      {[t('invoicing.preview.table.discount'), item.discountRateBps > 0 ? `${item.discountRateBps / 100}%` : null, money(-getLineDiscountMinor(item))].filter(Boolean).join(' ')}
+                    </div>
+                  </Show>
+                </td>
+                <td class="whitespace-nowrap py-2 pl-3 text-right tabular-nums">{item.quantityMillis / 1_000}</td>
+                <td class="whitespace-nowrap py-2 pl-3 text-right tabular-nums">{money(item.unitPriceMinor)}</td>
+                <td class="whitespace-nowrap py-2 pl-3 text-right tabular-nums">{`${item.taxRateBps / 100}%`}</td>
+                <td class="whitespace-nowrap py-2 pl-3 text-right tabular-nums text-zinc-900">{money(getLineNetMinor(item))}</td>
               </tr>
             )}
           </For>

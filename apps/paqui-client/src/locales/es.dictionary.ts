@@ -2286,6 +2286,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'invoicing.preview.table.unit-price': 'Precio unitario',
   'invoicing.preview.table.tax': 'Impuesto',
   'invoicing.preview.table.total': 'Total',
+  'invoicing.preview.table.discount': 'Descuento',
   'invoicing.preview.subtotal': 'Base imponible',
   'invoicing.preview.tax': 'Impuestos',
   'invoicing.preview.amount-due': 'Importe a pagar',
