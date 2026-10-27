@@ -46,9 +46,11 @@ export function PurchaseEditorPage() {
   const isEditing = () => Boolean(params.purchaseInvoiceId);
   const documentIdParam = () => (typeof searchParams.documentId === 'string' ? searchParams.documentId : undefined);
   const queue = () => (typeof searchParams.queue === 'string' && searchParams.queue !== '' ? searchParams.queue.split(',') : []);
+  // Opened from a supplier's page: that supplier is chosen unless the AI reads another one on the document
+  const supplierIdParam = () => (typeof searchParams.supplierId === 'string' ? searchParams.supplierId : undefined);
   const { returnHref: listHref, keepReturnTo } = useReturnHref(() => getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'purchases' }));
 
-  const [supplierId, setSupplierId] = createSignal('');
+  const [supplierId, setSupplierId] = createSignal(isEditing() ? '' : supplierIdParam() ?? '');
   const [number, setNumber] = createSignal('');
   const [kind, setKind] = createSignal<PurchaseDocumentKind>('invoice');
   const [metadata, setMetadata] = createSignal<PurchaseMetadataEntry[]>([]);
@@ -166,7 +168,7 @@ export function PurchaseEditorPage() {
 
     loadedKey = documentIdToLoad;
     setExtraction(result);
-    setSupplierId(result.draft.supplierId ?? '');
+    setSupplierId(result.draft.supplierId ?? supplierIdParam() ?? '');
     setNumber(result.draft.number);
     setKind(result.draft.kind);
     setMetadata(result.draft.metadata);
@@ -294,6 +296,9 @@ export function PurchaseEditorPage() {
       const search = new URLSearchParams({ documentId: next });
       if (rest.length > 0) {
         search.set('queue', rest.join(','));
+      }
+      if (supplierIdParam() !== undefined) {
+        search.set('supplierId', supplierIdParam()!);
       }
       navigate(keepReturnTo(`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath: 'new' })}?${search.toString()}`));
     },

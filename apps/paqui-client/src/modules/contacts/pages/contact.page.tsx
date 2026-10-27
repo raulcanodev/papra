@@ -14,12 +14,17 @@ import { ContactPriceListField, getContactPricesQueryKey } from '@/modules/prici
 import { PriceListShareMenu } from '@/modules/pricing/components/price-list-share-menu';
 import { fetchContactPrices } from '@/modules/pricing/pricing.services';
 import { ProductScannerDialog } from '@/modules/product-scanner/components/product-scanner-dialog';
+import { AddPurchaseDialog } from '@/modules/purchases/components/add-purchase-dialog';
+import { PURCHASE_STATUS_BADGE_CLASSES, PURCHASE_STATUS_LABEL_I18N_KEYS } from '@/modules/purchases/purchases.constants';
+import { fetchPurchaseInvoices, getPurchaseInvoicesQueryKey } from '@/modules/purchases/purchases.services';
+import { usePurchaseUpload } from '@/modules/purchases/use-purchase-upload';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/modules/ui/components/dialog';
 import { EntityIcon } from '@/modules/ui/components/entity-icon';
+import { PageSection, PageSections } from '@/modules/ui/components/page-section';
 import { RowActions } from '@/modules/ui/components/row-actions';
 import { createToast } from '@/modules/ui/components/sonner';
 import { Tabs, TabsContent, TabsIndicator, TabsList, TabsTrigger } from '@/modules/ui/components/tabs';
@@ -29,6 +34,32 @@ import { ContactEditor } from '../components/contact-editor';
 import { CONTACT_ROLE_BADGE_CLASSES, CONTACT_ROLE_LABEL_I18N_KEYS, CONTACT_ROLE_PAGE_I18N_KEYS, CONTACT_ROLE_ROUTE_IDS, getContactFallbackIcon, getContactRoles } from '../contacts.constants';
 import { fetchContacts, getContactsQueryKey } from '../contacts.services';
 import { useDeleteContact } from '../use-delete-contact';
+
+// A contact detail that copies itself to the clipboard on click; the icon shows on hover
+function CopyableValue(props: { value: string }) {
+  const { t } = useI18n();
+  const [getIsJustCopied, setIsJustCopied] = createSignal(false);
+
+  const copyValue = async () => {
+    try {
+      await navigator.clipboard.writeText(props.value);
+    } catch {
+      createToast({ message: t('contacts.detail.copy-error'), type: 'error' });
+      return;
+    }
+
+    setIsJustCopied(true);
+    setTimeout(() => setIsJustCopied(false), 2000);
+    createToast({ message: t('contacts.detail.copied'), type: 'success' });
+  };
+
+  return (
+    <button type="button" class="group flex max-w-full items-center gap-1.5 text-left" onClick={() => void copyValue()} title={t('contacts.detail.copy')}>
+      <span class="truncate">{props.value}</span>
+      <div class={cn('size-3.5 shrink-0 text-muted-foreground transition-opacity', getIsJustCopied() ? 'i-tabler-check opacity-100' : 'i-tabler-copy opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100')} />
+    </button>
+  );
+}
 
 const CONTACT_TABS = ['invoices', 'delivery-notes', 'products', 'price-lists'] as const;
 
@@ -57,6 +88,10 @@ export function ContactPage() {
 
   const contact = createMemo(() => contactsQuery.data?.contacts.find(candidate => candidate.id === params.contactId));
   const contactInvoices = createMemo(() => (invoicesQuery.data?.invoices ?? []).filter(invoice => invoice.customerId === params.contactId));
+  const purchasesQuery = useQuery(() => ({ queryKey: getPurchaseInvoicesQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchPurchaseInvoices({ organizationId: params.organizationId }), enabled: contact()?.isSupplier === true }));
+  const contactPurchases = createMemo(() => (purchasesQuery.data?.purchaseInvoices ?? []).filter(purchaseInvoice => purchaseInvoice.supplierId === params.contactId));
+  const purchaseUpload = usePurchaseUpload({ organizationId: () => params.organizationId, supplierId: () => params.contactId });
+  const [addPurchaseOpen, setAddPurchaseOpen] = createSignal(false);
   const catalogProductsById = createMemo(() => new Map((catalogProductsQuery.data?.products ?? []).map(product => [product.id, product])));
   const priceRows = createMemo(() => (pricesQuery.data?.prices ?? []).flatMap((price) => {
     const product = catalogProductsById().get(price.productId);
@@ -64,6 +99,9 @@ export function ContactPage() {
   }));
   const role = () => getContactRoles({ contact: contact() ?? { isCustomer: true, isSupplier: false, isSalesRepresentative: false } })[0] ?? 'customer';
   const { returnHref: backHref } = useReturnHref(() => getOrganizationRouteHref({ organizationId: params.organizationId, routeId: CONTACT_ROLE_ROUTE_IDS[role()] }));
+  // A new invoice opened from here starts with this customer chosen
+  const newInvoiceHref = () => linkWithReturn(`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: 'new' })}?customerId=${encodeURIComponent(params.contactId)}`);
+  const purchaseEditHref = (purchaseInvoiceId: string) => linkWithReturn(getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath: `${purchaseInvoiceId}/edit` }));
   const invoiceEditHref = (invoiceId: string) => linkWithReturn(getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: `${invoiceId}/edit` }));
   const money = ({ amountMinor, currency }: { amountMinor: number; currency: string }) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency }).format(amountMinor / 100);
 
@@ -119,14 +157,18 @@ export function ContactPage() {
                 { label: t('contacts.detail.phone'), value: getContact().phone },
                 { label: t('contacts.table.location'), value: [getContact().addressLine1, getContact().postalCode, getContact().city, getContact().country].filter(Boolean).join(', ') },
                 // Payment terms are optional: without them the line is not shown
-                ...(getContact().paymentTermsDays === null ? [] : [{ label: t('contacts.detail.payment-terms'), value: t('contacts.detail.payment-terms-days', { count: getContact().paymentTermsDays! }) }]),
+                ...(getContact().paymentTermsDays === null ? [] : [{ label: t('contacts.detail.payment-terms'), value: t('contacts.detail.payment-terms-days', { count: getContact().paymentTermsDays! }), isCopyable: false }]),
                 { label: t('contacts.detail.notes'), value: getContact().notes },
               ]}
               >
                 {item => (
                   <div class="min-w-0">
                     <dt class="text-xs text-muted-foreground">{item.label}</dt>
-                    <dd class="mt-0.5 truncate">{item.value || '—'}</dd>
+                    <Show when={item.value && item.isCopyable !== false} fallback={<dd class="mt-0.5 truncate">{item.value || '—'}</dd>}>
+                      <dd class="mt-0.5 min-w-0">
+                        <CopyableValue value={item.value!} />
+                      </dd>
+                    </Show>
                   </div>
                 )}
               </For>
@@ -157,20 +199,64 @@ export function ContactPage() {
               </TabsList>
 
               <TabsContent value="invoices" class="mt-0">
-                <Show when={contactInvoices().length > 0} fallback={<Show when={!invoicesQuery.isLoading}><div class="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground">{t('contacts.detail.invoices.empty')}</div></Show>}>
-                  <CatalogTable headers={[{ label: t('invoicing.invoices.table.invoice') }, { label: t('invoicing.invoices.table.issue-date') }, { label: t('invoicing.invoices.table.status') }, { label: t('invoicing.invoices.table.total'), class: 'text-right' }]}>
-                    <For each={contactInvoices()}>
-                      {invoice => (
-                        <CatalogRow onClick={invoice.status === 'draft' ? () => navigate(invoiceEditHref(invoice.id)) : undefined}>
-                          <CatalogCell class="font-medium">{invoice.number ?? t('invoicing.status.draft')}</CatalogCell>
-                          <CatalogCell class="text-muted-foreground">{invoice.issueDate.toLocaleDateString(getLocale())}</CatalogCell>
-                          <CatalogCell><Badge variant="outline">{t(invoiceStatusLabelKeys[invoice.status])}</Badge></CatalogCell>
-                          <CatalogCell class="text-right font-medium tabular-nums">{money({ amountMinor: getInvoicePayableMinor(invoice), currency: invoice.currency })}</CatalogCell>
-                        </CatalogRow>
-                      )}
-                    </For>
-                  </CatalogTable>
-                </Show>
+                <PageSections>
+                  {/* Customers get the invoices issued to them, suppliers the purchases received from them */}
+                  <Show when={getContact().isCustomer || !getContact().isSupplier}>
+                    <PageSection>
+                      <div class="mb-3 flex items-center justify-between gap-3">
+                        <p class="text-sm text-muted-foreground">{t('contacts.detail.invoices.customer', { name: getContact().name })}</p>
+                        <Show when={getContact().isCustomer}>
+                          <Button as={A} size="sm" class="shrink-0 gap-1.5" href={newInvoiceHref()}>
+                            <div class="i-tabler-plus size-4" />
+                            {t('contacts.detail.invoices.new')}
+                          </Button>
+                        </Show>
+                      </div>
+                      <Show when={contactInvoices().length > 0} fallback={<Show when={!invoicesQuery.isLoading}><div class="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground">{t('contacts.detail.invoices.empty')}</div></Show>}>
+                        <CatalogTable headers={[{ label: t('invoicing.invoices.table.invoice') }, { label: t('invoicing.invoices.table.issue-date') }, { label: t('invoicing.invoices.table.status') }, { label: t('invoicing.invoices.table.total'), class: 'text-right' }]}>
+                          <For each={contactInvoices()}>
+                            {invoice => (
+                              <CatalogRow onClick={invoice.status === 'draft' ? () => navigate(invoiceEditHref(invoice.id)) : undefined}>
+                                <CatalogCell class="font-medium">{invoice.number ?? t('invoicing.status.draft')}</CatalogCell>
+                                <CatalogCell class="text-muted-foreground">{invoice.issueDate.toLocaleDateString(getLocale())}</CatalogCell>
+                                <CatalogCell><Badge variant="outline">{t(invoiceStatusLabelKeys[invoice.status])}</Badge></CatalogCell>
+                                <CatalogCell class="text-right font-medium tabular-nums">{money({ amountMinor: getInvoicePayableMinor(invoice), currency: invoice.currency })}</CatalogCell>
+                              </CatalogRow>
+                            )}
+                          </For>
+                        </CatalogTable>
+                      </Show>
+                    </PageSection>
+                  </Show>
+
+                  <Show when={getContact().isSupplier}>
+                    <PageSection>
+                      <div class="mb-3 flex items-center justify-between gap-3">
+                        <p class="text-sm text-muted-foreground">{t('contacts.detail.invoices.supplier', { name: getContact().name })}</p>
+                        <Button size="sm" class="shrink-0 gap-1.5" isLoading={purchaseUpload.isBusy()} onClick={() => setAddPurchaseOpen(true)}>
+                          <div class="i-tabler-upload size-4" />
+                          {t('contacts.detail.invoices.upload-purchase')}
+                        </Button>
+                      </div>
+                      <Show when={contactPurchases().length > 0} fallback={<Show when={!purchasesQuery.isLoading}><div class="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground">{t('contacts.detail.invoices.purchases-empty')}</div></Show>}>
+                        <CatalogTable headers={[{ label: t('purchases.table.number') }, { label: t('purchases.table.date') }, { label: t('purchases.table.status') }, { label: t('purchases.table.total'), class: 'text-right' }]}>
+                          <For each={contactPurchases()}>
+                            {purchaseInvoice => (
+                              <CatalogRow onClick={() => navigate(purchaseEditHref(purchaseInvoice.id))}>
+                                <CatalogCell class="font-medium">{purchaseInvoice.number}</CatalogCell>
+                                <CatalogCell class="text-muted-foreground">{purchaseInvoice.issueDate.toLocaleDateString(getLocale())}</CatalogCell>
+                                <CatalogCell><span class={cn('rounded-full px-2 py-0.5 text-xs font-medium', PURCHASE_STATUS_BADGE_CLASSES[purchaseInvoice.status])}>{t(PURCHASE_STATUS_LABEL_I18N_KEYS[purchaseInvoice.status])}</span></CatalogCell>
+                                <CatalogCell class="text-right font-medium tabular-nums">{money({ amountMinor: getInvoicePayableMinor(purchaseInvoice), currency: purchaseInvoice.currency })}</CatalogCell>
+                              </CatalogRow>
+                            )}
+                          </For>
+                        </CatalogTable>
+                      </Show>
+                      <AddPurchaseDialog open={addPurchaseOpen()} onOpenChange={setAddPurchaseOpen} onUpload={purchaseUpload.openFilePicker} onPhoto={purchaseUpload.openPhoto} manualHref={purchaseUpload.manualHref()} />
+                      {purchaseUpload.elements}
+                    </PageSection>
+                  </Show>
+                </PageSections>
               </TabsContent>
 
               <TabsContent value="delivery-notes" class="mt-0">

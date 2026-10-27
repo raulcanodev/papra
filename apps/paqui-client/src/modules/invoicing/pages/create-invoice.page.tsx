@@ -2,7 +2,7 @@ import type { Invoice, InvoiceDeliveryNote, InvoiceDraftInput, InvoiceItemInput,
 import type { Contact } from '@/modules/contacts/contacts.types';
 import type { DeliveryNote } from '@/modules/delivery-notes/delivery-notes.types';
 import type { PaymentMethod } from '@/modules/due-dates/due-dates.types';
-import { A, useNavigate, useParams } from '@solidjs/router';
+import { A, useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
 import { createEffect, createSignal, Index, on, Show } from 'solid-js';
 import { ContactFormFields, emptyContact } from '@/modules/contacts/components/contact-form';
@@ -77,6 +77,7 @@ export function CreateInvoicePage() {
   const { t } = useI18n();
   const params = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { returnHref } = useReturnHref(() => getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'invoices' }));
 
   const contactsQuery = useQuery(() => ({ queryKey: getContactsQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchContacts({ organizationId: params.organizationId }) }));
@@ -220,6 +221,21 @@ export function CreateInvoicePage() {
     // A customer without payment terms takes the ones of the fiscal profile
     setDueDate(plusDays(customer.paymentTermsDays ?? profileQuery.data?.profile?.paymentTermsDays ?? 30));
   };
+
+  // A new invoice opened from a customer's page (?customerId=) starts with that customer chosen
+  let isCustomerParamApplied = false;
+  createEffect(() => {
+    const customerIdParam = typeof searchParams.customerId === 'string' ? searchParams.customerId : undefined;
+    if (params.invoiceId || customerIdParam === undefined || isCustomerParamApplied || profileQuery.isLoading) {
+      return;
+    }
+
+    const customer = customers().find(candidate => candidate.id === customerIdParam);
+    if (customer) {
+      isCustomerParamApplied = true;
+      selectCustomer(customer);
+    }
+  });
 
   const openNewCustomerDialog = (name: string) => {
     setNewCustomer(emptyContact({ isCustomer: true, name, currency: currency() }));
