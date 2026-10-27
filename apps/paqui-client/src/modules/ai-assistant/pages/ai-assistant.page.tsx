@@ -5,7 +5,7 @@ import type { TranslationKeys } from '@/modules/i18n/locales.types';
 import type { OrganizationNavigationCapability } from '@/modules/ui/navigation/organization-navigation';
 import { useLocation, useNavigate, useParams } from '@solidjs/router';
 import remarkGfm from 'remark-gfm';
-import { createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { createEffect, createResource, createSignal, For, on, onCleanup, onMount, Show } from 'solid-js';
 import { SolidMarkdown } from 'solid-markdown';
 import { toast } from 'solid-sonner';
 import { isTouchDevice } from '@/modules/captures/captures.models';
@@ -660,14 +660,28 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
     abortController?.abort();
   });
 
+  // A question asked from a page ("Preguntar a Paqui") starts a chat of its own, once the current answer is done
+  let hasAskedFromPage = false;
+  createEffect(on([assistantPanel.pendingPrompt, isStreaming, () => busyActionIds().length], ([prompt, streaming, busyActions]) => {
+    if (prompt === undefined || streaming || busyActions > 0) {
+      return;
+    }
+    hasAskedFromPage = true;
+    handleNewChat();
+    void sendMessage(assistantPanel.takePendingPrompt());
+  }));
+
   // Restore last active chat on mount
   onMount(async () => {
     const storedChatId = sessionStorage.getItem('paqui-ai-chat');
-    if (!storedChatId) {
+    if (!storedChatId || hasAskedFromPage) {
       return;
     }
     try {
       const data = await fetchChatSession({ organizationId: orgId(), sessionId: storedChatId });
+      if (hasAskedFromPage) {
+        return;
+      }
       setActiveChatId(storedChatId);
       setMessages(data.messages);
       scrollToBottom();

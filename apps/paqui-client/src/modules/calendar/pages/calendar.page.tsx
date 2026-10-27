@@ -1,38 +1,29 @@
 /* eslint-disable style/max-statements-per-line */
-import type { CalendarFeedEvent } from '../calendar.types';
+import type { CalendarEntry, CalendarFeedEvent, PublicCalendarEvent } from '../calendar.types';
 import type { Invoice } from '@/modules/invoicing/invoicing.types';
-import { A, useParams } from '@solidjs/router';
+import type { PurchaseInvoice } from '@/modules/purchases/purchases.types';
+import { useParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { fetchInvoices } from '@/modules/invoicing/invoicing.services';
+import { fetchPurchaseInvoices, getPurchaseInvoicesQueryKey } from '@/modules/purchases/purchases.services';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
 import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
-import { useLinkWithReturn } from '@/modules/ui/navigation/return-to';
 import { fetchCalendarFeed } from '../calendar.services';
-
-type CalendarEntry = {
-  id: string;
-  date: Date;
-  type: 'invoice-created' | 'invoice-issued' | 'holiday' | 'tax-deadline' | 'payment-due' | 'collection-due';
-  title: string;
-  subtitle?: string;
-  source?: string;
-  /** The page the entry opens (the invoice of a due date) */
-  href?: string;
-  isSettled?: boolean;
-};
+import { CalendarDayEdition } from '../components/calendar-day-edition';
 
 const entryStyles: Record<CalendarEntry['type'], string> = {
   'invoice-created': 'bg-muted border-slate-400 text-muted-foreground',
   'invoice-issued': 'bg-emerald-500/8 border-emerald-500 text-emerald-800 dark:text-emerald-300',
+  'purchase-received': 'bg-violet-500/8 border-violet-500 text-violet-800 dark:text-violet-300',
   'holiday': 'bg-rose-500/8 border-rose-500 text-rose-800 dark:text-rose-300',
   'tax-deadline': 'bg-amber-500/10 border-amber-500 text-amber-900 dark:text-amber-300',
   'payment-due': 'bg-red-500/8 border-red-500 text-red-800 dark:text-red-300',
   'collection-due': 'bg-sky-500/10 border-sky-500 text-sky-800 dark:text-sky-300',
 };
-const entryPriority: Record<CalendarEntry['type'], number> = { 'tax-deadline': 0, 'payment-due': 1, 'collection-due': 2, 'holiday': 3, 'invoice-issued': 4, 'invoice-created': 5 };
+const entryPriority: Record<CalendarEntry['type'], number> = { 'tax-deadline': 0, 'payment-due': 1, 'collection-due': 2, 'holiday': 3, 'invoice-issued': 4, 'purchase-received': 5, 'invoice-created': 6 };
 
 const dayKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const localDate = (value: string) => new Date(`${value}T12:00:00`);
@@ -43,14 +34,24 @@ function monthGrid(month: Date) {
   return Array.from({ length: 42 }, (_, index) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + index));
 }
 
-function invoiceEntries(invoice: Invoice, draftLabel: string): CalendarEntry[] {
+type FormatMoney = (amountMinor: number, currency: string) => string;
+
+function invoiceEntries({ invoice, draftLabel, href, formatMoney }: { invoice: Invoice; draftLabel: string; href: string; formatMoney: FormatMoney }): CalendarEntry[] {
+  const base = { title: invoice.number ?? draftLabel, subtitle: invoice.customerName, amount: formatMoney(invoice.totalMinor, invoice.currency), href };
+  // Created and issued the same day shows once, as issued
+  const isIssuedSameDay = invoice.issuedAt !== null && dayKey(invoice.issuedAt) === dayKey(invoice.createdAt);
   return [
-    { id: `${invoice.id}-created`, date: invoice.createdAt, type: 'invoice-created', title: invoice.number ?? draftLabel, subtitle: invoice.customerName },
-    ...(invoice.issuedAt ? [{ id: `${invoice.id}-issued`, date: invoice.issuedAt, type: 'invoice-issued', title: invoice.number ?? draftLabel, subtitle: invoice.customerName } as CalendarEntry] : []),
+    ...(isIssuedSameDay ? [] : [{ id: `${invoice.id}-created`, date: invoice.createdAt, type: 'invoice-created', ...base } as CalendarEntry]),
+    ...(invoice.issuedAt ? [{ id: `${invoice.id}-issued`, date: invoice.issuedAt, type: 'invoice-issued', ...base } as CalendarEntry] : []),
   ];
 }
 
-function feedEntry({ event, organizationId, formatMoney }: { event: CalendarFeedEvent; organizationId: string; formatMoney: (amountMinor: number, currency: string) => string }): CalendarEntry {
+// A received invoice sits on the date it was issued by the supplier, the one that counts for the tax returns
+function purchaseEntry({ purchase, href, formatMoney }: { purchase: PurchaseInvoice; href: string; formatMoney: FormatMoney }): CalendarEntry {
+  return { id: `${purchase.id}-received`, date: purchase.issueDate, type: 'purchase-received', title: purchase.number || purchase.supplierName || '—', subtitle: purchase.number ? purchase.supplierName : undefined, amount: formatMoney(purchase.totalMinor, purchase.currency), href };
+}
+
+function feedEntry({ event, organizationId, formatMoney }: { event: CalendarFeedEvent; organizationId: string; formatMoney: FormatMoney }): CalendarEntry {
   if (event.type === 'payment-due' || event.type === 'collection-due') {
     const href = event.link.entityType === 'purchase_invoice'
       ? getOrganizationRouteChildHref({ organizationId, routeId: 'purchases', childPath: `${event.link.entityId}/edit` })
@@ -59,25 +60,29 @@ function feedEntry({ event, organizationId, formatMoney }: { event: CalendarFeed
     return { id: event.id, date: localDate(event.date), type: event.type, title: formatMoney(event.amountMinor, event.currency), subtitle: event.name, href, isSettled: event.status === 'paid' };
   }
 
-  return { id: event.id, date: localDate(event.date), type: event.type, title: event.name, source: event.source };
+  const { details, links } = event as PublicCalendarEvent;
+  return { id: event.id, date: localDate(event.date), type: event.type, title: event.name, source: event.source, details, links };
 }
 
 export function CalendarPage() {
   const { t, getLocale } = useI18n();
   const params = useParams();
-  const linkWithReturn = useLinkWithReturn();
   const now = new Date();
   const [month, setMonth] = createSignal(new Date(now.getFullYear(), now.getMonth(), 1));
+  const [selectedDay, setSelectedDay] = createSignal<Date>();
   const invoicesQuery = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'invoices'], queryFn: () => fetchInvoices({ organizationId: params.organizationId }) }));
+  const purchasesQuery = useQuery(() => ({ queryKey: getPurchaseInvoicesQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchPurchaseInvoices({ organizationId: params.organizationId }) }));
   const feedQuery = useQuery(() => ({
     queryKey: ['calendar', params.organizationId, month().getFullYear(), getLocale()],
     queryFn: () => fetchCalendarFeed({ organizationId: params.organizationId, year: month().getFullYear(), locale: getLocale() }),
   }));
   const days = createMemo(() => monthGrid(month()));
-  const formatMoney = (amountMinor: number, currency: string) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency, maximumFractionDigits: 0 }).format(amountMinor / 100);
+  const formatMoney = (amountMinor: number, currency: string) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency, maximumFractionDigits: 2 }).format(amountMinor / 100);
+  const editHref = (routeId: 'invoices' | 'purchases', id: string) => getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId, childPath: `${id}/edit` });
   const entriesByDay = createMemo(() => {
     const entries = [
-      ...(invoicesQuery.data?.invoices ?? []).flatMap(invoice => invoiceEntries(invoice, t('invoicing.status.draft'))),
+      ...(invoicesQuery.data?.invoices ?? []).flatMap(invoice => invoiceEntries({ invoice, draftLabel: t('invoicing.status.draft'), href: editHref('invoices', invoice.id), formatMoney })),
+      ...(purchasesQuery.data?.purchaseInvoices ?? []).map(purchase => purchaseEntry({ purchase, href: editHref('purchases', purchase.id), formatMoney })),
       ...(feedQuery.data?.events ?? []).map(event => feedEntry({ event, organizationId: params.organizationId, formatMoney })),
     ].sort((left, right) => entryPriority[left.type] - entryPriority[right.type]);
     return entries.reduce<Record<string, CalendarEntry[]>>((grouped, entry) => {
@@ -85,6 +90,16 @@ export function CalendarPage() {
     }, {});
   });
   const moveMonth = (offset: number) => setMonth(current => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+  // Turning the page of the day follows it into the next month, so its feed (and the next year's) loads
+  const moveDay = (offset: number) => {
+    const current = selectedDay();
+    if (current === undefined) {
+      return;
+    }
+    const next = new Date(current.getFullYear(), current.getMonth(), current.getDate() + offset);
+    setSelectedDay(next);
+    setMonth(new Date(next.getFullYear(), next.getMonth(), 1));
+  };
   const monthLabel = () => new Intl.DateTimeFormat(getLocale(), { month: 'long', year: 'numeric' }).format(month());
   const weekDays = () => Array.from({ length: 7 }, (_, index) => new Intl.DateTimeFormat(getLocale(), { weekday: 'short' }).format(new Date(2026, 9, 12 + index)));
   const legend = [
@@ -93,6 +108,7 @@ export function CalendarPage() {
     { type: 'collection-due', color: 'bg-sky-500', label: t('calendar.legend.collection-due') },
     { type: 'holiday', color: 'bg-rose-500', label: t('calendar.legend.holiday') },
     { type: 'invoice-issued', color: 'bg-emerald-500', label: t('calendar.legend.invoice-issued') },
+    { type: 'purchase-received', color: 'bg-violet-500', label: t('calendar.legend.purchase-received') },
     { type: 'invoice-created', color: 'bg-slate-400', label: t('calendar.legend.invoice-created') },
   ] as const;
 
@@ -135,39 +151,39 @@ export function CalendarPage() {
               const entries = () => entriesByDay()[dayKey(day)] ?? [];
               const outside = () => day.getMonth() !== month().getMonth();
               const today = () => dayKey(day) === dayKey(now);
+              const selected = () => selectedDay() !== undefined && dayKey(selectedDay()!) === dayKey(day);
               return (
-                <div class={cn('min-w-0 border-b border-r p-1.5 overflow-hidden', index() % 7 === 6 && 'border-r-0', index() >= 35 && 'border-b-0', outside() && 'bg-muted/15')}>
-                  <div class={cn('size-6 mb-1 flex items-center justify-center rounded-full text-xs', today() ? 'bg-primary text-primary-foreground font-semibold' : outside() ? 'text-muted-foreground/60' : 'text-foreground')}>{day.getDate()}</div>
-                  <div class="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDay(day)}
+                  aria-label={new Intl.DateTimeFormat(getLocale(), { dateStyle: 'full' }).format(day)}
+                  class={cn('group min-w-0 border-b border-r p-1.5 overflow-hidden text-left align-top flex flex-col transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring', index() % 7 === 6 && 'border-r-0', index() >= 35 && 'border-b-0', outside() && 'bg-muted/15', selected() && 'bg-accent/60')}
+                >
+                  <div class={cn('size-6 mb-1 flex shrink-0 items-center justify-center rounded-full text-xs', today() ? 'bg-primary text-primary-foreground font-semibold' : outside() ? 'text-muted-foreground/60' : 'text-foreground')}>{day.getDate()}</div>
+                  <div class="w-full space-y-1">
                     <For each={entries().slice(0, 3)}>
                       {entry => (
-                        <Show
-                          when={entry.href}
-                          fallback={(
-                            <div class={cn('truncate rounded px-1.5 py-1 text-[11px] leading-tight border-l-2', entryStyles[entry.type])} title={[entry.title, entry.subtitle, entry.source].filter(Boolean).join(' · ')}>
-                              <span class="font-medium">{entry.title}</span>
-                              <Show when={entry.subtitle}><span class="ml-1 opacity-75">{entry.subtitle}</span></Show>
-                            </div>
-                          )}
-                        >
-                          {getHref => (
-                            <A href={linkWithReturn(getHref())} class={cn('block truncate rounded px-1.5 py-1 text-[11px] leading-tight border-l-2 hover:brightness-95', entryStyles[entry.type], entry.isSettled && 'line-through opacity-60')} title={[entry.title, entry.subtitle].filter(Boolean).join(' · ')}>
-                              <span class="font-medium">{entry.title}</span>
-                              <Show when={entry.subtitle}><span class="ml-1 opacity-75">{entry.subtitle}</span></Show>
-                            </A>
-                          )}
-                        </Show>
+                        <div class={cn('truncate rounded px-1.5 py-1 text-[11px] leading-tight border-l-2', entryStyles[entry.type], entry.isSettled && 'line-through opacity-60')}>
+                          <span class="font-medium">{entry.title}</span>
+                          <Show when={entry.subtitle}><span class="ml-1 opacity-75">{entry.subtitle}</span></Show>
+                        </div>
                       )}
                     </For>
                     <Show when={entries().length > 3}><div class="px-1 text-[11px] text-muted-foreground">{t('calendar.more', { count: entries().length - 3 })}</div></Show>
                   </div>
-                </div>
+                </button>
               );
             }}
           </For>
         </div>
       </div>
       <p class="mt-3 text-xs text-muted-foreground">{t('calendar.sources-note')}</p>
+      <CalendarDayEdition
+        date={selectedDay()}
+        entries={selectedDay() ? entriesByDay()[dayKey(selectedDay()!)] ?? [] : []}
+        onOpenChange={open => !open && setSelectedDay(undefined)}
+        onMoveDay={moveDay}
+      />
     </main>
   );
 }

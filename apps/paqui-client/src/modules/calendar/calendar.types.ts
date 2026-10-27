@@ -4,7 +4,13 @@ export type PublicCalendarEvent = {
   name: string;
   type: 'holiday' | 'tax-deadline';
   source: string;
+  /** What is filed that day, one line each, as the AEAT writes it */
+  details?: string[];
+  /** The official pages of the models filed that day */
+  links?: CalendarLink[];
 };
+
+export type CalendarLink = { label: string; url: string };
 
 /** A due date of the organization: a received invoice to pay or an issued one to collect, opening its invoice */
 export type DueDateCalendarEvent = {
@@ -27,4 +33,20 @@ export type CalendarFeed = {
   holidayRegion: string | null;
   holidaySubdivision: string | null;
   updatedAt: string;
+};
+
+/** Something shown on a day of the calendar, from the feed or from the invoices of the organization */
+export type CalendarEntry = {
+  id: string;
+  date: Date;
+  type: 'invoice-created' | 'invoice-issued' | 'purchase-received' | 'holiday' | 'tax-deadline' | 'payment-due' | 'collection-due';
+  title: string;
+  subtitle?: string;
+  amount?: string;
+  source?: string;
+  details?: string[];
+  links?: CalendarLink[];
+  /** The page the entry opens (the invoice) */
+  href?: string;
+  isSettled?: boolean;
 };

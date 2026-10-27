@@ -40,6 +40,17 @@ const TAX_DEADLINES: Array<[string, { es: string; en: string }]> = [
   ['10-20', { es: 'Modelo 303 y 130 · 3T', en: 'Forms 303 and 130 · Q3' }],
 ];
 
+// The demo quarterly deadlines file the same two returns, with their official AEAT pages
+const DEMO_TAX_DETAILS = {
+  es: ['Autoliquidación trimestral del IVA: 303', 'Pago fraccionado del IRPF, estimación directa: 130'],
+  en: ['Quarterly VAT return: 303', 'Personal income tax instalment, direct estimation: 130'],
+};
+const DEMO_TAX_LINKS = [
+  { label: 'Modelo 303', url: 'https://sede.agenciatributaria.gob.es/Sede/procedimientoini/G414.shtml' },
+  { label: 'Modelo 130', url: 'https://sede.agenciatributaria.gob.es/Sede/procedimientoini/G601.shtml' },
+  { label: 'Calendario del contribuyente', url: 'https://sede.agenciatributaria.gob.es/Sede/calendario-contribuyente.html' },
+];
+
 function buildCalendar({ year, locale }: { year: number; locale: string }): CalendarFeed {
   const lang = locale.startsWith('es') ? 'es' : 'en';
   const toEvent = (type: PublicCalendarEvent['type'], source: string) => ([date, names]: [string, { es: string; en: string }]): PublicCalendarEvent => ({
@@ -48,6 +59,7 @@ function buildCalendar({ year, locale }: { year: number; locale: string }): Cale
     name: names[lang],
     type,
     source,
+    ...(type === 'tax-deadline' ? { details: DEMO_TAX_DETAILS[lang], links: DEMO_TAX_LINKS } : {}),
   });
 
   return {

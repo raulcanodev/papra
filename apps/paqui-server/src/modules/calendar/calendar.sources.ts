@@ -6,6 +6,41 @@ export type PublicCalendarEvent = {
   name: string;
   type: 'holiday' | 'tax-deadline';
   source: string;
+  /** What is filed that day, one line each, as the AEAT writes it */
+  details?: string[];
+  /** The official pages of the models filed that day, then the taxpayer calendar */
+  links?: { label: string; url: string }[];
+};
+
+const AEAT_TAXPAYER_CALENDAR_URL = 'https://sede.agenciatributaria.gob.es/Sede/calendario-contribuyente.html';
+
+// The AEAT page of each model, checked one by one: a model missing here links to the taxpayer calendar only
+const AEAT_MODEL_PROCEDURES: Record<string, string> = {
+  100: 'G229',
+  111: 'GH01',
+  115: 'GH02',
+  117: 'GH03',
+  123: 'GH04',
+  124: 'GH05',
+  126: 'GH06',
+  128: 'GH07',
+  130: 'G601',
+  131: 'G602',
+  136: 'GH09',
+  181: 'GI01',
+  182: 'GI02',
+  184: 'GI04',
+  190: 'GI10',
+  193: 'GI12',
+  200: 'GE04',
+  303: 'G414',
+  308: 'G403',
+  309: 'G404',
+  347: 'GI27',
+  349: 'GI28',
+  369: 'G420',
+  390: 'G412',
+  720: 'GI34',
 };
 
 const AEAT_CALENDARS = [
@@ -120,18 +155,45 @@ function unescapeIcsText(value: string) {
   return value.replace(/\\n/gi, ' ').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\').trim();
 }
 
+// The description is plain text or the HTML of Google Calendar: one line per return filed that day
+function readIcsDetails(value: string) {
+  return value
+    .replace(/\\n/gi, '\n')
+    .replace(/\\+([,;])/g, '$1')
+    .replace(/<\/(?:p|li|div|h\d)>|<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, '\'')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .split(/[\n•·]/)
+    .map(line => line.replace(/\s+/g, ' ').trim())
+    .filter(line => line.length > 0);
+}
+
+function readModels(details: string[]) {
+  return [...details.join('\n').matchAll(/(?:^|\D)(\d{3})(?!\d)/g)]
+    .map(match => match[1])
+    .filter((model): model is string => model !== undefined)
+    .filter((model, index, values) => values.indexOf(model) === index);
+}
+
+export function getAeatLinks(models: string[]) {
+  return [
+    ...models.flatMap(model => AEAT_MODEL_PROCEDURES[model] === undefined ? [] : [{ label: `Modelo ${model}`, url: `https://sede.agenciatributaria.gob.es/Sede/procedimientoini/${AEAT_MODEL_PROCEDURES[model]}.shtml` }]),
+    { label: 'Calendario del contribuyente', url: AEAT_TAXPAYER_CALENDAR_URL },
+  ];
+}
+
 function readIcsDate(value: string) {
   const match = value.match(/^(\d{4})(\d{2})(\d{2})/);
   return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
 }
 
-function eventName(summary: string, description: string) {
-  const models = [...description.matchAll(/(?:^|\D)(\d{3})(?!\d)/g)]
-    .map(match => match[1])
-    .filter((model): model is string => model !== undefined)
-    .filter((model, index, values) => values.indexOf(model) === index)
-    .slice(0, 6);
-  return models.length > 0 ? `${summary} · ${models.join(', ')}` : summary;
+function eventName(summary: string, models: string[]) {
+  return models.length > 0 ? `${summary} · ${models.slice(0, 6).join(', ')}` : summary;
 }
 
 export function parseAeatCalendar({ body, year, sourceId, sourceName }: { body: string; year: number; sourceId: string; sourceName: string }) {
@@ -147,10 +209,11 @@ export function parseAeatCalendar({ body, year, sourceId, sourceName }: { body: 
       if (current !== null) {
         const date = readIcsDate(current.DTSTART ?? '');
         const summary = unescapeIcsText(current.SUMMARY ?? '');
-        const description = unescapeIcsText(current.DESCRIPTION ?? '');
+        const details = readIcsDetails(current.DESCRIPTION ?? '');
         if (date !== null && date.startsWith(`${year}-`) && summary.length > 0) {
           const identity = current.UID ?? `${date}-${summary}`;
-          events.push({ id: `${sourceId}-${eventId(identity)}`, date, name: eventName(summary, description), type: 'tax-deadline', source: sourceName });
+          const models = readModels(details);
+          events.push({ id: `${sourceId}-${eventId(identity)}`, date, name: eventName(summary, models), type: 'tax-deadline', source: sourceName, details, links: getAeatLinks(models) });
         }
       }
       current = null;
