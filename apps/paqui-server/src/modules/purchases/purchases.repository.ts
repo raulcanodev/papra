@@ -87,7 +87,7 @@ async function ensurePurchaseInvoiceReferences({ db, organizationId, draft }: { 
 
 // The due dates as reviewed by the user, or a single one on the printed due date or after the supplier usual payment
 // terms. A delivery note is not paid by itself: the invoice covering it is.
-function getPurchaseInstalments({ draft, supplierTermsDays }: { draft: PurchaseInvoiceDraftInput; supplierTermsDays: number }) {
+function getPurchaseInstalments({ draft, supplierTermsDays }: { draft: PurchaseInvoiceDraftInput; supplierTermsDays: number | null }) {
   if (draft.kind === 'delivery_note') {
     return [];
   }

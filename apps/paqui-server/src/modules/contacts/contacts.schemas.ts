@@ -21,7 +21,7 @@ export const contactSchema = z.object({
   region: optionalText,
   country: optionalText,
   currency: currencySchema.default('EUR'),
-  paymentTermsDays: z.number().int().min(0).max(365).default(30),
+  paymentTermsDays: z.number().int().min(0).max(365).nullable().default(null),
   notes: z.string().trim().max(5_000).optional().nullable(),
   isCustomer: z.boolean().default(false),
   isSupplier: z.boolean().default(false),

@@ -229,8 +229,11 @@ function ActionRow(props: {
   confirmation: ToolConfirmation;
   isBusy: boolean;
   error?: string;
+  // More actions waiting after this one: they can all be approved at once
+  approveAllCount?: number;
   onApprove: () => void;
   onReject: () => void;
+  onApproveAll?: () => void;
 }) {
   const { t, getLocale } = useI18n();
   const [showDetails, setShowDetails] = createSignal(false);
@@ -240,13 +243,13 @@ function ActionRow(props: {
   const isDestructive = () => isDestructiveAction({ confirmation: props.confirmation });
 
   return (
-    <div class="flex flex-col gap-2 py-2.5 first:pt-0 last:pb-0">
+    <div class="flex flex-col gap-2">
       <div class="flex items-start gap-2.5">
         <div class={cn('mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg', isDestructive() ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary')}>
           <div class={cn(getActionIcon({ confirmation: props.confirmation }), 'size-4')} />
         </div>
         <div class="min-w-0 flex-1">
-          <div class="text-sm leading-snug [overflow-wrap:anywhere]">
+          <div class={cn('text-sm leading-snug [overflow-wrap:anywhere]', !showDetails() && 'line-clamp-2')} title={subject()}>
             <span class="text-muted-foreground">{getActionLabel({ confirmation: props.confirmation, t })}</span>
             <Show when={subject()}>
               <span class="font-medium text-foreground">{` · ${subject()}`}</span>
@@ -299,6 +302,11 @@ function ActionRow(props: {
           <div class="i-tabler-x size-3.5" />
           {t('ai-assistant.approval.reject')}
         </Button>
+        <Show when={(props.approveAllCount ?? 0) > 1}>
+          <Button size="sm" variant="ghost" class="h-11 w-full sm:w-auto sm:h-7 px-3 sm:px-2.5 text-sm sm:text-xs" onClick={() => props.onApproveAll?.()} disabled={props.isBusy}>
+            {t('ai-assistant.approval.approve-all', { count: props.approveAllCount! })}
+          </Button>
+        </Show>
       </div>
     </div>
   );
@@ -309,7 +317,7 @@ function ActionRow(props: {
 export function PendingActionsBar(props: {
   confirmations: ToolConfirmation[];
   busyIds: string[];
-  errors: Record<string, string>;
+  errors?: Record<string, string>;
   onApprove: (confirmation: ToolConfirmation) => void;
   onApproveAll: () => void;
   onReject: (confirmation: ToolConfirmation) => void;
@@ -317,35 +325,38 @@ export function PendingActionsBar(props: {
 }) {
   const { t } = useI18n();
 
+  // One at a time, the next one shows once this one is answered: the bar stays small on a phone
+  const current = () => props.confirmations[0];
+
   return (
-    <div class="mb-2 flex min-h-0 flex-col overflow-hidden rounded-2xl border bg-background px-3 py-3 shadow-sm" role="region" aria-label={t('ai-assistant.approval.title')}>
-      <div class="mb-2.5 flex shrink-0 flex-wrap items-center justify-between gap-x-2 gap-y-1">
-        <span class="text-xs font-medium text-muted-foreground">{t('ai-assistant.approval.title')}</span>
-        <div class="flex flex-wrap items-center gap-1">
+    <div class="mb-2 flex min-h-0 flex-col gap-2 overflow-y-auto overscroll-contain rounded-2xl border bg-background px-3 py-2.5 shadow-sm" role="region" aria-label={t('ai-assistant.approval.title')}>
+      <div class="flex shrink-0 items-center justify-between gap-2">
+        <div class="flex min-w-0 items-center gap-1.5">
+          <span class="truncate text-xs font-medium text-muted-foreground">{t('ai-assistant.approval.title')}</span>
           <Show when={props.confirmations.length > 1}>
-            <Button size="sm" variant="ghost" class="h-11 sm:h-7 px-2 text-xs" onClick={() => props.onApproveAll()} disabled={props.busyIds.length > 0}>
-              {t('ai-assistant.approval.approve-all', { count: props.confirmations.length })}
-            </Button>
+            <span class="shrink-0 rounded-full bg-primary/10 px-1.5 text-[11px] font-medium leading-5 text-primary" aria-label={t('ai-assistant.approval.pending-count', { count: props.confirmations.length })}>
+              {props.confirmations.length}
+            </span>
           </Show>
-          <Button size="sm" variant="ghost" class="h-11 sm:h-7 gap-1 px-2 text-xs" onClick={() => props.onSomethingElse()} disabled={props.busyIds.length > 0}>
-            <div class="i-tabler-message-2 size-3.5" />
-            {t('ai-assistant.approval.something-else')}
-          </Button>
         </div>
+        <Button size="sm" variant="ghost" class="-mr-1.5 h-9 shrink-0 gap-1 px-2 text-xs sm:h-7" onClick={() => props.onSomethingElse()} disabled={props.busyIds.length > 0}>
+          <div class="i-tabler-message-2 size-3.5" />
+          {t('ai-assistant.approval.something-else')}
+        </Button>
       </div>
-      <div class="min-h-0 max-h-[min(18rem,30dvh)] divide-y overflow-y-auto overscroll-contain">
-        <For each={props.confirmations}>
-          {confirmation => (
-            <ActionRow
-              confirmation={confirmation}
-              isBusy={props.busyIds.length > 0}
-              error={props.errors[confirmation.toolCallId]}
-              onApprove={() => props.onApprove(confirmation)}
-              onReject={() => props.onReject(confirmation)}
-            />
-          )}
-        </For>
-      </div>
+      <Show when={current()} keyed>
+        {confirmation => (
+          <ActionRow
+            confirmation={confirmation}
+            isBusy={props.busyIds.length > 0}
+            error={props.errors?.[confirmation.toolCallId]}
+            approveAllCount={props.confirmations.length}
+            onApprove={() => props.onApprove(confirmation)}
+            onReject={() => props.onReject(confirmation)}
+            onApproveAll={() => props.onApproveAll()}
+          />
+        )}
+      </Show>
     </div>
   );
 }

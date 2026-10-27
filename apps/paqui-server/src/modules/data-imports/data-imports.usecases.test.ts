@@ -74,7 +74,7 @@ describe('data imports usecases', () => {
     expect([updated!.name, updated!.phone, updated!.city, updated!.email, updated!.isCustomer, updated!.isSupplier]).to.eql(['Ferretería Pérez SL', '968000000', 'Murcia', null, true, true]);
 
     const [created] = await db.select().from(contactsTable).where(eq(contactsTable.taxId, 'X1234567L'));
-    expect([created!.kind, created!.email, created!.isCustomer, created!.paymentTermsDays]).to.eql(['person', 'ana@example.com', true, 30]);
+    expect([created!.kind, created!.email, created!.isCustomer, created!.paymentTermsDays]).to.eql(['person', 'ana@example.com', true, null]);
   });
 
   test('products get the defaults of the catalog for what the file does not say', async () => {

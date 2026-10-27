@@ -22,7 +22,7 @@ export function emptyContact(overrides: Partial<ContactInput> = {}): ContactInpu
     region: null,
     country: null,
     currency: 'EUR',
-    paymentTermsDays: 30,
+    paymentTermsDays: null,
     notes: null,
     icon: null,
     iconColor: null,
@@ -91,7 +91,7 @@ export function ContactFormFields(props: {
       <FormField label={t('invoicing.common.postal-code')}><TextField value={props.value.postalCode ?? ''} onInput={event => set('postalCode', optional(event.currentTarget.value))} /></FormField>
       <FormField label={t('invoicing.common.city')}><TextField value={props.value.city ?? ''} onInput={event => set('city', optional(event.currentTarget.value))} /></FormField>
       <Show when={hasBillingTerms()}>
-        <FormField label={t('invoicing.customer-form.payment-terms')}><TextField type="number" min="0" max="365" value={props.value.paymentTermsDays} onInput={event => set('paymentTermsDays', Number(event.currentTarget.value))} /></FormField>
+        <FormField label={t('invoicing.customer-form.payment-terms')}><TextField type="number" min="0" max="365" value={props.value.paymentTermsDays ?? ''} onInput={event => set('paymentTermsDays', event.currentTarget.value === '' ? null : Number(event.currentTarget.value))} /></FormField>
       </Show>
       <Show when={props.value.isCustomer}>
         <div class="sm:col-span-2">

@@ -20,7 +20,7 @@ export type Contact = {
   region: string | null;
   country: string | null;
   currency: string;
-  paymentTermsDays: number;
+  paymentTermsDays: number | null;
   notes: string | null;
   icon: string | null;
   iconColor: EntityIconColor | null;

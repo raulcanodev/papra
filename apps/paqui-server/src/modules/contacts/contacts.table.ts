@@ -23,7 +23,7 @@ export const contactsTable = pgTable('contacts', {
   region: text('region'),
   country: text('country'),
   currency: text('currency').notNull().default('EUR'),
-  paymentTermsDays: integer('payment_terms_days').notNull().default(30),
+  paymentTermsDays: integer('payment_terms_days'),
   notes: text('notes'),
   icon: text('icon'),
   iconColor: text('icon_color', { enum: ENTITY_ICON_COLORS }),

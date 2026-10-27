@@ -219,7 +219,10 @@ input[type="week"]::-webkit-date-and-time-value {
   table.stacked-table,
   .stacked-table > tbody,
   .stacked-table > tbody > tr,
-  .stacked-table > tbody > tr > td {
+  .stacked-table > tbody > tr > td,
+  .stacked-table > tfoot,
+  .stacked-table > tfoot > tr,
+  .stacked-table > tfoot > tr > td {
     display: block;
   }
 

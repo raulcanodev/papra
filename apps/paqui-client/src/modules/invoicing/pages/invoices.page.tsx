@@ -50,7 +50,18 @@ export function InvoicesPage() {
   const editHref = (invoice: Invoice) => linkWithReturn(getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: `${invoice.id}/edit` }));
   const paidMutation = createMutation(() => ({ mutationFn: (invoiceId: string) => markInvoicePaid({ organizationId: params.organizationId, invoiceId }), onSuccess: refresh }));
   // The amount the customer pays, the IRPF withholding goes to the tax agency
-  const money = (invoice: Invoice) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency: invoice.currency }).format(getInvoicePayableMinor(invoice) / 100);
+  const formatMoney = (minor: number, currency: string) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency }).format(minor / 100);
+  const money = (invoice: Invoice) => formatMoney(getInvoicePayableMinor(invoice), invoice.currency);
+  // The sum of the listed invoices, one amount per currency; a void invoice counts nothing
+  const totals = createMemo(() => {
+    const byCurrency = new Map<string, number>();
+    for (const invoice of invoices()) {
+      if (invoice.status !== 'void') {
+        byCurrency.set(invoice.currency, (byCurrency.get(invoice.currency) ?? 0) + getInvoicePayableMinor(invoice));
+      }
+    }
+    return [...byCurrency].map(([currency, minor]) => formatMoney(minor, currency));
+  });
   return (
     <main class="page">
       <div class="page-header">
@@ -74,7 +85,15 @@ export function InvoicesPage() {
         </div>
       </Show>
       <Show when={invoices().length > 0}>
-        <CatalogTable headers={[{ label: t('invoicing.invoices.table.invoice') }, { label: t('invoicing.invoices.table.customer') }, { label: t('invoicing.invoices.table.issue-date') }, { label: t('invoicing.invoices.table.status') }, { label: t('invoicing.invoices.table.total'), class: 'text-right' }, { label: '', class: 'w-14' }]}>
+        <CatalogTable
+          headers={[{ label: t('invoicing.invoices.table.invoice') }, { label: t('invoicing.invoices.table.customer') }, { label: t('invoicing.invoices.table.issue-date') }, { label: t('invoicing.invoices.table.status') }, { label: t('invoicing.invoices.table.total'), class: 'text-right' }, { label: '', class: 'w-14' }]}
+          footer={(
+            <div class="flex items-center justify-between gap-4 text-sm md:pr-14">
+              <span class="text-muted-foreground">{t('invoicing.invoices.table.sum', { count: invoices().length })}</span>
+              <span class="flex flex-wrap justify-end gap-x-4 font-semibold tabular-nums"><For each={totals()}>{amount => <span>{amount}</span>}</For></span>
+            </div>
+          )}
+        >
           <For each={invoices()}>
             {invoice => (
               <CatalogRow onClick={invoice.status === 'draft' ? () => navigate(editHref(invoice)) : undefined}>
@@ -92,7 +111,7 @@ export function InvoicesPage() {
                   <RowActions
                     itemName={invoice.number ?? t('invoicing.status.draft')}
                     actions={[
-                      ...(invoice.status === 'draft' ? [{ label: t('invoicing.invoices.actions.send'), icon: 'i-tabler-send', onSelect: () => sendMutation.mutate(invoice.id) }] : []),
+                      ...(invoice.status === 'draft' || invoice.status === 'issued' ? [{ label: t('invoicing.invoices.actions.send'), icon: 'i-tabler-send', onSelect: () => sendMutation.mutate(invoice.id) }] : []),
                       ...(invoice.status !== 'draft' && invoice.status !== 'issuing' ? [{ label: t('invoicing.invoices.actions.download'), icon: 'i-tabler-download', onSelect: () => void downloadInvoicePdf({ organizationId: params.organizationId, invoiceId: invoice.id, filename: invoice.number ?? invoice.id }) }] : []),
                       ...(invoice.status === 'issued' || invoice.status === 'sent' ? [{ label: t('invoicing.invoices.actions.mark-paid'), icon: 'i-tabler-check', onSelect: () => paidMutation.mutate(invoice.id) }] : []),
                     ]}

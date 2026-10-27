@@ -57,7 +57,8 @@ export function CatalogPage(props: ParentProps<{ title: string; description: str
   );
 }
 
-export function CatalogTable(props: ParentProps<{ headers: Array<{ label: string; class?: string }> }>) {
+/** `footer`: a row under the table, outside the stacked phone cards (the totals of the listed rows) */
+export function CatalogTable(props: ParentProps<{ headers: Array<{ label: string; class?: string }>; footer?: JSX.Element }>) {
   let table: HTMLTableElement | undefined;
   useStackedTableLabels(() => table);
 
@@ -66,6 +67,9 @@ export function CatalogTable(props: ParentProps<{ headers: Array<{ label: string
       <table ref={table} class={cn('w-full text-sm md:min-w-[720px]', STACKED_TABLE_CLASS)}>
         <thead class="border-b bg-muted/30 text-xs text-muted-foreground"><tr><For each={props.headers}>{header => <th class={cn('h-10 px-4 text-left font-medium', header.class)}>{header.label}</th>}</For></tr></thead>
         <tbody class="divide-y">{props.children}</tbody>
+        <Show when={props.footer}>
+          <tfoot class="border-t bg-muted/30"><tr><td colSpan={props.headers.length} class="px-4 py-3">{props.footer}</td></tr></tfoot>
+        </Show>
       </table>
     </div>
   );

@@ -118,7 +118,8 @@ export function ContactPage() {
                 { label: 'Email', value: getContact().email },
                 { label: t('contacts.detail.phone'), value: getContact().phone },
                 { label: t('contacts.table.location'), value: [getContact().addressLine1, getContact().postalCode, getContact().city, getContact().country].filter(Boolean).join(', ') },
-                { label: t('contacts.detail.payment-terms'), value: t('contacts.detail.payment-terms-days', { count: getContact().paymentTermsDays }) },
+                // Payment terms are optional: without them the line is not shown
+                ...(getContact().paymentTermsDays === null ? [] : [{ label: t('contacts.detail.payment-terms'), value: t('contacts.detail.payment-terms-days', { count: getContact().paymentTermsDays! }) }]),
                 { label: t('contacts.detail.notes'), value: getContact().notes },
               ]}
               >

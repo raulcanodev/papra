@@ -26,6 +26,7 @@ import { deliveryNotesMigration } from './list/0023-delivery-notes.migration';
 import { intakeEmailAliasesMigration } from './list/0024-intake-email-aliases.migration';
 import { adminImpersonationsMigration } from './list/0025-admin-impersonations.migration';
 import { equivalenceSurchargeMigration } from './list/0026-equivalence-surcharge.migration';
+import { optionalPaymentTermsMigration } from './list/0027-optional-payment-terms.migration';
 
 export const migrations: Migration[] = [
   postgresInitialSchemaMigration,
@@ -54,4 +55,5 @@ export const migrations: Migration[] = [
   intakeEmailAliasesMigration,
   adminImpersonationsMigration,
   equivalenceSurchargeMigration,
+  optionalPaymentTermsMigration,
 ];
