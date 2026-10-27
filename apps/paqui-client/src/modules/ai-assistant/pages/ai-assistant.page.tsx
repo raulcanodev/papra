@@ -295,27 +295,19 @@ const TOOL_ACTIVITY_LABELS: Record<string, { icon: string; labelKey: Translation
   updateUserProfile: { icon: 'i-tabler-user-edit', labelKey: 'ai-assistant.activity.update-profile' },
 };
 
-function ToolActivityIndicator(props: { toolName: string }) {
+// One line for whatever Paqui is doing, the latest tool when several run at once
+function ToolActivityIndicator(props: { toolNames: string[] }) {
   const { t } = useI18n();
   const info = () => {
-    const activity = TOOL_ACTIVITY_LABELS[props.toolName] ?? { icon: 'i-tabler-loader', labelKey: 'ai-assistant.activity.working' };
-    return { icon: activity.icon, label: t(activity.labelKey) };
+    const known = [...props.toolNames].reverse().find(name => TOOL_ACTIVITY_LABELS[name]);
+    const activity = known ? TOOL_ACTIVITY_LABELS[known]! : { icon: 'i-tabler-loader-2', labelKey: 'ai-assistant.activity.working' as const };
+    return { icon: activity.icon, label: t(activity.labelKey), animation: known ? 'animate-pulse' : 'animate-spin' };
   };
 
   return (
-    <div class="flex items-center gap-2 py-1.5 px-2 rounded-md bg-muted/50 border border-border/50 text-muted-foreground text-xs">
-      <div class={cn(info().icon, 'size-3.5 animate-pulse')} />
-      <span class="font-medium">{info().label}</span>
-    </div>
-  );
-}
-
-function ToolActivityStack(props: { toolNames: string[] }) {
-  return (
-    <div class="flex flex-col gap-1">
-      <For each={props.toolNames}>
-        {name => <ToolActivityIndicator toolName={name} />}
-      </For>
+    <div class="flex items-center gap-2 py-1 text-sm text-muted-foreground">
+      <div class={cn(info().icon, info().animation, 'size-4 shrink-0')} />
+      <span>{info().label}</span>
     </div>
   );
 }
@@ -414,7 +406,7 @@ const MessageBubble: Component<{ message: ChatMessage; isStreaming?: boolean }> 
                   </div>
                 )}
               >
-                <ToolActivityStack toolNames={props.message.activeToolCalls!} />
+                <ToolActivityIndicator toolNames={props.message.activeToolCalls!} />
               </Show>
             </Show>
             <Show when={props.message.content}>
