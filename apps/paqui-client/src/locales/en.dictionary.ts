@@ -3203,7 +3203,7 @@ export const translations = {
   'layout.mobile.quick-actions.scan': 'Scan',
   'layout.mobile.quick-actions.scan.description': 'A receipt or an invoice with the camera',
   'layout.mobile.quick-actions.upload': 'Upload a file',
-  'layout.mobile.quick-actions.upload.description': 'PDF, photo or document',
+  'layout.mobile.quick-actions.upload.description': 'An invoice or a receipt, PDF or photo',
   'layout.mobile.quick-actions.new-delivery-note': 'Create delivery note',
   'layout.mobile.quick-actions.new-delivery-note.description': 'Fill it in and print it to sign',
   'layout.mobile.quick-actions.new-invoice': 'New invoice',

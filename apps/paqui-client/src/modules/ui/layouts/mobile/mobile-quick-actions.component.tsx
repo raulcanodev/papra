@@ -37,13 +37,33 @@ export const MobileQuickActions: Component<{ open: boolean; onOpenChange: (open:
     }
   }));
 
+  // A photo or a file from here is almost always a receipt or an invoice: it is read and opened for review straight away.
+  // Without the invoicing module there are no purchases, it is kept as a document
   const onCameraChange = async (files: File[]) => {
     if (files.length === 0) {
       return;
     }
 
-    await uploadDocuments({ files: await Promise.all(files.map(async file => preparePhotoForUpload({ file }))) });
+    const photos = await Promise.all(files.map(async file => preparePhotoForUpload({ file })));
+
+    if (getCapabilities().invoicing) {
+      await purchaseUpload.uploadFiles(photos);
+      return;
+    }
+
+    close();
+    await uploadDocuments({ files: photos });
     navigate(getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'documents' }));
+  };
+
+  const onUploadSelect = () => {
+    if (getCapabilities().invoicing) {
+      purchaseUpload.openFilePicker();
+      return;
+    }
+
+    close();
+    void promptImport();
   };
 
   const getEntityHref = (routeId: 'newDeliveryNote' | 'newInvoice') => `/organizations/${params.organizationId}/${organizationEntityRoutes[routeId].path}`;
@@ -113,13 +133,11 @@ export const MobileQuickActions: Component<{ open: boolean; onOpenChange: (open:
                 <div class="grid grid-cols-2 gap-2.5">
                   <button
                     type="button"
-                    class="flex min-h-28 flex-col items-start justify-between gap-4 rounded-2xl bg-primary p-3.5 text-left text-primary-foreground transition-transform active:scale-98"
-                    onClick={() => {
-                      close();
-                      cameraInput?.click();
-                    }}
+                    class="flex min-h-28 flex-col items-start justify-between gap-4 rounded-2xl bg-primary p-3.5 text-left text-primary-foreground transition-transform active:scale-98 disabled:opacity-70"
+                    disabled={purchaseUpload.isBusy()}
+                    onClick={() => cameraInput?.click()}
                   >
-                    <div class="i-tabler-camera size-6.5" />
+                    <div class={cn(purchaseUpload.isBusy() ? 'i-tabler-loader-2 animate-spin' : 'i-tabler-camera', 'size-6.5')} />
                     <span>
                       <span class="block text-base font-semibold">{t('layout.mobile.quick-actions.scan')}</span>
                       <span class="block text-sm opacity-80">{t('layout.mobile.quick-actions.scan.description')}</span>
@@ -128,11 +146,9 @@ export const MobileQuickActions: Component<{ open: boolean; onOpenChange: (open:
 
                   <button
                     type="button"
-                    class="flex min-h-28 flex-col items-start justify-between gap-4 rounded-2xl bg-muted p-3.5 text-left transition-transform active:scale-98"
-                    onClick={() => {
-                      close();
-                      void promptImport();
-                    }}
+                    class="flex min-h-28 flex-col items-start justify-between gap-4 rounded-2xl bg-muted p-3.5 text-left transition-transform active:scale-98 disabled:opacity-70"
+                    disabled={purchaseUpload.isBusy()}
+                    onClick={onUploadSelect}
                   >
                     <div class="i-tabler-upload size-6.5" />
                     <span>
