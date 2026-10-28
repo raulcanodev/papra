@@ -1,9 +1,11 @@
 import type { Component } from 'solid-js';
 import type { Document } from '../documents.types';
+import { makePersisted } from '@solid-primitives/storage';
 import { useQuery } from '@tanstack/solid-query';
 import { createEffect, createSignal, For, Match, onCleanup, Show, Switch } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cn } from '@/modules/shared/style/cn';
+import { SwitchControl, SwitchLabel, SwitchThumb, Switch as Toggle } from '@/modules/ui/components/switch';
 import { fetchDocumentFile } from '../documents.services';
 import { DocumentPreview } from './document-preview.component';
 
@@ -37,16 +39,18 @@ async function renderPdfPages({ data, onPage }: { data: ArrayBuffer; onPage: (ur
   }
 }
 
-// With a mouse, the part of the page under the pointer is shown magnified in place, like a shop's product photo
-const MagnifiableImage: Component<{ src: string; alt: string }> = (props) => {
-  const canMagnify = typeof window !== 'undefined' && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+// Only with a mouse: on a touch screen the page is pinched instead
+const hasFinePointer = () => typeof window !== 'undefined' && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+// When the magnifier is on, the part of the page under the pointer is shown magnified in place, like a shop's product photo
+const MagnifiableImage: Component<{ src: string; alt: string; canMagnify: boolean }> = (props) => {
   const [position, setPosition] = createSignal<{ x: number; y: number } | null>(null);
 
   return (
     <div
-      class={cn('relative overflow-hidden', canMagnify && 'cursor-zoom-in')}
+      class={cn('relative overflow-hidden', props.canMagnify && 'cursor-zoom-in')}
       onMouseMove={(event) => {
-        if (!canMagnify) {
+        if (!props.canMagnify) {
           return;
         }
         const rect = event.currentTarget.getBoundingClientRect();
@@ -55,7 +59,7 @@ const MagnifiableImage: Component<{ src: string; alt: string }> = (props) => {
       onMouseLeave={() => setPosition(null)}
     >
       <img src={props.src} alt={props.alt} class="block h-auto w-full" draggable={false} />
-      <Show when={position()}>
+      <Show when={props.canMagnify && position()}>
         {getPosition => (
           <div
             class="pointer-events-none absolute inset-0 bg-white bg-no-repeat"
@@ -69,7 +73,7 @@ const MagnifiableImage: Component<{ src: string; alt: string }> = (props) => {
 
 /**
  * The paper next to a form that is filled from it: as tall as the document itself (no empty viewer around a short
- * invoice), page after page, and magnified under the mouse on a computer. Other kinds of files use the full preview.
+ * invoice), page after page, and magnified under the mouse on a computer when the magnifier is turned on. Other kinds of files use the full preview.
  */
 export const DocumentSidePreview: Component<{ document: Document }> = (props) => {
   const { t } = useI18n();
@@ -81,6 +85,9 @@ export const DocumentSidePreview: Component<{ document: Document }> = (props) =>
     queryFn: () => fetchDocumentFile({ documentId: props.document.id, organizationId: props.document.organizationId }),
     enabled: isPdf() || isImage(),
   }));
+
+  // Off by default, remembered once turned on
+  const [isMagnifierOn, setIsMagnifierOn] = makePersisted(createSignal(false), { name: 'paqui_document_magnifier', storage: localStorage });
 
   const [pages, setPages] = createSignal<string[]>([]);
   const [hasFailed, setHasFailed] = createSignal(false);
@@ -128,8 +135,16 @@ export const DocumentSidePreview: Component<{ document: Document }> = (props) =>
             </div>
           )}
         >
+          <Show when={hasFinePointer()}>
+            <div class="sticky top-0 z-10 flex justify-end border-b bg-card/95 px-3 py-2 backdrop-blur">
+              <Toggle class="flex items-center gap-2" checked={isMagnifierOn()} onChange={setIsMagnifierOn}>
+                <SwitchLabel class="text-xs text-muted-foreground">{t('documents.preview.magnifier')}</SwitchLabel>
+                <SwitchControl><SwitchThumb /></SwitchControl>
+              </Toggle>
+            </div>
+          </Show>
           <div class="divide-y">
-            <For each={pages()}>{(url, index) => <MagnifiableImage src={url} alt={`${props.document.name} · ${index() + 1}`} />}</For>
+            <For each={pages()}>{(url, index) => <MagnifiableImage src={url} alt={`${props.document.name} · ${index() + 1}`} canMagnify={isMagnifierOn()} />}</For>
           </div>
         </Show>
       </Match>
