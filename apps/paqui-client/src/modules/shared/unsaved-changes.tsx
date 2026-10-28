@@ -114,7 +114,7 @@ export function useUnsavedChangesGuard(props: {
     },
     elements: (
       <Dialog open={isDialogOpen()} onOpenChange={isOpen => !isOpen && keepEditing()}>
-        <DialogContent class="sm:max-w-md">
+        <DialogContent class="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{t('common.unsaved-changes.title')}</DialogTitle>
             <DialogDescription>{t('common.unsaved-changes.message')}</DialogDescription>
@@ -123,11 +123,12 @@ export function useUnsavedChangesGuard(props: {
             </Show>
           </DialogHeader>
           <DialogFooter>
-            <div class="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button variant="secondary" onClick={keepEditing}>{t('common.unsaved-changes.keep-editing')}</Button>
+            {/* Stacked on a phone, wrapped rather than overflowing when the labels are long */}
+            <div class="flex w-full min-w-0 flex-col-reverse gap-2 sm:(flex-row flex-wrap justify-end)">
+              <Button variant="secondary" class="rounded-full" onClick={keepEditing}>{t('common.unsaved-changes.keep-editing')}</Button>
               <Button
                 variant="ghost"
-                class="text-red-600 hover:text-red-600"
+                class="rounded-full text-red-600 hover:text-red-600"
                 onClick={() => {
                   setIsDialogOpen(false);
                   leave();
@@ -138,6 +139,8 @@ export function useUnsavedChangesGuard(props: {
               <Show when={save()}>
                 {getSave => (
                   <Button
+                    variant="primary"
+                    class="rounded-full"
                     disabled={!getSave().canSave()}
                     onClick={() => {
                       setIsDialogOpen(false);

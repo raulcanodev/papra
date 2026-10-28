@@ -740,7 +740,6 @@ export function CreateInvoicePage() {
               onClick={() => mutation.mutate({ issue: true })}
             >
               {t('invoicing.editor.issue')}
-              <div class="i-tabler-check size-3.5" />
             </Button>
           </div>
           <InvoicePreview

@@ -254,6 +254,18 @@ input[type="week"]::-webkit-date-and-time-value {
     text-align: right;
   }
 
+  /* A long name never pushes the card wider: the value shrinks (a truncated name ends in an ellipsis), and a long word
+     with no spaces breaks */
+  .stacked-table > tbody > tr > td {
+    overflow-wrap: anywhere;
+  }
+
+  .stacked-table > tbody > tr > td > *,
+  .stacked-table > tbody > tr > td :where(div, a, span, button, p):has(> .truncate) {
+    min-width: 0;
+    max-width: 100%;
+  }
+
   .stacked-table > tbody > tr > td::before {
     content: attr(data-label);
     flex-shrink: 0;
