@@ -5,7 +5,7 @@ import { createMutation, useQuery } from '@tanstack/solid-query';
 import { createEffect, createMemo, createSignal, Index, Show } from 'solid-js';
 import { emptyContact } from '@/modules/contacts/components/contact-form';
 import { createContact, fetchContacts, getContactsQueryKey, updateContact } from '@/modules/contacts/contacts.services';
-import { DocumentPreview } from '@/modules/documents/components/document-preview.component';
+import { DocumentSidePreview } from '@/modules/documents/components/document-side-preview';
 import { fetchDocument } from '@/modules/documents/documents.services';
 import { getDueDatesQueryKey } from '@/modules/due-dates/due-dates.services';
 import { useI18n } from '@/modules/i18n/i18n.provider';
@@ -451,9 +451,9 @@ export function ImportInvoicePage() {
         <Show when={documentQuery.data?.document}>
           {getDocument => (
             <aside class="min-w-0 lg:sticky lg:top-6 lg:self-start">
-              {/* The PDF viewer is absolutely positioned, it needs a container with an explicit height */}
-              <div class="relative h-[calc(100dvh-9rem)] min-h-96 overflow-auto rounded-xl border bg-card">
-                <DocumentPreview document={getDocument()} />
+              {/* As tall as the paper, scrolled within the screen when it is longer */}
+              <div class="max-h-[calc(100dvh-9rem)] overflow-auto rounded-xl border bg-card">
+                <DocumentSidePreview document={getDocument()} />
               </div>
             </aside>
           )}

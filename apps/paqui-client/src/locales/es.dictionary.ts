@@ -547,6 +547,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'documents.deleted.restoring': 'Restaurando...',
   'documents.deleted.deleting': 'Eliminando...',
 
+  'documents.preview.loading': 'Cargando el documento',
   'documents.preview.unknown-file-type': 'No hay vista previa disponible para este tipo de archivo',
   'documents.preview.binary-file': 'Este parece ser un archivo binario y no puede mostrarse como texto',
 

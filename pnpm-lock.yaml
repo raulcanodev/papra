@@ -313,6 +313,9 @@ importers:
       p-limit:
         specifier: ^6.2.0
         version: 6.2.0
+      pdfjs-dist:
+        specifier: 4.10.38
+        version: 4.10.38
       posthog-js-lite:
         specifier: ^4.1.5
         version: 4.1.5

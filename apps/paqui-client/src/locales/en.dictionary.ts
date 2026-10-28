@@ -545,6 +545,7 @@ export const translations = {
   'documents.deleted.restoring': 'Restoring...',
   'documents.deleted.deleting': 'Deleting...',
 
+  'documents.preview.loading': 'Loading the document',
   'documents.preview.unknown-file-type': 'No preview available for this file type',
   'documents.preview.binary-file': 'This appears to be a binary file and cannot be displayed as text',
 
