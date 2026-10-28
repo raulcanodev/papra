@@ -25,6 +25,8 @@ export type InvoiceReaderInput = {
   file?: { data: Buffer; mediaType: string };
   // Who "we" are: lets the model tell the issuer from the recipient on a crumpled ticket
   organization: { name: string | null; taxId: string | null };
+  // The language of the workspace (a BCP 47 locale): the notes for the reviewer are written in it
+  locale?: string;
 };
 
 export type InvoiceReader = (input: InvoiceReaderInput) => Promise<InvoiceExtraction>;
@@ -38,8 +40,17 @@ Read the payment terms when printed, in any wording: the payment method and ever
 Anything useful printed that has no dedicated field goes to metadata, with a short label, instead of being lost.
 Report in warnings anything the reviewer should double check.`;
 
-function getReaderPrompt({ text, file, organization }: InvoiceReaderInput) {
+function getLanguageName({ locale }: { locale: string }) {
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'language' }).of(locale.split('-')[0]!) ?? locale;
+  } catch {
+    return locale;
+  }
+}
+
+function getReaderPrompt({ text, file, organization, locale }: InvoiceReaderInput) {
   const lines = [
+    locale !== undefined ? `Write the warnings in ${getLanguageName({ locale })}, whatever the language of the document.` : undefined,
     organization.name !== null || organization.taxId !== null ? `We are ${[organization.name, organization.taxId].filter(Boolean).join(', ')}: we are usually the recipient.` : undefined,
     file ? 'Read this document.' : undefined,
     text !== undefined && text !== '' ? `${file ? 'Text recognized on it, may contain OCR mistakes' : 'Document text'}:\n\n${text.slice(0, 40_000)}` : undefined,
@@ -111,10 +122,12 @@ export async function extractPurchaseInvoiceFromDocument({
     return file;
   };
 
-  const [profile] = await db.select({ legalName: invoicingProfilesTable.legalName, taxId: invoicingProfilesTable.taxId }).from(invoicingProfilesTable).where(eq(invoicingProfilesTable.organizationId, organizationId)).limit(1);
+  const [profile] = await db.select({ legalName: invoicingProfilesTable.legalName, taxId: invoicingProfilesTable.taxId, locale: invoicingProfilesTable.locale }).from(invoicingProfilesTable).where(eq(invoicingProfilesTable.organizationId, organizationId)).limit(1);
   // The legal name of the fiscal profile, or the name of the workspace while it has none
   const [workspace] = await db.select({ name: organizationsTable.name }).from(organizationsTable).where(eq(organizationsTable.id, organizationId)).limit(1);
   const organization = { name: profile?.legalName || workspace?.name || null, taxId: profile?.taxId ?? null };
+  // Spanish while the workspace has no fiscal profile, as the profile itself defaults to
+  const locale = profile?.locale ?? 'es-ES';
   const asReaderFile = async (file: File) => ({ data: Buffer.from(await file.arrayBuffer()), mediaType: document.mimeType });
 
   // The content is extracted in the background after an upload: right after it, a PDF text is read now instead of waiting
@@ -122,17 +135,17 @@ export async function extractPurchaseInvoiceFromDocument({
     const text = document.content.trim();
 
     if (isPhoto({ mimeType: document.mimeType })) {
-      return { file: await asReaderFile(await loadFile()), text: text || undefined, organization };
+      return { file: await asReaderFile(await loadFile()), text: text || undefined, organization, locale };
     }
 
     if (text !== '') {
-      return { text, organization };
+      return { text, organization, locale };
     }
 
     const file = await loadFile();
     const extractedText = (await extractDocumentText({ file, ocrLanguages: config.documents.ocrLanguages })).text.trim();
 
-    return extractedText !== '' ? { text: extractedText, organization } : { file: await asReaderFile(file), organization };
+    return extractedText !== '' ? { text: extractedText, organization, locale } : { file: await asReaderFile(file), organization, locale };
   })();
 
   const extraction = await readInvoice(readerInput).catch((error: unknown) => {

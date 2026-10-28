@@ -64,7 +64,7 @@ describe('purchases extraction usecases', () => {
 
     const result = await extract();
 
-    expect(reads).to.eql([{ text: 'NUBE HOSTING SL - Factura NUBE-2026-77', organization: { name: 'Acme SL', taxId: 'B12345678' } }]);
+    expect(reads).to.eql([{ text: 'NUBE HOSTING SL - Factura NUBE-2026-77', organization: { name: 'Acme SL', taxId: 'B12345678' }, locale: 'es-ES' }]);
     expect(result.direction).to.eql('received');
     expect(result.counterparty).to.include({ status: 'matched', matchedBy: 'tax_id', contactId: 'ctc_nube', hasSupplierRole: true, name: 'Nube Hosting SL' });
     expect(result.draft).to.include({ supplierId: 'ctc_nube', kind: 'invoice', number: 'NUBE-2026-77', category: 'software', documentId: 'doc_1' });
@@ -127,6 +127,15 @@ describe('purchases extraction usecases', () => {
     expect(nameless.counterparty).to.include({ status: 'ask', contactId: null });
   });
 
+  test('the notes for the reviewer are asked in the language of the workspace', async () => {
+    const { db, reads, extract } = await setup();
+    await db.update(invoicingProfilesTable).set({ locale: 'en-GB' });
+
+    await extract();
+
+    expect(reads[0]?.locale).to.eql('en-GB');
+  });
+
   test('a photo is sent to the vision model as a file, with its recognized text as a hint', async () => {
     const { db } = await createInMemoryDatabase({
       organizations: [{ id: ORG_ID, name: 'Acme' }],
@@ -147,7 +156,7 @@ describe('purchases extraction usecases', () => {
     });
 
     // Without a fiscal profile the model still knows who "we" are, from the name of the workspace
-    expect(reads).to.eql([{ file: { data: Buffer.from('jpeg bytes'), mediaType: 'image/jpeg' }, text: 'TICKET', organization: { name: 'Acme', taxId: null } }]);
+    expect(reads).to.eql([{ file: { data: Buffer.from('jpeg bytes'), mediaType: 'image/jpeg' }, text: 'TICKET', organization: { name: 'Acme', taxId: null }, locale: 'es-ES' }]);
   });
 
   test('only PDF and image documents can be read', async () => {
