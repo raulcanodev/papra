@@ -20,7 +20,7 @@ function partyLines(party: Party) {
 }
 
 /** Renders a simple invoice PDF in the browser. Used only by the public demo, where there is no server. */
-export async function renderDemoInvoicePdf({ invoice, seller, branding }: { invoice: Party; seller: Party; branding: Party }): Promise<Blob> {
+export async function renderDemoInvoicePdf({ invoice, seller, branding, watermark }: { invoice: Party; seller: Party; branding: Party; watermark?: string }): Promise<Blob> {
   const { jsPDF } = await import('jspdf');
   // eslint-disable-next-line new-cap
   const doc: JsPdf = new jsPDF({ unit: 'pt', format: 'a4' });
@@ -105,6 +105,14 @@ export async function renderDemoInvoicePdf({ invoice, seller, branding }: { invo
   }
 
   doc.setFontSize(8).text(branding.footerText ?? 'Demo · documento generado en tu navegador, sin valor fiscal', left, 800);
+
+  // A preview: big, horizontal and half transparent across the middle of the page, like the server draws it
+  if (watermark) {
+    doc.saveGraphicsState();
+    doc.setGState(doc.GState({ opacity: 0.22 }));
+    doc.setFont('helvetica', 'bold').setFontSize(110).setTextColor(156, 163, 175).text(watermark, 595 / 2, 842 / 2 + 38, { align: 'center' });
+    doc.restoreGraphicsState();
+  }
 
   return doc.output('blob');
 }

@@ -33,7 +33,7 @@ import { getLineNetMinor, InvoicePreview } from '../components/invoice-preview';
 import { getProductsQueryKey } from '../components/product-form';
 import { ProductSelector } from '../components/product-selector';
 import { WITHHOLDING_RATES_BPS } from '../invoicing.constants';
-import { createInvoice, createProduct, downloadInvoicePdf, fetchFiscalProfile, fetchInvoice, fetchInvoiceBranding, fetchInvoiceSeries, fetchProducts, fetchTaxRates, issueInvoice, sendInvoice, updateInvoice } from '../invoicing.services';
+import { createInvoice, createProduct, downloadInvoicePdf, downloadInvoicePreview, fetchFiscalProfile, fetchInvoice, fetchInvoiceBranding, fetchInvoiceSeries, fetchProducts, fetchTaxRates, issueInvoice, sendInvoice, updateInvoice } from '../invoicing.services';
 
 const CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF', 'MXN', 'CAD', 'AUD'];
 const FALLBACK_TAX_RATES_BPS = [0, 400, 1_000, 2_100];
@@ -261,23 +261,30 @@ export function CreateInvoicePage() {
     onError: () => createToast({ type: 'error', message: t('invoicing.editor.customer.toast.error') }),
   }));
 
+  const buildDraft = (): InvoiceDraftInput => ({
+    customerId: customerId(),
+    seriesId: seriesId() || null,
+    salesRepresentativeId: salesRepresentativeId() || null,
+    issueDate: new Date(`${issueDate()}T00:00:00.000Z`),
+    dueDate: new Date(`${dueDate()}T00:00:00.000Z`),
+    paymentMethod: paymentMethod(),
+    currency: currency(),
+    templateId: templateId(),
+    withholdingRateBps: effectiveWithholdingRateBps(),
+    equivalenceSurcharge: equivalenceSurcharge(),
+    notes: notes() || null,
+    items: items(),
+    deliveryNoteIds: deliveryNotes().map(deliveryNote => deliveryNote.id),
+  });
+
+  const previewMutation = createMutation(() => ({
+    mutationFn: async () => downloadInvoicePreview({ organizationId: params.organizationId, invoice: buildDraft(), filename: `${invoiceNumber() ?? t('invoicing.editor.new-title')}-${t('invoicing.editor.preview.suffix')}` }),
+    onError: () => createToast({ type: 'error', message: t('invoicing.editor.preview.error') }),
+  }));
+
   const mutation = createMutation(() => ({
     mutationFn: async ({ issue }: { issue: boolean }) => {
-      const draft: InvoiceDraftInput = {
-        customerId: customerId(),
-        seriesId: seriesId() || null,
-        salesRepresentativeId: salesRepresentativeId() || null,
-        issueDate: new Date(`${issueDate()}T00:00:00.000Z`),
-        dueDate: new Date(`${dueDate()}T00:00:00.000Z`),
-        paymentMethod: paymentMethod(),
-        currency: currency(),
-        templateId: templateId(),
-        withholdingRateBps: effectiveWithholdingRateBps(),
-        equivalenceSurcharge: equivalenceSurcharge(),
-        notes: notes() || null,
-        items: items(),
-        deliveryNoteIds: deliveryNotes().map(deliveryNote => deliveryNote.id),
-      };
+      const draft = buildDraft();
       const { invoice } = params.invoiceId
         ? await updateInvoice({ organizationId: params.organizationId, invoiceId: params.invoiceId, invoice: draft })
         : await createInvoice({ organizationId: params.organizationId, invoice: draft });
@@ -396,12 +403,13 @@ export function CreateInvoicePage() {
         backHref={returnHref()}
         backLabel={t('invoicing.editor.back')}
         title={invoiceNumber() ?? t('invoicing.editor.new-title')}
+        secondaryActions={[{ label: t('invoicing.editor.preview'), icon: 'i-tabler-eye', disabled: !canSubmit(), isLoading: previewMutation.isPending, onSelect: () => previewMutation.mutate() }]}
         actions={(
           <>
-            <Button type="button" variant="secondary" size="sm" class="rounded-full" disabled={!canSubmit()} isLoading={mutation.isPending && !mutation.variables?.issue} onClick={() => mutation.mutate({ issue: false })}>
+            <Button type="button" size="sm" disabled={!canSubmit()} isLoading={mutation.isPending && !mutation.variables?.issue} onClick={() => mutation.mutate({ issue: false })}>
               {t('invoicing.editor.save-draft')}
             </Button>
-            <Button type="button" variant="primary" size="sm" class="rounded-full" disabled={!canIssue()} isLoading={mutation.isPending && mutation.variables?.issue} onClick={() => mutation.mutate({ issue: true })}>
+            <Button type="button" size="sm" disabled={!canIssue()} isLoading={mutation.isPending && mutation.variables?.issue} onClick={() => mutation.mutate({ issue: true })}>
               {t('invoicing.editor.issue')}
             </Button>
           </>
@@ -463,7 +471,7 @@ export function CreateInvoicePage() {
                       )}
                     </Show>
                   </div>
-                  <Button type="button" variant="secondary" size="sm" class="h-7 rounded-full" onClick={() => setCustomerId('')}>{t('invoicing.editor.customer.change')}</Button>
+                  <Button type="button" size="sm" class="h-7" onClick={() => setCustomerId('')}>{t('invoicing.editor.customer.change')}</Button>
                 </div>
               )}
             </Show>
@@ -491,8 +499,11 @@ export function CreateInvoicePage() {
             <div class="divide-y border-y">
               <Index each={items()}>
                 {(item, index) => (
-                  <div class="py-5">
-                    <div class="space-y-4">
+                  <div class="flex gap-3 py-5">
+                    <div class="-mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-foreground text-xs font-semibold tabular-nums text-background" aria-hidden="true">
+                      {index + 1}
+                    </div>
+                    <div class="min-w-0 flex-1 space-y-4">
                       <div class="flex items-end gap-2">
                         <FormField label={t('invoicing.editor.item.product')} class="min-w-0 flex-1">
                           <ProductSelector
@@ -726,14 +737,16 @@ export function CreateInvoicePage() {
         {/* Preview */}
         <aside class="mx-auto w-full min-w-0 max-w-[620px] lg:(sticky top-6 self-start max-w-[min(620px,calc((100dvh-10rem)*210/297))])">
           <div class="mb-4 hidden items-center justify-end gap-2 md:flex">
-            <Button type="button" variant="secondary" size="sm" class="rounded-full" disabled={!canSubmit()} isLoading={mutation.isPending && !mutation.variables?.issue} onClick={() => mutation.mutate({ issue: false })}>
+            <Button type="button" variant="ghost" size="sm" class="gap-1.5" disabled={!canSubmit()} title={canSubmit() ? undefined : t('invoicing.editor.preview.requirements')} isLoading={previewMutation.isPending} onClick={() => previewMutation.mutate()}>
+              <div class="i-tabler-eye size-4" />
+              {t('invoicing.editor.preview')}
+            </Button>
+            <Button type="button" size="sm" disabled={!canSubmit()} isLoading={mutation.isPending && !mutation.variables?.issue} onClick={() => mutation.mutate({ issue: false })}>
               {t('invoicing.editor.save-draft')}
             </Button>
             <Button
               type="button"
-              variant="primary"
               size="sm"
-              class="rounded-full"
               disabled={!canIssue()}
               title={canIssue() ? undefined : t('invoicing.editor.issue-requirements')}
               isLoading={mutation.isPending && mutation.variables?.issue}

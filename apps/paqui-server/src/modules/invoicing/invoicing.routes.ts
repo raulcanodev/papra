@@ -22,6 +22,7 @@ import { legacyValidateJsonBody, legacyValidateParams, legacyValidateQuery } fro
 import { createInvoiceEmailRequiredError, createInvoiceNotFoundError, createInvoiceNotIssuableError } from './invoicing.errors';
 import { getInvoicePayableMinor } from './invoicing.models';
 import { renderInvoicePdf } from './invoicing.pdf';
+import { renderInvoicePreviewPdf } from './invoicing.preview';
 import { createInvoicingRepository } from './invoicing.repository';
 import { fiscalProfileSchema, importedInvoiceSchema, invoiceBrandingSchema, invoiceDraftSchema, invoiceListQuerySchema, invoiceSeriesSchema, productBodySchema, productListQuerySchema, taxRateSchema } from './invoicing.schemas';
 import { createVerifactuRepository } from './verifactu.repository';
@@ -141,6 +142,18 @@ function setupInvoiceRoutes(routeContext: RouteDefinitionContext) {
     const { status } = context.req.valid('query');
     await authorizeMember({ context, db, organizationId });
     return context.json(await createInvoicingRepository({ db }).listInvoices({ organizationId, status: Array.isArray(status) ? status[0] : status }));
+  });
+
+  // The PDF of the form as it is, watermarked, nothing saved: what the invoice would look like issued now
+  app.post('/api/organizations/:organizationId/invoicing/invoices/preview', requireAuthentication({ apiKeyPermissions: ['invoices:read'] }), legacyValidateParams(z.object({ organizationId: organizationIdSchema })), legacyValidateJsonBody(invoiceDraftSchema), async (context) => {
+    const { organizationId } = context.req.valid('param');
+    await authorizeMember({ context, db, organizationId });
+    const { pdf, number } = await renderInvoicePreviewPdf({ db, organizationId, draft: context.req.valid('json') });
+    return context.body(new Uint8Array(pdf), 200, {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${safeFileName(`${number ?? 'invoice'}-preview.pdf`)}"`,
+      'Cache-Control': 'private, no-store',
+    });
   });
 
   app.post('/api/organizations/:organizationId/invoicing/invoices', requireAuthentication({ apiKeyPermissions: ['invoices:create'] }), legacyValidateParams(z.object({ organizationId: organizationIdSchema })), legacyValidateJsonBody(invoiceDraftSchema), async (context) => {

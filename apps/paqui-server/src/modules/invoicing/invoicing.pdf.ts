@@ -36,6 +36,8 @@ export type PdfInvoice = {
   terms: string | null;
   templateId: string;
   verifactuQrUrl?: string | null;
+  /** Printed big across every page of a preview, so it is never taken for the real invoice */
+  watermark?: string | null;
   sellerSnapshot: string | null;
   customerSnapshot: string | null;
   salesRepresentativeSnapshot?: string | null;
@@ -116,6 +118,9 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
     doc.font('Helvetica').fontSize(8).fillColor(muted).text(`${page + 1} / ${range.count}`, PAGE.margin, PAGE.height - PAGE.margin - 10, { width: PAGE.width - PAGE.margin * 2, align: 'right', lineBreak: false });
     if (branding.footerText !== null && branding.footerText !== undefined && branding.footerText !== '') {
       doc.font('Helvetica').fontSize(8).fillColor(muted).text(branding.footerText, PAGE.margin, PAGE.height - PAGE.margin - 10, { width: PAGE.width - PAGE.margin * 2 - 55, lineBreak: false });
+    }
+    if (invoice.watermark !== null && invoice.watermark !== undefined && invoice.watermark !== '') {
+      drawWatermark(doc, invoice.watermark);
     }
   }
 
@@ -274,6 +279,19 @@ function parseBrandingSnapshot(value: string | null): BrandingSnapshot {
   } catch {
     return {};
   }
+}
+
+// Big, horizontal and half transparent across the middle of the page, over the content but letting it be read
+function drawWatermark(doc: PDFKit.PDFDocument, text: string) {
+  const width = PAGE.width - PAGE.margin * 2;
+  let fontSize = 120;
+  doc.font('Helvetica-Bold');
+  while (fontSize > 24 && doc.fontSize(fontSize).widthOfString(text) > width) {
+    fontSize -= 4;
+  }
+  doc.save();
+  doc.fillColor('#9ca3af').fillOpacity(0.22).fontSize(fontSize).text(text, PAGE.margin, (PAGE.height - fontSize) / 2, { width, align: 'center', lineBreak: false });
+  doc.restore();
 }
 
 export function formatDate(date: Date, locale = 'en') {

@@ -126,6 +126,16 @@ export async function markInvoicePaid({ organizationId, invoiceId }: { organizat
 
 export async function downloadInvoicePdf({ organizationId, invoiceId, filename }: { organizationId: string; invoiceId: string; filename: string }) {
   const blob = await apiClient<Blob, 'blob'>({ path: `${basePath(organizationId)}/invoices/${invoiceId}/pdf`, method: 'GET', responseType: 'blob' });
+  saveBlob({ blob, filename });
+}
+
+// The invoice as the form is now, watermarked and not saved: to check it before issuing it
+export async function downloadInvoicePreview({ organizationId, invoice, filename }: { organizationId: string; invoice: InvoiceDraftInput; filename: string }) {
+  const blob = await apiClient<Blob, 'blob'>({ path: `${basePath(organizationId)}/invoices/preview`, method: 'POST', body: invoice, responseType: 'blob' });
+  saveBlob({ blob, filename });
+}
+
+function saveBlob({ blob, filename }: { blob: Blob; filename: string }) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;

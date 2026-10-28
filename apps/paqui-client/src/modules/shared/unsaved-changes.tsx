@@ -125,10 +125,11 @@ export function useUnsavedChangesGuard(props: {
           <DialogFooter>
             {/* Stacked on a phone, wrapped rather than overflowing when the labels are long */}
             <div class="flex w-full min-w-0 flex-col-reverse gap-2 sm:(flex-row flex-wrap justify-end)">
-              <Button variant="secondary" class="rounded-full" onClick={keepEditing}>{t('common.unsaved-changes.keep-editing')}</Button>
+              <Button size="sm" onClick={keepEditing}>{t('common.unsaved-changes.keep-editing')}</Button>
               <Button
                 variant="ghost"
-                class="rounded-full text-red-600 hover:text-red-600"
+                size="sm"
+                class="text-red-600 hover:text-red-600"
                 onClick={() => {
                   setIsDialogOpen(false);
                   leave();
@@ -139,8 +140,7 @@ export function useUnsavedChangesGuard(props: {
               <Show when={save()}>
                 {getSave => (
                   <Button
-                    variant="primary"
-                    class="rounded-full"
+                    size="sm"
                     disabled={!getSave().canSave()}
                     onClick={() => {
                       setIsDialogOpen(false);

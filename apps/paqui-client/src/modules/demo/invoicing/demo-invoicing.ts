@@ -671,6 +671,35 @@ export const invoicingHandlers = {
       return { invoice: await hydrateInvoice(invoice) };
     },
   }),
+  // The form as it is, watermarked, nothing saved
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/invoicing/invoices/preview',
+    method: 'POST',
+    handler: async ({ params: { organizationId }, body }) => {
+      const draft = body as InvoiceDraftInput;
+      const customer = await getDemoContact({ organizationId, contactId: draft.customerId });
+      if (!customer?.isCustomer) {
+        fail('Customer not found', 404);
+      }
+      const [profile, branding, allSeries] = await Promise.all([db().profile.getItem(organizationId), db().branding.getItem(organizationId), getValues(db().series)]);
+      const series = allSeries.filter(item => item.organizationId === organizationId && !item.archivedAt);
+      const issuingSeries = series.find(item => item.id === draft.seriesId) ?? series.find(item => item.isDefault) ?? series[0];
+      const seller = profile ?? demoFiscalProfile;
+      const totals = calculateTotals({ items: draft.items, withholdingRateBps: draft.withholdingRateBps ?? 0, equivalenceSurcharge: draft.equivalenceSurcharge ?? false });
+      const invoice = {
+        ...draft,
+        ...totals,
+        withholdingRateBps: draft.withholdingRateBps ?? 0,
+        number: issuingSeries ? `${issuingSeries.prefix}${String(issuingSeries.nextNumber).padStart(issuingSeries.padding, '0')}` : null,
+        issueDate: new Date(draft.issueDate).toISOString(),
+        dueDate: new Date(draft.dueDate).toISOString(),
+        customer,
+        customerName: customer!.name,
+      };
+      const { renderDemoInvoicePdf } = await import('./demo-invoice-pdf');
+      return renderDemoInvoicePdf({ invoice, seller, branding: branding ?? demoBranding, watermark: String(seller.locale ?? 'es').startsWith('es') ? 'BORRADOR' : 'DRAFT' });
+    },
+  }),
   ...defineHandler({
     path: '/api/organizations/:organizationId/invoicing/invoices/:resourceId/pdf',
     method: 'GET',
