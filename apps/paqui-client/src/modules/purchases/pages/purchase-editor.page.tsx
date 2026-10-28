@@ -381,7 +381,16 @@ export function PurchaseEditorPage() {
                 </div>
 
                 <Show when={getExtraction().direction === 'issued'}>
-                  <div class="rounded-xl border border-red-500/30 bg-red-500/8 p-4 text-sm">{t('purchases.editor.direction.issued')}</div>
+                  <div class="flex flex-wrap items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/8 p-4 text-sm">
+                    <p class="min-w-0 flex-1">{t('purchases.editor.direction.issued')}</p>
+                    <Show when={documentId()}>
+                      {getDocumentId => (
+                        <Button as={A} size="sm" variant="outline" href={keepReturnTo(`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: 'import' })}?documentId=${encodeURIComponent(getDocumentId())}`)}>
+                          {t('purchases.editor.direction.issued.action')}
+                        </Button>
+                      )}
+                    </Show>
+                  </div>
                 </Show>
 
                 <ReadingChecks checks={reading()?.checks ?? []} warnings={getExtraction().warnings} />

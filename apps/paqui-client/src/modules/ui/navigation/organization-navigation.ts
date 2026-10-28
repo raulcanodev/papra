@@ -221,6 +221,7 @@ export const organizationEntityRoutes = {
   document: { path: 'documents/:documentId', label: 'Document viewer' },
   newInvoice: { path: 'sales/new', label: 'New issued invoice' },
   editInvoice: { path: 'sales/:invoiceId/edit', label: 'Issued invoice editor' },
+  importInvoice: { path: 'sales/import', label: 'Register an invoice the organization issued before or outside the app, from its uploaded paper' },
   newPurchaseInvoice: { path: 'purchases/new', label: 'New purchase (received invoice, ticket or delivery note)' },
   editPurchaseInvoice: { path: 'purchases/:purchaseInvoiceId/edit', label: 'Purchase editor (received invoice, ticket or delivery note)' },
   newDeliveryNote: { path: 'delivery-notes/new', label: 'New delivery note handed to a customer (from a photo of the paper copy, or typed)' },

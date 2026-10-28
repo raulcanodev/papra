@@ -49,6 +49,7 @@ Because both go through the REST API, every rule (membership, validation, number
 | `get_invoice` | read | `invoices:read` | Get one invoice with its lines, customer, totals inputs and status. |
 | `list_invoice_series` | read | `invoices:read` | List the numbering series (e.g. |
 | `create_invoice_draft` | write | `invoices:create` | Create a DRAFT invoice. |
+| `import_issued_invoice` | write | `invoices:create` | Register an invoice the organization already issued outside the app, from its uploaded paper (keeps its number, no Verifactu). |
 | `update_invoice_draft` | write | `invoices:update` | Change a DRAFT invoice. |
 | `delete_draft_invoice` | destructive | `invoices:delete` | Delete an invoice that is still a draft. |
 | `issue_invoice` | destructive | `invoices:update` | Make a draft FINAL: it gets the next number of its series, is archived as a PDF and registered for Verifactu when enabled. |

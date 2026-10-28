@@ -46,6 +46,7 @@ import { IntakeEmailsPage } from './modules/intake-emails/pages/intake-emails.pa
 import { InvitationsPage } from './modules/invitations/pages/invitations.page';
 import { CreateInvoicePage } from './modules/invoicing/pages/create-invoice.page';
 import { FiscalProfilePage } from './modules/invoicing/pages/fiscal-profile.page';
+import { ImportInvoicePage } from './modules/invoicing/pages/import-invoice.page';
 import { InvoiceBrandingPage } from './modules/invoicing/pages/invoice-branding.page';
 import { InvoiceSeriesPage } from './modules/invoicing/pages/invoice-series.page';
 import { InvoicesPage } from './modules/invoicing/pages/invoices.page';
@@ -256,6 +257,10 @@ export const routes: RouteDefinition[] = [
                       {
                         path: [getOrganizationEntityRoutePath('newInvoice'), getOrganizationEntityRoutePath('editInvoice')],
                         component: CreateInvoicePage,
+                      },
+                      {
+                        path: getOrganizationEntityRoutePath('importInvoice'),
+                        component: ImportInvoicePage,
                       },
                       {
                         path: getOrganizationNestedRoutePath('taxes'),

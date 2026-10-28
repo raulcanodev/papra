@@ -5,6 +5,7 @@ import type { TaskServices } from '../../tasks/tasks.services';
 import { and, desc, eq, notExists } from 'drizzle-orm';
 import { documentsTable } from '../../documents/documents.table';
 import { createDueDatesRepository } from '../../due-dates/due-dates.repository';
+import { invoicesTable } from '../../invoicing/invoicing.tables';
 import { EXTRACTABLE_DOCUMENT_MIME_TYPES, MAX_EXTRACTABLE_DOCUMENT_SIZE_BYTES } from '../purchases.constants';
 import { purchaseInvoicesTable } from '../purchases.tables';
 import { createDocumentReadingsRepository } from './document-readings.repository';
@@ -14,7 +15,7 @@ import { formatReadingsForApi } from './document-readings.usecases';
 
 const MAX_INBOX_READINGS = 50;
 
-// The documents read as invoices to pay that are not registered yet: forwarded by email, or uploaded and left
+// The documents read as invoices that are not registered yet (as a purchase, or as a sale when they are our own): forwarded by email, or uploaded and left
 // unreviewed. The purchases page offers to review them one after the other.
 export async function listPurchaseInbox({ db, organizationId }: { db: Database; organizationId: string }) {
   const rows = await db
@@ -26,6 +27,8 @@ export async function listPurchaseInbox({ db, organizationId }: { db: Database; 
       eq(documentReadingsTable.kind, 'purchase'),
       eq(documentsTable.isDeleted, false),
       notExists(db.select({ id: purchaseInvoicesTable.id }).from(purchaseInvoicesTable).where(eq(purchaseInvoicesTable.documentId, documentReadingsTable.documentId))),
+      // An own invoice registered as a sale has left the inbox too
+      notExists(db.select({ id: invoicesTable.id }).from(invoicesTable).where(eq(invoicesTable.documentId, documentReadingsTable.documentId))),
     ))
     .orderBy(desc(documentReadingsTable.createdAt))
     .limit(MAX_INBOX_READINGS);

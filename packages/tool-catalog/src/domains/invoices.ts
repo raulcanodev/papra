@@ -137,6 +137,30 @@ export const invoiceTools = [
     run: (draft, { api, organizationId }) => api.request('POST', organizationPath(organizationId, '/invoicing/invoices'), toDraftBody(draft)),
   }),
   defineOrganizationTool({
+    name: 'import_issued_invoice',
+    title: 'Import issued invoice',
+    description: 'Register an invoice the organization ALREADY issued before or outside the app, from its uploaded paper (documentId): it keeps the printed number, counts as income for the taxes and is NOT sent to Verifactu nor numbered again. Use it when extract_purchase_from_document says direction "issued" (the issuer is the organization itself): it is a sale, never a purchase. Resolve or create the customer (the recipient) first. Amounts in euros, rates in percent.',
+    risk: 'write',
+    permission: API_KEY_PERMISSIONS.INVOICES.CREATE,
+    input: {
+      documentId: idSchema('Document ID of the uploaded invoice paper'),
+      number: z.string().trim().min(1).max(100).describe('Invoice number exactly as printed'),
+      isPaid: z.boolean().default(false).describe('The customer already paid it'),
+      customerId: invoiceDraftFields.customerId,
+      issueDate: invoiceDraftFields.issueDate,
+      dueDate: isoDateSchema('Payment due date as printed, the issue date when none is printed'),
+      items: invoiceDraftFields.items,
+      currency: invoiceDraftFields.currency.default('EUR'),
+      notes: invoiceDraftFields.notes,
+      withholdingPercent: invoiceDraftFields.withholdingPercent.default(0),
+      equivalenceSurcharge: invoiceDraftFields.equivalenceSurcharge,
+    },
+    run: ({ documentId, number, isPaid, ...draft }, { api, organizationId }) => {
+      const { seriesId: _seriesId, salesRepresentativeId: _salesRepresentativeId, terms: _terms, templateId: _templateId, ...body } = toDraftBody(draft);
+      return api.request('POST', organizationPath(organizationId, '/invoicing/invoices/import'), { ...body, documentId, number, isPaid });
+    },
+  }),
+  defineOrganizationTool({
     name: 'update_invoice_draft',
     title: 'Update invoice draft',
     description: 'Change a DRAFT invoice. Only the fields you pass change; if you pass items they REPLACE all the lines. Issued invoices cannot be edited (legal requirement): void or rectify them instead.',

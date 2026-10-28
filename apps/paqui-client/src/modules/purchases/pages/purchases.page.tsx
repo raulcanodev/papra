@@ -8,6 +8,7 @@ import { getDueDatesQueryKey } from '@/modules/due-dates/due-dates.services';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { CatalogCell, CatalogRow, CatalogTable } from '@/modules/invoicing/components/catalog-page';
 import { getInvoicePayableMinor } from '@/modules/invoicing/invoicing.models';
+import { useSalesImportUpload } from '@/modules/invoicing/use-sales-import-upload';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
@@ -90,6 +91,7 @@ export function PurchasesPage() {
   const editorHref = (childPath: string) => linkWithReturn(getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath }));
 
   const { uploadFiles, reviewDocuments, manualHref, openFilePicker, openPhoto, isBusy, elements: uploadElements } = usePurchaseUpload({ organizationId: () => params.organizationId });
+  const salesImport = useSalesImportUpload({ organizationId: () => params.organizationId });
 
   // Invoices dropped anywhere on this page are uploaded and read as purchases, not as plain documents
   usePageFilesDrop(files => void uploadFiles(files), { description: () => t('purchases.drop-area') });
@@ -137,7 +139,7 @@ export function PurchasesPage() {
               <p class="font-medium">{t('purchases.inbox.title', { count: inbox().length })}</p>
               <p class="text-sm text-muted-foreground">{t('purchases.inbox.description')}</p>
             </div>
-            <Button size="sm" class="gap-1.5" onClick={() => reviewDocuments(inbox().map(({ documentId }) => documentId))}>
+            <Button size="sm" class="gap-1.5" onClick={() => reviewDocuments(inbox().filter(reading => reading.extraction?.direction !== 'issued').map(({ documentId }) => documentId))}>
               <div class="i-tabler-eye-check size-4" />
               {t('purchases.inbox.review')}
             </Button>
@@ -147,10 +149,14 @@ export function PurchasesPage() {
               {reading => (
                 <li class="flex items-center gap-2 text-sm">
                   <div class={cn('size-4 shrink-0', reading.status === 'pending' || reading.status === 'reading' ? 'i-tabler-loader-2 animate-spin text-muted-foreground' : reading.status === 'failed' ? 'i-tabler-alert-triangle text-orange-600' : 'i-tabler-file-invoice text-violet-600 dark:text-violet-300')} />
-                  <button type="button" class="min-w-0 flex-1 truncate text-left hover:underline" onClick={() => reviewDocuments([reading.documentId])}>
+                  {/* An invoice the organization issued itself goes to the sales, never to the expenses */}
+                  <button type="button" class="min-w-0 flex-1 truncate text-left hover:underline" onClick={() => (reading.extraction?.direction === 'issued' ? salesImport.reviewDocuments([reading.documentId]) : reviewDocuments([reading.documentId]))}>
                     {reading.extraction?.counterparty.name ?? reading.documentName ?? reading.documentId}
                     <Show when={reading.extraction?.draft.number}>
                       {getNumber => <span class="ml-1.5 text-muted-foreground">{getNumber()}</span>}
+                    </Show>
+                    <Show when={reading.extraction?.direction === 'issued'}>
+                      <span class="ml-2 rounded-full bg-emerald-500/10 px-1.5 py-px text-xs text-emerald-700 dark:text-emerald-300">{t('purchases.inbox.is-sale')}</span>
                     </Show>
                   </button>
                   <Button variant="ghost" size="sm" class="h-7 text-xs text-muted-foreground" onClick={() => dismissInboxMutation.mutate(reading.documentId)}>{t('purchases.inbox.dismiss')}</Button>

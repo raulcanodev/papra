@@ -91,6 +91,14 @@ export async function fetchInvoice({ organizationId, invoiceId }: { organization
   return { invoice: coerceInvoice(invoice) };
 }
 
+// An invoice issued before (or outside) the app, registered from its uploaded paper
+export type ImportedInvoiceInput = Pick<InvoiceDraftInput, 'customerId' | 'issueDate' | 'dueDate' | 'currency' | 'withholdingRateBps' | 'items' | 'notes'> & { documentId: string; number: string; isPaid: boolean };
+
+export async function importIssuedInvoice({ organizationId, invoice }: { organizationId: string; invoice: ImportedInvoiceInput }) {
+  const result = await apiClient<{ invoice: AsDto<Invoice> }>({ path: `${basePath(organizationId)}/invoices/import`, method: 'POST', body: invoice });
+  return { invoice: coerceInvoice(result.invoice) };
+}
+
 export async function createInvoice({ organizationId, invoice }: { organizationId: string; invoice: InvoiceDraftInput }) {
   const result = await apiClient<{ invoice: AsDto<Invoice> }>({ path: `${basePath(organizationId)}/invoices`, method: 'POST', body: invoice });
   return { invoice: coerceInvoice(result.invoice) };
@@ -121,7 +129,9 @@ export async function downloadInvoicePdf({ organizationId, invoiceId, filename }
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = `${filename}.pdf`;
+  // An imported invoice is its original paper, which can be a photo
+  const extension = ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic' } as Record<string, string>)[blob.type] ?? 'pdf';
+  anchor.download = `${filename}.${extension}`;
   anchor.click();
   URL.revokeObjectURL(url);
 }

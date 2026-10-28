@@ -13,7 +13,7 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { fetchInvoices } from '@/modules/invoicing/invoicing.services';
 import { invoiceStatusLabelKeys } from '@/modules/invoicing/pages/invoices.page';
 import { EXTRACTABLE_FILE_ACCEPT, PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS } from '@/modules/purchases/purchases.constants';
-import { fetchPurchaseInvoices, getPurchaseInvoicesQueryKey } from '@/modules/purchases/purchases.services';
+import { fetchPurchaseInvoices, fetchPurchaseReadings, getPurchaseInvoicesQueryKey } from '@/modules/purchases/purchases.services';
 import { downloadFile } from '@/modules/shared/files/download';
 import { DocumentTagsList } from '@/modules/tags/components/tag-list.component';
 import { TagLink } from '@/modules/tags/components/tag.component';
@@ -148,6 +148,9 @@ export const DocumentPage: Component = () => {
   const linkedInvoice = () => invoicesQuery.data?.invoices.find(invoice => invoice.documentId === params.documentId);
   const linkedPurchase = () => purchasesQuery.data?.purchaseInvoices.find(purchaseInvoice => purchaseInvoice.documentId === params.documentId);
   const isLinkLookupDone = () => invoicesQuery.isSuccess && purchasesQuery.isSuccess;
+  // An invoice the AI already read says who issued it: only the registration that fits it is offered
+  const readingQuery = useQuery(() => ({ queryKey: ['organizations', params.organizationId, 'documents', params.documentId, 'reading-direction'], queryFn: () => fetchPurchaseReadings({ organizationId: params.organizationId, documentIds: [params.documentId] }) }));
+  const readDirection = () => readingQuery.data?.readings[0]?.extraction?.direction ?? 'unknown';
   const formatMoney = (minor: number, currency: string) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency }).format(minor / 100);
 
   const getInitialTab = (): Tab => {
@@ -302,15 +305,29 @@ export const DocumentPage: Component = () => {
                     {/* A received invoice (forwarded by email, uploaded...) becomes an expense reviewed in the purchase editor;
                         never offered for a file that is already an issued invoice or a registered purchase */}
                     <Show when={!getDocument().isDeleted && isLinkLookupDone() && !linkedInvoice() && !linkedPurchase() && (EXTRACTABLE_FILE_ACCEPT.split(',') as string[]).includes(getDocument().mimeType)}>
-                      <Button
-                        as={A}
-                        variant="outline"
-                        size="sm"
-                        href={linkWithReturn(`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath: 'new' })}?documentId=${getDocument().id}`)}
-                      >
-                        <div class="i-tabler-file-invoice size-4 mr-2" />
-                        {t('purchases.actions.register-expense')}
-                      </Button>
+                      <Show when={readDirection() !== 'issued'}>
+                        <Button
+                          as={A}
+                          variant="outline"
+                          size="sm"
+                          href={linkWithReturn(`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath: 'new' })}?documentId=${getDocument().id}`)}
+                        >
+                          <div class="i-tabler-file-invoice size-4 mr-2" />
+                          {t('purchases.actions.register-expense')}
+                        </Button>
+                      </Show>
+                      {/* An invoice the organization issued itself, before or outside the app */}
+                      <Show when={readDirection() !== 'received'}>
+                        <Button
+                          as={A}
+                          variant="outline"
+                          size="sm"
+                          href={linkWithReturn(`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: 'import' })}?documentId=${getDocument().id}`)}
+                        >
+                          <div class="i-tabler-file-import size-4 mr-2" />
+                          {t('documents.actions.register-sale')}
+                        </Button>
+                      </Show>
                     </Show>
 
                     {getDocument().isDeleted

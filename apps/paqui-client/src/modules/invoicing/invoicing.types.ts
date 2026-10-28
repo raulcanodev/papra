@@ -148,6 +148,8 @@ export type Invoice = {
   paidAt: Date | null;
   paymentMethod?: PaymentMethod | null;
   voidedAt: Date | null;
+  /** Issued before (or outside) the app and registered from its paper: its document is the original */
+  importedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };

@@ -1,6 +1,6 @@
 /* eslint-disable style/max-statements-per-line */
 import type { Database } from '../app/database/database.types';
-import type { FiscalProfileInput, InvoiceBrandingInput, InvoiceDraftInput, InvoiceSeriesInput, ProductInput, TaxRateInput } from './invoicing.models';
+import type { FiscalProfileInput, ImportedInvoiceInput, InvoiceBrandingInput, InvoiceDraftInput, InvoiceSeriesInput, ProductInput, TaxRateInput } from './invoicing.models';
 import { and, asc, desc, eq, inArray, isNull, notInArray, or } from 'drizzle-orm';
 import { createContactNotFoundError } from '../contacts/contacts.errors';
 import { createContactsRepository } from '../contacts/contacts.repository';
@@ -9,7 +9,8 @@ import { deliveryNotesTable } from '../delivery-notes/delivery-notes.tables';
 import { createDocumentNotFoundError } from '../documents/documents.errors';
 import { documentsTable } from '../documents/documents.table';
 import { createDueDatesRepository } from '../due-dates/due-dates.repository';
-import { createFiscalProfileRequiredError, createInvoiceDeliveryNotesUnavailableError, createInvoiceNotEditableError, createInvoiceNotFoundError, createInvoiceNotIssuableError } from './invoicing.errors';
+import { purchaseInvoicesTable } from '../purchases/purchases.tables';
+import { createFiscalProfileRequiredError, createInvoiceDeliveryNotesUnavailableError, createInvoiceDocumentAlreadyRegisteredError, createInvoiceNotEditableError, createInvoiceNotFoundError, createInvoiceNotIssuableError, createInvoiceNumberTakenError } from './invoicing.errors';
 import { calculateInvoiceTotals, formatInvoiceNumber } from './invoicing.models';
 import { invoiceEventsTable, invoiceItemsTable, invoiceSeriesTable, invoicesTable, invoicingBrandingTable, invoicingProductsTable, invoicingProfilesTable, invoicingTaxRatesTable } from './invoicing.tables';
 
@@ -34,6 +35,7 @@ export function createInvoicingRepository({ db }: { db: Database }) {
     listInvoices: async (args: { organizationId: string; status?: string }) => listInvoices({ db, ...args }),
     getInvoice: async (args: { organizationId: string; invoiceId: string }) => getInvoice({ db, ...args }),
     createInvoice: async (args: { organizationId: string; draft: InvoiceDraftInput; userId: string }) => createInvoice({ db, ...args }),
+    importIssuedInvoice: async (args: { organizationId: string; input: ImportedInvoiceInput; userId: string }) => importIssuedInvoice({ db, ...args }),
     updateInvoice: async (args: { organizationId: string; invoiceId: string; draft: InvoiceDraftInput; userId: string }) => updateInvoice({ db, ...args }),
     reserveInvoiceNumber: async (args: { organizationId: string; invoiceId: string; userId: string }) => reserveInvoiceNumber({ db, ...args }),
     finalizeInvoice: async (args: { organizationId: string; invoiceId: string; documentId: string; userId: string }) => finalizeInvoice({ db, ...args }),
@@ -252,6 +254,55 @@ async function createInvoice({ db, organizationId, draft, userId }: { db: Databa
     await tx.insert(invoiceEventsTable).values({ invoiceId: invoice!.id, organizationId, userId, type: 'created', createdAt: new Date() });
     return invoice!.id;
   });
+  return getInvoice({ db, organizationId, invoiceId });
+}
+
+// An invoice issued before the app (or outside it), registered from its paper: it counts as income like any other,
+// keeps its printed number and its original file, and never goes to VERI*FACTU nor through a series
+async function importIssuedInvoice({ db, organizationId, input, userId }: { db: Database; organizationId: string; input: ImportedInvoiceInput; userId: string }) {
+  const { documentId, number, isPaid, ...draft } = input;
+
+  const [document] = await db.select({ id: documentsTable.id }).from(documentsTable).where(and(eq(documentsTable.id, documentId), eq(documentsTable.organizationId, organizationId), eq(documentsTable.isDeleted, false))).limit(1);
+  if (!document) {
+    throw createDocumentNotFoundError();
+  }
+
+  const [registeredInvoice] = await db.select({ id: invoicesTable.id }).from(invoicesTable).where(and(eq(invoicesTable.organizationId, organizationId), eq(invoicesTable.documentId, documentId))).limit(1);
+  const [registeredPurchase] = await db.select({ id: purchaseInvoicesTable.id }).from(purchaseInvoicesTable).where(and(eq(purchaseInvoicesTable.organizationId, organizationId), eq(purchaseInvoicesTable.documentId, documentId))).limit(1);
+  if (registeredInvoice || registeredPurchase) {
+    throw createInvoiceDocumentAlreadyRegisteredError();
+  }
+
+  const [sameNumber] = await db.select({ id: invoicesTable.id }).from(invoicesTable).where(and(eq(invoicesTable.organizationId, organizationId), eq(invoicesTable.number, number))).limit(1);
+  if (sameNumber) {
+    throw createInvoiceNumberTakenError();
+  }
+
+  const { profile } = await getFiscalProfile({ db, organizationId });
+  const invoiceId = await db.transaction(async (transaction) => {
+    const tx = transaction as unknown as Database;
+    // The notes and terms are the ones of the paper: the defaults of the profile are for new invoices
+    const { invoice: created } = await createInvoice({ db: tx, organizationId, draft: { ...draft, notes: draft.notes ?? null, terms: null, templateId: 'minimal' }, userId });
+    const now = new Date();
+    await tx.update(invoicesTable).set({
+      status: isPaid ? 'paid' : 'issued',
+      number,
+      documentId,
+      issuedAt: draft.issueDate,
+      paidAt: isPaid ? now : null,
+      importedAt: now,
+      sellerSnapshot: profile ? JSON.stringify(profile) : null,
+      customerSnapshot: JSON.stringify(created!.customer),
+      updatedAt: now,
+    }).where(and(eq(invoicesTable.id, created!.id), eq(invoicesTable.organizationId, organizationId)));
+    await tx.insert(invoiceEventsTable).values({ invoiceId: created!.id, organizationId, userId, type: 'imported', createdAt: now });
+    if (isPaid) {
+      await createDueDatesRepository({ db: tx }).setSourceInstalmentsStatus({ organizationId, source: { direction: 'receivable', invoiceId: created!.id }, status: 'paid', now });
+    }
+
+    return created!.id;
+  });
+
   return getInvoice({ db, organizationId, invoiceId });
 }
 

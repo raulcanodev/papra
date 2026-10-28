@@ -96,7 +96,7 @@ async function getDemoReadings({ organizationId, documentIds }: { organizationId
   return documentIds
     .filter((_, index) => documents[index])
     .map((documentId) => {
-      const extraction = demoReadings.get(documentId) ?? buildDemoExtraction({ documentId });
+      const extraction = demoReadings.get(documentId) ?? buildDemoExtraction({ documentId, documentName: String((documents[documentIds.indexOf(documentId)] as { name?: unknown } | null)?.name ?? '') });
       demoReadings.set(documentId, extraction);
       return { documentId, status: 'ready', errorCode: null, checks: [], extraction };
     });
@@ -266,7 +266,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
 
       assert(document, { status: 404 });
 
-      return { ...buildDemoExtraction({ documentId }), status: 'ready', checks: [] };
+      return { ...buildDemoExtraction({ documentId, documentName: String((document as { name?: unknown }).name ?? '') }), status: 'ready', checks: [] };
     },
   }),
   // The demo has no AI nor queue: a document is "read" at once, the same reading every time it is opened

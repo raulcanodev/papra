@@ -30,6 +30,18 @@ export const createInvoiceNotIssuableError = createErrorFactory({
   statusCode: 409,
 });
 
+export const createInvoiceNumberTakenError = createErrorFactory({
+  code: 'invoicing.invoice_number_taken',
+  message: 'Another invoice already has this number',
+  statusCode: 409,
+});
+
+export const createInvoiceDocumentAlreadyRegisteredError = createErrorFactory({
+  code: 'invoicing.document_already_registered',
+  message: 'This document is already registered as an invoice or a purchase',
+  statusCode: 409,
+});
+
 export const createInvoiceEmailRequiredError = createErrorFactory({
   code: 'invoicing.customer_email_required',
   message: 'The customer needs an email address before sending the invoice',

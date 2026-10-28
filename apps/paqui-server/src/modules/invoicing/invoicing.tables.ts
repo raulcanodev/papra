@@ -128,6 +128,9 @@ export const invoicesTable = pgTable('invoices', {
   sentAt: timestamp('sent_at', { mode: 'date', withTimezone: true, precision: 3 }),
   paidAt: timestamp('paid_at', { mode: 'date', withTimezone: true, precision: 3 }),
   voidedAt: timestamp('voided_at', { mode: 'date', withTimezone: true, precision: 3 }),
+  // Issued outside the app (its paper uploaded afterwards): its document is the original, it is never regenerated
+  // nor sent to VERI*FACTU, and its number is the printed one, outside the series
+  importedAt: timestamp('imported_at', { mode: 'date', withTimezone: true, precision: 3 }),
   // How the customer pays; the due dates themselves are in payment_instalments
   paymentMethod: text('payment_method', { enum: PAYMENT_METHODS }),
 }, table => [

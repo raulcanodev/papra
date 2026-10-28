@@ -586,6 +586,26 @@ export const invoicingHandlers = {
       return { invoice: await hydrateInvoice(invoice) };
     },
   }),
+  // An invoice issued before the app, registered from its uploaded paper: already issued, with its printed number
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/invoicing/invoices/import',
+    method: 'POST',
+    handler: async ({ params: { organizationId }, body }) => {
+      const { documentId, number, isPaid, ...draft } = body as InvoiceDraftInput & { documentId: string; number: string; isPaid?: boolean };
+      const invoices = (await getValues(db().invoices)).filter(invoice => invoice.organizationId === organizationId);
+      if (invoices.some(invoice => invoice.number === number)) {
+        fail('Another invoice already has this number', 409);
+      }
+      if (invoices.some(invoice => invoice.documentId === documentId)) {
+        fail('This document is already registered as an invoice or a purchase', 409);
+      }
+      const built = await buildInvoiceFromDraft({ organizationId, draft: { ...draft, notes: draft.notes ?? null, terms: null, templateId: 'minimal' } });
+      const now = new Date().toISOString();
+      const invoice: Stored = { ...built, status: isPaid === true ? 'paid' : 'issued', number, documentId, issuedAt: built.issueDate, paidAt: isPaid === true ? now : null, importedAt: now };
+      await db().invoices.setItem(invoice.id, invoice);
+      return { invoice: await hydrateInvoice(invoice) };
+    },
+  }),
   ...defineHandler({
     path: '/api/organizations/:organizationId/invoicing/invoices/:resourceId',
     method: 'GET',

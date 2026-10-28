@@ -1,8 +1,8 @@
 /* eslint-disable style/max-statements-per-line */
-import type { Buffer } from 'node:buffer';
 import type { Database } from '../app/database/database.types';
 import type { Context, RouteDefinitionContext } from '../app/server.types';
 import type { PdfInvoice } from './invoicing.pdf';
+import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { z } from 'zod';
@@ -17,12 +17,13 @@ import { formatSenderAddress } from '../emails/emails.models';
 import { organizationIdSchema } from '../organizations/organization.schemas.legacy';
 import { createOrganizationsRepository } from '../organizations/organizations.repository';
 import { ensureUserIsInOrganization } from '../organizations/organizations.usecases';
+import { collectStreamToFile } from '../shared/streams/stream.convertion';
 import { legacyValidateJsonBody, legacyValidateParams, legacyValidateQuery } from '../shared/validation/validation.legacy';
 import { createInvoiceEmailRequiredError, createInvoiceNotFoundError, createInvoiceNotIssuableError } from './invoicing.errors';
 import { getInvoicePayableMinor } from './invoicing.models';
 import { renderInvoicePdf } from './invoicing.pdf';
 import { createInvoicingRepository } from './invoicing.repository';
-import { fiscalProfileSchema, invoiceBrandingSchema, invoiceDraftSchema, invoiceListQuerySchema, invoiceSeriesSchema, productBodySchema, productListQuerySchema, taxRateSchema } from './invoicing.schemas';
+import { fiscalProfileSchema, importedInvoiceSchema, invoiceBrandingSchema, invoiceDraftSchema, invoiceListQuerySchema, invoiceSeriesSchema, productBodySchema, productListQuerySchema, taxRateSchema } from './invoicing.schemas';
 import { createVerifactuRepository } from './verifactu.repository';
 
 const resourceParams = z.object({
@@ -149,6 +150,16 @@ function setupInvoiceRoutes(routeContext: RouteDefinitionContext) {
     return context.json(await createInvoicingRepository({ db }).createInvoice({ organizationId, draft: context.req.valid('json'), userId }), 201);
   });
 
+  // An invoice issued before the app, registered from its uploaded paper
+  app.post('/api/organizations/:organizationId/invoicing/invoices/import', requireAuthentication({ apiKeyPermissions: ['invoices:create'] }), legacyValidateParams(z.object({ organizationId: organizationIdSchema })), legacyValidateJsonBody(importedInvoiceSchema), async (context) => {
+    const { organizationId } = context.req.valid('param');
+    const { userId } = getUser({ context });
+    await authorizeMember({ context, db, organizationId });
+    const { invoice } = await createInvoicingRepository({ db }).importIssuedInvoice({ organizationId, input: context.req.valid('json'), userId });
+    await assignInvoiceDocumentToContactFolder({ routeContext, organizationId, invoice: invoice!, documentId: invoice!.documentId! });
+    return context.json({ invoice }, 201);
+  });
+
   app.get('/api/organizations/:organizationId/invoicing/invoices/:resourceId', requireAuthentication({ apiKeyPermissions: ['invoices:read'] }), legacyValidateParams(resourceParams), async (context) => {
     const { organizationId, resourceId: invoiceId } = context.req.valid('param');
     await authorizeMember({ context, db, organizationId });
@@ -190,11 +201,10 @@ function setupInvoiceRoutes(routeContext: RouteDefinitionContext) {
     if (invoice.status === 'draft') {
       throw createInvoiceNotIssuableError();
     }
-    const { record } = await createVerifactuRepository({ db }).getRecordForInvoice({ organizationId, invoiceId });
-    const pdf = await renderInvoicePdf({ ...invoice, verifactuQrUrl: record?.qrUrl ?? null } as PdfInvoice);
-    return context.body(new Uint8Array(pdf), 200, {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${safeFileName(invoice.number ?? invoice.id)}.pdf"`,
+    const { file } = await getInvoiceFile({ routeContext, organizationId, invoice });
+    return context.body(new Uint8Array(file.content), 200, {
+      'Content-Type': file.contentType,
+      'Content-Disposition': `attachment; filename="${safeFileName(file.filename)}"`,
       'Cache-Control': 'private, no-store',
     });
   });
@@ -215,8 +225,7 @@ function setupInvoiceRoutes(routeContext: RouteDefinitionContext) {
     if (recipient === null || recipient === undefined || recipient === '') {
       throw createInvoiceEmailRequiredError();
     }
-    const { record } = await createVerifactuRepository({ db }).getRecordForInvoice({ organizationId, invoiceId });
-    const pdf = await renderInvoicePdf({ ...invoice, verifactuQrUrl: record?.qrUrl ?? null } as PdfInvoice);
+    const { file } = await getInvoiceFile({ routeContext, organizationId, invoice: invoice! });
     const number = invoice!.number ?? invoice!.id;
     const { sender } = await getInvoiceSender({ db, organizationId, fromEmail: routeContext.config.emails.fromEmail });
     await routeContext.emailsServices.sendEmail({
@@ -224,7 +233,7 @@ function setupInvoiceRoutes(routeContext: RouteDefinitionContext) {
       to: recipient,
       subject: `Invoice ${number}`,
       html: buildInvoiceEmail({ customerName: invoice!.customer?.name ?? '', number, amountDueMinor: getInvoicePayableMinor(invoice!), currency: invoice!.currency }),
-      attachments: [{ filename: `${safeFileName(number)}.pdf`, content: pdf, contentType: 'application/pdf' }],
+      attachments: [{ filename: safeFileName(file.filename), content: file.content, contentType: file.contentType }],
     });
     return context.json(await repository.markInvoiceSent({ organizationId, invoiceId, userId, recipient }));
   });
@@ -235,6 +244,34 @@ function setupInvoiceRoutes(routeContext: RouteDefinitionContext) {
     await authorizeMember({ context, db, organizationId });
     return context.json(await createInvoicingRepository({ db }).markInvoicePaid({ organizationId, invoiceId, userId }));
   });
+}
+
+type StoredInvoice = NonNullable<Awaited<ReturnType<ReturnType<typeof createInvoicingRepository>['getInvoice']>>['invoice']>;
+
+// The file of an issued invoice: the PDF rendered from its data, or the original paper of an imported one
+async function getInvoiceFile({ routeContext, organizationId, invoice }: { routeContext: RouteDefinitionContext; organizationId: string; invoice: StoredInvoice }) {
+  const number = invoice.number ?? invoice.id;
+
+  if (invoice.importedAt !== null && invoice.documentId !== null) {
+    const { document } = await createDocumentsRepository({ db: routeContext.db }).getDocumentById({ documentId: invoice.documentId, organizationId });
+    if (document) {
+      const { fileStream } = await routeContext.documentsStorageService.getFileStream({
+        storageKey: document.originalStorageKey,
+        fileEncryptionAlgorithm: document.fileEncryptionAlgorithm,
+        fileEncryptionKekVersion: document.fileEncryptionKekVersion,
+        fileEncryptionKeyWrapped: document.fileEncryptionKeyWrapped,
+      });
+      const { file } = await collectStreamToFile({ fileStream, fileName: document.name, mimeType: document.mimeType });
+      const extension = document.name.includes('.') ? document.name.slice(document.name.lastIndexOf('.')) : '';
+
+      return { file: { content: Buffer.from(await file.arrayBuffer()), contentType: document.mimeType, filename: `${number}${extension}` } };
+    }
+  }
+
+  const { record } = await createVerifactuRepository({ db: routeContext.db }).getRecordForInvoice({ organizationId, invoiceId: invoice.id });
+  const pdf = await renderInvoicePdf({ ...invoice, verifactuQrUrl: record?.qrUrl ?? null } as PdfInvoice);
+
+  return { file: { content: pdf, contentType: 'application/pdf', filename: `${number}.pdf` } };
 }
 
 async function issueAndArchiveInvoice({ routeContext, organizationId, invoiceId, userId }: { routeContext: RouteDefinitionContext; organizationId: string; invoiceId: string; userId: string }) {

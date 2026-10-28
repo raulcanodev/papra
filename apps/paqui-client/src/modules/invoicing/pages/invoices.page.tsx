@@ -5,6 +5,7 @@ import type { ActiveFilter, FilterField } from '@/modules/ui/components/table-fi
 import { A, useNavigate, useParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For, Show } from 'solid-js';
+import { usePageFilesDrop } from '@/modules/documents/components/global-drop-area.component';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { Badge } from '@/modules/ui/components/badge';
@@ -19,6 +20,7 @@ import { useLinkWithReturn } from '@/modules/ui/navigation/return-to';
 import { CatalogCell, CatalogRow, CatalogTable } from '../components/catalog-page';
 import { getInvoicePayableMinor } from '../invoicing.models';
 import { deleteDraftInvoice, downloadInvoicePdf, fetchInvoices, markInvoicePaid, sendInvoice } from '../invoicing.services';
+import { useSalesImportUpload } from '../use-sales-import-upload';
 
 export const invoiceStatusLabelKeys = { draft: 'invoicing.status.draft', issuing: 'invoicing.status.issuing', issued: 'invoicing.status.issued', sent: 'invoicing.status.sent', paid: 'invoicing.status.paid', void: 'invoicing.status.void' } as const satisfies Record<InvoiceStatus, TranslationKeys>;
 export function InvoicesPage() {
@@ -46,6 +48,9 @@ export function InvoicesPage() {
     createToast({ type: 'success', message: t('invoicing.invoices.toast.deleted') }); await refresh();
   }, onError: () => createToast({ type: 'error', message: t('invoicing.invoices.toast.delete-error') }) }));
   const linkWithReturn = useLinkWithReturn();
+  // Invoices issued before the app (or outside it): uploaded with the button or dropped anywhere on the page
+  const salesImport = useSalesImportUpload({ organizationId: () => params.organizationId });
+  usePageFilesDrop(files => void salesImport.uploadFiles(files), { description: () => t('invoicing.import.drop-area') });
   // The list keeps its search (filters) when the editor returns to it
   const editHref = (invoice: Invoice) => linkWithReturn(getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: `${invoice.id}/edit` }));
   // A draft opens in the editor; an issued invoice is a legal record, it opens as its archived PDF
@@ -77,10 +82,17 @@ export function InvoicesPage() {
           <h1 class="page-title">{t('invoicing.invoices.title')}</h1>
           <p class="page-description">{t('invoicing.invoices.description')}</p>
         </div>
-        <Button as={A} size="sm" href={getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: 'new' })} class="gap-1.5">
-          <div class="i-tabler-plus size-4" />
-          {t('invoicing.invoices.new')}
-        </Button>
+        <div class="flex gap-2 max-sm:w-full [&>*]:max-sm:flex-1">
+          <Button variant="outline" size="sm" class="gap-1.5" isLoading={salesImport.isBusy()} onClick={() => salesImport.openFilePicker()}>
+            <div class="i-tabler-file-import size-4" />
+            {t('invoicing.import.button')}
+          </Button>
+          <Button as={A} size="sm" href={getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: 'new' })} class="gap-1.5">
+            <div class="i-tabler-plus size-4" />
+            {t('invoicing.invoices.new')}
+          </Button>
+          {salesImport.elements}
+        </div>
       </div>
 
       <TableToolbar search={search()} onSearchChange={setSearch} searchPlaceholder={t('invoicing.invoices.search')} fields={filterFields()} filters={filters()} onFiltersChange={setFilters} />
@@ -105,7 +117,12 @@ export function InvoicesPage() {
           <For each={invoices()}>
             {invoice => (
               <CatalogRow onClick={invoice.status === 'draft' || invoice.documentId !== null ? () => openInvoice(invoice) : undefined}>
-                <CatalogCell class="font-medium">{invoice.number ?? t('invoicing.status.draft')}</CatalogCell>
+                <CatalogCell class="font-medium">
+                  {invoice.number ?? t('invoicing.status.draft')}
+                  <Show when={invoice.importedAt}>
+                    <span class="ml-2 text-xs font-normal text-muted-foreground">{t('invoicing.import.badge')}</span>
+                  </Show>
+                </CatalogCell>
                 <CatalogCell>
                   <div class="flex items-center gap-2">
                     <EntityIcon icon={invoice.customerIcon} color={invoice.customerIconColor} fallback="i-tabler-building" size="sm" />

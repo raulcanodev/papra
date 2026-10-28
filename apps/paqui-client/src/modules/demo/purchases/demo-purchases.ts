@@ -193,8 +193,9 @@ export async function attachDemoPurchaseDocument({ purchaseInvoiceId, documentId
 }
 
 // The demo has no AI: a received invoice "read" from any uploaded file, from a supplier the demo does not know yet,
-// so the visitor sees the whole flow (supplier creation, prefilled lines, review)
-export function buildDemoExtraction({ documentId, now = new Date() }: { documentId: string; now?: Date }) {
+// so the visitor sees the whole flow (supplier creation, prefilled lines, review). A file named after the demo company
+// (or as a sale) is read as one of its own invoices, issued to a customer it does not know yet.
+export function buildDemoExtraction({ documentId, documentName = '', now = new Date() }: { documentId: string; documentName?: string; now?: Date }) {
   const issueDate = daysAgoToDate(now, 3);
   const items = [
     { description: 'Juegos de base con almohadas', quantityMillis: 100_000, unitPriceMinor: 1_500, taxRateBps: 2_100, discountRateBps: 0, deductibleRateBps: 10_000 },
@@ -205,9 +206,9 @@ export function buildDemoExtraction({ documentId, now = new Date() }: { document
   const firstHalf = Math.floor(payableMinor / 2);
   const instalments = [{ dueDate: addDays(issueDate, 30), amountMinor: firstHalf }, { dueDate: addDays(issueDate, 60), amountMinor: payableMinor - firstHalf }];
 
-  return {
+  const received = {
     schemaVersion: 3,
-    direction: 'received',
+    direction: 'received' as 'received' | 'issued',
     draft: {
       supplierId: null,
       kind: 'invoice',
@@ -227,6 +228,17 @@ export function buildDemoExtraction({ documentId, now = new Date() }: { document
     counterparty: { status: 'create', contactId: null, matchedBy: null, hasSupplierRole: false, candidates: [], name: 'Textiles Ejemplo SL', taxId: 'B00000020', email: 'facturas@textiles.example', phone: null, addressLine1: 'Calle del Telar 8', postalCode: '03801', city: 'Alcoy', country: 'ES', bankAccount: 'ES00 0000 0000 0000 0000 0000' },
     warnings: [],
     printedTotal: 184_223,
+  };
+
+  if (!/acme|emitida|venta|sale/i.test(documentName)) {
+    return received;
+  }
+
+  return {
+    ...received,
+    direction: 'issued',
+    draft: { ...received.draft, number: `ACME-2025-${String(now.getTime()).slice(-4)}`, metadata: [] },
+    counterparty: { status: 'create', contactId: null, matchedBy: null, hasSupplierRole: false, candidates: [], name: 'Hotel Ejemplo SL', taxId: 'B00000030', email: 'administracion@hotel.example', phone: null, addressLine1: 'Paseo Marítimo 12', postalCode: '29016', city: 'Málaga', country: 'ES', bankAccount: null },
   };
 }
 

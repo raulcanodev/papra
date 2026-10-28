@@ -110,6 +110,25 @@ export const invoiceDraftSchema = z.object({
   path: ['dueDate'],
 });
 
+// An invoice issued before (or outside) the app, registered from its paper: already issued, with its printed number
+export const importedInvoiceSchema = z.object({
+  documentId: z.string().trim().min(1).max(64),
+  number: z.string().trim().min(1).max(100),
+  isPaid: z.boolean().default(false),
+  customerId: z.string().trim().min(1),
+  issueDate: z.coerce.date(),
+  dueDate: z.coerce.date(),
+  currency: currencySchema.default('EUR'),
+  notes: z.string().trim().max(5_000).optional().nullable(),
+  withholdingRateBps: withholdingRateBpsSchema.default(0),
+  equivalenceSurcharge: z.boolean().optional(),
+  items: z.array(invoiceItemSchema).min(1).max(200),
+  paymentMethod: paymentMethodSchema.optional().nullable(),
+}).refine(value => value.dueDate >= value.issueDate, {
+  message: 'Due date must not be before issue date',
+  path: ['dueDate'],
+});
+
 export const invoiceListQuerySchema = z.object({
   status: z.enum(INVOICE_STATUSES).optional(),
 });

@@ -30,6 +30,7 @@ const ACTION_PRESENTATIONS: Record<string, ActionPresentation> = {
   issue_invoice: { icon: 'i-tabler-file-certificate', labelKey: 'ai-assistant.action.issue-invoice', ...DESTRUCTIVE },
   send_invoice_email: { icon: 'i-tabler-mail-forward', labelKey: 'ai-assistant.action.send-invoice-email', ...DESTRUCTIVE },
   mark_invoice_paid: { icon: 'i-tabler-cash', labelKey: 'ai-assistant.action.mark-invoice-paid' },
+  import_issued_invoice: { icon: 'i-tabler-file-import', labelKey: 'ai-assistant.action.import-issued-invoice' },
   create_purchase_invoice: { icon: 'i-tabler-receipt', labelKey: 'ai-assistant.action.create-purchase-invoice' },
   update_purchase_invoice: { icon: 'i-tabler-receipt', labelKey: 'ai-assistant.action.update-purchase-invoice' },
   set_purchase_invoice_status: { icon: 'i-tabler-receipt', labelKey: 'ai-assistant.action.set-purchase-invoice-status' },
