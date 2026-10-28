@@ -82,6 +82,35 @@ describe('page context prompt', () => {
   });
 });
 
+describe('screen data declared by the page', () => {
+  test('gives the exact values of the record on screen and says the document comes with the message', () => {
+    const prompt = buildPageContextPrompt({
+      organizationId: ORG,
+      pageContext: parse({
+        path: '/organizations/org_1/purchases/new',
+        screen: { subject: 'Purchase being registered', documentId: 'doc_1', data: { printedTotalMinor: 12100, form: { items: [{ unitPriceMinor: 10000 }] } } },
+      }),
+    });
+
+    expect(prompt).to.include('### Purchase being registered: the data on screen right now');
+    expect(prompt).to.include('documentId doc_1');
+    expect(prompt).to.include('"printedTotalMinor":12100');
+  });
+
+  test('is kept whole even when the page itself is truncated', () => {
+    const prompt = buildPageContextPrompt({
+      organizationId: ORG,
+      pageContext: parse({ path: '/organizations/org_1/home', snapshot: { text: 'x'.repeat(1_500), controls: Array.from({ length: 60 }, (_, index) => ({ kind: 'button', label: `Button ${'y'.repeat(150)} ${index}` })) }, screen: { subject: 'Purchase', data: { marker: 'kept' } } }),
+    });
+
+    expect(prompt).to.include('"marker":"kept"');
+  });
+
+  test('rejects screen data too large for the prompt', () => {
+    expect(() => parse({ path: '/x', screen: { subject: 'Purchase', data: { text: 'x'.repeat(20_001) } } })).toThrow();
+  });
+});
+
 describe('page context schema', () => {
   test('rejects a snapshot that is too large to be a page', () => {
     expect(() => parse({ path: '/x', snapshot: { controls: Array.from({ length: 61 }, () => ({ kind: 'button', label: 'a' })) } })).toThrow();

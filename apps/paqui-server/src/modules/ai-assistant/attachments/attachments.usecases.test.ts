@@ -49,6 +49,17 @@ describe('attachments usecases', () => {
     expect(await read('viejo.xls')).toEqual({ kind: 'unreadable', reason: 'old binary Excel format (.xls): ask the user to save it as .xlsx or .csv and attach it again' });
   });
 
+  test('a PDF goes to the model as the file itself, on top of its text', async () => {
+    const { byName } = await setup();
+    files['contrato.pdf'] = Buffer.from('%PDF-1.4');
+
+    const reading = await readDocumentForAssistant({ document: byName('contrato.pdf'), documentsStorageService, config });
+    delete files['contrato.pdf'];
+
+    expect(reading.content).toMatchObject({ kind: 'text', text: 'Contrato de arrendamiento' });
+    expect(reading.pdf).toEqual(Buffer.from('%PDF-1.4'));
+  });
+
   test('a photo goes to the vision model with the text recognized on it', async () => {
     const { byName } = await setup();
 

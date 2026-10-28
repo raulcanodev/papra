@@ -11,7 +11,7 @@ import { extractDocumentText } from '../../documents/documents.services';
 import { documentsTable } from '../../documents/documents.table';
 import { createLogger } from '../../shared/logger/logger';
 import { collectStreamToFile } from '../../shared/streams/stream.convertion';
-import { MAX_ATTACHMENT_SIZE_BYTES, MAX_INLINE_TABLE_ROWS, MAX_INLINE_TEXT_CHARS, MAX_VISION_IMAGE_BYTES } from './attachments.constants';
+import { MAX_ATTACHMENT_SIZE_BYTES, MAX_INLINE_TABLE_ROWS, MAX_INLINE_TEXT_CHARS, MAX_VISION_IMAGE_BYTES, MAX_VISION_PDF_BYTES } from './attachments.constants';
 import { canBeSentToVisionModel, formatDocumentContentForModel, getDocumentReadingStrategy, getInlineBudget, sliceSheet, sliceText } from './attachments.models';
 import { parseCsv, parseXlsx } from './spreadsheet.parsers';
 
@@ -24,6 +24,8 @@ export type DocumentReading = {
   content: DocumentContent;
   // A photo the vision model looks at, on top of the content
   image?: { data: Buffer; mediaType: string };
+  // A PDF the model looks at as it is printed (columns, boxes of totals), on top of its text
+  pdf?: Buffer;
 };
 
 export async function getOrganizationDocuments({ db, organizationId, documentIds }: { db: Database; organizationId: string; documentIds: string[] }) {
@@ -113,14 +115,18 @@ export async function readDocumentForAssistant({
       return { document: summary, content: { kind: 'image', text: text === '' ? null : text }, image: isVisible ? { data: data!, mediaType: document.mimeType } : undefined };
     }
 
+    const isVisiblePdf = withImage && document.mimeType === 'application/pdf' && document.originalSize <= MAX_VISION_PDF_BYTES;
     // The text is extracted in the background after an upload: right after it, it is read now instead of waiting
-    const text = storedText !== '' ? storedText : await extractText({ data: await loadDocumentFile({ document, documentsStorageService }), document, config });
+    const data = storedText === '' ? await loadDocumentFile({ document, documentsStorageService }) : undefined;
+    const text = storedText !== '' ? storedText : await extractText({ data: data!, document, config });
+    // Looking at the PDF is on top of its text: without the file, the text is still there
+    const pdf = isVisiblePdf ? data ?? await loadDocumentFile({ document, documentsStorageService }).catch(() => undefined) : undefined;
 
-    if (text === '') {
+    if (text === '' && !pdf) {
       return unreadable('no text could be read from this file (empty, protected or unsupported format)');
     }
 
-    return { document: summary, content: { kind: 'text', ...sliceText({ text, fromChar, maxChars }) } };
+    return { document: summary, content: { kind: 'text', ...sliceText({ text, fromChar, maxChars }) }, pdf };
   } catch (error) {
     logger.warn({ error, documentId: document.id, mimeType: document.mimeType }, 'Document could not be read for the assistant');
 
@@ -179,13 +185,44 @@ export async function buildModelMessages({ messages, documentsStorageService, co
       role: 'user',
       content: [
         { type: 'text', text: message.content.trim() === '' ? NO_TEXT_INSTRUCTION : message.content },
-        ...readings.flatMap(reading => [
-          { type: 'text' as const, text: formatDocumentContentForModel(reading) },
-          ...(reading.image ? [{ type: 'image' as const, image: reading.image.data, mediaType: reading.image.mediaType }] : []),
-        ]),
+        ...readings.flatMap(reading => toModelContentParts({ reading })),
       ],
     };
   }));
+}
+
+// A file as the model gets it: what was read of it, and the photo or the PDF itself to look at
+export function toModelContentParts({ reading, title }: { reading: DocumentReading; title?: string }) {
+  return [
+    { type: 'text' as const, text: [title, formatDocumentContentForModel(reading)].filter(Boolean).join('\n') },
+    ...(reading.image ? [{ type: 'image' as const, image: reading.image.data, mediaType: reading.image.mediaType }] : []),
+    ...(reading.pdf ? [{ type: 'file' as const, data: reading.pdf, mediaType: 'application/pdf' }] : []),
+  ];
+}
+
+// The paper shown on the user's screen (next to the form they are filling) goes with their latest message, as they
+// see it: it is not an attachment of theirs, it is not saved with the conversation
+export async function appendScreenDocument({ messages, db, organizationId, documentId, documentsStorageService, config }: {
+  messages: ModelMessage[];
+  db: Database;
+  organizationId: string;
+  documentId: string | undefined;
+  documentsStorageService: DocumentStorageService;
+  config: Config;
+}): Promise<ModelMessage[]> {
+  const lastUserIndex = messages.findLastIndex(message => message.role === 'user');
+  const { documents: [document] } = await getOrganizationDocuments({ db, organizationId, documentIds: documentId === undefined ? [] : [documentId] });
+
+  if (!document || lastUserIndex === -1) {
+    return messages;
+  }
+
+  const reading = await readDocumentForAssistant({ document, documentsStorageService, config });
+  const lastUser = messages[lastUserIndex]!;
+  const content = typeof lastUser.content === 'string' ? [{ type: 'text' as const, text: lastUser.content }] : lastUser.content;
+  const parts = toModelContentParts({ reading, title: '[The document open on the user\'s screen right now, next to the form: they see it as you do]' });
+
+  return messages.map((message, index) => (index === lastUserIndex ? { role: 'user', content: [...content, ...parts] } as ModelMessage : message));
 }
 
 export function getTitleFromMessage({ content, attachments }: { content: string; attachments: { name: string }[] }) {

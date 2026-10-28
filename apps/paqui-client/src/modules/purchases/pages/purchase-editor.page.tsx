@@ -4,6 +4,7 @@ import type { InstalmentInput, InstalmentsSource, PaymentMethod } from '@/module
 import { A, useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
 import { createEffect, createMemo, createSignal, Index, Show } from 'solid-js';
+import { useAiAssistantPanel, useAssistantScreen } from '@/modules/ai-assistant/ai-assistant-panel.provider';
 import { createContact, fetchContacts, getContactsQueryKey, updateContact } from '@/modules/contacts/contacts.services';
 import { DocumentSidePreview } from '@/modules/documents/components/document-side-preview';
 import { fetchDocument } from '@/modules/documents/documents.services';
@@ -34,6 +35,9 @@ import { SupplierTariffCheck } from '../components/supplier-tariff-check';
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABEL_I18N_KEYS, PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS, PURCHASE_DOCUMENT_KINDS } from '../purchases.constants';
 import { calculatePurchaseInvoiceTotals, emptyPurchaseInvoiceItem } from '../purchases.models';
 import { createPurchaseInvoice, createPurchaseReadings, deletePurchaseInvoice, fetchPurchaseInvoice, fetchPurchaseReadings, getPurchaseInvoicesQueryKey, getPurchaseReadingsQueryKey, updatePurchaseInvoice } from '../purchases.services';
+
+// The server takes up to 20 000 characters of screen data
+const MAX_ASSISTANT_SCREEN_CHARS = 18_000;
 
 const TAX_RATES_BPS = [0, 400, 1_000, 2_100];
 const DEDUCTIBLE_RATES_BPS = [10_000, 5_000, 0];
@@ -319,6 +323,19 @@ export function PurchaseEditorPage() {
     items: items(),
   });
 
+  // Paqui sees this purchase as it is on screen, unsaved changes included, with what the AI read and the paper itself
+  const assistantPanel = useAiAssistantPanel();
+  useAssistantScreen(() => {
+    const { documentId: _documentId, ...form } = draft();
+    const supplierName = suppliers().find(contact => contact.id === supplierId())?.name ?? null;
+    const base = { saved: isEditing(), form: { ...form, supplierName }, computedTotals: totals(), printedTotalMinor: extraction()?.printedTotal ?? null };
+    const full = { ...base, aiReading: extraction() === null ? null : { lines: extraction()!.draft.items, withholdingRateBps: extraction()!.draft.withholdingRateBps, notes: extraction()!.warnings, checks: reading()?.checks ?? [] } };
+    // A very long invoice keeps the form, what the AI read is on the paper anyway
+    const data = JSON.stringify(full).length <= MAX_ASSISTANT_SCREEN_CHARS ? full : base;
+
+    return { subject: t('purchases.editor.assistant-subject'), documentId: documentId() ?? undefined, data: JSON.stringify(data).length <= MAX_ASSISTANT_SCREEN_CHARS ? data : { computedTotals: totals(), printedTotalMinor: base.printedTotalMinor } };
+  });
+
   const canSave = () => Boolean(supplierId() && number().trim() && issueDate() && items().length > 0 && items().every(item => item.description.trim() && item.quantityMillis > 0));
 
   const saveMutation = createMutation(() => ({
@@ -561,8 +578,12 @@ export function PurchaseEditorPage() {
               <dd class="text-right font-semibold tabular-nums">{money(totals().payableMinor)}</dd>
             </dl>
             <Show when={totalMismatch()}>
-              <div class="rounded-lg border border-orange-500/30 bg-orange-500/8 p-3 text-sm sm:col-span-2">
-                {t('purchases.editor.total-mismatch', { printed: money(extraction()!.printedTotal ?? 0), computed: money(totals().totalMinor) })}
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-orange-500/30 bg-orange-500/8 p-3 text-sm sm:col-span-2">
+                <p class="min-w-0 flex-1">{t('purchases.editor.total-mismatch', { printed: money(extraction()!.printedTotal ?? 0), computed: money(totals().totalMinor) })}</p>
+                <Button size="sm" variant="outline" class="shrink-0" onClick={() => assistantPanel.ask(t('purchases.editor.total-mismatch.ask-prompt', { printed: money(extraction()!.printedTotal ?? 0), computed: money(totals().totalMinor) }))}>
+                  <div class="i-tabler-sparkles mr-1.5 size-4" />
+                  {t('purchases.editor.ask-paqui')}
+                </Button>
               </div>
             </Show>
             <FormField label={t('invoicing.editor.notes')} class="sm:col-span-2">

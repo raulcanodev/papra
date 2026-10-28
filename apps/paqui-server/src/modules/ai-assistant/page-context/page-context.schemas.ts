@@ -32,6 +32,18 @@ export const pageSnapshotSchema = z.object({
   text: z.string().max(1_500).optional(),
 });
 
+const MAX_SCREEN_DATA_CHARS = 20_000;
+
+// What a page knows about the record being edited, as the user sees it now (unsaved changes included) and the
+// paper it comes from: the page declares it, nothing is guessed from the DOM
+export const screenSchema = z.object({
+  /** What is being edited, in the user's words: "Purchase being registered from a document" */
+  subject: label,
+  /** The document shown next to the form: the model looks at it as the user does */
+  documentId: z.string().max(64).optional(),
+  data: z.record(z.unknown()).refine(data => JSON.stringify(data).length <= MAX_SCREEN_DATA_CHARS, 'Screen data too large'),
+});
+
 export const pageContextSchema = z.object({
   /** Location path without query string, e.g. /organizations/org_x/sales */
   path: z.string().max(500),
@@ -44,6 +56,7 @@ export const pageContextSchema = z.object({
   pages: z.array(z.object({ path: z.string().max(300), label, section: label.optional() })).max(80).default([]),
   /** Pages that open one entity, with :param placeholders */
   entityPages: z.array(z.object({ path: z.string().max(300), label })).max(20).default([]),
+  screen: screenSchema.optional(),
 });
 
 export type PageContext = z.infer<typeof pageContextSchema>;

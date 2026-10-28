@@ -1,6 +1,9 @@
 import type { ParentComponent } from 'solid-js';
 import { makePersisted } from '@solid-primitives/storage';
-import { createContext, createSignal, useContext } from 'solid-js';
+import { createContext, createSignal, onCleanup, useContext } from 'solid-js';
+
+/** The record a page is editing, as it is on screen now, and the paper it comes from */
+export type AssistantScreen = { subject: string; documentId?: string; data: Record<string, unknown> };
 
 type AiAssistantPanelContextValue = {
   isOpen: () => boolean;
@@ -11,6 +14,9 @@ type AiAssistantPanelContextValue = {
   ask: (prompt: string) => void;
   pendingPrompt: () => string | undefined;
   takePendingPrompt: () => string | undefined;
+  /** What the page on screen declares to the assistant, read when a message is sent */
+  getScreen: () => AssistantScreen | undefined;
+  setScreenSource: (source: (() => AssistantScreen | undefined) | undefined) => void;
 };
 
 const AiAssistantPanelContext = createContext<AiAssistantPanelContextValue>();
@@ -21,6 +27,7 @@ export const AiAssistantPanelProvider: ParentComponent = (props) => {
     storage: localStorage,
   });
   const [pendingPrompt, setPendingPrompt] = createSignal<string>();
+  let screenSource: (() => AssistantScreen | undefined) | undefined;
 
   return (
     <AiAssistantPanelContext.Provider
@@ -39,6 +46,10 @@ export const AiAssistantPanelProvider: ParentComponent = (props) => {
           setPendingPrompt(undefined);
           return prompt;
         },
+        getScreen: () => screenSource?.(),
+        setScreenSource: (source) => {
+          screenSource = source;
+        },
       }}
     >
       {props.children}
@@ -54,4 +65,13 @@ export function useAiAssistantPanel() {
   }
 
   return context;
+}
+
+// A page shows the assistant the record it is editing for as long as it is open: whatever the user asks, from a button
+// or by writing, the assistant sees the same values and the same paper they do
+export function useAssistantScreen(source: () => AssistantScreen | undefined) {
+  const panel = useAiAssistantPanel();
+
+  panel.setScreenSource(source);
+  onCleanup(() => panel.setScreenSource(undefined));
 }

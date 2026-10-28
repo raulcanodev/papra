@@ -544,6 +544,7 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
       title: document.title,
       snapshot: capturePageSnapshot({ root: document.querySelector('main') }),
       menuSections: [...buildOrganizationWorkspaceNavigation(navigationArgs), ...buildOrganizationSettingsNavigation(navigationArgs)],
+      screen: assistantPanel.getScreen(),
     });
   }
 

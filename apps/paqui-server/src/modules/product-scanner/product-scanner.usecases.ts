@@ -8,7 +8,7 @@ import type { CatalogReading, ProductCatalogImport, ScannerPropertyDefinition } 
 import { generateObject } from 'ai';
 import { getAiModel } from '../ai-assistant/ai-assistant.providers';
 import { formatDocumentContentForModel } from '../ai-assistant/attachments/attachments.models';
-import { getOrganizationDocuments, loadDocumentFile, readDocumentForAssistant } from '../ai-assistant/attachments/attachments.usecases';
+import { getOrganizationDocuments, readDocumentForAssistant } from '../ai-assistant/attachments/attachments.usecases';
 import { AI_FEATURES } from '../ai-usage/ai-usage.constants';
 import { createContactNotFoundError } from '../contacts/contacts.errors';
 import { createContactsRepository } from '../contacts/contacts.repository';
@@ -25,9 +25,6 @@ import { isCustomError } from '../shared/errors/errors';
 import { MAX_SCANNED_TABLE_ROWS, MAX_SCANNED_TEXT_CHARS } from './product-scanner.constants';
 import { createProductCatalogScanFailedError, createProductCatalogUnreadableError } from './product-scanner.errors';
 import { buildCatalogReadingSchema, getCatalogReadingInstructions, toEntityCustomProperties, toScanProposal } from './product-scanner.models';
-
-// Scanned PDFs have no text layer: they go to the model as files, which reads the pages
-const MAX_PDF_FILE_BYTES = 10 * 1024 * 1024;
 
 export type CatalogReader = (args: { system: string; schema: z.ZodType; content: UserContent }) => Promise<CatalogReading>;
 
@@ -98,8 +95,9 @@ export async function scanProductCatalog({
 
   const files = await Promise.all(documents.map(async (document) => {
     const reading = await readDocumentForAssistant({ document, documentsStorageService, config, maxRows: MAX_SCANNED_TABLE_ROWS, maxChars: MAX_SCANNED_TEXT_CHARS });
-    const isScannedPdf = reading.content.kind === 'unreadable' && document.mimeType === 'application/pdf' && document.originalSize <= MAX_PDF_FILE_BYTES;
-    const pdf = isScannedPdf ? await loadDocumentFile({ document, documentsStorageService }).catch(() => undefined) : undefined;
+    // A PDF with a text layer is read as text: only a scanned one, without any, goes as the file
+    const isScannedPdf = reading.content.kind === 'text' && reading.content.text === '';
+    const pdf = isScannedPdf ? reading.pdf : undefined;
 
     return { reading, pdf };
   }));

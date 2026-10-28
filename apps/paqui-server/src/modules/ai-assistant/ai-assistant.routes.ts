@@ -21,7 +21,7 @@ import { registerAiTranscriptionRoutes } from './ai-assistant.transcription.rout
 import { MAX_CHAT_ATTACHMENTS } from './attachments/attachments.constants';
 import { toChatAttachment } from './attachments/attachments.models';
 import { registerAiAttachmentsRoutes } from './attachments/attachments.routes';
-import { buildModelMessages, getOrganizationDocuments, getTitleFromMessage } from './attachments/attachments.usecases';
+import { appendScreenDocument, buildModelMessages, getOrganizationDocuments, getTitleFromMessage } from './attachments/attachments.usecases';
 import { pageContextSchema } from './page-context/page-context.schemas';
 import { CONFIRMABLE_TOOL_SCHEMAS, createAssistantToolset } from './tools/assistant-toolset';
 
@@ -160,7 +160,7 @@ export function registerAiAssistantRoutes(routeContext: RouteDefinitionContext) 
           .map(message => ({ role: message.role, content: message.content, attachments: getAttachments(message) })),
         documentsStorageService,
         config,
-      });
+      }).then(async modelMessages => appendScreenDocument({ messages: modelMessages, db, organizationId, documentId: pageContext?.screen?.documentId, documentsStorageService, config }));
 
       // Known before the answer is streamed, so the client can save what the user decides on its approvals
       const assistantMessageId = generateId({ prefix: AI_CHAT_MESSAGE_ID_PREFIX });

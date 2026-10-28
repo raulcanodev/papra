@@ -10,6 +10,8 @@ export const MAX_TABLE_CELL_CHARS = 300;
 
 // Photos are sent to the vision model only up to this size, larger ones are read from their recognized text
 export const MAX_VISION_IMAGE_BYTES = 5 * 1024 * 1024;
+// PDFs are sent as they are (the model sees their layout) up to this size, larger ones only as text
+export const MAX_VISION_PDF_BYTES = 10 * 1024 * 1024;
 export const VISION_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 export const XLSX_MIME_TYPES = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel.sheet.macroEnabled.12'];

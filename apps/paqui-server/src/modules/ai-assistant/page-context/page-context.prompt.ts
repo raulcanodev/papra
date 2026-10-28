@@ -87,6 +87,17 @@ export function buildPageContextPrompt({ pageContext, organizationId }: { pageCo
   );
 
   const prompt = sections.join('\n');
+  const pagePrompt = prompt.length <= MAX_PROMPT_CHARS ? prompt : `${prompt.slice(0, MAX_PROMPT_CHARS)}\n[context truncated]`;
 
-  return prompt.length <= MAX_PROMPT_CHARS ? prompt : `${prompt.slice(0, MAX_PROMPT_CHARS)}\n[context truncated]`;
+  return pageContext.screen === undefined ? pagePrompt : `${pagePrompt}\n\n${renderScreen({ screen: pageContext.screen })}`;
+}
+
+// Its own room, after the page: these are the exact values, the snapshot above only shows labels and the first rows
+function renderScreen({ screen }: { screen: NonNullable<PageContext['screen']> }) {
+  return [
+    `### ${screen.subject}: the data on screen right now`,
+    'Exact values as the user sees them, unsaved changes included. Money in cents, rates in basis points (2100 = 21 %), quantities in thousandths.',
+    ...(screen.documentId === undefined ? [] : [`The document next to the form (documentId ${screen.documentId}) comes with the user's latest message: look at it yourself.`]),
+    JSON.stringify(screen.data),
+  ].join('\n');
 }
