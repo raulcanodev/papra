@@ -12,6 +12,7 @@ import { createDocumentNotFoundError } from '../documents/documents.errors';
 import { extractDocumentText } from '../documents/documents.services';
 import { documentsTable } from '../documents/documents.table';
 import { invoicingProfilesTable } from '../invoicing/invoicing.tables';
+import { organizationsTable } from '../organizations/organizations.table';
 import { collectStreamToFile } from '../shared/streams/stream.convertion';
 import { EXTRACTABLE_DOCUMENT_MIME_TYPES, MAX_EXTRACTABLE_DOCUMENT_SIZE_BYTES } from './purchases.constants';
 import { createPurchaseDocumentNotExtractableError, createPurchaseExtractionFailedError } from './purchases.errors';
@@ -111,7 +112,9 @@ export async function extractPurchaseInvoiceFromDocument({
   };
 
   const [profile] = await db.select({ legalName: invoicingProfilesTable.legalName, taxId: invoicingProfilesTable.taxId }).from(invoicingProfilesTable).where(eq(invoicingProfilesTable.organizationId, organizationId)).limit(1);
-  const organization = { name: profile?.legalName ?? null, taxId: profile?.taxId ?? null };
+  // The legal name of the fiscal profile, or the name of the workspace while it has none
+  const [workspace] = await db.select({ name: organizationsTable.name }).from(organizationsTable).where(eq(organizationsTable.id, organizationId)).limit(1);
+  const organization = { name: profile?.legalName || workspace?.name || null, taxId: profile?.taxId ?? null };
   const asReaderFile = async (file: File) => ({ data: Buffer.from(await file.arrayBuffer()), mediaType: document.mimeType });
 
   // The content is extracted in the background after an upload: right after it, a PDF text is read now instead of waiting
@@ -136,7 +139,7 @@ export async function extractPurchaseInvoiceFromDocument({
     throw createPurchaseExtractionFailedError({ cause: error });
   });
 
-  const direction = getInvoiceDirection({ extraction, organizationTaxId: organization.taxId });
+  const direction = getInvoiceDirection({ extraction, organizationTaxId: organization.taxId, organizationNames: [profile?.legalName, workspace?.name] });
 
   // The counterparty of the organization: the issuer of a received invoice is the supplier
   const counterparty = direction === 'issued' ? extraction.recipient : extraction.issuer;
@@ -155,6 +158,9 @@ export async function extractPurchaseInvoiceFromDocument({
     draft: toPurchaseInvoiceDraft({ extraction, supplierId: supplier.status === 'matched' && supplier.hasSupplierRole ? supplier.contactId : null, documentId, contactTermsDays: matchedContact?.paymentTermsDays ?? null }),
     // Shown to the user: the contact to use (adding it the supplier role if needed), similar ones, or the data to create one
     counterparty: { ...counterparty, ...supplier },
+    // Both sides as read, for the screen to say who issued the paper and to switch sides when the direction is unknown
+    issuer: extraction.issuer,
+    recipient: extraction.recipient,
     warnings: extraction.warnings,
     // Lets the review screen warn when the lines do not add up to the printed total
     printedTotal: extraction.total === null ? null : Math.round(extraction.total * 100),

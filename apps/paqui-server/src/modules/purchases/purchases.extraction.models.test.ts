@@ -41,6 +41,17 @@ describe('purchases extraction models', () => {
     expect(getInvoiceDirection({ extraction: extraction(), organizationTaxId: null })).toBe('unknown');
   });
 
+  test('without a tax id that settles it, the name of the organization tells who issued the paper', () => {
+    // No fiscal profile yet: the name of the workspace, whatever its legal form and accents
+    expect(getInvoiceDirection({ extraction: extraction(), organizationTaxId: null, organizationNames: [null, 'ACME, S.L.'] })).toBe('received');
+    expect(getInvoiceDirection({ extraction: extraction({ issuer: party({ name: 'Acme SL' }), recipient: party({ name: 'Bruma Café' }) }), organizationTaxId: null, organizationNames: ['Acme'] })).toBe('issued');
+    // A tax id of ours that is on neither side, but the name is
+    expect(getInvoiceDirection({ extraction: extraction({ issuer: party({ name: 'Acme SL', taxId: null }), recipient: party({ name: 'Bruma Café', taxId: 'B00000003' }) }), organizationTaxId: 'B12345678', organizationNames: ['Acme SL'] })).toBe('issued');
+    // Our name on both sides, or on none: nothing can be told
+    expect(getInvoiceDirection({ extraction: extraction({ issuer: party({ name: 'Acme' }), recipient: party({ name: 'Acme SL' }) }), organizationTaxId: null, organizationNames: ['Acme'] })).toBe('unknown');
+    expect(getInvoiceDirection({ extraction: extraction(), organizationTaxId: null, organizationNames: ['Bruma Café'] })).toBe('unknown');
+  });
+
   test('amounts read as decimals become minor units and rates basis points, ready for review', () => {
     const draft = toPurchaseInvoiceDraft({ extraction: extraction(), supplierId: 'ctc_1', documentId: 'doc_1' });
 

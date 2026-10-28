@@ -195,6 +195,9 @@ export async function attachDemoPurchaseDocument({ purchaseInvoiceId, documentId
 // The demo has no AI: a received invoice "read" from any uploaded file, from a supplier the demo does not know yet,
 // so the visitor sees the whole flow (supplier creation, prefilled lines, review). A file named after the demo company
 // (or as a sale) is read as one of its own invoices, issued to a customer it does not know yet.
+// The demo company as printed on its papers
+const DEMO_OWN_PARTY = { name: 'Acme SL', taxId: 'B00000000', email: 'facturas@acme.example', phone: null, addressLine1: 'Calle de Ejemplo 28', postalCode: '28013', city: 'Madrid', country: 'ES', bankAccount: null };
+
 export function buildDemoExtraction({ documentId, documentName = '', now = new Date() }: { documentId: string; documentName?: string; now?: Date }) {
   const issueDate = daysAgoToDate(now, 3);
   const items = [
@@ -208,7 +211,7 @@ export function buildDemoExtraction({ documentId, documentName = '', now = new D
 
   const received = {
     schemaVersion: 3,
-    direction: 'received' as 'received' | 'issued',
+    direction: 'received' as 'received' | 'issued' | 'unknown',
     draft: {
       supplierId: null,
       kind: 'invoice',
@@ -228,7 +231,23 @@ export function buildDemoExtraction({ documentId, documentName = '', now = new D
     counterparty: { status: 'create', contactId: null, matchedBy: null, hasSupplierRole: false, candidates: [], name: 'Textiles Ejemplo SL', taxId: 'B00000020', email: 'facturas@textiles.example', phone: null, addressLine1: 'Calle del Telar 8', postalCode: '03801', city: 'Alcoy', country: 'ES', bankAccount: 'ES00 0000 0000 0000 0000 0000' },
     warnings: [],
     printedTotal: 184_223,
+    issuer: { name: 'Textiles Ejemplo SL', taxId: 'B00000020', email: 'facturas@textiles.example', phone: null, addressLine1: 'Calle del Telar 8', postalCode: '03801', city: 'Alcoy', country: 'ES', bankAccount: 'ES00 0000 0000 0000 0000 0000' },
+    recipient: DEMO_OWN_PARTY,
   };
+
+  const hotel = { name: 'Hotel Ejemplo SL', taxId: 'B00000030', email: 'administracion@hotel.example', phone: null, addressLine1: 'Paseo Marítimo 12', postalCode: '29016', city: 'Málaga', country: 'ES', bankAccount: null };
+
+  // Neither side is the demo company: the reading cannot tell who issued it, the user is asked
+  if (/duda|unknown|tercero/i.test(documentName)) {
+    const studio = { name: 'Estudio Norte SL', taxId: 'B00000040', email: 'hola@estudionorte.example', phone: null, addressLine1: 'Gran Vía 1', postalCode: '48001', city: 'Bilbao', country: 'ES', bankAccount: null };
+    return {
+      ...received,
+      direction: 'unknown',
+      counterparty: { status: 'create', contactId: null, matchedBy: null, hasSupplierRole: false, candidates: [], ...studio },
+      issuer: studio,
+      recipient: hotel,
+    };
+  }
 
   if (!/acme|emitida|venta|sale/i.test(documentName)) {
     return received;
@@ -238,7 +257,9 @@ export function buildDemoExtraction({ documentId, documentName = '', now = new D
     ...received,
     direction: 'issued',
     draft: { ...received.draft, number: `ACME-2025-${String(now.getTime()).slice(-4)}`, metadata: [] },
-    counterparty: { status: 'create', contactId: null, matchedBy: null, hasSupplierRole: false, candidates: [], name: 'Hotel Ejemplo SL', taxId: 'B00000030', email: 'administracion@hotel.example', phone: null, addressLine1: 'Paseo Marítimo 12', postalCode: '29016', city: 'Málaga', country: 'ES', bankAccount: null },
+    counterparty: { status: 'create', contactId: null, matchedBy: null, hasSupplierRole: false, candidates: [], ...hotel },
+    issuer: DEMO_OWN_PARTY,
+    recipient: hotel,
   };
 }
 

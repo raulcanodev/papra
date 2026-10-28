@@ -9,6 +9,8 @@ import { DocumentPreview } from '@/modules/documents/components/document-preview
 import { fetchDocument } from '@/modules/documents/documents.services';
 import { getDueDatesQueryKey } from '@/modules/due-dates/due-dates.services';
 import { useI18n } from '@/modules/i18n/i18n.provider';
+import { InvoiceParties } from '@/modules/purchases/components/invoice-parties';
+import { findPartyContact } from '@/modules/purchases/purchases.models';
 import { createPurchaseReadings, fetchPurchaseInvoices, fetchPurchaseReadings, getPurchaseInvoicesQueryKey, getPurchaseReadingsQueryKey } from '@/modules/purchases/purchases.services';
 import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-errors';
 import { queryClient } from '@/modules/shared/query/query-client';
@@ -24,7 +26,7 @@ import { useReturnHref } from '@/modules/ui/navigation/return-to';
 import { FormField } from '../components/catalog-page';
 import { getLineNetMinor, getLineTaxMinor, getWithholdingMinor } from '../components/invoice-preview';
 import { WITHHOLDING_RATES_BPS } from '../invoicing.constants';
-import { fetchInvoices, importIssuedInvoice } from '../invoicing.services';
+import { fetchFiscalProfile, fetchInvoices, importIssuedInvoice } from '../invoicing.services';
 
 const TAX_RATES_BPS = [0, 400, 1_000, 2_100];
 
@@ -81,6 +83,13 @@ export function ImportInvoicePage() {
   const extraction = () => reading()?.extraction ?? null;
   const isReading = () => readingQuery.isLoading || isInProgress(reading()?.status);
 
+  // Who issued the paper: what the reading found, or what the user answered when it could not tell (or got it wrong).
+  // Without a reading (it failed, the form is filled by hand) the paper is taken as ours: it was uploaded to the sales.
+  const [answeredDirection, setAnsweredDirection] = createSignal<'issued' | null>(null);
+  const direction = () => answeredDirection() ?? extraction()?.direction ?? null;
+  const isSale = () => direction() === 'issued' || direction() === null;
+  const profileQuery = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'profile'], queryFn: () => fetchFiscalProfile({ organizationId: params.organizationId }) }));
+
   // A paper already in the books (an issued invoice, a purchase) is not registered twice
   const invoicesQuery = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'invoices'], queryFn: () => fetchInvoices({ organizationId: params.organizationId }) }));
   const purchasesQuery = useQuery(() => ({ queryKey: getPurchaseInvoicesQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchPurchaseInvoices({ organizationId: params.organizationId }) }));
@@ -101,6 +110,7 @@ export function ImportInvoicePage() {
       return;
     }
     loadedDocumentId = documentId();
+    setAnsweredDirection(null);
 
     const { draft, counterparty } = read;
     setNumber(draft.number ?? '');
@@ -111,21 +121,45 @@ export function ImportInvoicePage() {
     if (draft.items.length > 0) {
       setItems(draft.items.map(item => ({ description: item.description, quantityMillis: item.quantityMillis, unitPriceMinor: item.unitPriceMinor, taxRateBps: item.taxRateBps, discountRateBps: item.discountRateBps, discountMinor: 0 })));
     }
-    const matched = counterparty.contactId === null ? undefined : contacts().find(contact => contact.id === counterparty.contactId);
+    // Only a paper read as ours names its customer: on an unclear one, the user first says whether it is theirs
+    const matched = read.direction !== 'issued' || counterparty.contactId === null ? undefined : contacts().find(contact => contact.id === counterparty.contactId);
     if (matched?.isCustomer === true) {
       setCustomerId(matched.id);
     }
   });
 
-  // The recipient read on the paper, when it is not a customer yet: one click makes it one
-  const counterparty = () => extraction()?.counterparty ?? null;
+  // The customer read on the paper: the counterparty of a paper read as ours, the recipient of an unclear one the user
+  // says is theirs (the reading took the issuer as the other side), and the party that is not us on one read as received
+  // that the user says is theirs (the sides were swapped). When it is not a customer yet, one click makes it one.
+  const customerParty = () => {
+    const read = extraction();
+    if (!read || direction() !== 'issued') {
+      return null;
+    }
+    return read.direction === 'unknown' ? (read.recipient ?? read.counterparty) : read.counterparty;
+  };
   const matchedContact = createMemo((): Contact | undefined => {
-    const contactId = counterparty()?.contactId;
-    return contactId === null || contactId === undefined ? undefined : contacts().find(contact => contact.id === contactId);
+    const read = extraction();
+    const party = customerParty();
+    if (!read || !party) {
+      return undefined;
+    }
+    if (read.direction !== 'unknown') {
+      const contactId = read.counterparty.contactId;
+      return contactId === null ? undefined : contacts().find(contact => contact.id === contactId);
+    }
+    return findPartyContact({ party, contacts: contacts() });
   });
+  const answerIsMine = () => {
+    setAnsweredDirection('issued');
+    const matched = matchedContact();
+    if (customerId() === '' && matched?.isCustomer === true) {
+      setCustomerId(matched.id);
+    }
+  };
   // Only for a paper of ours: on a received invoice the other party is a supplier, not a customer
-  const isOwnPaper = () => extraction()?.direction !== 'received' && !isAlreadyRegistered();
-  const canCreateCustomer = () => isOwnPaper() && customerId() === '' && counterparty()?.name && matchedContact() === undefined;
+  const isOwnPaper = () => direction() === 'issued' && !isAlreadyRegistered();
+  const canCreateCustomer = () => isOwnPaper() && customerId() === '' && customerParty()?.name && matchedContact() === undefined;
   const canAddCustomerRole = () => isOwnPaper() && customerId() === '' && matchedContact() !== undefined && !matchedContact()!.isCustomer;
 
   const customerMutation = createMutation(() => ({
@@ -135,7 +169,7 @@ export function ImportInvoicePage() {
         const { id: _id, organizationId: _organizationId, archivedAt: _archivedAt, createdAt: _createdAt, updatedAt: _updatedAt, ...input } = existing;
         return updateContact({ organizationId: params.organizationId, contactId: existing.id, contact: { ...input, isCustomer: true } });
       }
-      const read = counterparty()!;
+      const read = customerParty()!;
       return createContact({
         organizationId: params.organizationId,
         contact: emptyContact({
@@ -168,7 +202,16 @@ export function ImportInvoicePage() {
   const money = (minor: number) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency: currency() || 'EUR' }).format(minor / 100);
 
   const validLines = () => items().filter(item => item.description.trim() !== '');
-  const canSave = () => !isAlreadyRegistered() && customerId() !== '' && number().trim() !== '' && issueDate() !== '' && dueDate() !== '' && dueDate() >= issueDate() && validLines().length > 0 && !isReading();
+  // What keeps the sale from being registered, said next to the disabled button
+  const missing = () => [
+    !isSale() && t('invoicing.import.missing.side'),
+    customerId() === '' && t('invoicing.import.missing.customer'),
+    number().trim() === '' && t('invoicing.import.missing.number'),
+    (issueDate() === '' || dueDate() === '' || dueDate() < issueDate()) && t('invoicing.import.missing.dates'),
+    validLines().length === 0 && t('invoicing.import.missing.lines'),
+  ].filter((reason): reason is string => typeof reason === 'string');
+  const canSave = () => !isAlreadyRegistered() && !isReading() && missing().length === 0;
+  const missingMessage = () => (isAlreadyRegistered() || isReading() || missing().length === 0 ? undefined : t('invoicing.import.missing', { items: missing().join(', ') }));
 
   const saveMutation = createMutation(() => ({
     mutationFn: () => importIssuedInvoice({
@@ -224,7 +267,7 @@ export function ImportInvoicePage() {
           <span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{t('invoicing.import.queue', { count: queue().length })}</span>
         </Show>
         <div class="ml-auto">
-          <Button disabled={!canSave()} isLoading={saveMutation.isPending} onClick={() => saveMutation.mutate()}>
+          <Button disabled={!canSave()} title={missingMessage()} isLoading={saveMutation.isPending} onClick={() => saveMutation.mutate()}>
             {queue().length > 0 ? t('invoicing.import.save-and-next') : t('invoicing.import.save')}
           </Button>
         </div>
@@ -251,12 +294,58 @@ export function ImportInvoicePage() {
             <div class="rounded-xl border border-orange-500/30 bg-orange-500/8 p-4 text-sm">{t('invoicing.import.reading-failed')}</div>
           </Show>
 
-          {/* Read as an invoice received from a supplier: it is an expense, not one of ours */}
-          <Show when={extraction()?.direction === 'received'}>
-            <div class="flex flex-wrap items-center gap-3 rounded-xl border border-orange-500/30 bg-orange-500/8 p-4 text-sm">
-              <p class="min-w-0 flex-1">{t('invoicing.import.direction.received', { name: extraction()?.counterparty.name ?? '—' })}</p>
-              <Button as={A} href={keepReturnTo(purchaseHref())} size="sm" variant="outline">{t('purchases.actions.register-expense')}</Button>
+          <Show when={extraction()}>
+            {getExtraction => (
+              <Show when={getExtraction().issuer && getExtraction().recipient}>
+                <InvoiceParties issuer={getExtraction().issuer!} recipient={getExtraction().recipient!} ownSide={direction() === 'issued' ? 'issuer' : direction() === 'received' ? 'recipient' : null} />
+              </Show>
+            )}
+          </Show>
+
+          {/* Read as an invoice received from a supplier: it is an expense, not one of ours, unless the user says the reading is wrong */}
+          <Show when={direction() === 'received' && !isAlreadyRegistered()}>
+            <div class="flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/8 p-4 text-sm">
+              <div class="i-tabler-arrows-exchange mt-0.5 size-5 shrink-0 text-red-600" />
+              <div class="min-w-0 flex-1">
+                <p class="font-medium">{t('invoicing.import.direction.received.title')}</p>
+                <p class="text-muted-foreground">{t('invoicing.import.direction.received', { name: (extraction()?.issuer ?? extraction()?.counterparty)?.name ?? '—' })}</p>
+                <div class="mt-3 flex flex-wrap gap-2">
+                  <Button as={A} href={keepReturnTo(purchaseHref())} size="sm">{t('invoicing.import.direction.switch-to-purchase')}</Button>
+                  <Button size="sm" variant="ghost" onClick={answerIsMine}>{t('invoicing.import.direction.mine')}</Button>
+                </div>
+              </div>
             </div>
+          </Show>
+
+          {/* Neither the tax id nor the name told who issued it: the user says, nothing is guessed */}
+          <Show when={direction() === 'unknown' && !isAlreadyRegistered()}>
+            <div class="flex items-start gap-3 rounded-xl border border-orange-500/30 bg-orange-500/8 p-4 text-sm">
+              <div class="i-tabler-help-circle mt-0.5 size-5 shrink-0 text-orange-600" />
+              <div class="min-w-0 flex-1">
+                <p class="font-medium">{t('invoicing.import.direction.unknown.title')}</p>
+                <p class="text-muted-foreground">
+                  {t('invoicing.import.direction.unknown', { issuer: (extraction()?.issuer ?? extraction()?.counterparty)?.name ?? '—', recipient: extraction()?.recipient?.name ?? '—' })}
+                </p>
+                <div class="mt-3 flex flex-wrap gap-2">
+                  <Button size="sm" onClick={answerIsMine}>{t('invoicing.import.direction.unknown.mine')}</Button>
+                  <Button as={A} href={keepReturnTo(purchaseHref())} size="sm" variant="outline">{t('invoicing.import.direction.unknown.purchase')}</Button>
+                </div>
+                <Show when={profileQuery.isSuccess && !profileQuery.data?.profile?.taxId}>
+                  <p class="mt-3 text-xs text-muted-foreground">
+                    {t('invoicing.import.direction.fiscal-hint')}
+                    {' '}
+                    <A href={getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'settingsFiscalProfile' })} class="underline underline-offset-2 hover:text-foreground">{t('invoicing.import.direction.fiscal-hint.link')}</A>
+                  </p>
+                </Show>
+              </div>
+            </div>
+          </Show>
+
+          <Show when={missingMessage() && isSale()}>
+            <p class="flex items-center gap-2 text-sm text-muted-foreground">
+              <span class="i-tabler-info-circle size-4 shrink-0" />
+              {missingMessage()}
+            </p>
           </Show>
 
           <Show when={canCreateCustomer() || canAddCustomerRole()}>
@@ -265,7 +354,7 @@ export function ImportInvoicePage() {
               <p class="min-w-0 flex-1">
                 {canAddCustomerRole()
                   ? t('invoicing.import.customer.add-role', { name: matchedContact()!.name })
-                  : t('invoicing.import.customer.create', { name: counterparty()?.name ?? '' })}
+                  : t('invoicing.import.customer.create', { name: customerParty()?.name ?? '' })}
               </p>
               <Button size="sm" isLoading={customerMutation.isPending} onClick={() => customerMutation.mutate()}>
                 {canAddCustomerRole() ? t('invoicing.import.customer.add-role.button') : t('invoicing.import.customer.create.button')}

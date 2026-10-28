@@ -146,7 +146,8 @@ describe('purchases extraction usecases', () => {
       },
     });
 
-    expect(reads).to.eql([{ file: { data: Buffer.from('jpeg bytes'), mediaType: 'image/jpeg' }, text: 'TICKET', organization: { name: null, taxId: null } }]);
+    // Without a fiscal profile the model still knows who "we" are, from the name of the workspace
+    expect(reads).to.eql([{ file: { data: Buffer.from('jpeg bytes'), mediaType: 'image/jpeg' }, text: 'TICKET', organization: { name: 'Acme', taxId: null } }]);
   });
 
   test('only PDF and image documents can be read', async () => {

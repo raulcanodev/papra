@@ -23,6 +23,7 @@ import { TextArea } from '@/modules/ui/components/textarea';
 import { TextField } from '@/modules/ui/components/textfield';
 import { getOrganizationRouteChildHref, getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
 import { useReturnHref } from '@/modules/ui/navigation/return-to';
+import { InvoiceParties } from '../components/invoice-parties';
 import { PurchaseMetadataFields } from '../components/purchase-metadata-fields';
 import { ReadingChecks } from '../components/reading-checks';
 import { SupplierResolutionPanel } from '../components/supplier-resolution-panel';
@@ -380,6 +381,24 @@ export function PurchaseEditorPage() {
                   <div class="i-tabler-sparkles mt-0.5 size-5 shrink-0 text-violet-600 dark:text-violet-300" />
                   <p>{t('purchases.editor.read-by-ai')}</p>
                 </div>
+
+                <Show when={getExtraction().issuer && getExtraction().recipient}>
+                  <InvoiceParties issuer={getExtraction().issuer!} recipient={getExtraction().recipient!} ownSide={getExtraction().direction === 'issued' ? 'issuer' : getExtraction().direction === 'received' ? 'recipient' : null} />
+                </Show>
+
+                {/* Neither the tax id nor the name told who issued it: registered as an expense unless the user says it is a sale */}
+                <Show when={getExtraction().direction === 'unknown' && getExtraction().issuer}>
+                  <div class="flex flex-wrap items-center gap-3 rounded-xl border border-orange-500/30 bg-orange-500/8 p-4 text-sm">
+                    <p class="min-w-0 flex-1">{t('purchases.editor.direction.unknown', { issuer: getExtraction().issuer?.name ?? '—', recipient: getExtraction().recipient?.name ?? '—' })}</p>
+                    <Show when={documentId()}>
+                      {getDocumentId => (
+                        <Button as={A} size="sm" variant="ghost" href={keepReturnTo(`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: 'import' })}?documentId=${encodeURIComponent(getDocumentId())}`)}>
+                          {t('purchases.editor.direction.issued.action')}
+                        </Button>
+                      )}
+                    </Show>
+                  </div>
+                </Show>
 
                 <Show when={getExtraction().direction === 'issued'}>
                   <div class="flex flex-wrap items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/8 p-4 text-sm">

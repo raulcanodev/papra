@@ -120,4 +120,9 @@ export type PurchaseInvoiceExtraction = {
   };
   warnings: string[];
   printedTotal: number | null;
+  /** Both sides as read; readings made before they were sent have only the counterparty */
+  issuer?: InvoiceReadParty;
+  recipient?: InvoiceReadParty;
 };
+
+export type InvoiceReadParty = { name: string | null; taxId: string | null; email: string | null; phone: string | null; addressLine1: string | null; postalCode: string | null; city: string | null; country: string | null; bankAccount?: string | null };

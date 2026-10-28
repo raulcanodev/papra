@@ -70,20 +70,27 @@ export type InvoiceExtraction = Omit<z.infer<typeof invoiceExtractionSchema>, 'i
 
 export type InvoiceDirection = 'received' | 'issued' | 'unknown';
 
-// An invoice issued by the organization itself is a sale, not an expense: detected from the tax ids
-export function getInvoiceDirection({ extraction, organizationTaxId }: { extraction: Pick<InvoiceExtraction, 'issuer' | 'recipient'>; organizationTaxId: string | null | undefined }): InvoiceDirection {
+// An invoice issued by the organization itself is a sale, not an expense: detected from the tax ids, then from the names
+// when no tax id settles it (no fiscal profile yet, a tax id left off the paper)
+export function getInvoiceDirection({ extraction, organizationTaxId, organizationNames = [] }: { extraction: Pick<InvoiceExtraction, 'issuer' | 'recipient'>; organizationTaxId: string | null | undefined; organizationNames?: (string | null | undefined)[] }): InvoiceDirection {
   const ownTaxId = normalizeTaxId({ taxId: organizationTaxId });
 
-  if (ownTaxId === null) {
-    return 'unknown';
+  if (ownTaxId !== null) {
+    if (normalizeTaxId({ taxId: extraction.issuer.taxId }) === ownTaxId) {
+      return 'issued';
+    }
+
+    if (normalizeTaxId({ taxId: extraction.recipient.taxId }) === ownTaxId) {
+      return 'received';
+    }
   }
 
-  if (normalizeTaxId({ taxId: extraction.issuer.taxId }) === ownTaxId) {
-    return 'issued';
-  }
+  const ownNames = new Set(organizationNames.map(name => normalizeCompanyName({ name })).filter(name => name !== ''));
+  const isIssuer = ownNames.has(normalizeCompanyName({ name: extraction.issuer.name }));
+  const isRecipient = ownNames.has(normalizeCompanyName({ name: extraction.recipient.name }));
 
-  if (normalizeTaxId({ taxId: extraction.recipient.taxId }) === ownTaxId) {
-    return 'received';
+  if (isIssuer !== isRecipient) {
+    return isIssuer ? 'issued' : 'received';
   }
 
   return 'unknown';

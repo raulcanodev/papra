@@ -42,3 +42,19 @@ export function compareLineWithTariff({ item, tariff, currency }: { item: Pick<P
   const differenceMinor = chargedMinor - tariff.unitPriceMinor;
   return { comparison: (differenceMinor > 0 ? 'higher' : 'lower') as TariffComparison, chargedMinor, differenceMinor };
 }
+
+const normalizePartyTaxId = (taxId: string | null | undefined) => (taxId ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^ES(?=[A-Z0-9]{9}$)/, '');
+const LEGAL_FORMS = new Set(['sl', 'slu', 'sa', 'sau', 'slne', 'scoop', 'coop', 'cb', 'scp', 'sociedad', 'limitada', 'anonima', 'ltd', 'llc', 'inc', 'gmbh', 'srl', 'sas']);
+const normalizePartyName = (name: string | null | undefined) => (name ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\b([a-z])\.\s?(?=[a-z]\.)/g, '$1').replace(/\./g, '').split(/[^a-z0-9]+/).filter(token => token !== '' && !LEGAL_FORMS.has(token)).join(' ');
+
+// The contact a party read on a paper is, by tax id first, by name otherwise (like the server does for the counterparty)
+export function findPartyContact<T extends { name: string; taxId: string | null }>({ party, contacts }: { party: { name: string | null; taxId: string | null }; contacts: T[] }) {
+  const taxId = normalizePartyTaxId(party.taxId);
+  const byTaxId = taxId === '' ? undefined : contacts.find(contact => normalizePartyTaxId(contact.taxId) === taxId);
+  if (byTaxId) {
+    return byTaxId;
+  }
+
+  const name = normalizePartyName(party.name);
+  return name === '' ? undefined : contacts.find(contact => normalizePartyName(contact.name) === name);
+}
