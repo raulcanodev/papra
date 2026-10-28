@@ -27,6 +27,21 @@ export const MobileQuickActions: Component<{ open: boolean; onOpenChange: (open:
 
   const close = () => props.onOpenChange(false);
 
+  // The chat hides the bottom bar this sheet belongs to: opened while the sheet is still closing, the sheet would
+  // be removed halfway and leave the page locked under the chat. It opens once the sheet is gone
+  let afterClose: (() => void) | undefined;
+  const closeThen = (action: () => void) => {
+    afterClose = action;
+    close();
+  };
+  const onCloseAutoFocus = (event: Event) => {
+    if (afterClose) {
+      event.preventDefault();
+      afterClose();
+      afterClose = undefined;
+    }
+  };
+
   createEffect(on(() => props.open, (open) => {
     if (!open) {
       setStep('actions');
@@ -92,13 +107,12 @@ export const MobileQuickActions: Component<{ open: boolean; onOpenChange: (open:
       label: t('layout.mobile.quick-actions.ask-paqui'),
       description: t('layout.mobile.quick-actions.ask-paqui.description'),
       // The chat over the whole screen, as the Paqui button of the top bar opens it, not the assistant page
-      onSelect: () => {
-        close();
+      onSelect: () => closeThen(() => {
         if (location.pathname === getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'assistant' })) {
           navigate(getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'home' }));
         }
         assistantPanel.open();
-      },
+      }),
       isHighlighted: true,
     },
   ];
@@ -121,7 +135,7 @@ export const MobileQuickActions: Component<{ open: boolean; onOpenChange: (open:
       {purchaseUpload.elements}
 
       <Sheet open={props.open} onOpenChange={props.onOpenChange}>
-        <SheetContent side="bottom" onDragClose={close} class="rounded-t-3xl px-4 pt-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:hidden">
+        <SheetContent side="bottom" onDragClose={close} onCloseAutoFocus={onCloseAutoFocus} class="rounded-t-3xl px-4 pt-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:hidden">
           <div class="mx-auto mb-3 h-1.5 w-10 rounded-full bg-muted-foreground/30" aria-hidden="true" />
 
           <Show
