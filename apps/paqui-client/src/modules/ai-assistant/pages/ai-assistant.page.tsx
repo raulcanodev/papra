@@ -502,6 +502,8 @@ const ChatHistoryItem: Component<{
   );
 };
 
+const SHOW_FULL_PAGE_BUTTON = false;
+
 type AiAssistantProps = {
   mode?: 'page' | 'panel';
   onClose?: () => void;
@@ -1051,9 +1053,12 @@ export const AiAssistant: Component<AiAssistantProps> = (props) => {
           </div>
           <div class="flex items-center gap-2">
             <Show when={isPanel()}>
-              <Button variant="ghost" size="icon-sm" class="size-11 sm:size-8 shrink-0 rounded-full" onClick={props.onExpand} aria-label={t('ai-assistant.open-full-page')}>
-                <div class="i-tabler-arrows-maximize size-4" />
-              </Button>
+              {/* Hidden for now: the full-screen assistant still exists, only the way to it from the panel is gone */}
+              <Show when={SHOW_FULL_PAGE_BUTTON}>
+                <Button variant="ghost" size="icon-sm" class="size-11 sm:size-8 shrink-0 rounded-full" onClick={props.onExpand} aria-label={t('ai-assistant.open-full-page')}>
+                  <div class="i-tabler-arrows-maximize size-4" />
+                </Button>
+              </Show>
               <Button variant="ghost" size="icon-sm" class="size-11 sm:size-8 shrink-0 rounded-full" onClick={props.onClose} aria-label={t('ai-assistant.close-panel')}>
                 <div class="i-tabler-x size-4" />
               </Button>
