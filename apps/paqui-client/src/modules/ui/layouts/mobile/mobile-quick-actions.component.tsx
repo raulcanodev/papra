@@ -1,6 +1,7 @@
 import type { Component } from 'solid-js';
-import { A, useNavigate, useParams } from '@solidjs/router';
+import { A, useLocation, useNavigate, useParams } from '@solidjs/router';
 import { createEffect, createSignal, For, on, Show } from 'solid-js';
+import { useAiAssistantPanel } from '@/modules/ai-assistant/ai-assistant-panel.provider';
 import { preparePhotoForUpload } from '@/modules/captures/captures.models';
 import { useDocumentUpload } from '@/modules/documents/components/document-import-status.component';
 import { useI18n } from '@/modules/i18n/i18n.provider';
@@ -14,6 +15,8 @@ import { useNavigationCapabilities } from '@/modules/ui/navigation/use-navigatio
 export const MobileQuickActions: Component<{ open: boolean; onOpenChange: (open: boolean) => void }> = (props) => {
   const params = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const assistantPanel = useAiAssistantPanel();
   const { t } = useI18n();
   const { uploadDocuments, promptImport } = useDocumentUpload();
   const getCapabilities = useNavigationCapabilities();
@@ -88,7 +91,14 @@ export const MobileQuickActions: Component<{ open: boolean; onOpenChange: (open:
       image: '/logo.svg',
       label: t('layout.mobile.quick-actions.ask-paqui'),
       description: t('layout.mobile.quick-actions.ask-paqui.description'),
-      href: getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'assistant' }),
+      // The chat over the whole screen, as the Paqui button of the top bar opens it, not the assistant page
+      onSelect: () => {
+        close();
+        if (location.pathname === getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'assistant' })) {
+          navigate(getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'home' }));
+        }
+        assistantPanel.open();
+      },
       isHighlighted: true,
     },
   ];
@@ -111,7 +121,7 @@ export const MobileQuickActions: Component<{ open: boolean; onOpenChange: (open:
       {purchaseUpload.elements}
 
       <Sheet open={props.open} onOpenChange={props.onOpenChange}>
-        <SheetContent side="bottom" class="rounded-t-3xl px-4 pt-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:hidden">
+        <SheetContent side="bottom" onDragClose={close} class="rounded-t-3xl px-4 pt-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:hidden">
           <div class="mx-auto mb-3 h-1.5 w-10 rounded-full bg-muted-foreground/30" aria-hidden="true" />
 
           <Show
