@@ -1,13 +1,11 @@
 /* eslint-disable style/max-statements-per-line */
-import type { Invoice, InvoiceStatus } from '../invoicing.types';
-import type { TranslationKeys } from '@/modules/i18n/locales.types';
+import type { Invoice } from '../invoicing.types';
 import type { ActiveFilter, FilterField } from '@/modules/ui/components/table-filters';
 import { A, useParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { usePageFilesDrop } from '@/modules/documents/components/global-drop-area.component';
 import { useI18n } from '@/modules/i18n/i18n.provider';
-import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { EntityIcon } from '@/modules/ui/components/entity-icon';
 import { dateIsInRange, getActiveFilter, isDateRangeValue } from '@/modules/ui/components/table-filters';
@@ -15,11 +13,11 @@ import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { getOrganizationRouteChildHref, getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
 import { CatalogCell, CatalogRow, CatalogTable } from '../components/catalog-page';
 import { InvoiceRowActions, useOpenInvoice } from '../components/invoice-row-actions';
+import { InvoiceStatusBadge, invoiceStatusLabelKeys } from '../components/invoice-status-badge';
 import { getInvoicePayableMinor } from '../invoicing.models';
 import { fetchInvoices } from '../invoicing.services';
 import { useSalesImportUpload } from '../use-sales-import-upload';
 
-export const invoiceStatusLabelKeys = { draft: 'invoicing.status.draft', issuing: 'invoicing.status.issuing', issued: 'invoicing.status.issued', sent: 'invoicing.status.sent', paid: 'invoicing.status.paid', void: 'invoicing.status.void' } as const satisfies Record<InvoiceStatus, TranslationKeys>;
 export function InvoicesPage() {
   const { t, getLocale } = useI18n();
   const statusOptions = () => Object.entries(invoiceStatusLabelKeys).map(([value, key]) => ({ value, label: t(key) }));
@@ -110,7 +108,7 @@ export function InvoicesPage() {
                   </div>
                 </CatalogCell>
                 <CatalogCell class="text-muted-foreground">{invoice.issueDate.toLocaleDateString(getLocale())}</CatalogCell>
-                <CatalogCell><Badge variant="outline">{t(invoiceStatusLabelKeys[invoice.status])}</Badge></CatalogCell>
+                <CatalogCell><InvoiceStatusBadge status={invoice.status} /></CatalogCell>
                 <CatalogCell class="text-right font-medium tabular-nums">{money(invoice)}</CatalogCell>
                 <CatalogCell>
                   <InvoiceRowActions organizationId={params.organizationId} invoice={invoice} />

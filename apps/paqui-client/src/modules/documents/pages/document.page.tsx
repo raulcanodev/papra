@@ -10,8 +10,8 @@ import { DocumentCustomPropertiesPanel } from '@/modules/custom-properties/compo
 import { fetchCustomPropertyDefinitions } from '@/modules/custom-properties/custom-properties.services';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
+import { invoiceStatusLabelKeys } from '@/modules/invoicing/components/invoice-status-badge';
 import { fetchInvoices } from '@/modules/invoicing/invoicing.services';
-import { invoiceStatusLabelKeys } from '@/modules/invoicing/pages/invoices.page';
 import { EXTRACTABLE_FILE_ACCEPT, PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS } from '@/modules/purchases/purchases.constants';
 import { fetchPurchaseInvoices, fetchPurchaseReadings, getPurchaseInvoicesQueryKey } from '@/modules/purchases/purchases.services';
 import { downloadFile } from '@/modules/shared/files/download';

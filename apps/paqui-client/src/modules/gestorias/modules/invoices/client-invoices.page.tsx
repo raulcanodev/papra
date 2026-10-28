@@ -5,9 +5,8 @@ import { useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { CatalogCell, CatalogRow, CatalogTable } from '@/modules/invoicing/components/catalog-page';
+import { InvoiceStatusBadge, invoiceStatusLabelKeys } from '@/modules/invoicing/components/invoice-status-badge';
 import { getInvoicePayableMinor } from '@/modules/invoicing/invoicing.models';
-import { invoiceStatusLabelKeys } from '@/modules/invoicing/pages/invoices.page';
-import { Badge } from '@/modules/ui/components/badge';
 import { EntityIcon } from '@/modules/ui/components/entity-icon';
 import { RowActions } from '@/modules/ui/components/row-actions';
 import { createToast } from '@/modules/ui/components/sonner';
@@ -94,7 +93,7 @@ export function ClientInvoicesPage() {
                       </div>
                     </CatalogCell>
                     <CatalogCell class="text-muted-foreground">{invoice.issueDate.toLocaleDateString(getLocale())}</CatalogCell>
-                    <CatalogCell><Badge variant="outline">{t(invoiceStatusLabelKeys[invoice.status])}</Badge></CatalogCell>
+                    <CatalogCell><InvoiceStatusBadge status={invoice.status} /></CatalogCell>
                     <CatalogCell class="text-right tabular-nums text-muted-foreground">{money(invoice, invoice.subtotalMinor)}</CatalogCell>
                     <CatalogCell class="text-right tabular-nums text-muted-foreground">{money(invoice, invoice.taxMinor)}</CatalogCell>
                     <CatalogCell class="text-right font-medium tabular-nums">{money(invoice, getInvoicePayableMinor(invoice))}</CatalogCell>

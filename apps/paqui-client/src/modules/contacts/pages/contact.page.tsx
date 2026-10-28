@@ -1,6 +1,5 @@
 import type { EntityCustomProperty } from '@/modules/custom-properties/custom-properties.types';
-import type { TranslationKeys } from '@/modules/i18n/locales.types';
-import type { InvoiceStatus, InvoicingProduct } from '@/modules/invoicing/invoicing.types';
+import type { InvoicingProduct } from '@/modules/invoicing/invoicing.types';
 import { A, useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For, Show } from 'solid-js';
@@ -9,6 +8,7 @@ import { ContactDeliveryNotes } from '@/modules/delivery-notes/components/contac
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { CatalogCell, CatalogRow, CatalogTable } from '@/modules/invoicing/components/catalog-page';
 import { InvoiceRowActions, useOpenInvoice } from '@/modules/invoicing/components/invoice-row-actions';
+import { InvoiceStatusBadge } from '@/modules/invoicing/components/invoice-status-badge';
 import { getProductsQueryKey, ProductForm } from '@/modules/invoicing/components/product-form';
 import { ProductsTable } from '@/modules/invoicing/components/products-table';
 import { getInvoicePayableMinor } from '@/modules/invoicing/invoicing.models';
@@ -24,7 +24,6 @@ import { fetchPurchaseInvoices, getPurchaseInvoicesQueryKey } from '@/modules/pu
 import { usePurchaseUpload } from '@/modules/purchases/use-purchase-upload';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
-import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/modules/ui/components/dialog';
 import { EntityIcon } from '@/modules/ui/components/entity-icon';
@@ -66,8 +65,6 @@ function CopyableValue(props: { value: string }) {
 }
 
 const CONTACT_TABS = ['invoices', 'delivery-notes', 'products', 'price-lists'] as const;
-
-const invoiceStatusLabelKeys = { draft: 'invoicing.status.draft', issuing: 'invoicing.status.issuing', issued: 'invoicing.status.issued', sent: 'invoicing.status.sent', paid: 'invoicing.status.paid', void: 'invoicing.status.void' } as const satisfies Record<InvoiceStatus, TranslationKeys>;
 
 /** One contact with its details, invoices, products and price list. */
 export function ContactPage() {
@@ -253,7 +250,7 @@ export function ContactPage() {
                               <CatalogRow onClick={canOpenInvoice(invoice) ? () => openInvoice(invoice) : undefined}>
                                 <CatalogCell class="font-medium">{invoice.number ?? t('invoicing.status.draft')}</CatalogCell>
                                 <CatalogCell class="text-muted-foreground">{invoice.issueDate.toLocaleDateString(getLocale())}</CatalogCell>
-                                <CatalogCell><Badge variant="outline">{t(invoiceStatusLabelKeys[invoice.status])}</Badge></CatalogCell>
+                                <CatalogCell><InvoiceStatusBadge status={invoice.status} /></CatalogCell>
                                 <CatalogCell class="text-right font-medium tabular-nums">{money({ amountMinor: getInvoicePayableMinor(invoice), currency: invoice.currency })}</CatalogCell>
                                 <CatalogCell><InvoiceRowActions organizationId={params.organizationId} invoice={invoice} /></CatalogCell>
                               </CatalogRow>
