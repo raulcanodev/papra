@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { instalmentsInputSchema, paymentMethodSchema } from '../due-dates/due-dates.schemas';
-import { EXPENSE_CATEGORIES, MAX_PURCHASE_METADATA_ENTRIES, PURCHASE_DOCUMENT_KINDS, PURCHASE_INVOICE_STATUSES } from './purchases.constants';
+import { EXPENSE_CATEGORIES, MAX_PRODUCT_MATCHING_LINES, MAX_PURCHASE_METADATA_ENTRIES, PURCHASE_DOCUMENT_KINDS, PURCHASE_INVOICE_STATUSES } from './purchases.constants';
 import { MAX_DOCUMENTS_PER_READING_REQUEST } from './readings/document-readings.constants';
 
 const currencySchema = z.string().trim().length(3).transform(value => value.toUpperCase());
@@ -66,4 +66,10 @@ export const purchaseReadingsBodySchema = z.object({
 
 export const purchaseReadingsQuerySchema = z.object({
   documentIds: z.string().trim().min(1).transform(value => [...new Set(value.split(',').map(id => id.trim()).filter(Boolean))].slice(0, MAX_DOCUMENTS_PER_READING_REQUEST)),
+});
+
+// The lines of a purchase being reviewed, to find which of the supplier's products each one is
+export const purchaseProductMatchesBodySchema = z.object({
+  supplierId: z.string().trim().min(1).max(64),
+  descriptions: z.array(z.string().trim().max(500)).min(1).max(MAX_PRODUCT_MATCHING_LINES),
 });

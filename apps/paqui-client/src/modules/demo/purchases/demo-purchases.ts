@@ -8,7 +8,7 @@ import { defineHandler } from '../demo-api-mock.models';
 import { createId } from '../demo.models';
 import { getValues } from '../demo.storage.models';
 import { buildDemoInstalments, getDemoSettledState } from '../due-dates/demo-due-dates.models';
-import { getDemoContact, listDemoContacts } from '../invoicing/demo-invoicing';
+import { getDemoContact, listDemoContactProducts, listDemoContacts } from '../invoicing/demo-invoicing';
 import { daysAgoToDate } from '../invoicing/demo-invoicing.fixtures';
 
 // Received invoices of the demo, in the browser localStorage like every other demo record, same rules as the server
@@ -242,7 +242,38 @@ export function buildDemoExtraction({ documentId, documentName = '', now = new D
   };
 }
 
+const getWords = (text: string) => text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
+
+// The demo has no AI: a line carrying the whole name of a product is that product (like the server), and one sharing
+// most of its words stands for what the model would recognize
+export function matchDemoLineWithProducts({ description, products }: { description: string; products: Array<{ id: string; name: string }> }) {
+  const lineWords = new Set(getWords(description));
+  const scored = products
+    .map(product => ({ product, words: getWords(product.name) }))
+    .filter(({ words }) => words.length > 0 && lineWords.size > 0)
+    .map(({ product, words }) => ({ product, words, shared: words.filter(word => lineWords.has(word)).length }))
+    .toSorted((a, b) => b.shared - a.shared || b.words.length - a.words.length);
+
+  const byName = scored.find(({ words, shared }) => shared === words.length);
+  if (byName) {
+    return { productId: byName.product.id, matchedBy: 'name' as const };
+  }
+
+  const [closest] = scored;
+  return closest && closest.shared >= 2 && closest.shared / closest.words.length >= 0.5 ? { productId: closest.product.id, matchedBy: 'ai' as const } : { productId: null, matchedBy: null };
+}
+
 export const purchasesHandlers = {
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/purchases/product-matches',
+    method: 'POST',
+    handler: async ({ params: { organizationId }, body }: any) => {
+      const products = await listDemoContactProducts({ organizationId, contactId: String(body?.supplierId ?? '') });
+      const descriptions: string[] = body?.descriptions ?? [];
+
+      return { matches: descriptions.map(description => matchDemoLineWithProducts({ description, products: products as Array<{ id: string; name: string }> })), isModelUnavailable: false };
+    },
+  }),
   ...defineHandler({
     path: '/api/organizations/:organizationId/purchases',
     method: 'GET',

@@ -7,8 +7,9 @@ import { createOrganizationsRepository } from '../organizations/organizations.re
 import { ensureUserIsInOrganization } from '../organizations/organizations.usecases';
 import { legacyValidateJsonBody, legacyValidateParams, legacyValidateQuery } from '../shared/validation/validation.legacy';
 import { createPurchaseInvoiceNotFoundError } from './purchases.errors';
+import { matchPurchaseLinesWithSupplierProducts } from './purchases.product-matching';
 import { createPurchasesRepository } from './purchases.repository';
-import { purchaseInvoiceDraftSchema, purchaseInvoiceExtractionBodySchema, purchaseInvoiceIdSchema, purchaseInvoiceListQuerySchema, purchaseInvoiceStatusBodySchema, purchaseReadingsBodySchema, purchaseReadingsQuerySchema } from './purchases.schemas';
+import { purchaseInvoiceDraftSchema, purchaseInvoiceExtractionBodySchema, purchaseInvoiceIdSchema, purchaseInvoiceListQuerySchema, purchaseInvoiceStatusBodySchema, purchaseProductMatchesBodySchema, purchaseReadingsBodySchema, purchaseReadingsQuerySchema } from './purchases.schemas';
 import { dismissPurchaseInboxDocument, listPurchaseInbox } from './readings/document-readings.inbox';
 import { createDocumentReadingsRepository } from './readings/document-readings.repository';
 import { wakeDocumentReadings } from './readings/document-readings.task';
@@ -22,6 +23,7 @@ export function registerPurchasesRoutes(context: RouteDefinitionContext) {
   // Before the invoice route: "readings" is not an invoice id
   setupGetPurchaseReadingsRoute(context);
   setupGetPurchaseInboxRoute(context);
+  setupMatchPurchaseProductsRoute(context);
   setupDismissPurchaseInboxDocumentRoute(context);
   setupGetPurchaseInvoiceRoute(context);
   setupCreatePurchaseInvoiceRoute(context);
@@ -249,6 +251,27 @@ function setupDismissPurchaseInboxDocumentRoute({ app, db }: RouteDefinitionCont
       await dismissPurchaseInboxDocument({ db, organizationId, documentId });
 
       return context.body(null, 204);
+    },
+  );
+}
+
+// The supplier's products each line of a purchase under review is, to compare the charged prices with the price list
+function setupMatchPurchaseProductsRoute({ app, db, config }: RouteDefinitionContext) {
+  app.post(
+    '/api/organizations/:organizationId/purchases/product-matches',
+    requireAuthentication({ apiKeyPermissions: ['purchases:create'] }),
+    legacyValidateParams(organizationParamsSchema),
+    legacyValidateJsonBody(purchaseProductMatchesBodySchema),
+    async (context) => {
+      const { userId } = getUser({ context });
+      const { organizationId } = context.req.valid('param');
+      const { supplierId, descriptions } = context.req.valid('json');
+
+      await ensureUserIsInOrganization({ userId, organizationId, organizationsRepository: createOrganizationsRepository({ db }) });
+
+      const { matches, isModelUnavailable } = await matchPurchaseLinesWithSupplierProducts({ db, config, organizationId, userId, supplierId, descriptions });
+
+      return context.json({ matches, isModelUnavailable });
     },
   );
 }

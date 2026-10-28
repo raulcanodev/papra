@@ -106,3 +106,10 @@ export async function fetchPurchaseInbox({ organizationId }: { organizationId: s
 export async function dismissPurchaseInboxDocument({ organizationId, documentId }: { organizationId: string; documentId: string }) {
   await apiClient({ path: `${basePath(organizationId)}/inbox/${documentId}`, method: 'DELETE' });
 }
+
+export type PurchaseProductMatch = { productId: string | null; matchedBy: 'name' | 'ai' | null };
+
+// Which of the supplier's products each line is (by name, then the AI): the screen compares the prices as the lines change
+export async function matchPurchaseProducts({ organizationId, supplierId, descriptions }: { organizationId: string; supplierId: string; descriptions: string[] }) {
+  return apiClient<{ matches: PurchaseProductMatch[]; isModelUnavailable: boolean }>({ path: `/api/organizations/${organizationId}/purchases/product-matches`, method: 'POST', body: { supplierId, descriptions } });
+}

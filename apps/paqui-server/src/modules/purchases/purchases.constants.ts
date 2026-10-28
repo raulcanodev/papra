@@ -33,3 +33,7 @@ export type ExpenseCategory = typeof EXPENSE_CATEGORIES[number];
 // Documents the AI can read to prefill a purchase invoice
 export const EXTRACTABLE_DOCUMENT_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'] as const;
 export const MAX_EXTRACTABLE_DOCUMENT_SIZE_BYTES = 10 * 1024 * 1024;
+
+// Lines of one purchase matched against the supplier's products in a single request, and products shown to the model
+export const MAX_PRODUCT_MATCHING_LINES = 200;
+export const MAX_PRODUCT_MATCHING_PRODUCTS = 400;

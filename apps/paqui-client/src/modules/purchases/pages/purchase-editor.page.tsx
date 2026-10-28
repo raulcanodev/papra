@@ -26,6 +26,7 @@ import { useReturnHref } from '@/modules/ui/navigation/return-to';
 import { PurchaseMetadataFields } from '../components/purchase-metadata-fields';
 import { ReadingChecks } from '../components/reading-checks';
 import { SupplierResolutionPanel } from '../components/supplier-resolution-panel';
+import { SupplierTariffCheck } from '../components/supplier-tariff-check';
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABEL_I18N_KEYS, PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS, PURCHASE_DOCUMENT_KINDS } from '../purchases.constants';
 import { calculatePurchaseInvoiceTotals, emptyPurchaseInvoiceItem } from '../purchases.models';
 import { createPurchaseInvoice, createPurchaseReadings, deletePurchaseInvoice, fetchPurchaseInvoice, fetchPurchaseReadings, getPurchaseInvoicesQueryKey, getPurchaseReadingsQueryKey, updatePurchaseInvoice } from '../purchases.services';
@@ -431,6 +432,18 @@ export function PurchaseEditorPage() {
                 {t('purchases.editor.add-line')}
               </Button>
             </div>
+            <Show when={suppliers().find(contact => contact.id === supplierId())}>
+              {getSupplier => (
+                <SupplierTariffCheck
+                  organizationId={params.organizationId}
+                  supplierId={getSupplier().id}
+                  supplierName={getSupplier().name}
+                  currency={currency()}
+                  items={items()}
+                  onAddNote={note => setNotes(current => (current.trim() === '' ? note : `${current.trimEnd()}\n\n${note}`))}
+                />
+              )}
+            </Show>
             <div class="flex flex-col gap-4">
               <Index each={items()}>
                 {(item, index) => (
