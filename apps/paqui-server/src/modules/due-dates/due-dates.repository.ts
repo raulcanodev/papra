@@ -13,7 +13,7 @@ import { dueDateSettingsTable, paymentInstalmentsTable } from './due-dates.table
 
 export type PaymentInstalment = typeof paymentInstalmentsTable.$inferSelect;
 
-export type InstalmentInput = { dueDate: Date; amountMinor: number; paymentMethod?: PaymentMethod | null; status?: InstalmentStatus };
+export type InstalmentInput = { dueDate: Date; amountMinor: number; paymentMethod?: PaymentMethod | null; status?: InstalmentStatus; paidAt?: Date | null };
 
 // The document a due date belongs to: a received invoice (to pay) or an issued one (to collect)
 export type InstalmentSource = { direction: 'payable'; purchaseInvoiceId: string } | { direction: 'receivable'; invoiceId: string };
@@ -101,9 +101,10 @@ async function listInstalments({ db, organizationId, direction, source, from, to
 
 export type ListedInstalment = Awaited<ReturnType<typeof listInstalments>>['instalments'][number];
 
-function getStatusDates({ status, previous, now }: { status: InstalmentStatus; previous?: Pick<PaymentInstalment, 'status' | 'paidAt' | 'returnedAt'>; now: Date }) {
+// A payment date given by the user wins, otherwise a payment keeps its date and a new one is dated now
+function getStatusDates({ status, previous, now, paidAt }: { status: InstalmentStatus; previous?: Pick<PaymentInstalment, 'status' | 'paidAt' | 'returnedAt'>; now: Date; paidAt?: Date | null }) {
   return {
-    paidAt: status === 'paid' ? (previous?.status === 'paid' ? previous.paidAt : now) : null,
+    paidAt: status === 'paid' ? (paidAt ?? (previous?.status === 'paid' ? previous.paidAt : now)) : null,
     returnedAt: status === 'returned' ? (previous?.status === 'returned' ? previous.returnedAt : now) : null,
   };
 }
@@ -123,7 +124,7 @@ async function saveSourceInstalments({ db, organizationId, source, contactId, cu
       amountMinor: instalment.amountMinor,
       paymentMethod: instalment.paymentMethod ?? paymentMethod,
       status,
-      ...getStatusDates({ status, previous, now }),
+      ...getStatusDates({ status, previous, now, paidAt: instalment.paidAt }),
       position,
     };
 

@@ -1143,6 +1143,8 @@ export const translations: Partial<TranslationsDictionary> = {
   'purchases.editor.tariff.no-ai': 'Sin la IA solo se reconocen las líneas que llevan el nombre del producto tal cual.',
   'purchases.editor.tariff.failed': 'No se han podido revisar las líneas con los productos del proveedor.',
   'purchases.editor.tariff.error': 'No se ha podido guardar el producto',
+  'purchases.editor.already-paid': 'Ya pagada',
+  'purchases.editor.paid-on': 'Pagada el',
   'purchases.editor.total-mismatch': 'La factura indica un total de {{ printed }} pero las líneas suman {{ computed }}: revisa las líneas.',
   'purchases.toast.saved': 'Factura guardada',
   'purchases.toast.error': 'No se pudo guardar la factura',

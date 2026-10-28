@@ -1,6 +1,6 @@
 import type { ExpenseCategory, PurchaseDocumentKind, PurchaseInvoiceDraftInput, PurchaseInvoiceExtraction, PurchaseInvoiceItemInput, PurchaseMetadataEntry } from '../purchases.types';
 import type { ScheduleRow } from '@/modules/due-dates/components/payment-schedule-fields';
-import type { InstalmentsSource, PaymentMethod } from '@/modules/due-dates/due-dates.types';
+import type { InstalmentInput, InstalmentsSource, PaymentMethod } from '@/modules/due-dates/due-dates.types';
 import { A, useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
 import { createEffect, createMemo, createSignal, Index, Show } from 'solid-js';
@@ -18,6 +18,7 @@ import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
 import { EditorBar } from '@/modules/ui/components/editor-bar';
+import { SimpleCheckbox } from '@/modules/ui/components/simple-checkbox';
 import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextArea } from '@/modules/ui/components/textarea';
@@ -60,6 +61,9 @@ export function PurchaseEditorPage() {
   const [issueDate, setIssueDate] = createSignal(today());
   const [paymentMethod, setPaymentMethod] = createSignal<PaymentMethod | null>(null);
   const [scheduleRows, setScheduleRows] = createSignal<ScheduleRow[]>([]);
+  // "Already paid" (an old invoice, a ticket paid on the spot): untouched, each due date keeps its own status
+  const [paidChoice, setPaidChoice] = createSignal<boolean>();
+  const [paidDate, setPaidDate] = createSignal('');
   const [instalmentsSource, setInstalmentsSource] = createSignal<InstalmentsSource | undefined>(undefined);
   const [currency, setCurrency] = createSignal('EUR');
   const [category, setCategory] = createSignal<ExpenseCategory>('other');
@@ -147,6 +151,7 @@ export function PurchaseEditorPage() {
     setIssueDate(toDateInput(purchaseInvoice.issueDate));
     setPaymentMethod(purchaseInvoice.paymentMethod ?? null);
     setScheduleRows(toScheduleRows(purchaseInvoice.instalments));
+    setPaidDate(toDateInput(purchaseInvoice.paidAt));
     setCurrency(purchaseInvoice.currency);
     setCategory(purchaseInvoice.category);
     setWithholdingRateBps(purchaseInvoice.withholdingRateBps);
@@ -197,6 +202,28 @@ export function PurchaseEditorPage() {
       setScheduleRows([{ ...only, amountMinor: payableMinor }]);
     }
   });
+
+  const isPaid = () => paidChoice() ?? (scheduleRows().length > 0 && scheduleRows().every(row => row.status === 'paid'));
+
+  // Ticked, every due date is paid on the payment date (a single one for the whole invoice when none is set);
+  // unticked, the payments are undone and a returned charge stays returned
+  const instalments = (): InstalmentInput[] => {
+    const rows = fromScheduleRows(scheduleRows());
+    const choice = paidChoice();
+
+    if (choice === true) {
+      const paidAt = new Date(`${paidDate() || issueDate()}T00:00:00.000Z`);
+      const settled = rows.length > 0 ? rows : [{ dueDate: new Date(`${issueDate()}T00:00:00.000Z`), amountMinor: totals().payableMinor }];
+      return settled.map(row => ({ ...row, status: 'paid', paidAt }));
+    }
+
+    if (choice === false) {
+      return rows.map(row => (row.status === 'paid' ? { ...row, status: 'pending' } : row));
+    }
+
+    return rows;
+  };
+
   const supplierTermsDays = () => suppliers().find(contact => contact.id === supplierId())?.paymentTermsDays ?? null;
   const money = (minor: number) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency: currency() }).format(minor / 100);
   // The model reads the printed total too: a difference means a line was misread
@@ -266,7 +293,7 @@ export function PurchaseEditorPage() {
     issueDate: new Date(`${issueDate()}T00:00:00.000Z`),
     dueDate: fromScheduleRows(scheduleRows()).map(({ dueDate }) => dueDate).toSorted((a, b) => a.getTime() - b.getTime())[0] ?? null,
     paymentMethod: paymentMethod(),
-    instalments: kind() === 'delivery_note' ? [] : fromScheduleRows(scheduleRows()),
+    instalments: kind() === 'delivery_note' ? [] : instalments(),
     currency: currency(),
     category: category(),
     withholdingRateBps: withholdingRateBps(),
@@ -536,6 +563,23 @@ export function PurchaseEditorPage() {
               source={instalmentsSource()}
               contactTermsDays={supplierTermsDays()}
             />
+            <div class="flex min-h-10 flex-wrap items-center gap-x-6 gap-y-2">
+              <SimpleCheckbox checked={isPaid()} onChange={setPaidChoice} label={t('purchases.editor.already-paid')} />
+              <Show when={isPaid()}>
+                <label class="flex items-center gap-2 text-sm text-muted-foreground">
+                  {t('purchases.editor.paid-on')}
+                  <TextField
+                    type="date"
+                    class="h-9 w-40"
+                    value={paidDate() || issueDate()}
+                    onInput={(event) => {
+                      setPaidDate(event.currentTarget.value);
+                      setPaidChoice(true);
+                    }}
+                  />
+                </label>
+              </Show>
+            </div>
           </Show>
 
           <PurchaseMetadataFields value={metadata()} onChange={setMetadata} />

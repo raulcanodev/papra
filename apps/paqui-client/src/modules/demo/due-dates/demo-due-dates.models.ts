@@ -14,9 +14,9 @@ export type DemoStoredInstalment = {
   position: number;
 };
 
-function statusDates({ status, previous, now }: { status: InstalmentStatus; previous?: DemoStoredInstalment; now: string }) {
+function statusDates({ status, previous, now, paidAt }: { status: InstalmentStatus; previous?: DemoStoredInstalment; now: string; paidAt?: Date | string | null }) {
   return {
-    paidAt: status === 'paid' ? (previous?.status === 'paid' ? previous.paidAt : now) : null,
+    paidAt: status === 'paid' ? (paidAt ? new Date(paidAt).toISOString() : (previous?.status === 'paid' ? previous.paidAt : now)) : null,
     returnedAt: status === 'returned' ? (previous?.status === 'returned' ? previous.returnedAt : now) : null,
   };
 }
@@ -48,7 +48,7 @@ export function buildDemoInstalments({ draft, existing = [], supplierTermsDays, 
       amountMinor: input.amountMinor,
       paymentMethod: input.paymentMethod ?? draft.paymentMethod ?? null,
       status,
-      ...statusDates({ status, previous, now }),
+      ...statusDates({ status, previous, now, paidAt: input.paidAt }),
       position,
     };
   });

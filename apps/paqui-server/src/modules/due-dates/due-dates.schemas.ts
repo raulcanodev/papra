@@ -9,6 +9,8 @@ export const instalmentsInputSchema = z.array(z.object({
   amountMinor: z.number().int().min(0).max(1_000_000_000),
   paymentMethod: paymentMethodSchema.optional().nullable(),
   status: z.enum(INSTALMENT_STATUSES).optional(),
+  // When a paid due date was paid: an old invoice registered as already paid was not paid today
+  paidAt: z.coerce.date().optional().nullable(),
 })).max(MAX_INSTALMENTS_PER_INVOICE);
 
 export const instalmentIdSchema = z.string().trim().min(1).max(64);

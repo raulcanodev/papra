@@ -1141,6 +1141,8 @@ export const translations = {
   'purchases.editor.tariff.no-ai': 'Without the AI only the lines carrying the exact product name are recognized.',
   'purchases.editor.tariff.failed': 'The lines could not be checked against the supplier products.',
   'purchases.editor.tariff.error': 'The product could not be saved',
+  'purchases.editor.already-paid': 'Already paid',
+  'purchases.editor.paid-on': 'Paid on',
   'purchases.editor.total-mismatch': 'The invoice shows a total of {{ printed }} but the lines add up to {{ computed }}: check the lines.',
   'purchases.toast.saved': 'Invoice saved',
   'purchases.toast.error': 'The invoice could not be saved',

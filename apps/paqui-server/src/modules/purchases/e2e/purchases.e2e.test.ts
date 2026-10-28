@@ -117,6 +117,23 @@ describe('purchases e2e', () => {
     expect(await list('')).to.eql(['A-2 Nube Hosting SL']);
   });
 
+  test('an old invoice registered as already paid is paid on the date given, not today', async () => {
+    const { createContact, createPurchase, draft } = await setupApp();
+
+    const supplier = await createContact({ name: 'Nube Hosting SL', isSupplier: true });
+    const response = await createPurchase(draft({
+      supplierId: supplier.id,
+      issueDate: '2025-03-10',
+      dueDate: null,
+      instalments: [{ dueDate: '2025-03-10', amountMinor: 181_500, status: 'paid', paidAt: '2025-03-12' }],
+    }));
+    const { purchaseInvoice } = await response.json() as { purchaseInvoice: PurchaseInvoice & { instalments: { status: string; paidAt: string }[] } };
+
+    expect(purchaseInvoice.status).to.eql('paid');
+    expect(new Date(purchaseInvoice.paidAt!).toISOString()).to.eql('2025-03-12T00:00:00.000Z');
+    expect(purchaseInvoice.instalments.map(({ status, paidAt }) => [status, paidAt])).to.eql([['paid', '2025-03-12T00:00:00.000Z']]);
+  });
+
   test('the purchase invoices of another organization are neither listed, readable nor editable', async () => {
     const { request, createContact, createPurchase, draft } = await setupApp();
 

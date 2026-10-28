@@ -12,7 +12,7 @@ export type DueDateDirection = 'payable' | 'receivable';
 /** Where the due dates of an AI reading come from */
 export type InstalmentsSource = 'document' | 'terms' | 'contact_terms' | 'none';
 
-export type InstalmentInput = { dueDate: Date; amountMinor: number; paymentMethod?: PaymentMethod | null; status?: InstalmentStatus };
+export type InstalmentInput = { dueDate: Date; amountMinor: number; paymentMethod?: PaymentMethod | null; status?: InstalmentStatus; paidAt?: Date | null };
 
 export type PaymentInstalment = {
   id: string;
