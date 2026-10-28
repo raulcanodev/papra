@@ -35,8 +35,68 @@ type sheetContentProps<T extends ValidComponent = 'div'> = ParentProps<
   DialogContentProps<T>
   & VariantProps<typeof sheetVariants> & {
     class?: string;
+    /** A sheet from the bottom closes when it is dragged down with the finger, as on a phone */
+    onDragClose?: () => void;
   }
 >;
+
+// Pulled further than this, or flicked down, the sheet closes; less, it goes back up
+const DRAG_CLOSE_DISTANCE_PX = 90;
+const DRAG_CLOSE_VELOCITY_PX_PER_MS = 0.5;
+
+// Something scrolled inside the sheet scrolls back up first: the sheet only follows the finger from the top
+function isInsideScrolledArea({ target, container }: { target: EventTarget | null; container: HTMLElement }) {
+  for (let element = target instanceof HTMLElement ? target : null; element && element !== container; element = element.parentElement) {
+    if (element.scrollTop > 0) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+type DragEvent = TouchEvent & { currentTarget: HTMLElement };
+
+function createDragToClose({ onClose }: { onClose: () => void }) {
+  let start: { y: number; time: number } | undefined;
+  let offset = 0;
+
+  const moveTo = (element: HTMLElement, y: number, animated: boolean) => {
+    element.style.transition = animated ? 'transform 200ms ease-out' : 'none';
+    element.style.transform = y === 0 ? '' : `translateY(${y}px)`;
+  };
+
+  return {
+    onTouchStart: (event: DragEvent) => {
+      const touch = event.touches[0];
+      start = touch && event.touches.length === 1 && !isInsideScrolledArea({ target: event.target, container: event.currentTarget }) ? { y: touch.clientY, time: event.timeStamp } : undefined;
+      offset = 0;
+    },
+    onTouchMove: (event: DragEvent) => {
+      const touch = event.touches[0];
+      if (!start || !touch) {
+        return;
+      }
+      offset = Math.max(0, touch.clientY - start.y);
+      moveTo(event.currentTarget, offset, false);
+    },
+    onTouchEnd: (event: DragEvent) => {
+      if (!start) {
+        return;
+      }
+      const velocity = offset / Math.max(1, event.timeStamp - start.time);
+      start = undefined;
+
+      if (offset > DRAG_CLOSE_DISTANCE_PX || (offset > 20 && velocity > DRAG_CLOSE_VELOCITY_PX_PER_MS)) {
+        // Leaves from where the finger let go, then the closing animation takes over
+        event.currentTarget.style.transition = '';
+        onClose();
+        return;
+      }
+      moveTo(event.currentTarget, 0, true);
+    },
+  };
+}
 
 export function SheetContent<T extends ValidComponent = 'div'>(props: PolymorphicProps<T, sheetContentProps<T>>) {
   const merge = mergeProps<sheetContentProps<T>[]>({ side: 'right' }, props);
@@ -44,7 +104,10 @@ export function SheetContent<T extends ValidComponent = 'div'>(props: Polymorphi
     'class',
     'children',
     'side',
+    'onDragClose',
   ]);
+  const drag = createDragToClose({ onClose: () => local.onDragClose?.() });
+  const isDraggable = () => local.side === 'bottom' && local.onDragClose !== undefined;
 
   return (
     <DialogPrimitive.Portal>
@@ -56,6 +119,10 @@ export function SheetContent<T extends ValidComponent = 'div'>(props: Polymorphi
       />
       <DialogPrimitive.Content
         class={sheetVariants({ side: local.side, class: local.class })}
+        onTouchStart={(event: DragEvent) => isDraggable() && drag.onTouchStart(event)}
+        onTouchMove={(event: DragEvent) => isDraggable() && drag.onTouchMove(event)}
+        onTouchEnd={(event: DragEvent) => isDraggable() && drag.onTouchEnd(event)}
+        onTouchCancel={(event: DragEvent) => isDraggable() && drag.onTouchEnd(event)}
         {...rest}
       >
         {local.children}

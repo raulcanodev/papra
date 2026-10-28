@@ -36,7 +36,7 @@ export function ResponsiveDialog(props: {
       when={isDesktop()}
       fallback={(
         <Sheet open={props.open} onOpenChange={props.onOpenChange}>
-          <SheetContent side="bottom" class="flex max-h-[92dvh] flex-col gap-0 rounded-t-3xl px-4 pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+          <SheetContent side="bottom" onDragClose={() => props.onOpenChange(false)} class="flex max-h-[92dvh] flex-col gap-0 rounded-t-3xl px-4 pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
             <div class="mx-auto mb-3 h-1.5 w-10 shrink-0 rounded-full bg-muted-foreground/30" aria-hidden="true" />
 
             <div class="mb-4 flex shrink-0 items-start justify-between gap-3">
