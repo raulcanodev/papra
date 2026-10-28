@@ -1720,6 +1720,11 @@ export const translations = {
 
   // Common / Shared
 
+  'common.unsaved-changes.title': 'Leave without saving?',
+  'common.unsaved-changes.message': 'You have unsaved changes. If you leave now, they will be lost.',
+  'common.unsaved-changes.cannot-save': 'Some required details are missing to save it (the customer or the supplier, for instance).',
+  'common.unsaved-changes.keep-editing': 'Keep editing',
+  'common.unsaved-changes.discard': 'Leave and discard',
   'common.confirm-modal.type-to-confirm': 'Type "{{ text }}" to confirm',
   'common.tables.rows-per-page': 'Rows per page',
   'common.tables.pagination-info': 'Page {{ currentPage }} of {{ totalPages }}',

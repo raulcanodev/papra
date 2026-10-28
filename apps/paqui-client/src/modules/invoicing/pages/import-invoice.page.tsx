@@ -15,6 +15,7 @@ import { createPurchaseReadings, fetchPurchaseInvoices, fetchPurchaseReadings, g
 import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-errors';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
+import { useUnsavedChangesGuard } from '@/modules/shared/unsaved-changes';
 import { Button } from '@/modules/ui/components/button';
 import { EditorBar } from '@/modules/ui/components/editor-bar';
 import { SimpleCheckbox } from '@/modules/ui/components/simple-checkbox';
@@ -59,6 +60,11 @@ export function ImportInvoicePage() {
   const [withholdingRateBps, setWithholdingRateBps] = createSignal(0);
   const [notes, setNotes] = createSignal('');
   const [items, setItems] = createSignal<InvoiceItemInput[]>([emptyLine()]);
+
+  // Leaving with changes asks first; what the AI read is where the form starts from
+  const leaveGuard = useUnsavedChangesGuard({
+    snapshot: () => ({ customerId: customerId(), number: number(), issueDate: issueDate(), dueDate: dueDate(), isPaid: isPaid(), currency: currency(), withholdingRateBps: withholdingRateBps(), notes: notes(), items: items() }),
+  });
 
   const contactsQuery = useQuery(() => ({ queryKey: getContactsQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchContacts({ organizationId: params.organizationId }) }));
   const contacts = () => contactsQuery.data?.contacts ?? [];
@@ -127,6 +133,7 @@ export function ImportInvoicePage() {
     if (matched?.isCustomer === true) {
       setCustomerId(matched.id);
     }
+    leaveGuard.resetBaseline();
   });
 
   // The customer read on the paper: the counterparty of a paper read as ours, the recipient of an unclear one the user
@@ -237,19 +244,23 @@ export function ImportInvoicePage() {
       ]);
       createToast({ type: 'success', message: t('invoicing.import.saved') });
 
-      const [next, ...rest] = queue();
-      if (next === undefined) {
-        navigate(listHref());
-        return;
-      }
-      const search = new URLSearchParams({ documentId: next });
-      if (rest.length > 0) {
-        search.set('queue', rest.join(','));
-      }
-      navigate(keepReturnTo(`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: 'import' })}?${search.toString()}`));
+      leaveGuard.afterSave(() => {
+        const [next, ...rest] = queue();
+        if (next === undefined) {
+          navigate(listHref());
+          return;
+        }
+        const search = new URLSearchParams({ documentId: next });
+        if (rest.length > 0) {
+          search.set('queue', rest.join(','));
+        }
+        navigate(keepReturnTo(`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: 'import' })}?${search.toString()}`));
+      });
     },
     onError: (error: unknown) => createToast({ type: 'error', message: getErrorMessage({ error, defaultMessage: t('invoicing.import.error') }) }),
   }));
+
+  leaveGuard.setSave({ label: t('invoicing.import.save'), canSave, run: async () => saveMutation.mutateAsync() });
 
   const customerOptions = () => [
     { value: '', label: t('invoicing.import.customer.placeholder') },
@@ -259,6 +270,7 @@ export function ImportInvoicePage() {
 
   return (
     <main class="page">
+      {leaveGuard.elements}
       <EditorBar
         backHref={listHref()}
         backLabel={t('layout.back')}

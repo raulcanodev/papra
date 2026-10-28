@@ -16,6 +16,7 @@ import { useConfirmModal } from '@/modules/shared/confirm';
 import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-errors';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
+import { useUnsavedChangesGuard } from '@/modules/shared/unsaved-changes';
 import { Button } from '@/modules/ui/components/button';
 import { EditorBar } from '@/modules/ui/components/editor-bar';
 import { PageSection, PageSections } from '@/modules/ui/components/page-section';
@@ -54,6 +55,11 @@ export function DeliveryNoteEditorPage() {
   const [isNotesOpen, setIsNotesOpen] = createSignal(false);
   const [documentId, setDocumentId] = createSignal<string | null>(null);
   const [items, setItems] = createSignal<EditorLine[]>([emptyLine()]);
+
+  // Leaving with changes asks first; what the photo read or the server loaded is where the form starts from
+  const leaveGuard = useUnsavedChangesGuard({
+    snapshot: () => ({ customerId: customerId(), number: number(), date: date(), notes: notes(), items: items().map(({ productId, description, quantityMillis }) => ({ productId, description, quantityMillis })) }),
+  });
 
   const contactsQuery = useQuery(() => ({ queryKey: getContactsQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchContacts({ organizationId: params.organizationId }) }));
   const productsQuery = useQuery(() => ({ queryKey: getProductsQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchProducts({ organizationId: params.organizationId }) }));
@@ -97,6 +103,7 @@ export function DeliveryNoteEditorPage() {
     setIsNotesOpen((loaded.notes ?? '') !== '');
     setDocumentId(loaded.documentId);
     setItems(loaded.items?.map(({ productId, writtenText, description, quantityMillis }) => ({ productId, writtenText, description, quantityMillis })) ?? [emptyLine()]);
+    leaveGuard.resetBaseline();
   }));
 
   // Opened from a customer page: the delivery note is already for it
@@ -132,6 +139,8 @@ export function DeliveryNoteEditorPage() {
 
           return { productId: product?.id ?? null, writtenText: line.writtenText, description: product?.name ?? line.writtenText, quantityMillis: line.quantityMillis, reading: lineReading };
         }));
+    // The photo can be read after the user clicked around: it is not a change of theirs
+    leaveGuard.resetBaseline();
   });
 
   const updateItem = (index: number, patch: Partial<EditorLine>) => setItems(current => current.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)));
@@ -215,7 +224,7 @@ export function DeliveryNoteEditorPage() {
     onSuccess: async ({ deliveryNote: saved }) => {
       await queryClient.invalidateQueries({ queryKey: getDeliveryNotesQueryKey({ organizationId: params.organizationId }) });
       createToast({ type: 'success', message: t('delivery-notes.toast.saved', { number: saved.number ?? '' }) });
-      goToNext();
+      leaveGuard.afterSave(goToNext);
     },
     onError: (error: unknown, { printTarget }) => {
       printTarget?.close();
@@ -229,12 +238,14 @@ export function DeliveryNoteEditorPage() {
     mutationFn: () => deleteDeliveryNote({ organizationId: params.organizationId, deliveryNoteId: params.deliveryNoteId! }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: getDeliveryNotesQueryKey({ organizationId: params.organizationId }) });
+      leaveGuard.allowLeave();
       navigate(listHref());
     },
     onError: (error: unknown) => createToast({ type: 'error', message: getErrorMessage({ error, defaultMessage: t('delivery-notes.toast.delete-error') }) }),
   }));
 
   const canSave = () => customerId() !== '' && items().length > 0 && items().every(item => item.description.trim() !== '' && item.quantityMillis > 0);
+  leaveGuard.setSave({ label: t('delivery-notes.editor.save'), canSave: () => canSave() && !isInvoiced(), run: async () => saveMutation.mutateAsync({ printTarget: null }) });
   const unmatchedCount = () => items().filter(item => item.reading !== undefined && (item.productId === null || item.reading.confidence === 'low')).length;
   const unknownCustomerName = () => {
     const read = reading();
@@ -243,6 +254,7 @@ export function DeliveryNoteEditorPage() {
 
   return (
     <main class="page">
+      {leaveGuard.elements}
       <EditorBar
         backHref={listHref()}
         backLabel={t('delivery-notes.editor.back')}

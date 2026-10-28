@@ -16,6 +16,7 @@ import { useConfirmModal } from '@/modules/shared/confirm';
 import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-errors';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
+import { useUnsavedChangesGuard } from '@/modules/shared/unsaved-changes';
 import { Button } from '@/modules/ui/components/button';
 import { EditorBar } from '@/modules/ui/components/editor-bar';
 import { SimpleCheckbox } from '@/modules/ui/components/simple-checkbox';
@@ -72,6 +73,11 @@ export function PurchaseEditorPage() {
   const [documentId, setDocumentId] = createSignal<string | null>(null);
   const [items, setItems] = createSignal<PurchaseInvoiceItemInput[]>([emptyPurchaseInvoiceItem()]);
   const [extraction, setExtraction] = createSignal<PurchaseInvoiceExtraction | null>(null);
+
+  // Leaving with changes asks first; what the AI read or the server loaded is where the form starts from
+  const leaveGuard = useUnsavedChangesGuard({
+    snapshot: () => ({ supplierId: supplierId(), number: number(), kind: kind(), metadata: metadata(), issueDate: issueDate(), paymentMethod: paymentMethod(), scheduleRows: scheduleRows(), paidChoice: paidChoice(), paidDate: paidDate(), currency: currency(), category: category(), withholdingRateBps: withholdingRateBps(), notes: notes(), items: items() }),
+  });
 
   const contactsQuery = useQuery(() => ({ queryKey: getContactsQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchContacts({ organizationId: params.organizationId }) }));
   const suppliers = () => (contactsQuery.data?.contacts ?? []).filter(contact => contact.isSupplier);
@@ -158,6 +164,7 @@ export function PurchaseEditorPage() {
     setNotes(purchaseInvoice.notes ?? '');
     setDocumentId(purchaseInvoice.documentId);
     setItems(purchaseInvoice.items?.map(({ description, quantityMillis, unitPriceMinor, taxRateBps, discountRateBps, deductibleRateBps }) => ({ description, quantityMillis, unitPriceMinor, taxRateBps, discountRateBps, deductibleRateBps })) ?? [emptyPurchaseInvoiceItem()]);
+    leaveGuard.resetBaseline();
   });
 
   createEffect(() => {
@@ -190,6 +197,8 @@ export function PurchaseEditorPage() {
     setWithholdingRateBps(result.draft.withholdingRateBps);
     // A delivery note photo can come without any readable line
     setItems(result.draft.items.length > 0 ? result.draft.items : [emptyPurchaseInvoiceItem()]);
+    // The reading can arrive after the user clicked around: it is not a change of theirs
+    leaveGuard.resetBaseline();
   });
 
   const totals = createMemo(() => calculatePurchaseInvoiceTotals({ items: items(), withholdingRateBps: withholdingRateBps() }));
@@ -325,20 +334,22 @@ export function PurchaseEditorPage() {
       createToast({ type: 'success', message: t('purchases.toast.saved') });
 
       // Several files uploaded at once are reviewed one after the other
-      const [next, ...rest] = queue();
-      if (next === undefined) {
-        navigate(listHref());
-        return;
-      }
+      leaveGuard.afterSave(() => {
+        const [next, ...rest] = queue();
+        if (next === undefined) {
+          navigate(listHref());
+          return;
+        }
 
-      const search = new URLSearchParams({ documentId: next });
-      if (rest.length > 0) {
-        search.set('queue', rest.join(','));
-      }
-      if (supplierIdParam() !== undefined) {
-        search.set('supplierId', supplierIdParam()!);
-      }
-      navigate(keepReturnTo(`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath: 'new' })}?${search.toString()}`));
+        const search = new URLSearchParams({ documentId: next });
+        if (rest.length > 0) {
+          search.set('queue', rest.join(','));
+        }
+        if (supplierIdParam() !== undefined) {
+          search.set('supplierId', supplierIdParam()!);
+        }
+        navigate(keepReturnTo(`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath: 'new' })}?${search.toString()}`));
+      });
     },
     onError: (error: unknown) => createToast({ type: 'error', message: getErrorMessage({ error, defaultMessage: t('purchases.toast.error') }) }),
   }));
@@ -347,9 +358,12 @@ export function PurchaseEditorPage() {
     mutationFn: async () => deletePurchaseInvoice({ organizationId: params.organizationId, purchaseInvoiceId: params.purchaseInvoiceId! }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: getPurchaseInvoicesQueryKey({ organizationId: params.organizationId }) });
+      leaveGuard.allowLeave();
       navigate(listHref());
     },
   }));
+
+  leaveGuard.setSave({ label: t('purchases.editor.save'), canSave, run: async () => saveMutation.mutateAsync() });
 
   const supplierOptions = () => [
     { value: '', label: t('purchases.editor.supplier.placeholder') },
@@ -358,6 +372,7 @@ export function PurchaseEditorPage() {
 
   return (
     <main class="page">
+      {leaveGuard.elements}
       <EditorBar
         backHref={listHref()}
         backLabel={t('purchases.editor.back')}

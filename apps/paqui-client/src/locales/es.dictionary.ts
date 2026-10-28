@@ -1722,6 +1722,11 @@ export const translations: Partial<TranslationsDictionary> = {
 
   // Common / Shared
 
+  'common.unsaved-changes.title': '¿Salir sin guardar?',
+  'common.unsaved-changes.message': 'Tienes cambios sin guardar. Si sales ahora, se perderán.',
+  'common.unsaved-changes.cannot-save': 'Para guardarlo faltan datos obligatorios (por ejemplo, el cliente o el proveedor).',
+  'common.unsaved-changes.keep-editing': 'Seguir editando',
+  'common.unsaved-changes.discard': 'Salir y descartar',
   'common.confirm-modal.type-to-confirm': 'Escriba "{{ text }}" para confirmar',
   'common.tables.rows-per-page': 'Filas por página',
   'common.tables.pagination-info': 'Página {{ currentPage }} de {{ totalPages }}',

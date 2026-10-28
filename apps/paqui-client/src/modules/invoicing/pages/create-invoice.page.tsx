@@ -15,6 +15,7 @@ import { getContactPricesQueryKey } from '@/modules/pricing/components/contact-p
 import { fetchContactPrices } from '@/modules/pricing/pricing.services';
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
+import { useUnsavedChangesGuard } from '@/modules/shared/unsaved-changes';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/modules/ui/components/dialog';
@@ -119,6 +120,11 @@ export function CreateInvoicePage() {
   // The invoice just issued: the dialog then offers to send it or download it
   const [issuedInvoice, setIssuedInvoice] = createSignal<Invoice | null>(null);
 
+  // Leaving a draft with changes asks first
+  const leaveGuard = useUnsavedChangesGuard({
+    snapshot: () => ({ customerId: customerId(), seriesId: seriesId(), salesRepresentativeId: salesRepresentativeId(), issueDate: issueDate(), dueDate: dueDate(), paymentMethod: paymentMethod(), currency: currency(), templateId: templateId(), withholdingRateBps: withholdingRateBps(), equivalenceSurcharge: equivalenceSurcharge(), notes: notes(), items: items(), deliveryNotes: deliveryNotes().map(({ id }) => id) }),
+  });
+
   let loadedInvoiceId: string | undefined;
   createEffect(() => {
     const invoice = invoiceQuery.data?.invoice;
@@ -150,6 +156,7 @@ export function CreateInvoicePage() {
     setDeliveryNotes(invoice.deliveryNotes ?? []);
     setSavedDeliveryNotes(invoice.deliveryNotes ?? []);
     setDeliveryNotesAddedToItems((invoice.deliveryNotes ?? []).map(deliveryNote => deliveryNote.id));
+    leaveGuard.resetBaseline();
   });
 
   // The customer price list: picking a product uses its price there and the list discount, else the catalog price
@@ -279,11 +286,12 @@ export function CreateInvoicePage() {
     onSuccess: ({ invoice }, variables) => {
       void queryClient.invalidateQueries({ queryKey: ['invoicing', params.organizationId, 'invoices'] });
       if (variables.issue) {
+        leaveGuard.markSaved();
         setIssuedInvoice(invoice);
         return;
       }
       createToast({ type: 'success', message: t('invoicing.editor.toast.draft-saved') });
-      navigate(returnHref());
+      leaveGuard.afterSave(() => navigate(returnHref()));
     },
     onError: () => createToast({ type: 'error', message: t('invoicing.editor.toast.error') }),
   }));
@@ -377,8 +385,11 @@ export function CreateInvoicePage() {
   const canSubmit = () => Boolean((!params.invoiceId || !invoiceQuery.isLoading) && customerId() && items().length && items().every(item => item.description.trim() && item.quantityMillis > 0));
   const canIssue = () => canSubmit() && Boolean(profileQuery.data?.profile);
 
+  leaveGuard.setSave({ label: t('invoicing.editor.save-draft'), canSave: canSubmit, run: async () => mutation.mutateAsync({ issue: false }) });
+
   return (
     <div class="w-full px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:py-8">
+      {leaveGuard.elements}
       {/* On a phone the preview, and its buttons, come after the whole form: the bar keeps them on top */}
       <EditorBar
         class="md:hidden"
