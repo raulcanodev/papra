@@ -9,17 +9,18 @@ export type Impersonation = {
   adminEmail: string;
   targetEmail: string;
   reason: string;
+  canWrite: boolean;
   ipAddress: string | null;
   userAgent: string | null;
   expiresAt: string;
   endedAt: string | null;
 };
 
-export async function startImpersonation({ userId, reason }: { userId: string; reason: string }) {
+export async function startImpersonation({ userId, reason, canWrite }: { userId: string; reason: string; canWrite: boolean }) {
   await apiClient({
     method: 'POST',
     path: '/api/auth/impersonation/start',
-    body: { userId, reason },
+    body: { userId, reason, canWrite },
   });
 
   // Nothing cached from the admin's own account may show inside the other one

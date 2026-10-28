@@ -4,6 +4,7 @@ import {
   getImpersonationTargetError,
   isAuthPathForbiddenDuringImpersonation,
   isImpersonationSessionWithinDuration,
+  isRequestAllowedDuringReadOnlyImpersonation,
   parseAdminSessionCookie,
   serializeAdminSessionCookie,
 } from './impersonation.models';
@@ -22,6 +23,27 @@ describe('impersonation models', () => {
       expect(isAuthPathForbiddenDuringImpersonation({ path: '/sign-out' })).to.eql(false);
       expect(isAuthPathForbiddenDuringImpersonation({ path: '/impersonation/stop' })).to.eql(false);
       expect(isAuthPathForbiddenDuringImpersonation({ path: undefined })).to.eql(false);
+    });
+  });
+
+  describe('isRequestAllowedDuringReadOnlyImpersonation', () => {
+    test('reading is allowed', () => {
+      expect(isRequestAllowedDuringReadOnlyImpersonation({ method: 'GET' })).to.eql(true);
+      expect(isRequestAllowedDuringReadOnlyImpersonation({ method: 'head' })).to.eql(true);
+      expect(isRequestAllowedDuringReadOnlyImpersonation({ method: 'OPTIONS' })).to.eql(true);
+    });
+
+    test('anything that could change something is refused', () => {
+      for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+        expect(isRequestAllowedDuringReadOnlyImpersonation({ method })).to.eql(false);
+      }
+
+      expect(isRequestAllowedDuringReadOnlyImpersonation({ method: 'POST', authPath: '/update-user' })).to.eql(false);
+    });
+
+    test('leaving the impersonation stays available', () => {
+      expect(isRequestAllowedDuringReadOnlyImpersonation({ method: 'POST', authPath: '/impersonation/stop' })).to.eql(true);
+      expect(isRequestAllowedDuringReadOnlyImpersonation({ method: 'POST', authPath: '/sign-out' })).to.eql(true);
     });
   });
 

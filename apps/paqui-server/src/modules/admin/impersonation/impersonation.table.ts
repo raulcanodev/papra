@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 import { createCreatedAtField, createPrimaryKeyField } from '../../shared/db/columns.helpers';
 import { usersTable } from '../../users/users.table';
 import { IMPERSONATION_ID_PREFIX } from './impersonation.constants';
@@ -14,6 +14,8 @@ export const impersonationsTable = pgTable('admin_impersonations', {
   adminEmail: text('admin_email').notNull(),
   targetEmail: text('target_email').notNull(),
   reason: text('reason').notNull(),
+  // Whether the admin entered able to change things, or only to look
+  canWrite: boolean('can_write').notNull().default(false),
   // The auth session created for the visit, to close the row when it ends
   sessionId: text('session_id').notNull(),
   ipAddress: text('ip_address'),

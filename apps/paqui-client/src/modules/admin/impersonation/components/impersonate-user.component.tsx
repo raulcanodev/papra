@@ -7,6 +7,7 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-errors';
 import { Button } from '@/modules/ui/components/button';
 import { createToast } from '@/modules/ui/components/sonner';
+import { Switch, SwitchControl, SwitchThumb } from '@/modules/ui/components/switch';
 import { TextArea } from '@/modules/ui/components/textarea';
 import { startImpersonation } from '../impersonation.services';
 
@@ -16,9 +17,11 @@ export const ImpersonateUser: Component<{ userId: string; email: string; isImper
   const { t } = useI18n();
   const { getErrorMessage } = useI18nApiErrors({ t });
   const [getReason, setReason] = createSignal('');
+  // Off unless chosen on purpose before entering: a visit only looks, it can't change anything by mistake
+  const [getCanWrite, setCanWrite] = createSignal(false);
 
   const mutation = createMutation(() => ({
-    mutationFn: () => startImpersonation({ userId: props.userId, reason: getReason().trim() }),
+    mutationFn: () => startImpersonation({ userId: props.userId, reason: getReason().trim(), canWrite: getCanWrite() }),
     onError: (error: unknown) => createToast({ type: 'error', message: getErrorMessage({ error, defaultMessage: t('admin.impersonation.start.error') }) }),
   }));
 
@@ -49,12 +52,24 @@ export const ImpersonateUser: Component<{ userId: string; email: string; isImper
           />
         </label>
 
-        <p class="text-xs text-muted-foreground">{t('admin.impersonation.notice', { email: props.email })}</p>
+        <Switch class="flex items-start justify-between gap-4" checked={getCanWrite()} onChange={setCanWrite}>
+          <div>
+            <div class="text-sm font-medium">{t('admin.impersonation.can-write.label')}</div>
+            <div class="text-sm text-muted-foreground">{t('admin.impersonation.can-write.description')}</div>
+          </div>
+          <SwitchControl class="mt-0.5"><SwitchThumb /></SwitchControl>
+        </Switch>
+
+        <p class="text-xs text-muted-foreground">
+          {getCanWrite()
+            ? t('admin.impersonation.notice', { email: props.email })
+            : t('admin.impersonation.notice.read-only', { email: props.email })}
+        </p>
 
         <div>
-          <Button type="submit" disabled={!canSubmit()} isLoading={mutation.isPending}>
-            <div class="i-tabler-login-2 size-4 mr-2" />
-            {t('admin.impersonation.start')}
+          <Button type="submit" variant={getCanWrite() ? 'destructive' : 'default'} disabled={!canSubmit()} isLoading={mutation.isPending}>
+            <div class={`${getCanWrite() ? 'i-tabler-pencil' : 'i-tabler-eye'} size-4 mr-2`} />
+            {getCanWrite() ? t('admin.impersonation.start.can-write') : t('admin.impersonation.start')}
           </Button>
         </div>
       </form>
@@ -83,6 +98,9 @@ export const ImpersonationHistory: Component<{ impersonations: Impersonation[]; 
                 <RelativeTime class="text-xs text-muted-foreground" date={new Date(impersonation.createdAt)} />
               </div>
               <p class="text-sm text-muted-foreground">{impersonation.reason}</p>
+              <p class="text-xs text-muted-foreground">
+                {impersonation.canWrite ? t('admin.impersonation.history.can-write') : t('admin.impersonation.history.read-only')}
+              </p>
               <p class="text-xs text-muted-foreground">
                 {impersonation.endedAt
                   ? t('admin.impersonation.history.ended', { time: new Date(impersonation.endedAt).toLocaleString() })

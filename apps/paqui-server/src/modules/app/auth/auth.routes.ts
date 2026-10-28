@@ -1,8 +1,10 @@
 import type { Context, RouteDefinitionContext } from '../server.types';
 import type { Session } from './auth.types';
+import { isRequestAllowedDuringReadOnlyImpersonation } from '../../admin/impersonation/impersonation.models';
 import { ensureImpersonationSessionIsValid } from '../../admin/impersonation/impersonation.usecases';
 import { addLogContext } from '../../shared/logger/logger';
 import { isDefined, isNil } from '../../shared/utils';
+import { createReadOnlyImpersonationError } from './auth.errors';
 
 function getOverrideUserId(context: Context): string | undefined {
   if (
@@ -54,6 +56,10 @@ export function registerAuthRoutes({ app, auth, config, db }: RouteDefinitionCon
 
       // Everything done during an impersonation is traceable to the admin in the logs
       addLogContext({ userId, authType, sessionId: session.id, ...(isDefined(impersonatedBy) ? { impersonatedBy } : {}) });
+
+      if (isDefined(impersonatedBy) && session.impersonationCanWrite !== true && !isRequestAllowedDuringReadOnlyImpersonation({ method: context.req.method })) {
+        throw createReadOnlyImpersonationError();
+      }
     }
 
     return next();

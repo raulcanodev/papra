@@ -18,6 +18,12 @@ export const createForbiddenDuringImpersonationError = createErrorFactory({
   statusCode: 403,
 });
 
+export const createReadOnlyImpersonationError = createErrorFactory({
+  message: 'This impersonation is read-only',
+  code: 'auth.impersonation_read_only',
+  statusCode: 403,
+});
+
 export const createForbiddenEmailDomainError = createErrorFactory({
   message: 'Email domain is not allowed',
   code: 'auth.forbidden_email_domain',

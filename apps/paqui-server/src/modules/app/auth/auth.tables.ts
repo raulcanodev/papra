@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 import { organizationsTable } from '../../organizations/organizations.table';
 import { createPrimaryKeyField, createTimestampColumns } from '../../shared/db/columns.helpers';
 import { usersTable } from '../../users/users.table';
@@ -17,6 +17,8 @@ export const sessionsTable = pgTable(
     activeOrganizationId: text('active_organization_id').references(() => organizationsTable.id, { onDelete: 'set null', onUpdate: 'cascade' }),
     // The admin acting as this user, set only on the short sessions opened from the admin panel
     impersonatedBy: text('impersonated_by').references(() => usersTable.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    // An impersonation is read-only unless the admin chose to be able to change things before entering
+    impersonationCanWrite: boolean('impersonation_can_write').notNull().default(false),
   },
   table => [
     // To select sessions by token

@@ -27,3 +27,8 @@ export const AUTH_PATHS_FORBIDDEN_DURING_IMPERSONATION = [
 
 // Every two-factor route: enabling, disabling, reading backup codes
 export const AUTH_PATH_PREFIXES_FORBIDDEN_DURING_IMPERSONATION = ['/two-factor/'] as const;
+
+// The only requests a read-only impersonation may make besides reading: leaving it
+export const AUTH_PATHS_ALLOWED_DURING_READ_ONLY_IMPERSONATION = ['/impersonation/stop', '/sign-out'] as const;
+
+export const READ_ONLY_HTTP_METHODS = ['GET', 'HEAD', 'OPTIONS'] as const;

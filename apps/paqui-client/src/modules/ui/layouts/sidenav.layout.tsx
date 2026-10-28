@@ -4,6 +4,7 @@ import { useParams } from '@solidjs/router';
 import { createSignal, For, onCleanup, Show, Suspense } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 
+import { ImpersonationStrip } from '@/modules/admin/impersonation/components/impersonation-banner.component';
 import { useDocumentUpload } from '@/modules/documents/components/document-import-status.component';
 import { GlobalDropArea } from '@/modules/documents/components/global-drop-area.component';
 import { useI18n } from '@/modules/i18n/i18n.provider';
@@ -83,6 +84,7 @@ export const AppShell: ParentComponent<{
         <div class={cn('flex min-w-0 flex-1 transition-[padding] duration-200 ease-linear md:p-2', isSidebarOpen() && 'md:pl-0')}>
           <div class="relative flex min-w-0 flex-1 overflow-hidden bg-background text-foreground md:(rounded-xl border border-border/80 shadow-xs) dark:shadow-none">
             <div class="flex min-w-0 flex-1 flex-col">
+              <ImpersonationStrip />
               {props.banner && <props.banner />}
 
               {props.mobileHeader && !isFullScreenOnMobile() && (

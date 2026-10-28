@@ -80,12 +80,12 @@ render(
                   <ThemeProvider>
                     <CommandPaletteProvider>
                       <ConfigProvider>
+                        <ImpersonationBanner />
                         <RenameDocumentDialogProvider>
                           <div class="min-h-screen font-sans text-sm font-400">
                             {props.children}
                           </div>
                         </RenameDocumentDialogProvider>
-                        <ImpersonationBanner />
                         {DemoIndicator && <DemoIndicator />}
                         {DevTools && <DevTools />}
                       </ConfigProvider>

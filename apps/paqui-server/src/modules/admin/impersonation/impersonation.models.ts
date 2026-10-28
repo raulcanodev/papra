@@ -2,8 +2,10 @@ import type { Permission } from '../../roles/roles.types';
 import { PERMISSIONS } from '../../roles/roles.constants';
 import {
   AUTH_PATH_PREFIXES_FORBIDDEN_DURING_IMPERSONATION,
+  AUTH_PATHS_ALLOWED_DURING_READ_ONLY_IMPERSONATION,
   AUTH_PATHS_FORBIDDEN_DURING_IMPERSONATION,
   IMPERSONATION_DURATION_MS,
+  READ_ONLY_HTTP_METHODS,
 } from './impersonation.constants';
 
 export function isAuthPathForbiddenDuringImpersonation({ path }: { path?: string }) {
@@ -13,6 +15,15 @@ export function isAuthPathForbiddenDuringImpersonation({ path }: { path?: string
 
   return (AUTH_PATHS_FORBIDDEN_DURING_IMPERSONATION as readonly string[]).includes(path)
     || AUTH_PATH_PREFIXES_FORBIDDEN_DURING_IMPERSONATION.some(prefix => path.startsWith(prefix));
+}
+
+// A read-only impersonation only reads: any request that could change something is refused, except leaving it
+export function isRequestAllowedDuringReadOnlyImpersonation({ method, authPath }: { method: string; authPath?: string }) {
+  if ((READ_ONLY_HTTP_METHODS as readonly string[]).includes(method.toUpperCase())) {
+    return true;
+  }
+
+  return authPath !== undefined && (AUTH_PATHS_ALLOWED_DURING_READ_ONLY_IMPERSONATION as readonly string[]).includes(authPath);
 }
 
 export function canImpersonate({ permissions }: { permissions: readonly Permission[] }) {

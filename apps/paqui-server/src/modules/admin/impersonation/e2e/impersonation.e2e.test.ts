@@ -7,6 +7,7 @@ import { createServer } from '../../../app/server';
 import { createTestServerDependencies } from '../../../app/server.test-utils';
 import { getClientBaseUrl } from '../../../config/config.models';
 import { overrideConfig } from '../../../config/config.test-utils';
+import { organizationsTable } from '../../../organizations/organizations.table';
 import { userRolesTable } from '../../../roles/roles.table';
 import { usersTable } from '../../../users/users.table';
 import { impersonationsTable } from '../impersonation.table';
@@ -97,7 +98,7 @@ describe('impersonation e2e', () => {
     expect(impersonationSession!.expiresAt.getTime() - Date.now()).to.be.lessThanOrEqual(60 * 60 * 1000);
 
     const [auditRow] = await db.select().from(impersonationsTable);
-    expect(auditRow).to.include({ adminUserId: admin.userId, targetUserId: customer.userId, reason: REASON, adminEmail: 'admin@example.com', targetEmail: 'customer@example.com', endedAt: null });
+    expect(auditRow).to.include({ adminUserId: admin.userId, targetUserId: customer.userId, reason: REASON, adminEmail: 'admin@example.com', targetEmail: 'customer@example.com', canWrite: false, endedAt: null });
 
     const stopResponse = await admin.browser.request('/api/auth/impersonation/stop', { method: 'POST' });
     expect(stopResponse.status).to.eql(200);
@@ -110,10 +111,49 @@ describe('impersonation e2e', () => {
     expect(endedAuditRow?.endedAt).to.be.instanceOf(Date);
   });
 
+  test('an impersonation is read-only by default: it reads everything, changes nothing, and can still be left', async () => {
+    const { db, admin, customer, getMe } = await setup();
+
+    await admin.browser.request('/api/auth/impersonation/start', { method: 'POST', body: { userId: customer.userId, reason: REASON } });
+
+    expect(await getMe(admin.browser)).to.eql({ status: 200, email: 'customer@example.com' });
+    expect((await admin.browser.request('/api/organizations')).status).to.eql(200);
+
+    const refused = [
+      await admin.browser.request('/api/organizations', { method: 'POST', body: { name: 'Created by mistake' } }),
+      await admin.browser.request('/api/users/me', { method: 'PUT', body: { name: 'Renamed by mistake' } }),
+      await admin.browser.request('/api/auth/update-user', { method: 'POST', body: { name: 'Renamed by mistake' } }),
+    ];
+
+    expect(refused.map(response => response.status)).to.eql([403, 403, 403]);
+    expect(await refused[0]!.json()).to.deep.include({ error: { code: 'auth.impersonation_read_only', message: 'This impersonation is read-only' } });
+    expect(await db.select().from(organizationsTable)).to.eql([]);
+    expect((await db.select().from(usersTable).where(eq(usersTable.id, customer.userId)))[0]?.name).to.eql('Customer');
+
+    const stopResponse = await admin.browser.request('/api/auth/impersonation/stop', { method: 'POST' });
+    expect(await stopResponse.json()).to.eql({ restored: true });
+    expect(await getMe(admin.browser)).to.eql({ status: 200, email: 'admin@example.com' });
+  });
+
+  test('an admin who asks for it when entering can change things in the account', async () => {
+    const { db, admin, customer } = await setup();
+
+    await admin.browser.request('/api/auth/impersonation/start', { method: 'POST', body: { userId: customer.userId, reason: REASON, canWrite: true } });
+
+    const response = await admin.browser.request('/api/organizations', { method: 'POST', body: { name: 'Set up for them' } });
+
+    expect(response.status).to.eql(200);
+    expect((await db.select().from(organizationsTable)).map(organization => organization.name)).to.eql(['Set up for them']);
+
+    const [auditRow] = await db.select().from(impersonationsTable);
+    expect(auditRow?.canWrite).to.eql(true);
+  });
+
   test('while impersonating, actions that would take over the account or outlive the visit are refused', async () => {
     const { admin, customer } = await setup();
 
-    await admin.browser.request('/api/auth/impersonation/start', { method: 'POST', body: { userId: customer.userId, reason: REASON } });
+    // Even when allowed to change things
+    await admin.browser.request('/api/auth/impersonation/start', { method: 'POST', body: { userId: customer.userId, reason: REASON, canWrite: true } });
 
     const refused = [
       await admin.browser.request('/api/auth/change-password', { method: 'POST', body: { currentPassword: PASSWORD, newPassword: 'AnotherPassword123!' } }),

@@ -17,6 +17,7 @@ import {
   canImpersonate,
   getImpersonationTargetError,
   isAuthPathForbiddenDuringImpersonation,
+  isRequestAllowedDuringReadOnlyImpersonation,
   parseAdminSessionCookie,
   serializeAdminSessionCookie,
 } from './impersonation.models';
@@ -24,11 +25,15 @@ import { createImpersonationsRepository } from './impersonation.repository';
 
 const logger = createLogger({ namespace: 'impersonation' });
 
-// The plugin's own field is not part of the session type better-auth gives to plugin endpoints
+// The plugin's own fields are not part of the session type better-auth gives to plugin endpoints
 function getImpersonatedBy({ session }: { session?: object | null }) {
   const impersonatedBy = (session as { impersonatedBy?: string | null } | null | undefined)?.impersonatedBy;
 
   return isNil(impersonatedBy) || impersonatedBy === '' ? undefined : impersonatedBy;
+}
+
+function getImpersonationCanWrite({ session }: { session?: object | null }) {
+  return (session as { impersonationCanWrite?: boolean | null } | null | undefined)?.impersonationCanWrite === true;
 }
 
 // Lets an admin open a short session as another user from the admin panel, the way better-auth's
@@ -45,6 +50,7 @@ export function impersonationPlugin({ db }: { db: Database }) {
       session: {
         fields: {
           impersonatedBy: { type: 'string', required: false, input: false },
+          impersonationCanWrite: { type: 'boolean', required: false, input: false, defaultValue: false },
         },
       },
     },
@@ -59,11 +65,13 @@ export function impersonationPlugin({ db }: { db: Database }) {
           body: z.object({
             userId: z.string().min(1),
             reason: z.string().trim().min(IMPERSONATION_REASON_MIN_LENGTH).max(IMPERSONATION_REASON_MAX_LENGTH),
+            // Read-only unless asked for when entering: nothing can be changed by mistake
+            canWrite: z.boolean().optional().default(false),
           }),
         },
         async (ctx) => {
           const { session: adminSession, user: admin } = ctx.context.session;
-          const { userId: targetUserId, reason } = ctx.body;
+          const { userId: targetUserId, reason, canWrite } = ctx.body;
 
           // No impersonation from inside an impersonation
           if (isDefined(getImpersonatedBy({ session: adminSession }))) {
@@ -98,7 +106,7 @@ export function impersonationPlugin({ db }: { db: Database }) {
             targetUser.id,
             // "Don't remember me": a browser-session cookie that better-auth never refreshes
             true,
-            { impersonatedBy: admin.id, expiresAt },
+            { impersonatedBy: admin.id, impersonationCanWrite: canWrite, expiresAt },
             true,
           );
 
@@ -113,6 +121,7 @@ export function impersonationPlugin({ db }: { db: Database }) {
               adminEmail: admin.email,
               targetEmail: targetUser.email,
               reason,
+              canWrite,
               sessionId: session.id,
               ipAddress: isDefined(ctx.request) ? getIp(ctx.request, ctx.context.options) : null,
               userAgent: ctx.headers?.get('user-agent') ?? null,
@@ -120,7 +129,7 @@ export function impersonationPlugin({ db }: { db: Database }) {
             },
           });
 
-          logger.info({ adminUserId: admin.id, targetUserId: targetUser.id, sessionId: session.id }, 'Impersonation started');
+          logger.info({ adminUserId: admin.id, targetUserId: targetUser.id, sessionId: session.id, canWrite }, 'Impersonation started');
 
           // The admin's own session is kept aside, signed, to come back to it afterwards
           const dontRememberMe = await ctx.getSignedCookie(ctx.context.authCookies.dontRememberToken.name, ctx.context.secret);
@@ -193,6 +202,19 @@ export function impersonationPlugin({ db }: { db: Database }) {
             if (current && isDefined(impersonatedBy)) {
               logger.warn({ adminUserId: impersonatedBy, targetUserId: current.user.id, path: ctx.path }, 'Blocked auth action during impersonation');
               throw new APIError('FORBIDDEN', { message: 'Not available while impersonating a user' });
+            }
+          }),
+        },
+        {
+          // The auth routes are answered before the app's own read-only guard, so they get theirs here
+          matcher: context => !isRequestAllowedDuringReadOnlyImpersonation({ method: context.request?.method ?? 'GET', authPath: context.path }),
+          handler: createAuthMiddleware(async (ctx) => {
+            const current = await getSessionFromCtx(ctx);
+            const impersonatedBy = getImpersonatedBy({ session: current?.session });
+
+            if (current && isDefined(impersonatedBy) && !getImpersonationCanWrite({ session: current.session })) {
+              logger.warn({ adminUserId: impersonatedBy, targetUserId: current.user.id, path: ctx.path }, 'Blocked auth action during read-only impersonation');
+              throw new APIError('FORBIDDEN', { message: 'This impersonation is read-only', code: 'auth.impersonation_read_only' });
             }
           }),
         },
