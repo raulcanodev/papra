@@ -2,31 +2,28 @@
 import type { Invoice, InvoiceStatus } from '../invoicing.types';
 import type { TranslationKeys } from '@/modules/i18n/locales.types';
 import type { ActiveFilter, FilterField } from '@/modules/ui/components/table-filters';
-import { A, useNavigate, useParams } from '@solidjs/router';
-import { createMutation, useQuery } from '@tanstack/solid-query';
+import { A, useParams } from '@solidjs/router';
+import { useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { usePageFilesDrop } from '@/modules/documents/components/global-drop-area.component';
 import { useI18n } from '@/modules/i18n/i18n.provider';
-import { queryClient } from '@/modules/shared/query/query-client';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { EntityIcon } from '@/modules/ui/components/entity-icon';
-import { RowActions } from '@/modules/ui/components/row-actions';
-import { createToast } from '@/modules/ui/components/sonner';
 import { dateIsInRange, getActiveFilter, isDateRangeValue } from '@/modules/ui/components/table-filters';
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { getOrganizationRouteChildHref, getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
-import { useLinkWithReturn } from '@/modules/ui/navigation/return-to';
 import { CatalogCell, CatalogRow, CatalogTable } from '../components/catalog-page';
+import { InvoiceRowActions, useOpenInvoice } from '../components/invoice-row-actions';
 import { getInvoicePayableMinor } from '../invoicing.models';
-import { deleteDraftInvoice, downloadInvoicePdf, fetchInvoices, markInvoicePaid, sendInvoice } from '../invoicing.services';
+import { fetchInvoices } from '../invoicing.services';
 import { useSalesImportUpload } from '../use-sales-import-upload';
 
 export const invoiceStatusLabelKeys = { draft: 'invoicing.status.draft', issuing: 'invoicing.status.issuing', issued: 'invoicing.status.issued', sent: 'invoicing.status.sent', paid: 'invoicing.status.paid', void: 'invoicing.status.void' } as const satisfies Record<InvoiceStatus, TranslationKeys>;
 export function InvoicesPage() {
   const { t, getLocale } = useI18n();
   const statusOptions = () => Object.entries(invoiceStatusLabelKeys).map(([value, key]) => ({ value, label: t(key) }));
-  const params = useParams(); const navigate = useNavigate(); const [search, setSearch] = createSignal(''); const [filters, setFilters] = createSignal<ActiveFilter[]>([]);
+  const params = useParams(); const [search, setSearch] = createSignal(''); const [filters, setFilters] = createSignal<ActiveFilter[]>([]);
   const filterFields = createMemo((): FilterField[] => [
     { id: 'status', type: 'multi-select', label: t('invoicing.invoices.filter.status'), icon: 'i-tabler-progress-check', options: statusOptions() },
     { id: 'date', type: 'date-range', label: t('invoicing.invoices.table.issue-date'), icon: 'i-tabler-calendar' },
@@ -40,28 +37,11 @@ export function InvoicesPage() {
     const matchesDate = !isDateRangeValue(dateRange) || dateIsInRange(invoice.issueDate, dateRange);
     return matchesText && matchesStatus && matchesDate;
   }));
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ['invoicing', params.organizationId, 'invoices'] });
-  const sendMutation = createMutation(() => ({ mutationFn: (invoiceId: string) => sendInvoice({ organizationId: params.organizationId, invoiceId }), onSuccess: async () => {
-    createToast({ type: 'success', message: t('invoicing.invoices.toast.sent') }); await refresh();
-  }, onError: () => createToast({ type: 'error', message: t('invoicing.invoices.toast.send-error') }) }));
-  const deleteMutation = createMutation(() => ({ mutationFn: (invoiceId: string) => deleteDraftInvoice({ organizationId: params.organizationId, invoiceId }), onSuccess: async () => {
-    createToast({ type: 'success', message: t('invoicing.invoices.toast.deleted') }); await refresh();
-  }, onError: () => createToast({ type: 'error', message: t('invoicing.invoices.toast.delete-error') }) }));
-  const linkWithReturn = useLinkWithReturn();
   // Invoices issued before the app (or outside it): uploaded with the button or dropped anywhere on the page
   const salesImport = useSalesImportUpload({ organizationId: () => params.organizationId });
   usePageFilesDrop(files => void salesImport.uploadFiles(files), { description: () => t('invoicing.import.drop-area') });
-  // The list keeps its search (filters) when the editor returns to it
-  const editHref = (invoice: Invoice) => linkWithReturn(getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: `${invoice.id}/edit` }));
-  // A draft opens in the editor; an issued invoice is a legal record, it opens as its archived PDF
-  const openInvoice = (invoice: Invoice) => {
-    if (invoice.status === 'draft') {
-      navigate(editHref(invoice));
-    } else if (invoice.documentId !== null) {
-      navigate(linkWithReturn(`/organizations/${params.organizationId}/documents/${invoice.documentId}`));
-    }
-  };
-  const paidMutation = createMutation(() => ({ mutationFn: (invoiceId: string) => markInvoicePaid({ organizationId: params.organizationId, invoiceId }), onSuccess: refresh }));
+  // The list keeps its search (filters) when the invoice returns to it
+  const { canOpen, openInvoice } = useOpenInvoice({ organizationId: () => params.organizationId });
   // The amount the customer pays, the IRPF withholding goes to the tax agency
   const formatMoney = (minor: number, currency: string) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency }).format(minor / 100);
   const money = (invoice: Invoice) => formatMoney(getInvoicePayableMinor(invoice), invoice.currency);
@@ -116,7 +96,7 @@ export function InvoicesPage() {
         >
           <For each={invoices()}>
             {invoice => (
-              <CatalogRow onClick={invoice.status === 'draft' || invoice.documentId !== null ? () => openInvoice(invoice) : undefined}>
+              <CatalogRow onClick={canOpen(invoice) ? () => openInvoice(invoice) : undefined}>
                 <CatalogCell class="font-medium">
                   {invoice.number ?? t('invoicing.status.draft')}
                   <Show when={invoice.importedAt}>
@@ -133,18 +113,7 @@ export function InvoicesPage() {
                 <CatalogCell><Badge variant="outline">{t(invoiceStatusLabelKeys[invoice.status])}</Badge></CatalogCell>
                 <CatalogCell class="text-right font-medium tabular-nums">{money(invoice)}</CatalogCell>
                 <CatalogCell>
-                  <RowActions
-                    itemName={invoice.number ?? t('invoicing.status.draft')}
-                    actions={[
-                      ...(invoice.status === 'draft' || invoice.status === 'issued' ? [{ label: t('invoicing.invoices.actions.send'), icon: 'i-tabler-send', onSelect: () => sendMutation.mutate(invoice.id) }] : []),
-                      ...(invoice.status !== 'draft' && invoice.status !== 'issuing' ? [{ label: t('invoicing.invoices.actions.download'), icon: 'i-tabler-download', onSelect: () => void downloadInvoicePdf({ organizationId: params.organizationId, invoiceId: invoice.id, filename: invoice.number ?? invoice.id }) }] : []),
-                      ...(invoice.status === 'issued' || invoice.status === 'sent' ? [{ label: t('invoicing.invoices.actions.mark-paid'), icon: 'i-tabler-check', onSelect: () => paidMutation.mutate(invoice.id) }] : []),
-                    ]}
-                    // An issued invoice is a legal record: it is corrected with a credit note, never edited nor deleted
-                    onEdit={invoice.status === 'draft' ? () => navigate(editHref(invoice)) : undefined}
-                    onDelete={() => deleteMutation.mutateAsync(invoice.id)}
-                    deleteDisabled={invoice.status !== 'draft'}
-                  />
+                  <InvoiceRowActions organizationId={params.organizationId} invoice={invoice} />
                 </CatalogCell>
               </CatalogRow>
             )}

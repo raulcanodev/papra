@@ -17,6 +17,7 @@ import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-err
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
+import { EditorBar } from '@/modules/ui/components/editor-bar';
 import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextArea } from '@/modules/ui/components/textarea';
@@ -323,34 +324,30 @@ export function PurchaseEditorPage() {
 
   return (
     <main class="page">
-      <div class="mb-6 flex flex-wrap items-center gap-3">
-        <Button as={A} href={listHref()} variant="ghost" size="icon" aria-label={t('purchases.editor.back')}>
-          <div class="i-tabler-arrow-left size-5" />
-        </Button>
-        <h1 class="text-xl font-semibold">{isEditing() ? t('purchases.editor.edit-title') : t('purchases.editor.new-title')}</h1>
-        <Show when={queue().length > 0}>
-          <span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{t('purchases.editor.queue', { count: queue().length })}</span>
-        </Show>
-        <div class="ml-auto flex gap-2">
-          <Show when={isEditing()}>
-            <Button
-              variant="ghost"
-              class="text-red-600"
-              isLoading={deleteMutation.isPending}
-              onClick={async () => {
+      <EditorBar
+        backHref={listHref()}
+        backLabel={t('purchases.editor.back')}
+        title={isEditing() ? t('purchases.editor.edit-title') : t('purchases.editor.new-title')}
+        meta={queue().length > 0 && <span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{t('purchases.editor.queue', { count: queue().length })}</span>}
+        secondaryActions={isEditing()
+          ? [{
+              label: t('purchases.editor.delete.confirm'),
+              icon: 'i-tabler-trash',
+              isDestructive: true,
+              isLoading: deleteMutation.isPending,
+              onSelect: async () => {
                 if (await confirm({ title: t('purchases.editor.delete.title'), message: t('purchases.editor.delete.message'), confirmButton: { text: t('purchases.editor.delete.confirm'), variant: 'destructive' } })) {
                   deleteMutation.mutate();
                 }
-              }}
-            >
-              {t('purchases.editor.delete.confirm')}
-            </Button>
-          </Show>
+              },
+            }]
+          : []}
+        actions={(
           <Button disabled={!canSave()} isLoading={saveMutation.isPending} onClick={() => saveMutation.mutate()}>
             {queue().length > 0 ? t('purchases.editor.save-and-next') : t('purchases.editor.save')}
           </Button>
-        </div>
-      </div>
+        )}
+      />
 
       <div class={cn('grid gap-6', documentId() && 'lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]')}>
         <div class="flex min-w-0 flex-col gap-6">

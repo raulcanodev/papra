@@ -2,6 +2,7 @@ import type { Component, ParentComponent } from 'solid-js';
 import { makePersisted } from '@solid-primitives/storage';
 import { useParams } from '@solidjs/router';
 import { createSignal, For, onCleanup, Show, Suspense } from 'solid-js';
+import { Dynamic } from 'solid-js/web';
 
 import { useDocumentUpload } from '@/modules/documents/components/document-import-status.component';
 import { GlobalDropArea } from '@/modules/documents/components/global-drop-area.component';
@@ -11,6 +12,7 @@ import { UsageWarningCard } from '@/modules/subscriptions/components/usage-warni
 import { Button } from '@/modules/ui/components/button';
 import { DropdownMenuRadioGroup, DropdownMenuRadioItem } from '../components/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger } from '../components/sheet';
+import { AppShellContext } from './app-shell-context';
 
 export const LanguageSwitcher: Component = () => {
   const { getLocale, setLocale, locales } = useI18n();
@@ -45,7 +47,8 @@ export const LanguageSwitcher: Component = () => {
  * Dashboard shell: a sidebar on the app canvas and the workspace as an inset, rounded panel.
  * Pages choose their own width with the `page`, `page-narrow` or `page-full` shortcuts.
  * Below `md`, a shell given `mobileHeader` and `mobileNav` swaps the side menu for a phone layout (header on top,
- * bottom bar); the others keep the side menu in a drawer.
+ * bottom bar); the others keep the side menu in a drawer. An editor can take the whole phone screen with
+ * `useFullScreenOnMobile`, the header and the bottom bar then step aside.
  */
 export const AppShell: ParentComponent<{
   sideNav: Component;
@@ -60,68 +63,79 @@ export const AppShell: ParentComponent<{
   const { t } = useI18n();
   const [isMobileNavOpen, setIsMobileNavOpen] = createSignal(false);
   const isSidebarOpen = () => props.isSidebarOpen?.() ?? true;
+  const [fullScreenCount, setFullScreenCount] = createSignal(0);
+  const isFullScreenOnMobile = () => fullScreenCount() > 0;
+  const hasMobileNav = () => Boolean(props.mobileNav) && !isFullScreenOnMobile();
+  const enterFullScreenOnMobile = () => {
+    setFullScreenCount(count => count + 1);
+    return () => setFullScreenCount(count => count - 1);
+  };
 
   return (
-    <div class="flex h-[var(--app-height,100dvh)] min-h-0 w-full bg-sidebar pt-[env(safe-area-inset-top)] text-sidebar-foreground">
-      <div class={cn('hidden shrink-0 overflow-hidden transition-[width] duration-200 ease-linear md:block', isSidebarOpen() ? 'w-64' : 'w-0')}>
-        <div class="h-full w-64">
-          <props.sideNav />
-        </div>
-      </div>
-
-      <div class={cn('flex min-w-0 flex-1 transition-[padding] duration-200 ease-linear md:p-2', isSidebarOpen() && 'md:pl-0')}>
-        <div class="relative flex min-w-0 flex-1 overflow-hidden bg-background text-foreground md:(rounded-xl border border-border/80 shadow-xs) dark:shadow-none">
-          <div class="flex min-w-0 flex-1 flex-col">
-            {props.banner && <props.banner />}
-
-            {props.mobileHeader && (
-              <header class="flex h-14 shrink-0 items-center gap-1 border-b border-border/80 pl-2 pr-3 md:hidden">
-                <props.mobileHeader />
-              </header>
-            )}
-
-            <header class={cn('flex h-12 shrink-0 items-center gap-2 border-b border-border/80 px-4 lg:px-6', props.mobileHeader && 'hidden md:flex')}>
-              <Show when={props.onToggleSidebar}>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  class="hidden -ml-2 size-7 text-muted-foreground md:inline-flex"
-                  onClick={() => props.onToggleSidebar?.()}
-                  aria-label={t('layout.shell.toggle-sidebar')}
-                >
-                  <div class="i-tabler-layout-sidebar size-4" />
-                </Button>
-              </Show>
-
-              <div class="md:hidden">
-                <Sheet open={isMobileNavOpen()} onOpenChange={setIsMobileNavOpen}>
-                  <SheetTrigger as={Button} variant="ghost" size="icon-sm" class="-ml-2 size-7" aria-label={t('layout.shell.open-navigation')}>
-                    <div class="i-tabler-layout-sidebar size-4" />
-                  </SheetTrigger>
-                  <SheetContent side="left" class="bg-sidebar p-0!" onClick={(event: MouseEvent) => (event.target as HTMLElement).closest('a[href]') && setIsMobileNavOpen(false)}>
-                    <props.sideNav />
-                  </SheetContent>
-                </Sheet>
-              </div>
-
-              <div class={cn('mx-1 h-4 w-px bg-border', !props.onToggleSidebar && 'md:hidden')} />
-              {props.header && <props.header />}
-            </header>
-
-            {/* Room for the bottom bar, so the end of every page stays reachable above it */}
-            <main data-tab-bar-room={props.mobileNav ? '' : undefined} class={cn('relative min-h-0 flex-1 overflow-y-auto', props.mobileNav && 'pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0')}>
-              <Suspense>
-                {props.children}
-              </Suspense>
-            </main>
+    <AppShellContext.Provider value={{ enterFullScreenOnMobile }}>
+      <div class="flex h-[var(--app-height,100dvh)] min-h-0 w-full bg-sidebar pt-[env(safe-area-inset-top)] text-sidebar-foreground">
+        <div class={cn('hidden shrink-0 overflow-hidden transition-[width] duration-200 ease-linear md:block', isSidebarOpen() ? 'w-64' : 'w-0')}>
+          <div class="h-full w-64">
+            <props.sideNav />
           </div>
-
-          {props.aside && <props.aside />}
         </div>
-      </div>
 
-      {props.mobileNav && <props.mobileNav />}
-    </div>
+        <div class={cn('flex min-w-0 flex-1 transition-[padding] duration-200 ease-linear md:p-2', isSidebarOpen() && 'md:pl-0')}>
+          <div class="relative flex min-w-0 flex-1 overflow-hidden bg-background text-foreground md:(rounded-xl border border-border/80 shadow-xs) dark:shadow-none">
+            <div class="flex min-w-0 flex-1 flex-col">
+              {props.banner && <props.banner />}
+
+              {props.mobileHeader && !isFullScreenOnMobile() && (
+                <header class="flex h-14 shrink-0 items-center gap-1 border-b border-border/80 pl-2 pr-3 md:hidden">
+                  <props.mobileHeader />
+                </header>
+              )}
+
+              <header class={cn('flex h-12 shrink-0 items-center gap-2 border-b border-border/80 px-4 lg:px-6', (props.mobileHeader || isFullScreenOnMobile()) && 'hidden md:flex')}>
+                <Show when={props.onToggleSidebar}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    class="hidden -ml-2 size-7 text-muted-foreground md:inline-flex"
+                    onClick={() => props.onToggleSidebar?.()}
+                    aria-label={t('layout.shell.toggle-sidebar')}
+                  >
+                    <div class="i-tabler-layout-sidebar size-4" />
+                  </Button>
+                </Show>
+
+                <div class="md:hidden">
+                  <Sheet open={isMobileNavOpen()} onOpenChange={setIsMobileNavOpen}>
+                    <SheetTrigger as={Button} variant="ghost" size="icon-sm" class="-ml-2 size-7" aria-label={t('layout.shell.open-navigation')}>
+                      <div class="i-tabler-layout-sidebar size-4" />
+                    </SheetTrigger>
+                    <SheetContent side="left" class="bg-sidebar p-0!" onClick={(event: MouseEvent) => (event.target as HTMLElement).closest('a[href]') && setIsMobileNavOpen(false)}>
+                      <props.sideNav />
+                    </SheetContent>
+                  </Sheet>
+                </div>
+
+                <div class={cn('mx-1 h-4 w-px bg-border', !props.onToggleSidebar && 'md:hidden')} />
+                {props.header && <props.header />}
+              </header>
+
+              {/* Room for the bottom bar, so the end of every page stays reachable above it */}
+              <main data-tab-bar-room={hasMobileNav() ? '' : undefined} class={cn('relative min-h-0 flex-1 overflow-y-auto', hasMobileNav() ? 'pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0' : isFullScreenOnMobile() && 'pb-[env(safe-area-inset-bottom)] md:pb-0')}>
+                <Suspense>
+                  {props.children}
+                </Suspense>
+              </main>
+            </div>
+
+            {props.aside && <props.aside />}
+          </div>
+        </div>
+
+        <Show when={hasMobileNav() && props.mobileNav}>
+          {getMobileNav => <Dynamic component={getMobileNav()} />}
+        </Show>
+      </div>
+    </AppShellContext.Provider>
   );
 };
 

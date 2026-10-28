@@ -16,6 +16,7 @@ import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-err
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
+import { EditorBar } from '@/modules/ui/components/editor-bar';
 import { SimpleCheckbox } from '@/modules/ui/components/simple-checkbox';
 import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { createToast } from '@/modules/ui/components/sonner';
@@ -258,20 +259,17 @@ export function ImportInvoicePage() {
 
   return (
     <main class="page">
-      <div class="mb-6 flex flex-wrap items-center gap-3">
-        <Button as={A} href={listHref()} variant="ghost" size="icon" aria-label={t('layout.back')}>
-          <div class="i-tabler-arrow-left size-5" />
-        </Button>
-        <h1 class="text-xl font-semibold">{t('invoicing.import.title')}</h1>
-        <Show when={queue().length > 0}>
-          <span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{t('invoicing.import.queue', { count: queue().length })}</span>
-        </Show>
-        <div class="ml-auto">
+      <EditorBar
+        backHref={listHref()}
+        backLabel={t('layout.back')}
+        title={t('invoicing.import.title')}
+        meta={queue().length > 0 && <span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{t('invoicing.import.queue', { count: queue().length })}</span>}
+        actions={(
           <Button disabled={!canSave()} title={missingMessage()} isLoading={saveMutation.isPending} onClick={() => saveMutation.mutate()}>
             {queue().length > 0 ? t('invoicing.import.save-and-next') : t('invoicing.import.save')}
           </Button>
-        </div>
-      </div>
+        )}
+      />
 
       <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
         <div class="flex min-w-0 flex-col gap-6">

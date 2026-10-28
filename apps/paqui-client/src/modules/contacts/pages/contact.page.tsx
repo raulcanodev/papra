@@ -8,6 +8,7 @@ import { rawPropertyValueAsOption, rawPropertyValueAsOptionArray, rawPropertyVal
 import { ContactDeliveryNotes } from '@/modules/delivery-notes/components/contact-delivery-notes';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { CatalogCell, CatalogRow, CatalogTable } from '@/modules/invoicing/components/catalog-page';
+import { InvoiceRowActions, useOpenInvoice } from '@/modules/invoicing/components/invoice-row-actions';
 import { getProductsQueryKey, ProductForm } from '@/modules/invoicing/components/product-form';
 import { ProductsTable } from '@/modules/invoicing/components/products-table';
 import { getInvoicePayableMinor } from '@/modules/invoicing/invoicing.models';
@@ -17,6 +18,7 @@ import { PriceListShareMenu } from '@/modules/pricing/components/price-list-shar
 import { fetchContactPrices } from '@/modules/pricing/pricing.services';
 import { ProductScannerDialog } from '@/modules/product-scanner/components/product-scanner-dialog';
 import { AddPurchaseDialog } from '@/modules/purchases/components/add-purchase-dialog';
+import { PurchaseRowActions } from '@/modules/purchases/components/purchase-row-actions';
 import { PURCHASE_STATUS_BADGE_CLASSES, PURCHASE_STATUS_LABEL_I18N_KEYS } from '@/modules/purchases/purchases.constants';
 import { fetchPurchaseInvoices, getPurchaseInvoicesQueryKey } from '@/modules/purchases/purchases.services';
 import { usePurchaseUpload } from '@/modules/purchases/use-purchase-upload';
@@ -111,7 +113,8 @@ export function ContactPage() {
   // A new invoice opened from here starts with this customer chosen
   const newInvoiceHref = () => linkWithReturn(`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: 'new' })}?customerId=${encodeURIComponent(params.contactId)}`);
   const purchaseEditHref = (purchaseInvoiceId: string) => linkWithReturn(getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath: `${purchaseInvoiceId}/edit` }));
-  const invoiceEditHref = (invoiceId: string) => linkWithReturn(getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: `${invoiceId}/edit` }));
+  // A draft opens in the editor, an issued invoice as its PDF; both come back to this tab
+  const { canOpen: canOpenInvoice, openInvoice } = useOpenInvoice({ organizationId: () => params.organizationId });
   const money = ({ amountMinor, currency }: { amountMinor: number; currency: string }) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency }).format(amountMinor / 100);
 
   function formatCustomPropertyValue(property: EntityCustomProperty) {
@@ -162,11 +165,11 @@ export function ContactPage() {
             <div class="page-header">
               <div class="flex min-w-0 items-center gap-3">
                 <EntityIcon icon={getContact().icon} color={getContact().iconColor} fallback={getContactFallbackIcon({ contact: getContact() })} />
-                <div class="min-w-0">
-                  <h1 class="page-title truncate">{getContact().name}</h1>
-                  <div class="mt-1 flex flex-wrap gap-1.5">
+                <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <h1 class="page-title min-w-0 truncate">{getContact().name}</h1>
+                  <div class="flex flex-wrap gap-1.5">
                     <For each={getContactRoles({ contact: getContact() })}>
-                      {contactRole => <span class={cn('rounded-full px-1.5 py-px text-[11px] font-medium', CONTACT_ROLE_BADGE_CLASSES[contactRole])}>{t(CONTACT_ROLE_LABEL_I18N_KEYS[contactRole])}</span>}
+                      {contactRole => <span class={cn('rounded-full px-2.5 py-0.5 text-sm font-medium', CONTACT_ROLE_BADGE_CLASSES[contactRole])}>{t(CONTACT_ROLE_LABEL_I18N_KEYS[contactRole])}</span>}
                     </For>
                   </div>
                 </div>
@@ -244,14 +247,15 @@ export function ContactPage() {
                         </Show>
                       </div>
                       <Show when={contactInvoices().length > 0} fallback={<Show when={!invoicesQuery.isLoading}><div class="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground">{t('contacts.detail.invoices.empty')}</div></Show>}>
-                        <CatalogTable headers={[{ label: t('invoicing.invoices.table.invoice') }, { label: t('invoicing.invoices.table.issue-date') }, { label: t('invoicing.invoices.table.status') }, { label: t('invoicing.invoices.table.total'), class: 'text-right' }]}>
+                        <CatalogTable headers={[{ label: t('invoicing.invoices.table.invoice') }, { label: t('invoicing.invoices.table.issue-date') }, { label: t('invoicing.invoices.table.status') }, { label: t('invoicing.invoices.table.total'), class: 'text-right' }, { label: '', class: 'w-14' }]}>
                           <For each={contactInvoices()}>
                             {invoice => (
-                              <CatalogRow onClick={invoice.status === 'draft' ? () => navigate(invoiceEditHref(invoice.id)) : undefined}>
+                              <CatalogRow onClick={canOpenInvoice(invoice) ? () => openInvoice(invoice) : undefined}>
                                 <CatalogCell class="font-medium">{invoice.number ?? t('invoicing.status.draft')}</CatalogCell>
                                 <CatalogCell class="text-muted-foreground">{invoice.issueDate.toLocaleDateString(getLocale())}</CatalogCell>
                                 <CatalogCell><Badge variant="outline">{t(invoiceStatusLabelKeys[invoice.status])}</Badge></CatalogCell>
                                 <CatalogCell class="text-right font-medium tabular-nums">{money({ amountMinor: getInvoicePayableMinor(invoice), currency: invoice.currency })}</CatalogCell>
+                                <CatalogCell><InvoiceRowActions organizationId={params.organizationId} invoice={invoice} /></CatalogCell>
                               </CatalogRow>
                             )}
                           </For>
@@ -270,7 +274,7 @@ export function ContactPage() {
                         </Button>
                       </div>
                       <Show when={contactPurchases().length > 0} fallback={<Show when={!purchasesQuery.isLoading}><div class="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground">{t('contacts.detail.invoices.purchases-empty')}</div></Show>}>
-                        <CatalogTable headers={[{ label: t('purchases.table.number') }, { label: t('purchases.table.date') }, { label: t('purchases.table.status') }, { label: t('purchases.table.total'), class: 'text-right' }]}>
+                        <CatalogTable headers={[{ label: t('purchases.table.number') }, { label: t('purchases.table.date') }, { label: t('purchases.table.status') }, { label: t('purchases.table.total'), class: 'text-right' }, { label: '', class: 'w-14' }]}>
                           <For each={contactPurchases()}>
                             {purchaseInvoice => (
                               <CatalogRow onClick={() => navigate(purchaseEditHref(purchaseInvoice.id))}>
@@ -278,6 +282,7 @@ export function ContactPage() {
                                 <CatalogCell class="text-muted-foreground">{purchaseInvoice.issueDate.toLocaleDateString(getLocale())}</CatalogCell>
                                 <CatalogCell><span class={cn('rounded-full px-2 py-0.5 text-xs font-medium', PURCHASE_STATUS_BADGE_CLASSES[purchaseInvoice.status])}>{t(PURCHASE_STATUS_LABEL_I18N_KEYS[purchaseInvoice.status])}</span></CatalogCell>
                                 <CatalogCell class="text-right font-medium tabular-nums">{money({ amountMinor: getInvoicePayableMinor(purchaseInvoice), currency: purchaseInvoice.currency })}</CatalogCell>
+                                <CatalogCell><PurchaseRowActions organizationId={params.organizationId} purchaseInvoice={purchaseInvoice} /></CatalogCell>
                               </CatalogRow>
                             )}
                           </For>

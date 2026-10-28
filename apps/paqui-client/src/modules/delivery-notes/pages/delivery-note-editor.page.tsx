@@ -17,6 +17,7 @@ import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-err
 import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
+import { EditorBar } from '@/modules/ui/components/editor-bar';
 import { PageSection, PageSections } from '@/modules/ui/components/page-section';
 import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { createToast } from '@/modules/ui/components/sonner';
@@ -242,43 +243,43 @@ export function DeliveryNoteEditorPage() {
 
   return (
     <main class="page">
-      <div class="mb-6 flex flex-wrap items-center gap-3">
-        <Button as={A} href={listHref()} variant="ghost" size="icon" aria-label={t('delivery-notes.editor.back')}>
-          <div class="i-tabler-arrow-left size-5" />
-        </Button>
-        <h1 class="text-xl font-semibold">{isEditing() && number() !== null ? t('delivery-notes.editor.edit-title', { number: number()! }) : t('delivery-notes.editor.new-title')}</h1>
-        <Show when={queue().length > 0}>
-          <span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{t('delivery-notes.editor.queue', { count: queue().length })}</span>
-        </Show>
-        <div class="ml-auto flex flex-wrap gap-2">
-          <Show when={isEditing() && !isInvoiced()}>
-            <Button
-              variant="ghost"
-              class="text-red-600"
-              isLoading={deleteMutation.isPending}
-              onClick={async () => {
-                if (await confirm({ title: t('delivery-notes.editor.delete.title'), message: t('delivery-notes.editor.delete.message'), confirmButton: { text: t('delivery-notes.editor.delete.confirm'), variant: 'destructive' } })) {
-                  deleteMutation.mutate();
-                }
-              }}
-            >
-              {t('delivery-notes.editor.delete.confirm')}
+      <EditorBar
+        backHref={listHref()}
+        backLabel={t('delivery-notes.editor.back')}
+        title={isEditing() && number() !== null ? t('delivery-notes.editor.edit-title', { number: number()! }) : t('delivery-notes.editor.new-title')}
+        meta={queue().length > 0 && <span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{t('delivery-notes.editor.queue', { count: queue().length })}</span>}
+        secondaryActions={[
+          ...(isEditing() && !isInvoiced()
+            ? [{
+                label: t('delivery-notes.editor.delete.confirm'),
+                icon: 'i-tabler-trash',
+                isDestructive: true,
+                isLoading: deleteMutation.isPending,
+                onSelect: async () => {
+                  if (await confirm({ title: t('delivery-notes.editor.delete.title'), message: t('delivery-notes.editor.delete.message'), confirmButton: { text: t('delivery-notes.editor.delete.confirm'), variant: 'destructive' } })) {
+                    deleteMutation.mutate();
+                  }
+                },
+              }]
+            : []),
+          ...(queue().length > 0 ? [{ label: t('delivery-notes.editor.skip'), icon: 'i-tabler-player-skip-forward', onSelect: goToNext }] : []),
+          // A phone has room for one button: saving without printing goes in the menu there
+          ...(!isInvoiced() ? [{ label: queue().length > 0 ? t('delivery-notes.editor.save-and-next') : t('delivery-notes.editor.save'), icon: 'i-tabler-device-floppy', disabled: !canSave(), isLoading: saveMutation.isPending && saveMutation.variables?.printTarget === null, onSelect: () => save({ print: false }), isMobileOnly: true }] : []),
+        ]}
+        actions={(
+          <>
+            <Show when={!isInvoiced()}>
+              <Button variant="outline" class="hidden md:inline-flex" disabled={!canSave()} isLoading={saveMutation.isPending && saveMutation.variables?.printTarget === null} onClick={() => save({ print: false })}>
+                {queue().length > 0 ? t('delivery-notes.editor.save-and-next') : t('delivery-notes.editor.save')}
+              </Button>
+            </Show>
+            <Button class="gap-1.5" disabled={!canSave()} isLoading={saveMutation.isPending && saveMutation.variables?.printTarget !== null} onClick={() => save({ print: true })}>
+              <div class="i-tabler-printer size-4" />
+              {isInvoiced() ? t('delivery-notes.editor.print') : t('delivery-notes.editor.save-and-print')}
             </Button>
-          </Show>
-          <Show when={queue().length > 0}>
-            <Button variant="ghost" onClick={goToNext}>{t('delivery-notes.editor.skip')}</Button>
-          </Show>
-          <Show when={!isInvoiced()}>
-            <Button variant="outline" disabled={!canSave()} isLoading={saveMutation.isPending && saveMutation.variables?.printTarget === null} onClick={() => save({ print: false })}>
-              {queue().length > 0 ? t('delivery-notes.editor.save-and-next') : t('delivery-notes.editor.save')}
-            </Button>
-          </Show>
-          <Button class="gap-1.5" disabled={!canSave()} isLoading={saveMutation.isPending && saveMutation.variables?.printTarget !== null} onClick={() => save({ print: true })}>
-            <div class="i-tabler-printer size-4" />
-            {isInvoiced() ? t('delivery-notes.editor.print') : t('delivery-notes.editor.save-and-print')}
-          </Button>
-        </div>
-      </div>
+          </>
+        )}
+      />
 
       <div class={cn('grid gap-6', documentId() && 'lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]')}>
         <div class="flex min-w-0 max-w-2xl flex-col gap-4">

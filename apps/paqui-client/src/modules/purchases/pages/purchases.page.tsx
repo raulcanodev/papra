@@ -13,15 +13,15 @@ import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
 import { EntityIcon } from '@/modules/ui/components/entity-icon';
-import { RowActions } from '@/modules/ui/components/row-actions';
 import { createToast } from '@/modules/ui/components/sonner';
 import { dateIsInRange, getActiveFilter, isDateRangeValue } from '@/modules/ui/components/table-filters';
 import { TableToolbar } from '@/modules/ui/components/table-toolbar';
 import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
 import { useLinkWithReturn } from '@/modules/ui/navigation/return-to';
 import { AddPurchaseDialog } from '../components/add-purchase-dialog';
+import { PurchaseRowActions } from '../components/purchase-row-actions';
 import { EXPENSE_CATEGORY_LABEL_I18N_KEYS, PURCHASE_DOCUMENT_KIND_BADGE_CLASSES, PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS, PURCHASE_DOCUMENT_KINDS, PURCHASE_STATUS_BADGE_CLASSES, PURCHASE_STATUS_LABEL_I18N_KEYS } from '../purchases.constants';
-import { deletePurchaseInvoice, dismissPurchaseInboxDocument, fetchPurchaseInbox, fetchPurchaseInvoices, getPurchaseInboxQueryKey, getPurchaseInvoicesQueryKey, setPurchaseInvoiceStatus } from '../purchases.services';
+import { dismissPurchaseInboxDocument, fetchPurchaseInbox, fetchPurchaseInvoices, getPurchaseInboxQueryKey, getPurchaseInvoicesQueryKey, setPurchaseInvoiceStatus } from '../purchases.services';
 import { usePurchaseUpload } from '../use-purchase-upload';
 
 const STATUS_FILTERS: (PurchaseInvoiceStatus | undefined)[] = [undefined, 'pending', 'paid'];
@@ -103,15 +103,6 @@ export function PurchasesPage() {
       queryClient.invalidateQueries({ queryKey: getDueDatesQueryKey({ organizationId: params.organizationId }) }),
     ]),
     onError: () => createToast({ type: 'error', message: t('purchases.toast.error') }),
-  }));
-
-  const deleteMutation = createMutation(() => ({
-    mutationFn: (purchaseInvoiceId: string) => deletePurchaseInvoice({ organizationId: params.organizationId, purchaseInvoiceId }),
-    onSuccess: async () => {
-      createToast({ type: 'success', message: t('purchases.toast.deleted') });
-      await queryClient.invalidateQueries({ queryKey: getPurchaseInvoicesQueryKey({ organizationId: params.organizationId }) });
-    },
-    onError: () => createToast({ type: 'error', message: t('purchases.toast.delete-error') }),
   }));
 
   return (
@@ -237,17 +228,7 @@ export function PurchasesPage() {
                   </button>
                 </CatalogCell>
                 <CatalogCell>
-                  <RowActions
-                    itemName={`${purchaseInvoice.supplierName} ${purchaseInvoice.number}`}
-                    actions={[{
-                      label: purchaseInvoice.status === 'pending' ? t('purchases.actions.mark-paid') : t('purchases.actions.mark-pending'),
-                      icon: purchaseInvoice.status === 'pending' ? 'i-tabler-check' : 'i-tabler-clock',
-                      onSelect: () => statusMutation.mutate({ purchaseInvoiceId: purchaseInvoice.id, status: purchaseInvoice.status === 'pending' ? 'paid' : 'pending' }),
-                    }]}
-                    onEdit={() => navigate(editorHref(`${purchaseInvoice.id}/edit`))}
-                    onDelete={() => deleteMutation.mutateAsync(purchaseInvoice.id)}
-                    deleteMessage={t('purchases.delete-message')}
-                  />
+                  <PurchaseRowActions organizationId={params.organizationId} purchaseInvoice={purchaseInvoice} />
                 </CatalogCell>
               </CatalogRow>
             )}

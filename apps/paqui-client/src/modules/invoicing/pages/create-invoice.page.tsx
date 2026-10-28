@@ -18,6 +18,7 @@ import { cn } from '@/modules/shared/style/cn';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/modules/ui/components/dialog';
+import { EditorBar } from '@/modules/ui/components/editor-bar';
 import { SimpleCheckbox } from '@/modules/ui/components/simple-checkbox';
 import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { createToast } from '@/modules/ui/components/sonner';
@@ -378,11 +379,28 @@ export function CreateInvoicePage() {
 
   return (
     <div class="w-full px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:py-8">
+      {/* On a phone the preview, and its buttons, come after the whole form: the bar keeps them on top */}
+      <EditorBar
+        class="md:hidden"
+        backHref={returnHref()}
+        backLabel={t('invoicing.editor.back')}
+        title={invoiceNumber() ?? t('invoicing.editor.new-title')}
+        actions={(
+          <>
+            <Button type="button" variant="secondary" size="sm" class="rounded-full" disabled={!canSubmit()} isLoading={mutation.isPending && !mutation.variables?.issue} onClick={() => mutation.mutate({ issue: false })}>
+              {t('invoicing.editor.save-draft')}
+            </Button>
+            <Button type="button" variant="primary" size="sm" class="rounded-full" disabled={!canIssue()} isLoading={mutation.isPending && mutation.variables?.issue} onClick={() => mutation.mutate({ issue: true })}>
+              {t('invoicing.editor.issue')}
+            </Button>
+          </>
+        )}
+      />
       <div class="grid w-full gap-10 lg:(grid-cols-[minmax(0,460px)_minmax(0,560px)] justify-center) xl:gap-14">
         {/* Form */}
         <form class="min-w-0 space-y-10" onSubmit={event => event.preventDefault()}>
-          <div class="flex items-center justify-between gap-4">
-            <div class="flex min-w-0 items-center gap-2.5">
+          <div class="flex items-center justify-end gap-4 md:justify-between">
+            <div class="hidden min-w-0 items-center gap-2.5 md:flex">
               <Button as={A} href={returnHref()} variant="ghost" size="icon-sm" class="-ml-2 text-muted-foreground" aria-label={t('invoicing.editor.back')}>
                 <div class="i-tabler-arrow-left size-4" />
               </Button>
@@ -442,7 +460,13 @@ export function CreateInvoicePage() {
 
           {/* Items */}
           <section>
-            <SectionTitle>{t('invoicing.editor.items')}</SectionTitle>
+            <div class="mb-3 flex items-center justify-between gap-3">
+              <h2 class="text-[15px] font-semibold">{t('invoicing.editor.items')}</h2>
+              <Button type="button" variant="outline" size="sm" class="gap-1.5" onClick={() => setItems(current => [...current, newLine(defaultTaxRateBps())])}>
+                <div class="i-tabler-plus size-4" />
+                {t('invoicing.editor.item.add')}
+              </Button>
+            </div>
             <Show when={customerId()}>
               <InvoiceDeliveryNotesField
                 organizationId={params.organizationId}
@@ -457,15 +481,24 @@ export function CreateInvoicePage() {
               <Index each={items()}>
                 {(item, index) => (
                   <div class="py-5">
-                    <div class="mb-4 flex items-center justify-between">
-                      <h3 class="text-sm font-semibold">{items().length > 1 ? t('invoicing.editor.item-number', { number: index + 1 }) : t('invoicing.editor.item')}</h3>
-                      <Show when={items().length > 1}>
+                    <div class="space-y-4">
+                      <div class="flex items-end gap-2">
+                        <FormField label={t('invoicing.editor.item.product')} class="min-w-0 flex-1">
+                          <ProductSelector
+                            products={productsQuery.data?.products ?? []}
+                            value={item().description}
+                            selectedProductId={item().productId}
+                            onChange={(name, product) => applyProduct(index, name, product)}
+                            onCreate={name => createLineProduct(index, name)}
+                          />
+                        </FormField>
                         <Button
                           type="button"
                           variant="ghost"
-                          size="icon-sm"
-                          class="-mr-2 size-7 text-muted-foreground"
+                          size="icon"
+                          class="mb-0.5 text-red-600"
                           aria-label={t('invoicing.editor.item.remove')}
+                          disabled={items().length === 1}
                           onClick={() => {
                             setItems(current => current.filter((_, itemIndex) => itemIndex !== index));
                             const shift = (lines: number[]) => lines.filter(line => line !== index).map(line => (line > index ? line - 1 : line));
@@ -475,19 +508,7 @@ export function CreateInvoicePage() {
                         >
                           <div class="i-tabler-trash size-4" />
                         </Button>
-                      </Show>
-                    </div>
-
-                    <div class="space-y-4">
-                      <FormField label={t('invoicing.editor.item.product')}>
-                        <ProductSelector
-                          products={productsQuery.data?.products ?? []}
-                          value={item().description}
-                          selectedProductId={item().productId}
-                          onChange={(name, product) => applyProduct(index, name, product)}
-                          onCreate={name => createLineProduct(index, name)}
-                        />
-                      </FormField>
+                      </div>
 
                       <div class="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-end gap-2">
                         <FormField label={t('invoicing.editor.item.quantity')}>
@@ -507,11 +528,8 @@ export function CreateInvoicePage() {
                         </div>
                       </div>
 
-                      <div class="flex items-center justify-between gap-4 pt-1">
-                        <div>
-                          <div class="text-sm font-medium">{t('invoicing.editor.item.tax')}</div>
-                          <div class="text-xs text-muted-foreground">{t('invoicing.editor.item.tax.description')}</div>
-                        </div>
+                      <div class="flex items-center justify-between gap-4">
+                        <div class="text-sm font-medium">{t('invoicing.editor.item.tax')}</div>
                         <SimpleSelect
                           aria-label={t('invoicing.editor.item.tax-rate')}
                           triggerClass="h-8 w-auto gap-2 rounded-full border-transparent bg-muted px-3 font-medium shadow-none"
@@ -600,16 +618,6 @@ export function CreateInvoicePage() {
                 )}
               </Index>
 
-              <button
-                type="button"
-                class="flex w-full items-center gap-3 py-3.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-                onClick={() => setItems(current => [...current, newLine(defaultTaxRateBps())])}
-              >
-                <span class="flex size-8 items-center justify-center rounded-full bg-muted">
-                  <div class="i-tabler-plus size-4" />
-                </span>
-                {t('invoicing.editor.item.add')}
-              </button>
             </div>
           </section>
 
@@ -706,7 +714,7 @@ export function CreateInvoicePage() {
 
         {/* Preview */}
         <aside class="mx-auto w-full min-w-0 max-w-[620px] lg:(sticky top-6 self-start max-w-[min(620px,calc((100dvh-10rem)*210/297))])">
-          <div class="mb-4 flex items-center justify-end gap-2">
+          <div class="mb-4 hidden items-center justify-end gap-2 md:flex">
             <Button type="button" variant="secondary" size="sm" class="rounded-full" disabled={!canSubmit()} isLoading={mutation.isPending && !mutation.variables?.issue} onClick={() => mutation.mutate({ issue: false })}>
               {t('invoicing.editor.save-draft')}
             </Button>
