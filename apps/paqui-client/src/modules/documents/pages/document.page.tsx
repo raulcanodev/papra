@@ -10,7 +10,10 @@ import { DocumentCustomPropertiesPanel } from '@/modules/custom-properties/compo
 import { fetchCustomPropertyDefinitions } from '@/modules/custom-properties/custom-properties.services';
 import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
 import { useI18n } from '@/modules/i18n/i18n.provider';
-import { EXTRACTABLE_FILE_ACCEPT } from '@/modules/purchases/purchases.constants';
+import { fetchInvoices } from '@/modules/invoicing/invoicing.services';
+import { invoiceStatusLabelKeys } from '@/modules/invoicing/pages/invoices.page';
+import { EXTRACTABLE_FILE_ACCEPT, PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS } from '@/modules/purchases/purchases.constants';
+import { fetchPurchaseInvoices, getPurchaseInvoicesQueryKey } from '@/modules/purchases/purchases.services';
 import { downloadFile } from '@/modules/shared/files/download';
 import { DocumentTagsList } from '@/modules/tags/components/tag-list.component';
 import { TagLink } from '@/modules/tags/components/tag.component';
@@ -19,8 +22,9 @@ import { Button } from '@/modules/ui/components/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/modules/ui/components/dropdown-menu';
 import { Separator } from '@/modules/ui/components/separator';
 import { Tabs, TabsContent, TabsIndicator, TabsList, TabsTrigger } from '@/modules/ui/components/tabs';
-import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
-import { useLinkWithReturn } from '@/modules/ui/navigation/return-to';
+import { getOrganizationContactHref, getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
+import { useLinkWithReturn, useReturnHref } from '@/modules/ui/navigation/return-to';
+import { RETURN_TO_SEARCH_PARAM } from '@/modules/ui/navigation/return-to.models';
 import { DocumentContentEditionPanel } from '../components/document-content-edition-panel.component';
 import { DocumentDatePicker } from '../components/document-date-picker.component';
 import { DocumentPreview } from '../components/document-preview.component';
@@ -126,7 +130,7 @@ const DocumentOpenWithDropdown: Component<{ document: Document; organizationId: 
 };
 
 export const DocumentPage: Component = () => {
-  const { t, formatRelativeTime } = useI18n();
+  const { t, formatRelativeTime, getLocale } = useI18n();
   const params = useParams();
   const linkWithReturn = useLinkWithReturn();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -135,6 +139,16 @@ export const DocumentPage: Component = () => {
   const navigate = useNavigate();
   const { config } = useConfig();
   const { openRenameDialog } = useRenameDocumentDialog();
+  // Opened from a list (sales, purchases...): a way back to it
+  const { returnHref } = useReturnHref(() => `/organizations/${params.organizationId}/documents`);
+
+  // The issued invoice or the purchase this file is the paper of: the actions offered depend on it
+  const invoicesQuery = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'invoices'], queryFn: () => fetchInvoices({ organizationId: params.organizationId }) }));
+  const purchasesQuery = useQuery(() => ({ queryKey: getPurchaseInvoicesQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchPurchaseInvoices({ organizationId: params.organizationId }) }));
+  const linkedInvoice = () => invoicesQuery.data?.invoices.find(invoice => invoice.documentId === params.documentId);
+  const linkedPurchase = () => purchasesQuery.data?.purchaseInvoices.find(purchaseInvoice => purchaseInvoice.documentId === params.documentId);
+  const isLinkLookupDone = () => invoicesQuery.isSuccess && purchasesQuery.isSuccess;
+  const formatMoney = (minor: number, currency: string) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency }).format(minor / 100);
 
   const getInitialTab = (): Tab => {
     const tab = searchParams.tab;
@@ -217,6 +231,12 @@ export const DocumentPage: Component = () => {
             {getDocument => (
               <div class="flex gap-4 md:pr-6">
                 <div class="min-w-0 flex-1">
+                  <Show when={searchParams[RETURN_TO_SEARCH_PARAM]}>
+                    <A href={returnHref()} class="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+                      <div class="i-tabler-arrow-left size-4" />
+                      {t('layout.back')}
+                    </A>
+                  </Show>
                   <Button
                     variant="ghost"
                     class="flex max-w-full items-center gap-2 group bg-transparent! px-0 text-left h-auto whitespace-normal"
@@ -234,6 +254,38 @@ export const DocumentPage: Component = () => {
                   </Button>
                   <p class="text-sm text-muted-foreground mb-6 break-all">{getDocument().id}</p>
 
+                  {/* What the file already is in the books, so it is not registered a second time */}
+                  <Show when={linkedInvoice()}>
+                    {getInvoice => (
+                      <div class="mb-4 flex items-start gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/8 p-3 text-sm">
+                        <div class="i-tabler-file-invoice mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                        <div class="min-w-0 flex-1">
+                          <div class="font-medium">{t('documents.linked.issued-invoice', { number: getInvoice().number ?? '—' })}</div>
+                          <div class="text-muted-foreground">
+                            {[getInvoice().customerName, formatMoney(getInvoice().totalMinor, getInvoice().currency), t(invoiceStatusLabelKeys[getInvoice().status])].filter(Boolean).join(' · ')}
+                          </div>
+                        </div>
+                        <A href={linkWithReturn(getOrganizationContactHref({ organizationId: params.organizationId, contactId: getInvoice().customerId }))} class="shrink-0 text-sm font-medium hover:underline">
+                          {t('documents.linked.open-customer')}
+                        </A>
+                      </div>
+                    )}
+                  </Show>
+                  <Show when={linkedPurchase()}>
+                    {getPurchase => (
+                      <div class="mb-4 flex items-start gap-3 rounded-lg border border-sky-500/30 bg-sky-500/8 p-3 text-sm">
+                        <div class="i-tabler-receipt mt-0.5 size-4 shrink-0 text-sky-600 dark:text-sky-400" />
+                        <div class="min-w-0 flex-1">
+                          <div class="font-medium">{t('documents.linked.purchase', { kind: t(PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS[getPurchase().kind]).toLowerCase(), number: getPurchase().number || '—' })}</div>
+                          <div class="text-muted-foreground">{[getPurchase().supplierName, formatMoney(getPurchase().totalMinor, getPurchase().currency)].filter(Boolean).join(' · ')}</div>
+                        </div>
+                        <A href={linkWithReturn(getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath: `${getPurchase().id}/edit` }))} class="shrink-0 text-sm font-medium hover:underline">
+                          {t('documents.linked.open-purchase')}
+                        </A>
+                      </div>
+                    )}
+                  </Show>
+
                   {/* Two columns of full width buttons on phones, a single row on wider screens */}
                   <div class="mb-2 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap [&>*]:w-full sm:[&>*]:w-auto">
                     <Button
@@ -247,8 +299,9 @@ export const DocumentPage: Component = () => {
 
                     <DocumentOpenWithDropdown document={getDocument()} organizationId={params.organizationId} />
 
-                    {/* A received invoice (forwarded by email, uploaded...) becomes an expense reviewed in the purchase editor */}
-                    <Show when={!getDocument().isDeleted && (EXTRACTABLE_FILE_ACCEPT.split(',') as string[]).includes(getDocument().mimeType)}>
+                    {/* A received invoice (forwarded by email, uploaded...) becomes an expense reviewed in the purchase editor;
+                        never offered for a file that is already an issued invoice or a registered purchase */}
+                    <Show when={!getDocument().isDeleted && isLinkLookupDone() && !linkedInvoice() && !linkedPurchase() && (EXTRACTABLE_FILE_ACCEPT.split(',') as string[]).includes(getDocument().mimeType)}>
                       <Button
                         as={A}
                         variant="outline"
@@ -273,14 +326,17 @@ export const DocumentPage: Component = () => {
                           </Button>
                         )
                       : (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={deleteDoc}
-                          >
-                            <div class="i-tabler-trash size-4 mr-2" />
-                            {t('documents.actions.delete')}
-                          </Button>
+                          // The PDF of an issued invoice is a legal record: it stays with the invoice
+                          <Show when={!linkedInvoice()}>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={deleteDoc}
+                            >
+                              <div class="i-tabler-trash size-4 mr-2" />
+                              {t('documents.actions.delete')}
+                            </Button>
+                          </Show>
                         )}
                   </div>
                   <Separator class="my-3" />

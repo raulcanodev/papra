@@ -48,6 +48,14 @@ export function InvoicesPage() {
   const linkWithReturn = useLinkWithReturn();
   // The list keeps its search (filters) when the editor returns to it
   const editHref = (invoice: Invoice) => linkWithReturn(getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: `${invoice.id}/edit` }));
+  // A draft opens in the editor; an issued invoice is a legal record, it opens as its archived PDF
+  const openInvoice = (invoice: Invoice) => {
+    if (invoice.status === 'draft') {
+      navigate(editHref(invoice));
+    } else if (invoice.documentId !== null) {
+      navigate(linkWithReturn(`/organizations/${params.organizationId}/documents/${invoice.documentId}`));
+    }
+  };
   const paidMutation = createMutation(() => ({ mutationFn: (invoiceId: string) => markInvoicePaid({ organizationId: params.organizationId, invoiceId }), onSuccess: refresh }));
   // The amount the customer pays, the IRPF withholding goes to the tax agency
   const formatMoney = (minor: number, currency: string) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency }).format(minor / 100);
@@ -96,7 +104,7 @@ export function InvoicesPage() {
         >
           <For each={invoices()}>
             {invoice => (
-              <CatalogRow onClick={invoice.status === 'draft' ? () => navigate(editHref(invoice)) : undefined}>
+              <CatalogRow onClick={invoice.status === 'draft' || invoice.documentId !== null ? () => openInvoice(invoice) : undefined}>
                 <CatalogCell class="font-medium">{invoice.number ?? t('invoicing.status.draft')}</CatalogCell>
                 <CatalogCell>
                   <div class="flex items-center gap-2">
