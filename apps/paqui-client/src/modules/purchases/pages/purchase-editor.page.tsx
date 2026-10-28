@@ -205,16 +205,15 @@ export function PurchaseEditorPage() {
 
   const isPaid = () => paidChoice() ?? (scheduleRows().length > 0 && scheduleRows().every(row => row.status === 'paid'));
 
-  // Ticked, every due date is paid on the payment date (a single one for the whole invoice when none is set);
-  // unticked, the payments are undone and a returned charge stays returned
-  const instalments = (): InstalmentInput[] => {
-    const rows = fromScheduleRows(scheduleRows());
+  // The due dates as they will be saved, shown so before saving: ticked, every one is paid (a single one for the whole
+  // invoice when none is set); unticked, the payments are undone and a returned charge stays returned
+  const shownScheduleRows = (): ScheduleRow[] => {
+    const rows = scheduleRows();
     const choice = paidChoice();
 
     if (choice === true) {
-      const paidAt = new Date(`${paidDate() || issueDate()}T00:00:00.000Z`);
-      const settled = rows.length > 0 ? rows : [{ dueDate: new Date(`${issueDate()}T00:00:00.000Z`), amountMinor: totals().payableMinor }];
-      return settled.map(row => ({ ...row, status: 'paid', paidAt }));
+      const settled = rows.length > 0 ? rows : [{ dueDate: issueDate(), amountMinor: totals().payableMinor }];
+      return settled.map(row => ({ ...row, status: 'paid' }));
     }
 
     if (choice === false) {
@@ -222,6 +221,14 @@ export function PurchaseEditorPage() {
     }
 
     return rows;
+  };
+
+  // Paid on the payment date given, the invoice date by default: an old invoice was not paid today
+  const instalments = (): InstalmentInput[] => {
+    const rows = fromScheduleRows(shownScheduleRows());
+    const paidAt = new Date(`${paidDate() || issueDate()}T00:00:00.000Z`);
+
+    return paidChoice() === true ? rows.map(row => ({ ...row, paidAt })) : rows;
   };
 
   const supplierTermsDays = () => suppliers().find(contact => contact.id === supplierId())?.paymentTermsDays ?? null;
@@ -552,7 +559,7 @@ export function PurchaseEditorPage() {
             <PaymentScheduleFields
               paymentMethod={paymentMethod()}
               onPaymentMethodChange={setPaymentMethod}
-              rows={scheduleRows()}
+              rows={shownScheduleRows()}
               onRowsChange={(rows) => {
                 setScheduleRows(rows);
                 setInstalmentsSource(undefined);
