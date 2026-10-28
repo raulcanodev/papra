@@ -455,6 +455,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'custom-properties.entity-fields.title': 'Campos personalizados',
   'custom-properties.entity-fields.manage': 'Gestionar campos',
   'custom-properties.entity-fields.boolean.yes': 'Sí',
+  'custom-properties.entity-fields.boolean.no': 'No',
   'custom-properties.entity-fields.select.none': 'Ninguno',
 
   'custom-properties.list.title': 'Propiedades personalizadas',

@@ -1,8 +1,10 @@
+import type { EntityCustomProperty } from '@/modules/custom-properties/custom-properties.types';
 import type { TranslationKeys } from '@/modules/i18n/locales.types';
 import type { InvoiceStatus, InvoicingProduct } from '@/modules/invoicing/invoicing.types';
 import { A, useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { useQuery } from '@tanstack/solid-query';
 import { createMemo, createSignal, For, Show } from 'solid-js';
+import { rawPropertyValueAsOption, rawPropertyValueAsOptionArray, rawPropertyValueAsRelatedDocumentArray, rawPropertyValueAsUserArray } from '@/modules/custom-properties/custom-properties.models';
 import { ContactDeliveryNotes } from '@/modules/delivery-notes/components/contact-delivery-notes';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { CatalogCell, CatalogRow, CatalogTable } from '@/modules/invoicing/components/catalog-page';
@@ -32,7 +34,7 @@ import { getOrganizationRouteChildHref, getOrganizationRouteHref } from '@/modul
 import { useLinkWithReturn, useReturnHref } from '@/modules/ui/navigation/return-to';
 import { ContactEditor } from '../components/contact-editor';
 import { CONTACT_ROLE_BADGE_CLASSES, CONTACT_ROLE_LABEL_I18N_KEYS, CONTACT_ROLE_PAGE_I18N_KEYS, CONTACT_ROLE_ROUTE_IDS, getContactFallbackIcon, getContactRoles } from '../contacts.constants';
-import { fetchContacts, getContactsQueryKey } from '../contacts.services';
+import { fetchContact, fetchContacts, getContactsQueryKey } from '../contacts.services';
 import { useDeleteContact } from '../use-delete-contact';
 
 // A contact detail that copies itself to the clipboard on click; the icon shows on hover
@@ -87,6 +89,13 @@ export function ContactPage() {
   const pricesQuery = useQuery(() => ({ queryKey: getContactPricesQueryKey({ organizationId: params.organizationId, contactId: params.contactId }), queryFn: () => fetchContactPrices({ organizationId: params.organizationId, contactId: params.contactId }) }));
 
   const contact = createMemo(() => contactsQuery.data?.contacts.find(candidate => candidate.id === params.contactId));
+  // Under the contacts key: saving the contact refreshes its custom fields too
+  const contactDetailQuery = useQuery(() => ({ queryKey: [...getContactsQueryKey({ organizationId: params.organizationId }), params.contactId, 'detail'], queryFn: () => fetchContact({ organizationId: params.organizationId, contactId: params.contactId }) }));
+  // The custom fields of its roles that have a value, after the built-in details
+  const customPropertyDetails = createMemo(() => (contactDetailQuery.data?.customProperties ?? []).flatMap((property) => {
+    const value = formatCustomPropertyValue(property);
+    return value === null ? [] : [{ label: property.name, value, isCopyable: property.type === 'text' || property.type === 'number' }];
+  }));
   const contactInvoices = createMemo(() => (invoicesQuery.data?.invoices ?? []).filter(invoice => invoice.customerId === params.contactId));
   const purchasesQuery = useQuery(() => ({ queryKey: getPurchaseInvoicesQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchPurchaseInvoices({ organizationId: params.organizationId }), enabled: contact()?.isSupplier === true }));
   const contactPurchases = createMemo(() => (purchasesQuery.data?.purchaseInvoices ?? []).filter(purchaseInvoice => purchaseInvoice.supplierId === params.contactId));
@@ -104,6 +113,26 @@ export function ContactPage() {
   const purchaseEditHref = (purchaseInvoiceId: string) => linkWithReturn(getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath: `${purchaseInvoiceId}/edit` }));
   const invoiceEditHref = (invoiceId: string) => linkWithReturn(getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: `${invoiceId}/edit` }));
   const money = ({ amountMinor, currency }: { amountMinor: number; currency: string }) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency }).format(amountMinor / 100);
+
+  function formatCustomPropertyValue(property: EntityCustomProperty) {
+    const { type, value } = property;
+
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+
+    switch (type) {
+      case 'boolean': return t(value === true ? 'custom-properties.entity-fields.boolean.yes' : 'custom-properties.entity-fields.boolean.no');
+      // Stored as UTC midnight: shown in UTC so it never moves to the day before
+      case 'date': return new Intl.DateTimeFormat(getLocale(), { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(String(value)));
+      case 'number': return new Intl.NumberFormat(getLocale()).format(Number(value));
+      case 'select': return rawPropertyValueAsOption(value)?.name ?? null;
+      case 'multi_select': return rawPropertyValueAsOptionArray(value).map(option => option.name).join(', ') || null;
+      case 'user_relation': return rawPropertyValueAsUserArray(value).map(user => user.name ?? user.email).join(', ') || null;
+      case 'document_relation': return rawPropertyValueAsRelatedDocumentArray(value).map(document => document.name).join(', ') || null;
+      default: return typeof value === 'string' ? value : null;
+    }
+  }
 
   const openProductForm = (product: InvoicingProduct | null) => {
     setEditingProduct(product);
@@ -160,7 +189,8 @@ export function ContactPage() {
                 // Payment terms are optional: without them the line is not shown
                 ...(getContact().paymentTermsDays === null ? [] : [{ label: t('contacts.detail.payment-terms'), value: t('contacts.detail.payment-terms-days', { count: getContact().paymentTermsDays! }), isCopyable: false }]),
                 { label: t('contacts.detail.notes'), value: getContact().notes },
-              ]}
+                ...customPropertyDetails(),
+              ] as Array<{ label: string; value: string | null; isCopyable?: boolean }>}
               >
                 {item => (
                   <div class="min-w-0">

@@ -453,6 +453,7 @@ export const translations = {
   'custom-properties.entity-fields.title': 'Custom fields',
   'custom-properties.entity-fields.manage': 'Manage fields',
   'custom-properties.entity-fields.boolean.yes': 'Yes',
+  'custom-properties.entity-fields.boolean.no': 'No',
   'custom-properties.entity-fields.select.none': 'None',
 
   'custom-properties.list.title': 'Custom Properties',
