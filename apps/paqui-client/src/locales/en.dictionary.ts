@@ -3199,6 +3199,7 @@ export const translations = {
   'layout.mobile.quick-actions.open': 'Add',
   'layout.mobile.quick-actions.title': 'Add',
   'layout.mobile.quick-actions.close': 'Close',
+  'layout.mobile.quick-actions.back': 'Back',
   'layout.mobile.quick-actions.scan': 'Scan',
   'layout.mobile.quick-actions.scan.description': 'A receipt or an invoice with the camera',
   'layout.mobile.quick-actions.upload': 'Upload a file',

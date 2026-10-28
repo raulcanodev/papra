@@ -3201,6 +3201,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'layout.mobile.quick-actions.open': 'Añadir',
   'layout.mobile.quick-actions.title': 'Añadir',
   'layout.mobile.quick-actions.close': 'Cerrar',
+  'layout.mobile.quick-actions.back': 'Volver',
   'layout.mobile.quick-actions.scan': 'Escanear',
   'layout.mobile.quick-actions.scan.description': 'Ticket o factura con la cámara',
   'layout.mobile.quick-actions.upload': 'Subir archivo',
