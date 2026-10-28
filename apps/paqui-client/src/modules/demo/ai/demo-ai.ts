@@ -184,7 +184,18 @@ export async function demoStreamChatMessage({ organizationId, messages, sessionI
 
 const notFound = () => Object.assign(new FetchError('Not found'), { status: 404 });
 
+// The demo has no speech recognition: a dictation always gives this question, in the language of the interface
+const DEMO_DICTATIONS: Record<string, string> = {
+  es: '¿Cuánto IVA tengo que pagar este trimestre?',
+  en: 'How much VAT do I have to pay this quarter?',
+};
+
 export const aiHandlers = {
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/ai/transcriptions',
+    method: 'POST',
+    handler: async ({ query }) => ({ text: DEMO_DICTATIONS[String(query?.language)] ?? DEMO_DICTATIONS.en }),
+  }),
   ...defineHandler({
     path: '/api/organizations/:organizationId/ai/sessions',
     method: 'GET',
