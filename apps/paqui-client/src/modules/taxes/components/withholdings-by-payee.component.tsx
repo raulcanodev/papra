@@ -21,7 +21,7 @@ export function WithholdingsByPayee(props: {
   const groups = () => [
     { model: '111' as const, label: t('taxes.payees.professionals'), boxes: t('taxes.payees.boxes-111'), withholdings: props.report.professionals111 },
     { model: '115' as const, label: t('taxes.payees.rents'), boxes: t('taxes.payees.boxes-115'), withholdings: props.report.rents115 },
-  ].filter(({ withholdings }) => withholdings.payees.length > 0);
+  ];
 
   const Payee = (payee: WithholdingPayee) => (
     <details class="group">
@@ -59,30 +59,29 @@ export function WithholdingsByPayee(props: {
     </details>
   );
 
+  // Shown at 0 too, so it is known to exist before the first invoice with IRPF
   return (
-    <Show when={groups().length > 0}>
-      <section class="mt-8 border-t pt-6">
-        <h2 class="text-[15px] font-semibold">{t('taxes.payees.title')}</h2>
-        <p class="mt-0.5 text-sm text-muted-foreground">{t('taxes.payees.description')}</p>
+    <section class="mt-8 border-t pt-6">
+      <h2 class="text-[15px] font-semibold">{t('taxes.payees.title')}</h2>
+      <p class="mt-0.5 text-sm text-muted-foreground">{t('taxes.payees.description')}</p>
 
-        <div class="mt-4 grid gap-8 lg:grid-cols-2">
-          <For each={groups()}>
-            {group => (
-              <div class="min-w-0">
-                <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">{`${t('taxes.payees.model', { model: group.model })} · ${group.label}`}</p>
-                <div class="divide-y">
-                  <For each={group.withholdings.payees}>{payee => Payee(payee)}</For>
-                  <div class="flex items-center justify-between gap-3 py-3 pr-7">
-                    <p class="font-medium">{t('taxes.payees.total', { count: group.withholdings.payeesCount })}</p>
-                    <p class="font-semibold tabular-nums">{money(group.withholdings.amountMinor)}</p>
-                  </div>
+      <div class="mt-4 grid gap-8 lg:grid-cols-2">
+        <For each={groups()}>
+          {group => (
+            <div class="min-w-0">
+              <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">{`${t('taxes.payees.model', { model: group.model })} · ${group.label}`}</p>
+              <div class="divide-y">
+                <For each={group.withholdings.payees} fallback={<p class="py-3 text-sm text-muted-foreground">{t('taxes.payees.empty')}</p>}>{payee => Payee(payee)}</For>
+                <div class="flex items-center justify-between gap-3 py-3 pr-7">
+                  <p class="font-medium">{t('taxes.payees.total', { count: group.withholdings.payeesCount })}</p>
+                  <p class="font-semibold tabular-nums">{money(group.withholdings.amountMinor)}</p>
                 </div>
-                <p class="text-xs text-muted-foreground">{group.boxes}</p>
               </div>
-            )}
-          </For>
-        </div>
-      </section>
-    </Show>
+              <p class="text-xs text-muted-foreground">{group.boxes}</p>
+            </div>
+          )}
+        </For>
+      </div>
+    </section>
   );
 }

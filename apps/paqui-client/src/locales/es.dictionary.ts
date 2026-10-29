@@ -1229,6 +1229,8 @@ export const translations: Partial<TranslationsDictionary> = {
   'taxes.payees.total': 'Total · {{ count }} {{ count, =1:perceptor, perceptores }}',
   'taxes.payees.boxes-111': 'En el modelo 111, actividades económicas: casilla 07 perceptores, 08 base y 09 retenciones.',
   'taxes.payees.boxes-115': 'En el modelo 115: casilla 01 perceptores, 02 base y 03 retenciones.',
+  'taxes.withholdings.none': 'Sin retenciones este trimestre',
+  'taxes.payees.empty': 'Ningún proveedor con IRPF retenido este trimestre. Saldrán aquí al registrar facturas de compra con retención.',
   'taxes.simulator.title': '¿Y si compro ahora?',
   'taxes.simulator.description': 'Antes de que acabe el trimestre, mira cuánto bajarían tus impuestos con una compra.',
   'taxes.simulator.base': 'Importe sin IVA',

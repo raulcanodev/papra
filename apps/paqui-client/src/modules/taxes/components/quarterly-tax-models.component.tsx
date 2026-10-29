@@ -95,37 +95,34 @@ export function QuarterlyTaxModels(props: {
         />
       </Show>
 
-      <Show when={props.report.applicable[111]}>
-        <TaxModelCard
-          tone="orange"
-          model="111"
-          title={t('taxes.withholdings.title')}
-          description={t('taxes.withholdings.description')}
-          result={money(props.report.professionals111.amountMinor)}
-          resultCaption={t('taxes.to-pay')}
-          rows={[
-            { label: t('taxes.withholdings.payees'), value: String(props.report.professionals111.payeesCount) },
-            { label: t('taxes.withholdings.base'), value: money(props.report.professionals111.baseMinor) },
-          ]}
-          deadline={deadlineLabel('111')}
-        />
-      </Show>
+      {/* 111 and 115 are always shown, at 0 too: the user knows they exist and fill in with the IRPF of the received invoices */}
+      <TaxModelCard
+        tone="orange"
+        model="111"
+        title={t('taxes.withholdings.title')}
+        description={t('taxes.withholdings.description')}
+        result={money(props.report.professionals111.amountMinor)}
+        resultCaption={props.report.professionals111.amountMinor > 0 ? t('taxes.to-pay') : t('taxes.withholdings.none')}
+        rows={[
+          { label: t('taxes.withholdings.payees'), value: String(props.report.professionals111.payeesCount) },
+          { label: t('taxes.withholdings.base'), value: money(props.report.professionals111.baseMinor) },
+        ]}
+        deadline={deadlineLabel('111')}
+      />
 
-      <Show when={props.report.applicable[115]}>
-        <TaxModelCard
-          tone="pink"
-          model="115"
-          title={t('taxes.rents.title')}
-          description={t('taxes.rents.description')}
-          result={money(props.report.rents115.amountMinor)}
-          resultCaption={t('taxes.to-pay')}
-          rows={[
-            { label: t('taxes.withholdings.payees'), value: String(props.report.rents115.payeesCount) },
-            { label: t('taxes.withholdings.base'), value: money(props.report.rents115.baseMinor) },
-          ]}
-          deadline={deadlineLabel('115')}
-        />
-      </Show>
+      <TaxModelCard
+        tone="pink"
+        model="115"
+        title={t('taxes.rents.title')}
+        description={t('taxes.rents.description')}
+        result={money(props.report.rents115.amountMinor)}
+        resultCaption={props.report.rents115.amountMinor > 0 ? t('taxes.to-pay') : t('taxes.withholdings.none')}
+        rows={[
+          { label: t('taxes.withholdings.payees'), value: String(props.report.rents115.payeesCount) },
+          { label: t('taxes.withholdings.base'), value: money(props.report.rents115.baseMinor) },
+        ]}
+        deadline={deadlineLabel('115')}
+      />
     </div>
   );
 }

@@ -1227,6 +1227,8 @@ export const translations = {
   'taxes.payees.total': 'Total · {{ count }} {{ count, =1:payee, payees }}',
   'taxes.payees.boxes-111': 'In model 111, economic activities: box 07 payees, 08 base and 09 withholdings.',
   'taxes.payees.boxes-115': 'In model 115: box 01 payees, 02 base and 03 withholdings.',
+  'taxes.withholdings.none': 'No withholdings this quarter',
+  'taxes.payees.empty': 'No supplier with IRPF withheld this quarter. They show up here when you register received invoices with a withholding.',
   'taxes.simulator.title': 'What if I buy now?',
   'taxes.simulator.description': 'Before the quarter ends, see how much a purchase would lower your taxes.',
   'taxes.simulator.base': 'Amount before VAT',
