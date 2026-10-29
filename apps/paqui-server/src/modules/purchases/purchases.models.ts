@@ -16,3 +16,14 @@ export function calculatePurchaseInvoiceTotals({ items, withholdingRateBps }: Pi
 
   return { ...totals, deductibleTaxMinor };
 }
+
+// A unit price as printed: in cents, and also in millionths when it goes beyond the cent (0,365 €), so the line still
+// adds up to the printed amount (400 × 0,365 € = 146,00 €, not 400 × 0,37 € = 148,00 €)
+export function toPurchaseUnitPrice({ amount }: { amount: number }) {
+  const unitPriceMicros = Math.max(0, Math.round(amount * 1_000_000));
+
+  return {
+    unitPriceMinor: Math.round(unitPriceMicros / 10_000),
+    unitPriceMicros: unitPriceMicros % 10_000 === 0 ? null : unitPriceMicros,
+  };
+}

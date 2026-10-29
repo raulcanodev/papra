@@ -11,6 +11,8 @@ export const purchaseInvoiceItemSchema = z.object({
   description: z.string().trim().min(1).max(500),
   quantityMillis: z.number().int().min(1).max(1_000_000_000),
   unitPriceMinor: z.number().int().min(0).max(1_000_000_000),
+  // Millionths of the currency, only when the price goes beyond the cent
+  unitPriceMicros: z.number().int().min(0).max(10_000_000_000_000).nullable().optional(),
   taxRateBps: z.number().int().min(0).max(10_000).default(0),
   discountRateBps: z.number().int().min(0).max(10_000).default(0),
   deductibleRateBps: z.number().int().min(0).max(10_000).default(10_000),

@@ -69,10 +69,22 @@ describe('purchases extraction models', () => {
       withholdingRateBps: 0,
       documentId: 'doc_1',
       metadata: [],
-      items: [{ description: 'Juegos de base con almohadas', quantityMillis: 100_000, unitPriceMinor: 1_500, taxRateBps: 2_100, discountRateBps: 0, deductibleRateBps: 10_000 }],
+      items: [{ description: 'Juegos de base con almohadas', quantityMillis: 100_000, unitPriceMinor: 1_500, unitPriceMicros: null, taxRateBps: 2_100, discountRateBps: 0, deductibleRateBps: 10_000 }],
     });
 
     expect(calculatePurchaseInvoiceTotals(draft).totalMinor).toBe(181_500);
+  });
+
+  test('a unit price beyond the cent is kept exact, so the line adds up to the printed amount', () => {
+    // SIMA: 400 m² at 0,365 € = 146,00 €, 176,66 € with VAT; rounded to 0,37 € it would be 148,00 €
+    const draft = toPurchaseInvoiceDraft({
+      extraction: extraction({ lines: [{ description: 'M2 Burbuja PPS-15 Medida 160', quantity: 400, unitPrice: 0.365, taxRatePercent: 21, discountPercent: 0 }] }),
+      supplierId: 'ctc_1',
+      documentId: 'doc_1',
+    });
+
+    expect(draft.items[0]).toMatchObject({ unitPriceMinor: 37, unitPriceMicros: 365_000 });
+    expect(calculatePurchaseInvoiceTotals(draft)).toMatchObject({ subtotalMinor: 14_600, taxMinor: 3_066, totalMinor: 17_666 });
   });
 
   test('printed payment terms become due dates computed from the issue date, split in equal parts when no amount is printed', () => {
@@ -111,7 +123,7 @@ describe('purchases extraction models', () => {
     expect(draft.issueDate).toBe(null);
     expect(draft.currency).toBe('EUR');
     expect(draft.withholdingRateBps).toBe(5_000);
-    expect(draft.items[0]).toEqual({ description: '—', quantityMillis: 1, unitPriceMinor: 0, taxRateBps: 0, discountRateBps: 0, deductibleRateBps: 10_000 });
+    expect(draft.items[0]).toEqual({ description: '—', quantityMillis: 1, unitPriceMinor: 0, unitPriceMicros: null, taxRateBps: 0, discountRateBps: 0, deductibleRateBps: 10_000 });
   });
 
   test('a delivery note keeps its kind, a ticket or a card voucher is booked as a simplified invoice, and missing fields stay empty', () => {

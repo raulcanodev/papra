@@ -15,6 +15,8 @@ export type PurchaseInvoiceItemInput = {
   description: string;
   quantityMillis: number;
   unitPriceMinor: number;
+  /** The exact unit price in millionths when it goes beyond the cent (0,365 €); the line amount is computed from it */
+  unitPriceMicros?: number | null;
   taxRateBps: number;
   discountRateBps: number;
   /** Part of the VAT that can be deducted, in basis points (10000 = all of it) */

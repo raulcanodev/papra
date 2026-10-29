@@ -1,8 +1,9 @@
 import type { Quarter, QuarterlyTaxReport, SimulatedPurchase } from '../../taxes/taxes.types';
+import { getLineGrossMinor } from '../../purchases/purchases.models';
 
 // The quarterly taxes estimation of the demo, computed in the browser from the demo invoices with the same formulas
 // and rules as the server taxes module (2026 rules)
-type Line = { quantityMillis: number; unitPriceMinor: number; discountRateBps: number; discountMinor?: number; taxRateBps: number; deductibleRateBps?: number };
+type Line = { quantityMillis: number; unitPriceMinor: number; unitPriceMicros?: number | null; discountRateBps: number; discountMinor?: number; taxRateBps: number; deductibleRateBps?: number };
 type DemoIssued = { status: string; currency: string; issueDate: string; withholdingMinor?: number; items: Line[] };
 type DemoPurchase = { currency: string; issueDate: string; category: string; supplierId: string; withholdingMinor?: number; items: Line[]; id?: string; number?: string; withholdingRateBps?: number; supplierName?: string; supplierTaxId?: string | null };
 type DemoProfile = { currency?: string; legalForm?: 'self_employed' | 'company' | null; vatRegime?: 'general' | 'equivalence_surcharge' | 'exempt'; incomeTaxMethod?: 'direct_simplified' | 'direct_normal' | 'modules'; lastCorporateTaxQuotaMinor?: number | null; accountantEmail?: string | null } | null;
@@ -11,7 +12,7 @@ const BILLED_STATUSES = ['issued', 'sent', 'paid'];
 const DAY = 24 * 60 * 60 * 1000;
 
 function lineAmounts(item: Line) {
-  const gross = Math.round(item.quantityMillis * item.unitPriceMinor / 1_000);
+  const gross = getLineGrossMinor(item);
   const netMinor = gross - Math.round(gross * item.discountRateBps / 10_000) - (item.discountMinor ?? 0);
   return { netMinor, taxMinor: Math.round(netMinor * item.taxRateBps / 10_000) };
 }

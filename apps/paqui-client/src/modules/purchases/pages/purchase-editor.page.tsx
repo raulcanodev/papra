@@ -35,7 +35,7 @@ import { ReviewNotice } from '../components/review-notice';
 import { SupplierResolutionPanel } from '../components/supplier-resolution-panel';
 import { SupplierTariffCheck } from '../components/supplier-tariff-check';
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABEL_I18N_KEYS, PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS, PURCHASE_DOCUMENT_KINDS } from '../purchases.constants';
-import { calculatePurchaseInvoiceTotals, emptyPurchaseInvoiceItem } from '../purchases.models';
+import { calculatePurchaseInvoiceTotals, emptyPurchaseInvoiceItem, getPurchaseUnitPrice, toPurchaseUnitPrice } from '../purchases.models';
 import { createPurchaseInvoice, createPurchaseReadings, deletePurchaseInvoice, fetchPurchaseInvoice, fetchPurchaseReadings, getPurchaseInvoicesQueryKey, getPurchaseReadingsQueryKey, updatePurchaseInvoice } from '../purchases.services';
 
 // The server takes up to 20 000 characters of screen data
@@ -185,7 +185,7 @@ export function PurchaseEditorPage() {
     setWithholdingRateBps(purchaseInvoice.withholdingRateBps);
     setNotes(purchaseInvoice.notes ?? '');
     setDocumentId(purchaseInvoice.documentId);
-    setItems(purchaseInvoice.items?.map(({ description, quantityMillis, unitPriceMinor, taxRateBps, discountRateBps, deductibleRateBps }) => ({ description, quantityMillis, unitPriceMinor, taxRateBps, discountRateBps, deductibleRateBps })) ?? [emptyPurchaseInvoiceItem()]);
+    setItems(purchaseInvoice.items?.map(({ description, quantityMillis, unitPriceMinor, unitPriceMicros, taxRateBps, discountRateBps, deductibleRateBps }) => ({ description, quantityMillis, unitPriceMinor, unitPriceMicros, taxRateBps, discountRateBps, deductibleRateBps })) ?? [emptyPurchaseInvoiceItem()]);
     leaveGuard.resetBaseline();
   });
 
@@ -636,7 +636,7 @@ export function PurchaseEditorPage() {
                       <TextField type="number" min="0" step="any" value={item().quantityMillis / 1_000} onInput={event => updateItem(index, { quantityMillis: Math.round(Number(event.currentTarget.value) * 1_000) })} />
                     </FormField>
                     <FormField label={t('purchases.editor.line.unit-price')}>
-                      <TextField type="number" min="0" step="0.01" value={item().unitPriceMinor / 100} onInput={event => updateItem(index, { unitPriceMinor: Math.round(Number(event.currentTarget.value) * 100) })} />
+                      <TextField type="number" min="0" step="any" value={getPurchaseUnitPrice(item())} onInput={event => updateItem(index, toPurchaseUnitPrice({ amount: Number(event.currentTarget.value) }))} />
                     </FormField>
                     <FormField label={t('purchases.editor.line.vat')}>
                       <SimpleSelect triggerClass="h-10 w-full" value={String(item().taxRateBps)} onChange={value => updateItem(index, { taxRateBps: Number(value) })} options={[...new Set([...TAX_RATES_BPS, item().taxRateBps])].toSorted((a, b) => a - b).map(rateBps => ({ value: String(rateBps), label: `${rateBps / 100} %` }))} />

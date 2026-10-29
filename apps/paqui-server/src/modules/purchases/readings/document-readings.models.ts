@@ -17,7 +17,7 @@ export type StoredPurchaseExtraction = {
     issueDate: string | Date | null;
     dueDate: string | Date | null;
     withholdingRateBps: number;
-    items: { description: string; quantityMillis: number; unitPriceMinor: number; taxRateBps: number; discountRateBps: number; deductibleRateBps: number }[];
+    items: { description: string; quantityMillis: number; unitPriceMinor: number; unitPriceMicros?: number | null; taxRateBps: number; discountRateBps: number; deductibleRateBps: number }[];
     [key: string]: unknown;
   };
   counterparty: SupplierResolution & { name: string | null; taxId: string | null; [key: string]: unknown };

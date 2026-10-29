@@ -1,6 +1,6 @@
 import type { PurchaseMetadataEntry } from './purchases.schemas';
 import { sql } from 'drizzle-orm';
-import { check, index, integer, jsonb, pgTable, text, timestamp, unique } from 'drizzle-orm/pg-core';
+import { bigint, check, index, integer, jsonb, pgTable, text, timestamp, unique } from 'drizzle-orm/pg-core';
 import { contactsTable } from '../contacts/contacts.table';
 import { documentsTable } from '../documents/documents.table';
 import { PAYMENT_METHODS } from '../due-dates/due-dates.constants';
@@ -55,6 +55,9 @@ export const purchaseInvoiceItemsTable = pgTable('purchase_invoice_items', {
   description: text('description').notNull(),
   quantityMillis: integer('quantity_millis').notNull(),
   unitPriceMinor: integer('unit_price_minor').notNull(),
+  // The exact unit price in millionths when the paper prints it beyond the cent (0,365 €): the line amount is computed
+  // from it. Null when the price is a whole number of cents, unitPriceMinor is then exact
+  unitPriceMicros: bigint('unit_price_micros', { mode: 'number' }),
   taxRateBps: integer('tax_rate_bps').notNull().default(0),
   discountRateBps: integer('discount_rate_bps').notNull().default(0),
   deductibleRateBps: integer('deductible_rate_bps').notNull().default(10_000),

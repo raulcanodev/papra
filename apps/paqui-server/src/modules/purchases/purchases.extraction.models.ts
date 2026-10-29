@@ -6,6 +6,7 @@ import { PAYMENT_METHODS } from '../due-dates/due-dates.constants';
 import { computeInstalments } from '../due-dates/due-dates.models';
 import { calculateInvoiceTotals } from '../invoicing/invoicing.models';
 import { EXPENSE_CATEGORIES, MAX_PURCHASE_METADATA_ENTRIES } from './purchases.constants';
+import { toPurchaseUnitPrice } from './purchases.models';
 
 // Bumped whenever the shape below changes, so a stored or cached reading can be told apart from a newer one
 export const INVOICE_EXTRACTION_SCHEMA_VERSION = 4;
@@ -52,7 +53,7 @@ export const invoiceExtractionSchema = z.object({
   lines: z.array(z.object({
     description: z.string(),
     quantity: z.number().describe('Quantity, 1 when not printed'),
-    unitPrice: z.number().describe('Unit price before tax and before discount, 0 when not printed (delivery notes often have no prices)'),
+    unitPrice: z.number().describe('Unit price before tax and before discount with every decimal printed (0.365, never rounded to the cent), 0 when not printed (delivery notes often have no prices). When the paper has both a price column and a rounded net price, take the precise one'),
     taxRatePercent: z.number().describe('VAT rate in percent, e.g. 21'),
     discountPercent: z.number().describe('Line discount in percent, 0 when none'),
   })),
@@ -241,7 +242,7 @@ export function toPurchaseInvoiceDraft({ extraction, supplierId, documentId, con
     .map(line => ({
       description: clean(line.description, 500) || '—',
       quantityMillis: Math.max(1, Math.round(line.quantity * 1_000)),
-      unitPriceMinor: Math.max(0, toMinor(line.unitPrice)),
+      ...toPurchaseUnitPrice({ amount: line.unitPrice }),
       taxRateBps: toBps(line.taxRatePercent),
       discountRateBps: toBps(line.discountPercent),
       deductibleRateBps: 10_000,

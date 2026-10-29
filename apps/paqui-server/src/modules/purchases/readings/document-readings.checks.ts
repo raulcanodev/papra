@@ -36,7 +36,7 @@ type ReadingForChecks = {
     issueDate: Date | null;
     dueDate: Date | null;
     withholdingRateBps: number;
-    items: { description: string; quantityMillis: number; unitPriceMinor: number; taxRateBps: number; discountRateBps: number; deductibleRateBps: number }[];
+    items: { description: string; quantityMillis: number; unitPriceMinor: number; unitPriceMicros?: number | null; taxRateBps: number; discountRateBps: number; deductibleRateBps: number }[];
   };
   counterparty: { status: 'matched' | 'create' | 'ask'; taxId: string | null };
   printedTotal: number | null;

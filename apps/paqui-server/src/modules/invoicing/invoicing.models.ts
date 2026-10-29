@@ -12,8 +12,11 @@ export type InvoiceBrandingInput = z.infer<typeof invoiceBrandingSchema>;
 // Amounts of one line, rounded to the cent line by line: the single place every total (invoices, purchases, taxes) comes from
 // The fixed discount (invoices only, purchases have none) comes off after the percentage one and can take the line below
 // zero: a negative line takes that amount off the rest of the invoice
-export function getLineAmounts(item: Pick<InvoiceDraftInput['items'][number], 'quantityMillis' | 'unitPriceMinor' | 'discountRateBps' | 'taxRateBps'> & { discountMinor?: number }) {
-  const gross = Math.round(item.quantityMillis * item.unitPriceMinor / 1_000);
+export function getLineAmounts(item: Pick<InvoiceDraftInput['items'][number], 'quantityMillis' | 'unitPriceMinor' | 'discountRateBps' | 'taxRateBps'> & { discountMinor?: number; unitPriceMicros?: number | null }) {
+  // A price beyond the cent (400 × 0,365 € = 146,00 €) is multiplied exact and only the line amount is rounded
+  const gross = item.unitPriceMicros === undefined || item.unitPriceMicros === null
+    ? Math.round(item.quantityMillis * item.unitPriceMinor / 1_000)
+    : Math.round(item.quantityMillis * item.unitPriceMicros / 10_000_000);
   const afterRate = gross - Math.round(gross * item.discountRateBps / 10_000);
   const netMinor = afterRate - (item.discountMinor ?? 0);
   const taxMinor = Math.round(netMinor * item.taxRateBps / 10_000);

@@ -10,7 +10,7 @@ const EXPENSE_CATEGORIES = ['goods', 'supplies', 'rent', 'professional_services'
 const purchaseLineSchema = z.object({
   description: z.string().trim().min(1).max(500),
   quantity: z.number().positive().max(1_000_000).default(1),
-  unitPrice: amountSchema('Unit price WITHOUT tax.'),
+  unitPrice: amountSchema('Unit price WITHOUT tax, with every decimal printed on the paper (0.365 stays 0.365, it is not rounded to the cent).'),
   taxRatePercent: percentSchema('VAT rate of the line.').default(21),
   discountPercent: percentSchema('Discount on the line.').default(0),
   deductiblePercent: percentSchema('Share of the expense that is deductible for tax purposes (100 unless it is partly personal, e.g. a vehicle).').default(100),
@@ -42,7 +42,7 @@ const purchaseFields = {
   documentId: z.string().trim().min(1).nullable().optional().describe('ID of the uploaded document (PDF/image) of the invoice, to keep it attached'),
 };
 
-type StoredPurchaseItem = { description: string; quantityMillis: number; unitPriceMinor: number; taxRateBps: number; discountRateBps: number; deductibleRateBps: number };
+type StoredPurchaseItem = { description: string; quantityMillis: number; unitPriceMinor: number; unitPriceMicros?: number | null; taxRateBps: number; discountRateBps: number; deductibleRateBps: number };
 
 type StoredPurchase = {
   supplierId: string;
@@ -60,10 +60,14 @@ type StoredPurchase = {
 };
 
 function toApiItem(line: PurchaseLine) {
+  // A price beyond the cent (0,365 €) is kept exact in millionths, so the line adds up to the printed amount
+  const unitPriceMicros = Math.max(0, Math.round(line.unitPrice * 1_000_000));
+
   return {
     description: line.description,
     quantityMillis: quantityToMillis(line.quantity),
     unitPriceMinor: amountToMinor(line.unitPrice),
+    unitPriceMicros: unitPriceMicros % 10_000 === 0 ? null : unitPriceMicros,
     taxRateBps: percentToBps(line.taxRatePercent),
     discountRateBps: percentToBps(line.discountPercent),
     deductibleRateBps: percentToBps(line.deductiblePercent),
@@ -74,7 +78,7 @@ function fromApiItem(item: StoredPurchaseItem): PurchaseLine {
   return {
     description: item.description,
     quantity: item.quantityMillis / 1_000,
-    unitPrice: minorToAmount(item.unitPriceMinor),
+    unitPrice: item.unitPriceMicros === undefined || item.unitPriceMicros === null ? minorToAmount(item.unitPriceMinor) : item.unitPriceMicros / 1_000_000,
     taxRatePercent: bpsToPercent(item.taxRateBps),
     discountPercent: bpsToPercent(item.discountRateBps),
     deductiblePercent: bpsToPercent(item.deductibleRateBps),

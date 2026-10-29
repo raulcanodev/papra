@@ -1,9 +1,31 @@
 import type { PurchaseInvoiceItemInput } from './purchases.types';
 
+// A price beyond the cent (400 × 0,365 € = 146,00 €) is multiplied exact and only the line amount is rounded
+export function getLineGrossMinor(item: Pick<PurchaseInvoiceItemInput, 'quantityMillis' | 'unitPriceMinor' | 'unitPriceMicros'>) {
+  return item.unitPriceMicros === undefined || item.unitPriceMicros === null
+    ? Math.round(item.quantityMillis * item.unitPriceMinor / 1_000)
+    : Math.round(item.quantityMillis * item.unitPriceMicros / 10_000_000);
+}
+
+// A unit price as typed: in cents, and also in millionths when it goes beyond the cent, so the line adds up to the paper
+export function toPurchaseUnitPrice({ amount }: { amount: number }): Pick<PurchaseInvoiceItemInput, 'unitPriceMinor' | 'unitPriceMicros'> {
+  const unitPriceMicros = Math.max(0, Math.round(amount * 1_000_000));
+
+  return {
+    unitPriceMinor: Math.round(unitPriceMicros / 10_000),
+    unitPriceMicros: unitPriceMicros % 10_000 === 0 ? null : unitPriceMicros,
+  };
+}
+
+// The unit price to show in the form, with all its decimals
+export function getPurchaseUnitPrice(item: Pick<PurchaseInvoiceItemInput, 'unitPriceMinor' | 'unitPriceMicros'>) {
+  return item.unitPriceMicros === undefined || item.unitPriceMicros === null ? item.unitPriceMinor / 100 : item.unitPriceMicros / 1_000_000;
+}
+
 // Mirrors the server purchases models: same rounding line by line, so the preview matches what is saved
 export function calculatePurchaseInvoiceTotals({ items, withholdingRateBps }: { items: PurchaseInvoiceItemInput[]; withholdingRateBps: number }) {
   const totals = items.reduce((sums, item) => {
-    const gross = Math.round(item.quantityMillis * item.unitPriceMinor / 1_000);
+    const gross = getLineGrossMinor(item);
     const netMinor = gross - Math.round(gross * item.discountRateBps / 10_000);
     const taxMinor = Math.round(netMinor * item.taxRateBps / 10_000);
 

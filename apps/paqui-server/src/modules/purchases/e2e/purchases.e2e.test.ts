@@ -72,6 +72,21 @@ describe('purchases e2e', () => {
     expect(assignment).to.include({ documentId: 'doc_own', folderId: folder?.id });
   });
 
+  test('a unit price beyond the cent is saved exact: the totals are the printed ones', async () => {
+    const { request, createContact, createPurchase, draft } = await setupApp();
+
+    const supplier = await createContact({ name: 'Suministros Industriales Martínez Azorín, S.L.', isSupplier: true });
+    // 400 m² at 0,365 € = 146,00 € + 30,66 € of VAT, not 400 × 0,37 € = 148,00 €
+    const response = await createPurchase(draft({ supplierId: supplier.id, items: [{ description: 'M2 Burbuja PPS-15 Medida 160', quantityMillis: 400_000, unitPriceMinor: 37, unitPriceMicros: 365_000, taxRateBps: 2_100 }] }));
+    const { purchaseInvoice } = await response.json() as { purchaseInvoice: PurchaseInvoice };
+
+    expect(purchaseInvoice).to.include({ subtotalMinor: 14_600, taxMinor: 3_066, totalMinor: 17_666 });
+
+    const saved = await request({ path: `/api/organizations/${ORG_ID}/purchases/${purchaseInvoice.id}` });
+    const { purchaseInvoice: { items } } = await saved.json() as { purchaseInvoice: { items: { unitPriceMinor: number; unitPriceMicros: number | null }[] } };
+    expect(items[0]).to.include({ unitPriceMinor: 37, unitPriceMicros: 365_000 });
+  });
+
   test('the same supplier invoice number cannot be registered twice', async () => {
     const { createContact, createPurchase, draft } = await setupApp();
 
