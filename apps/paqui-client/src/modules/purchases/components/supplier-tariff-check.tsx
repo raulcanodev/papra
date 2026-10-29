@@ -243,9 +243,9 @@ export function SupplierTariffCheck(props: {
                       )}
                     </For>
                   </ul>
-                  <Button size="sm" class="mt-2 gap-1.5" disabled={linesToSave().length === 0} isLoading={saveProductsMutation.isPending} onClick={() => saveProductsMutation.mutate()}>
+                  <Button size="sm" class="mt-2 max-w-full gap-1.5" disabled={linesToSave().length === 0} isLoading={saveProductsMutation.isPending} onClick={() => saveProductsMutation.mutate()}>
                     <div class="i-tabler-device-floppy size-4" />
-                    {t('purchases.editor.tariff.new.save', { count: linesToSave().length, supplier: props.supplierName })}
+                    {t('purchases.editor.tariff.new.save', { count: linesToSave().length })}
                   </Button>
                   <Show when={matchesQuery.data?.isModelUnavailable && products().length > 0}>
                     <p class="mt-2 text-xs text-muted-foreground">{t('purchases.editor.tariff.no-ai')}</p>

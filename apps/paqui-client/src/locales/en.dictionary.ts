@@ -1148,7 +1148,7 @@ export const translations = {
   'purchases.editor.tariff.new.no-products': '{{ supplier }} has no saved products yet',
   'purchases.editor.tariff.new.title': '{{ count }} {{ count, =1:line is, lines are }} not among the products of {{ supplier }}',
   'purchases.editor.tariff.new.hint': 'Save them as its products and the next invoices will be checked against these prices.',
-  'purchases.editor.tariff.new.save': 'Save {{ count }} to the products of {{ supplier }}',
+  'purchases.editor.tariff.new.save': 'Save {{ count }} {{ count, =1:product, products }}',
   'purchases.editor.tariff.products-saved': '{{ count }} {{ count, =1:product, products }} saved to {{ supplier }}',
   'purchases.editor.tariff.no-ai': 'Without the AI only the lines carrying the exact product name are recognized.',
   'purchases.editor.tariff.failed': 'The lines could not be checked against the supplier products.',

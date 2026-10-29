@@ -1150,7 +1150,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'purchases.editor.tariff.new.no-products': '{{ supplier }} aún no tiene productos guardados',
   'purchases.editor.tariff.new.title': '{{ count }} {{ count, =1:línea no está, líneas no están }} entre los productos de {{ supplier }}',
   'purchases.editor.tariff.new.hint': 'Guárdalas como sus productos y las próximas facturas se revisarán con estos precios.',
-  'purchases.editor.tariff.new.save': 'Guardar {{ count }} en los productos de {{ supplier }}',
+  'purchases.editor.tariff.new.save': 'Guardar {{ count }} {{ count, =1:producto, productos }}',
   'purchases.editor.tariff.products-saved': '{{ count }} {{ count, =1:producto guardado, productos guardados }} en {{ supplier }}',
   'purchases.editor.tariff.no-ai': 'Sin la IA solo se reconocen las líneas que llevan el nombre del producto tal cual.',
   'purchases.editor.tariff.failed': 'No se han podido revisar las líneas con los productos del proveedor.',
