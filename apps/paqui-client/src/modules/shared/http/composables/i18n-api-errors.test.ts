@@ -46,6 +46,21 @@ describe('useI18nApiErrors', () => {
       expect(message).toBe('Invalid credentials');
     });
 
+    test('extracts error message from code in data.code path, as better auth endpoints answer', () => {
+      const { getErrorMessage } = useI18nApiErrors({ t });
+
+      const error = {
+        data: {
+          code: 'USER_NOT_FOUND',
+          message: 'User not found',
+        },
+      };
+
+      const message = getErrorMessage({ error });
+
+      expect(message).toBe('User not found');
+    });
+
     test('extracts error message from code in code path', () => {
       const { getErrorMessage } = useI18nApiErrors({ t });
 

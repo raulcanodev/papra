@@ -19,6 +19,7 @@ export function useI18nApiErrors({ t = useI18n().t }: { t?: ReturnType<typeof us
       error,
       ['data', 'error', 'code'], // From fetch errors
       ['details', 'code'], // From custom errors throw in better auth hooks, must be before ['code'] as they have both
+      ['data', 'code'], // From better auth endpoints called with the api client
       ['code'], // From generic errors
     );
 

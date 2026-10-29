@@ -75,7 +75,7 @@ export function impersonationPlugin({ db }: { db: Database }) {
 
           // No impersonation from inside an impersonation
           if (isDefined(getImpersonatedBy({ session: adminSession }))) {
-            throw new APIError('FORBIDDEN', { message: 'Already impersonating a user' });
+            throw new APIError('FORBIDDEN', { message: 'Already impersonating a user', code: 'auth.impersonation_already_active' });
           }
 
           const { roles: adminRoles } = await rolesRepository.getUserRoles({ userId: admin.id });
@@ -83,13 +83,13 @@ export function impersonationPlugin({ db }: { db: Database }) {
 
           if (!canImpersonate({ permissions })) {
             logger.warn({ adminUserId: admin.id, targetUserId }, 'Impersonation refused: missing permission');
-            throw new APIError('FORBIDDEN', { message: 'Not allowed to impersonate users' });
+            throw new APIError('FORBIDDEN', { message: 'Not allowed to impersonate users', code: 'auth.impersonation_not_allowed' });
           }
 
           const targetUser = await ctx.context.internalAdapter.findUserById(targetUserId);
 
           if (!targetUser) {
-            throw new APIError('NOT_FOUND', { message: 'User not found' });
+            throw new APIError('NOT_FOUND', { message: 'User not found', code: 'USER_NOT_FOUND' });
           }
 
           const { roles: targetRoles } = await rolesRepository.getUserRoles({ userId: targetUser.id });
@@ -97,7 +97,9 @@ export function impersonationPlugin({ db }: { db: Database }) {
 
           if (isDefined(targetError)) {
             logger.warn({ adminUserId: admin.id, targetUserId, targetError }, 'Impersonation refused');
-            throw new APIError('FORBIDDEN', { message: targetError === 'self' ? 'Cannot impersonate yourself' : 'Cannot impersonate an admin' });
+            throw targetError === 'self'
+              ? new APIError('FORBIDDEN', { message: 'Cannot impersonate yourself', code: 'auth.impersonation_target_self' })
+              : new APIError('FORBIDDEN', { message: 'Cannot impersonate an admin', code: 'auth.impersonation_target_admin' });
           }
 
           const expiresAt = new Date(Date.now() + IMPERSONATION_DURATION_MS);

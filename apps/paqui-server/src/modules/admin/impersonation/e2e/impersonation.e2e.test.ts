@@ -177,8 +177,21 @@ describe('impersonation e2e', () => {
     const startResponse = await customer.browser.request('/api/auth/impersonation/start', { method: 'POST', body: { userId: admin.userId, reason: REASON } });
 
     expect(startResponse.status).to.eql(403);
+    expect(await startResponse.json()).to.deep.include({ code: 'auth.impersonation_not_allowed' });
     expect(await getImpersonationSessions({ db })).to.eql([]);
     expect(await db.select().from(impersonationsTable)).to.eql([]);
+  });
+
+  test('an admin session not used for more than a day must sign in again before entering an account', async () => {
+    const { db, admin, customer } = await setup();
+    const staleDate = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    await db.update(sessionsTable).set({ createdAt: staleDate, updatedAt: staleDate }).where(eq(sessionsTable.userId, admin.userId));
+
+    const startResponse = await admin.browser.request('/api/auth/impersonation/start', { method: 'POST', body: { userId: customer.userId, reason: REASON } });
+
+    expect(startResponse.status).to.eql(403);
+    expect(await startResponse.json()).to.deep.include({ code: 'SESSION_IS_NOT_FRESH' });
+    expect(await getImpersonationSessions({ db })).to.eql([]);
   });
 
   test('an admin cannot impersonate another admin nor themselves', async () => {
@@ -190,6 +203,8 @@ describe('impersonation e2e', () => {
     const selfResponse = await admin.browser.request('/api/auth/impersonation/start', { method: 'POST', body: { userId: admin.userId, reason: REASON } });
 
     expect([otherAdminResponse.status, selfResponse.status]).to.eql([403, 403]);
+    expect(((await otherAdminResponse.json()) as { code: string }).code).to.eql('auth.impersonation_target_admin');
+    expect(((await selfResponse.json()) as { code: string }).code).to.eql('auth.impersonation_target_self');
     expect(await getImpersonationSessions({ db })).to.eql([]);
   });
 
