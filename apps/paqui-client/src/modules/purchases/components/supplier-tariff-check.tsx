@@ -225,9 +225,9 @@ export function SupplierTariffCheck(props: {
                   <ul class="mt-2 divide-y">
                     <For each={newLines()}>
                       {line => (
-                        <li class="flex items-center gap-3 py-2">
+                        <li class="flex items-start gap-3 py-2">
                           <SimpleCheckbox
-                            class="min-w-0 flex-1"
+                            class="min-w-0 flex-1 items-start [&_label]:min-w-0"
                             checked={!unticked().has(line.description)}
                             onChange={checked => setUnticked((current) => {
                               const next = new Set(current);
@@ -238,9 +238,9 @@ export function SupplierTariffCheck(props: {
                               }
                               return next;
                             })}
-                            label={<span class="truncate">{line.description}</span>}
+                            label={<span class="line-clamp-2 break-words">{line.description}</span>}
                           />
-                          <span class="shrink-0 text-muted-foreground tabular-nums">{unitPrice(line.item)}</span>
+                          <span class="shrink-0 pt-px text-muted-foreground tabular-nums">{unitPrice(line.item)}</span>
                         </li>
                       )}
                     </For>

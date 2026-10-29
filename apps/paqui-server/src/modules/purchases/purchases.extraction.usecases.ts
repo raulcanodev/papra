@@ -39,7 +39,9 @@ The issuer is who sends and charges the document (its header, logo, tax id), the
 Read the payment terms when printed, in any wording: the payment method and every due date ("vencimiento 15/11", "a 30 días", "30/60/90 días", a table of instalments with their amounts).
 Anything useful printed that has no dedicated field goes to metadata, with a short label, instead of being lost.
 Report in warnings only what the reviewer has to check or correct before saving: an amount or date that may be misread, a total that does not add up, something important that is missing.
-Do not explain how you read what is clear, and ignore the small print (legal, privacy and registry notices).`;
+Do not explain how you read what is clear, and ignore the small print (legal, privacy and registry notices).
+A missing due date is normal (paid on the spot, or the usual terms of the supplier apply): never warn about it.
+Receipt or remittance references printed next to the payment (a recibo number with its date and amount) are not the invoice number nor something to review: keep them in metadata, without a warning.`;
 
 function getLanguageName({ locale }: { locale: string }) {
   try {

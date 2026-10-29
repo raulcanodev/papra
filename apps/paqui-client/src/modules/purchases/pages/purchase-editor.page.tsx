@@ -148,10 +148,24 @@ export function PurchaseEditorPage() {
     }
   });
 
+  // What the form was last filled from (the saved purchase or the reading of a document), so it is filled once
+  let loadedKey: string | undefined;
   const retryReadingMutation = createMutation(() => ({
     mutationFn: () => createPurchaseReadings({ organizationId: params.organizationId, documentIds: [documentIdParam()!], force: true }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: getPurchaseReadingsQueryKey({ organizationId: params.organizationId, documentId: documentIdParam()! }) }),
+    // The new reading fills the form again once it is ready
+    onSuccess: () => {
+      loadedKey = undefined;
+      return queryClient.invalidateQueries({ queryKey: getPurchaseReadingsQueryKey({ organizationId: params.organizationId, documentId: documentIdParam()! }) });
+    },
   }));
+
+  // Read the paper again with the AI: what was typed meanwhile is replaced, so it asks first when there are changes
+  const rescan = async () => {
+    if (leaveGuard.isDirty() && !(await confirm({ title: t('purchases.editor.reading.rescan.title'), message: t('purchases.editor.reading.rescan.message'), confirmButton: { text: t('purchases.editor.reading.rescan') } }))) {
+      return;
+    }
+    retryReadingMutation.mutate();
+  };
 
   const documentQuery = useQuery(() => ({
     queryKey: ['organizations', params.organizationId, 'documents', documentId()],
@@ -159,7 +173,6 @@ export function PurchaseEditorPage() {
     enabled: documentId() !== null,
   }));
 
-  let loadedKey: string | undefined;
   createEffect(() => {
     const purchaseInvoice = purchaseQuery.data?.purchaseInvoice;
     if (!purchaseInvoice || loadedKey === purchaseInvoice.id) {
@@ -199,7 +212,8 @@ export function PurchaseEditorPage() {
     setDocumentId(documentIdToLoad);
 
     const result = reading()?.extraction;
-    if (!result) {
+    // While a new reading is in progress the previous one is not applied again
+    if (!result || isInProgress(reading()?.status)) {
       return;
     }
 
@@ -497,7 +511,13 @@ export function PurchaseEditorPage() {
               <>
                 <div class="flex items-center gap-2 text-xs text-muted-foreground">
                   <div class="i-tabler-sparkles size-4 shrink-0 text-violet-600 dark:text-violet-300" />
-                  <p>{t('purchases.editor.read-by-ai')}</p>
+                  <p class="min-w-0 flex-1">{t('purchases.editor.read-by-ai')}</p>
+                  <Show when={!isEditing() && documentIdParam() !== undefined}>
+                    <Button size="sm" variant="ghost" class="h-7 shrink-0 gap-1.5 px-2 text-xs" isLoading={retryReadingMutation.isPending} onClick={rescan}>
+                      <div class="i-tabler-refresh size-3.5" />
+                      {t('purchases.editor.reading.rescan')}
+                    </Button>
+                  </Show>
                 </div>
 
                 <Show when={getExtraction().issuer && getExtraction().recipient}>
