@@ -1,9 +1,10 @@
 import type { ExpenseCategory, PurchaseDocumentKind, PurchaseInvoiceDraftInput, PurchaseInvoiceExtraction, PurchaseInvoiceItemInput, PurchaseMetadataEntry } from '../purchases.types';
 import type { ScheduleRow } from '@/modules/due-dates/components/payment-schedule-fields';
 import type { InstalmentInput, InstalmentsSource, PaymentMethod } from '@/modules/due-dates/due-dates.types';
+import type { TranslationKeys } from '@/modules/i18n/locales.types';
 import { A, useNavigate, useParams, useSearchParams } from '@solidjs/router';
 import { createMutation, useQuery } from '@tanstack/solid-query';
-import { createEffect, createMemo, createSignal, Index, Show } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, Index, Show } from 'solid-js';
 import { useAiAssistantPanel, useAssistantScreen } from '@/modules/ai-assistant/ai-assistant-panel.provider';
 import { createContact, fetchContacts, getContactsQueryKey, updateContact } from '@/modules/contacts/contacts.services';
 import { DocumentSidePreview } from '@/modules/documents/components/document-side-preview';
@@ -30,6 +31,7 @@ import { useReturnHref } from '@/modules/ui/navigation/return-to';
 import { InvoiceParties } from '../components/invoice-parties';
 import { PurchaseMetadataFields } from '../components/purchase-metadata-fields';
 import { ReadingChecks } from '../components/reading-checks';
+import { ReviewNotice } from '../components/review-notice';
 import { SupplierResolutionPanel } from '../components/supplier-resolution-panel';
 import { SupplierTariffCheck } from '../components/supplier-tariff-check';
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABEL_I18N_KEYS, PURCHASE_DOCUMENT_KIND_LABEL_I18N_KEYS, PURCHASE_DOCUMENT_KINDS } from '../purchases.constants';
@@ -42,6 +44,16 @@ const MAX_ASSISTANT_SCREEN_CHARS = 18_000;
 const TAX_RATES_BPS = [0, 400, 1_000, 2_100];
 const DEDUCTIBLE_RATES_BPS = [10_000, 5_000, 0];
 const toDateInput = (date: Date | null | undefined) => (date ? date.toISOString().slice(0, 10) : '');
+
+type SaveBlocker = 'supplier' | 'number' | 'issue_date' | 'lines' | 'due_date_before_issue_date';
+
+const SAVE_BLOCKER_I18N_KEYS = {
+  supplier: 'purchases.editor.blocker.supplier',
+  number: 'purchases.editor.blocker.number',
+  issue_date: 'purchases.editor.blocker.issue-date',
+  lines: 'purchases.editor.blocker.lines',
+  due_date_before_issue_date: 'purchases.editor.blocker.due-date.title',
+} as const satisfies Record<SaveBlocker, TranslationKeys>;
 const today = () => new Date().toISOString().slice(0, 10);
 
 export function PurchaseEditorPage() {
@@ -58,6 +70,8 @@ export function PurchaseEditorPage() {
   // Opened from a supplier's page: that supplier is chosen unless the AI reads another one on the document
   const supplierIdParam = () => (typeof searchParams.supplierId === 'string' ? searchParams.supplierId : undefined);
   const { returnHref: listHref, keepReturnTo } = useReturnHref(() => getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'purchases' }));
+  // The same paper, read again as a sale
+  const saleImportHref = (documentId: string) => keepReturnTo(`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: 'import' })}?documentId=${encodeURIComponent(documentId)}`);
 
   const [supplierId, setSupplierId] = createSignal(isEditing() ? '' : supplierIdParam() ?? '');
   const [number, setNumber] = createSignal('');
@@ -321,7 +335,8 @@ export function PurchaseEditorPage() {
     issueDate: new Date(`${issueDate()}T00:00:00.000Z`),
     // A settled invoice has no actionable deadline. Its paid instalments are kept as payment history,
     // but the old printed date must not make the draft fail due-date validation.
-    dueDate: isPaid() ? null : fromScheduleRows(scheduleRows()).map(({ dueDate }) => dueDate).toSorted((a, b) => a.getTime() - b.getTime())[0] ?? null,
+    // A delivery note has no due date: what the AI read on it must not make the draft fail either
+    dueDate: isPaid() || kind() === 'delivery_note' ? null : fromScheduleRows(scheduleRows()).map(({ dueDate }) => dueDate).toSorted((a, b) => a.getTime() - b.getTime())[0] ?? null,
     paymentMethod: paymentMethod(),
     instalments: kind() === 'delivery_note' ? [] : instalments(),
     currency: currency(),
@@ -346,7 +361,24 @@ export function PurchaseEditorPage() {
     return { subject: t('purchases.editor.assistant-subject'), documentId: documentId() ?? undefined, data: JSON.stringify(data).length <= MAX_ASSISTANT_SCREEN_CHARS ? data : { computedTotals: totals(), printedTotalMinor: base.printedTotalMinor } };
   });
 
-  const canSave = () => Boolean(supplierId() && number().trim() && issueDate() && items().length > 0 && items().every(item => item.description.trim() && item.quantityMillis > 0));
+  // What still keeps the purchase from being saved, told to the user instead of a save button that silently does nothing.
+  // The due date mirrors the server rule: a pending due date before the invoice date is refused
+  const saveBlockers = createMemo((): SaveBlocker[] => {
+    const { dueDate } = draft();
+    return [
+      ...(supplierId() ? [] : ['supplier' as const]),
+      ...(number().trim() ? [] : ['number' as const]),
+      ...(issueDate() ? [] : ['issue_date' as const]),
+      ...(items().length > 0 && items().every(item => item.description.trim() && item.quantityMillis > 0) ? [] : ['lines' as const]),
+      ...(issueDate() && dueDate && toDateInput(dueDate) < issueDate() ? ['due_date_before_issue_date' as const] : []),
+    ];
+  });
+  const canSave = () => saveBlockers().length === 0;
+  // Shown once the user pressed save: before that, an empty form is not a mistake
+  const [saveAttempted, setSaveAttempted] = createSignal(false);
+  const missingFields = () => (saveAttempted() ? saveBlockers().filter(blocker => blocker !== 'due_date_before_issue_date') : []);
+  const formatDate = (value: string) => new Intl.DateTimeFormat(getLocale(), { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${value}T00:00:00.000Z`));
+  const earliestDueDate = () => scheduleRows().map(row => row.dueDate).filter(Boolean).toSorted()[0] ?? '';
 
   const saveMutation = createMutation(() => ({
     mutationFn: async () => (isEditing()
@@ -380,6 +412,17 @@ export function PurchaseEditorPage() {
     },
     onError: (error: unknown) => createToast({ type: 'error', message: getErrorMessage({ error, defaultMessage: t('purchases.toast.error') }) }),
   }));
+
+  // Pressed while something is missing, it says what instead of doing nothing
+  let blockersElement: HTMLDivElement | undefined;
+  const save = () => {
+    if (!canSave()) {
+      setSaveAttempted(true);
+      queueMicrotask(() => blockersElement?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+      return;
+    }
+    saveMutation.mutate();
+  };
 
   const deleteMutation = createMutation(() => ({
     mutationFn: async () => deletePurchaseInvoice({ organizationId: params.organizationId, purchaseInvoiceId: params.purchaseInvoiceId! }),
@@ -419,7 +462,7 @@ export function PurchaseEditorPage() {
             }]
           : []}
         actions={(
-          <Button disabled={!canSave()} isLoading={saveMutation.isPending} onClick={() => saveMutation.mutate()}>
+          <Button isLoading={saveMutation.isPending} onClick={save}>
             {queue().length > 0 ? t('purchases.editor.save-and-next') : t('purchases.editor.save')}
           </Button>
         )}
@@ -435,15 +478,17 @@ export function PurchaseEditorPage() {
           </Show>
           <Show when={readingFailedMessage()}>
             {getMessage => (
-              <div class="flex flex-wrap items-center gap-3 rounded-xl border border-orange-500/30 bg-orange-500/8 p-4 text-sm">
-                <p class="min-w-0 flex-1">{getMessage()}</p>
-                <Show when={reading()?.errorCode !== 'ai_assistant.not_configured' && reading()?.errorCode !== 'purchase_invoice.document_not_extractable'}>
+              <ReviewNotice
+                tone="warning"
+                icon="i-tabler-file-alert"
+                title={getMessage()}
+                actions={reading()?.errorCode !== 'ai_assistant.not_configured' && reading()?.errorCode !== 'purchase_invoice.document_not_extractable' && (
                   <Button size="sm" variant="outline" class="gap-1.5" isLoading={retryReadingMutation.isPending} onClick={() => retryReadingMutation.mutate()}>
                     <div class="i-tabler-refresh size-4" />
                     {t('purchases.editor.reading.retry')}
                   </Button>
-                </Show>
-              </div>
+                )}
+              />
             )}
           </Show>
 
@@ -459,34 +504,40 @@ export function PurchaseEditorPage() {
                   <InvoiceParties issuer={getExtraction().issuer!} recipient={getExtraction().recipient!} ownSide={getExtraction().direction === 'issued' ? 'issuer' : getExtraction().direction === 'received' ? 'recipient' : null} />
                 </Show>
 
-                {/* Neither the tax id nor the name told who issued it: registered as an expense unless the user says it is a sale */}
+                {/* Neither the tax id nor the name told who issued it: registered as an expense unless the user says it is a sale.
+                    The parties are shown just above, the notice does not repeat them */}
                 <Show when={getExtraction().direction === 'unknown' && getExtraction().issuer}>
-                  <div class="flex flex-wrap items-center gap-3 rounded-xl border border-orange-500/30 bg-orange-500/8 p-4 text-sm">
-                    <p class="min-w-0 flex-1">{t('purchases.editor.direction.unknown', { issuer: getExtraction().issuer?.name ?? '—', recipient: getExtraction().recipient?.name ?? '—' })}</p>
-                    <Show when={documentId()}>
-                      {getDocumentId => (
-                        <Button as={A} size="sm" variant="ghost" href={keepReturnTo(`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: 'import' })}?documentId=${encodeURIComponent(getDocumentId())}`)}>
-                          {t('purchases.editor.direction.issued.action')}
-                        </Button>
-                      )}
-                    </Show>
-                  </div>
+                  <ReviewNotice
+                    tone="warning"
+                    icon="i-tabler-arrows-exchange"
+                    title={t('purchases.editor.direction.unknown.title')}
+                    actions={documentId() && (
+                      <Button as={A} size="sm" variant="outline" class="gap-1.5" href={saleImportHref(documentId()!)}>
+                        <div class="i-tabler-file-invoice size-4" />
+                        {t('purchases.editor.direction.issued.action')}
+                      </Button>
+                    )}
+                  >
+                    {t('purchases.editor.direction.unknown')}
+                  </ReviewNotice>
                 </Show>
 
                 <Show when={getExtraction().direction === 'issued'}>
-                  <div class="flex flex-wrap items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/8 p-4 text-sm">
-                    <p class="min-w-0 flex-1">{t('purchases.editor.direction.issued')}</p>
-                    <Show when={documentId()}>
-                      {getDocumentId => (
-                        <Button as={A} size="sm" variant="outline" href={keepReturnTo(`${getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'invoices', childPath: 'import' })}?documentId=${encodeURIComponent(getDocumentId())}`)}>
-                          {t('purchases.editor.direction.issued.action')}
-                        </Button>
-                      )}
-                    </Show>
-                  </div>
+                  <ReviewNotice
+                    tone="danger"
+                    icon="i-tabler-alert-triangle"
+                    title={t('purchases.editor.direction.issued')}
+                    actions={documentId() && (
+                      <Button as={A} size="sm" class="gap-1.5" href={saleImportHref(documentId()!)}>
+                        <div class="i-tabler-file-invoice size-4" />
+                        {t('purchases.editor.direction.issued.action')}
+                      </Button>
+                    )}
+                  />
                 </Show>
 
-                <ReadingChecks checks={reading()?.checks ?? []} warnings={getExtraction().warnings} ignoreDueDate={isPaid()} />
+                {/* The due date is checked live below, as it is edited: the reading's own check would only repeat it */}
+                <ReadingChecks checks={reading()?.checks ?? []} warnings={getExtraction().warnings} ignoreDueDate />
 
                 <SupplierResolutionPanel
                   counterparty={getExtraction().counterparty}
@@ -498,6 +549,39 @@ export function PurchaseEditorPage() {
               </>
             )}
           </Show>
+
+          <div ref={blockersElement} class="flex flex-col gap-3 empty:hidden">
+            <Show when={saveBlockers().includes('due_date_before_issue_date')}>
+              <ReviewNotice
+                tone="danger"
+                icon="i-tabler-calendar-exclamation"
+                title={t('purchases.editor.blocker.due-date.title')}
+                actions={(
+                  <>
+                    <Show when={kind() !== 'delivery_note'}>
+                      <Button size="sm" class="gap-1.5" onClick={() => setPaidChoice(true)}>
+                        <div class="i-tabler-circle-check size-4" />
+                        {t('purchases.editor.blocker.due-date.mark-paid')}
+                      </Button>
+                    </Show>
+                    <Button size="sm" variant="outline" onClick={() => setScheduleRows(rows => rows.map(row => (row.dueDate !== '' && row.dueDate < issueDate() ? { ...row, dueDate: issueDate() } : row)))}>
+                      {t('purchases.editor.blocker.due-date.use-issue-date')}
+                    </Button>
+                  </>
+                )}
+              >
+                {t('purchases.editor.blocker.due-date.description', { dueDate: formatDate(earliestDueDate()), issueDate: formatDate(issueDate()) })}
+              </ReviewNotice>
+            </Show>
+
+            <Show when={missingFields().length > 0}>
+              <ReviewNotice tone="danger" icon="i-tabler-lock" title={t('purchases.editor.blocker.title')}>
+                <ul class="list-disc space-y-0.5 pl-4">
+                  <For each={missingFields()}>{blocker => <li>{t(SAVE_BLOCKER_I18N_KEYS[blocker])}</li>}</For>
+                </ul>
+              </ReviewNotice>
+            </Show>
+          </div>
 
           <section class="grid gap-4 sm:grid-cols-2">
             <FormField label={t('purchases.editor.supplier')} class="sm:col-span-2">
