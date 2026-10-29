@@ -160,7 +160,11 @@ export function PurchaseEditorPage() {
     setMetadata(purchaseInvoice.metadata ?? []);
     setIssueDate(toDateInput(purchaseInvoice.issueDate));
     setPaymentMethod(purchaseInvoice.paymentMethod ?? null);
-    setScheduleRows(toScheduleRows(purchaseInvoice.instalments));
+    const loadedRows = toScheduleRows(purchaseInvoice.instalments);
+    setScheduleRows(loadedRows);
+    // Old invoices can have been marked paid before instalments existed. Keep that state without
+    // overriding partially paid schedules, whose individual row statuses remain authoritative.
+    setPaidChoice(purchaseInvoice.status === 'paid' && loadedRows.length === 0 ? true : undefined);
     setPaidDate(toDateInput(purchaseInvoice.paidAt));
     setCurrency(purchaseInvoice.currency);
     setCategory(purchaseInvoice.category);
@@ -196,9 +200,13 @@ export function PurchaseEditorPage() {
     // Readings made before the due dates were read only have the printed due date
     setScheduleRows(result.draft.instalments ? toScheduleRows(result.draft.instalments) : toScheduleRows(result.draft.dueDate ? [{ dueDate: result.draft.dueDate, amountMinor: 0 }] : []));
     setInstalmentsSource(result.draft.instalmentsSource);
+    // The editor is reused by "save and next": payment choices belong only to the previous paper.
+    setPaidChoice(undefined);
+    setPaidDate('');
     setCurrency(result.draft.currency);
     setCategory(result.draft.category);
     setWithholdingRateBps(result.draft.withholdingRateBps);
+    setNotes('');
     // A delivery note photo can come without any readable line
     setItems(result.draft.items.length > 0 ? result.draft.items : [emptyPurchaseInvoiceItem()]);
     // The reading can arrive after the user clicked around: it is not a change of theirs
@@ -311,7 +319,9 @@ export function PurchaseEditorPage() {
     number: number().trim(),
     kind: kind(),
     issueDate: new Date(`${issueDate()}T00:00:00.000Z`),
-    dueDate: fromScheduleRows(scheduleRows()).map(({ dueDate }) => dueDate).toSorted((a, b) => a.getTime() - b.getTime())[0] ?? null,
+    // A settled invoice has no actionable deadline. Its paid instalments are kept as payment history,
+    // but the old printed date must not make the draft fail due-date validation.
+    dueDate: isPaid() ? null : fromScheduleRows(scheduleRows()).map(({ dueDate }) => dueDate).toSorted((a, b) => a.getTime() - b.getTime())[0] ?? null,
     paymentMethod: paymentMethod(),
     instalments: kind() === 'delivery_note' ? [] : instalments(),
     currency: currency(),
@@ -440,8 +450,8 @@ export function PurchaseEditorPage() {
           <Show when={extraction()}>
             {getExtraction => (
               <>
-                <div class="flex items-start gap-3 rounded-xl border border-violet-500/25 bg-violet-500/8 p-4 text-sm">
-                  <div class="i-tabler-sparkles mt-0.5 size-5 shrink-0 text-violet-600 dark:text-violet-300" />
+                <div class="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div class="i-tabler-sparkles size-4 shrink-0 text-violet-600 dark:text-violet-300" />
                   <p>{t('purchases.editor.read-by-ai')}</p>
                 </div>
 
@@ -476,7 +486,7 @@ export function PurchaseEditorPage() {
                   </div>
                 </Show>
 
-                <ReadingChecks checks={reading()?.checks ?? []} warnings={getExtraction().warnings} />
+                <ReadingChecks checks={reading()?.checks ?? []} warnings={getExtraction().warnings} ignoreDueDate={isPaid()} />
 
                 <SupplierResolutionPanel
                   counterparty={getExtraction().counterparty}
@@ -605,24 +615,29 @@ export function PurchaseEditorPage() {
               currency={currency()}
               source={instalmentsSource()}
               contactTermsDays={supplierTermsDays()}
+              isPaid={isPaid()}
+              paidControl={(
+                <div class="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+                  <div class={cn(isPaid() && 'font-semibold')}>
+                    <SimpleCheckbox checked={isPaid()} onChange={setPaidChoice} label={t('purchases.editor.already-paid')} />
+                  </div>
+                  <Show when={isPaid()}>
+                    <label class="flex items-center gap-2 text-sm text-muted-foreground">
+                      {t('purchases.editor.paid-on')}
+                      <TextField
+                        type="date"
+                        class="h-9 w-40"
+                        value={paidDate() || issueDate()}
+                        onInput={(event) => {
+                          setPaidDate(event.currentTarget.value);
+                          setPaidChoice(true);
+                        }}
+                      />
+                    </label>
+                  </Show>
+                </div>
+              )}
             />
-            <div class="flex min-h-10 flex-wrap items-center gap-x-6 gap-y-2">
-              <SimpleCheckbox checked={isPaid()} onChange={setPaidChoice} label={t('purchases.editor.already-paid')} />
-              <Show when={isPaid()}>
-                <label class="flex items-center gap-2 text-sm text-muted-foreground">
-                  {t('purchases.editor.paid-on')}
-                  <TextField
-                    type="date"
-                    class="h-9 w-40"
-                    value={paidDate() || issueDate()}
-                    onInput={(event) => {
-                      setPaidDate(event.currentTarget.value);
-                      setPaidChoice(true);
-                    }}
-                  />
-                </label>
-              </Show>
-            </div>
           </Show>
 
           <PurchaseMetadataFields value={metadata()} onChange={setMetadata} />

@@ -123,10 +123,12 @@ describe('purchases e2e', () => {
     const supplier = await createContact({ name: 'Nube Hosting SL', isSupplier: true });
     const response = await createPurchase(draft({
       supplierId: supplier.id,
-      issueDate: '2025-03-10',
-      dueDate: null,
+      issueDate: '2025-03-12',
+      // A receipt/payment printed before the supplier issued the final invoice is historical, not pending.
+      dueDate: '2025-03-10',
       instalments: [{ dueDate: '2025-03-10', amountMinor: 181_500, status: 'paid', paidAt: '2025-03-12' }],
     }));
+    expect(response.status).to.eql(201);
     const { purchaseInvoice } = await response.json() as { purchaseInvoice: PurchaseInvoice & { instalments: { status: string; paidAt: string }[] } };
 
     expect(purchaseInvoice.status).to.eql('paid');

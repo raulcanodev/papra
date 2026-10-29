@@ -22,26 +22,41 @@ const CHECK_LABEL_I18N_KEYS = {
 // Already shown live elsewhere on the screen (the total as the lines are edited, the supplier panel, the sale warning)
 const SHOWN_ELSEWHERE: ReadingCheckCode[] = ['total_mismatch', 'supplier_not_identified', 'issued_by_organization'];
 
-// What the automatic checks found on the reading, errors first, then what the AI itself flagged
-export function ReadingChecks(props: { checks: ReadingCheck[]; warnings: string[] }) {
+function isDueDateWarning(warning: string) {
+  const normalized = warning.toLocaleLowerCase();
+  const mentionsDueDate = normalized.includes('vencim') || normalized.includes('due date');
+  const mentionsBefore = normalized.includes('anterior') || normalized.includes('before');
+  return mentionsDueDate && mentionsBefore;
+}
+
+// What the automatic checks found on the reading, errors first, then what the AI itself flagged.
+// Paid invoices have no actionable due date, including a duplicate free-text warning from the AI.
+export function ReadingChecks(props: { checks: ReadingCheck[]; warnings: string[]; ignoreDueDate?: boolean }) {
   const { t } = useI18n();
-  const checks = () => props.checks.filter(check => !SHOWN_ELSEWHERE.includes(check.code)).toSorted((a, b) => Number(b.severity === 'error') - Number(a.severity === 'error'));
+  const checks = () => props.checks
+    .filter(check => !SHOWN_ELSEWHERE.includes(check.code) && !(props.ignoreDueDate && check.code === 'due_date_before_issue_date'))
+    .toSorted((a, b) => Number(b.severity === 'error') - Number(a.severity === 'error'));
+  const warnings = () => props.warnings.filter(warning => !(props.ignoreDueDate && isDueDateWarning(warning)));
   const hasErrors = () => checks().some(check => check.severity === 'error');
+  const count = () => checks().length + warnings().length;
 
   return (
-    <Show when={checks().length > 0 || props.warnings.length > 0}>
-      <div class={cn('flex items-start gap-3 rounded-xl border p-4 text-sm', hasErrors() ? 'border-red-500/30 bg-red-500/8' : 'border-orange-500/30 bg-orange-500/8')}>
-        <div class={cn('mt-0.5 size-5 shrink-0', hasErrors() ? 'i-tabler-alert-triangle text-red-600' : 'i-tabler-eye-check text-orange-600')} />
-        <div class="min-w-0">
-          <p class="font-medium">{t('purchases.editor.warnings')}</p>
-          <ul class="mt-1 list-disc pl-4 text-muted-foreground">
+    <Show when={count() > 0}>
+      <details open={hasErrors()} class={cn('group rounded-lg border px-3 py-2 text-sm', hasErrors() ? 'border-red-500/30 bg-red-500/6' : 'border-orange-500/25 bg-orange-500/5')}>
+        <summary class="flex cursor-pointer list-none items-center gap-2 select-none [&::-webkit-details-marker]:hidden">
+          <div class={cn('size-4 shrink-0', hasErrors() ? 'i-tabler-alert-triangle text-red-600' : 'i-tabler-eye-check text-orange-600')} />
+          <span class="min-w-0 flex-1 font-medium">{t('purchases.editor.warnings-count', { count: count() })}</span>
+          <span class="i-tabler-chevron-down size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <div class="pl-6">
+          <ul class="mt-2 list-disc space-y-1 pl-4 text-muted-foreground">
             <For each={checks()}>
               {check => <li class={cn(check.severity === 'error' && 'text-foreground')}>{t(CHECK_LABEL_I18N_KEYS[check.code], check.params ?? {})}</li>}
             </For>
-            <For each={props.warnings}>{warning => <li>{warning}</li>}</For>
+            <For each={warnings()}>{warning => <li>{warning}</li>}</For>
           </ul>
         </div>
-      </div>
+      </details>
     </Show>
   );
 }

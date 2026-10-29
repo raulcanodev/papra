@@ -39,7 +39,10 @@ export const purchaseInvoiceDraftSchema = z.object({
   paymentMethod: paymentMethodSchema.optional().nullable(),
   // The due dates, as reviewed by the user; computed from the due date or the supplier payment terms when absent
   instalments: instalmentsInputSchema.optional(),
-}).refine(value => value.dueDate === undefined || value.dueDate === null || value.dueDate >= value.issueDate, {
+}).refine(value => value.dueDate === undefined
+  || value.dueDate === null
+  || value.dueDate >= value.issueDate
+  || (value.instalments !== undefined && value.instalments.length > 0 && value.instalments.every(instalment => instalment.status === 'paid')), {
   message: 'Due date must not be before issue date',
   path: ['dueDate'],
 });

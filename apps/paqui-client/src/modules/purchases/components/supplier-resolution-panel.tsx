@@ -29,8 +29,8 @@ export function SupplierResolutionPanel(props: {
     <Show when={!isHidden()}>
       <Switch>
         <Match when={props.counterparty.status === 'matched' && props.counterparty.hasSupplierRole}>
-          <div class="flex items-start gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/8 p-4 text-sm">
-            <div class="i-tabler-building-check mt-0.5 size-5 shrink-0 text-emerald-600" />
+          <div class="flex items-start gap-2 text-sm">
+            <div class="i-tabler-building-check mt-0.5 size-4 shrink-0 text-emerald-600" />
             <div class="min-w-0">
               <p class="font-medium">{t('purchases.editor.supplier.matched', { name: props.counterparty.name ?? '' })}</p>
               <Show when={props.counterparty.matchedBy === 'name'}>
