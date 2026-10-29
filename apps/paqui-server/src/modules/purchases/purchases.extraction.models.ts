@@ -64,7 +64,7 @@ export const invoiceExtractionSchema = z.object({
     label: z.string().describe('Short name of the data, in the language of the document, e.g. "Forma de pago", "Pedido", "Albarán"'),
     value: z.string(),
   })).describe('Every other useful data printed that has no field above: order or delivery references, related delivery notes, delivery address, lot numbers, observations, signature... Never repeat a field above: the payment method and the IBAN or bank account have their own fields'),
-  warnings: z.array(z.string()).describe('Short notes for the reviewer about what could be misread: blurry or cut off parts, handwritten amounts, totals that do not add up. Empty when everything is clear'),
+  warnings: z.array(z.string()).describe('Short notes on what the reviewer has to check or correct: blurry or cut off parts, handwritten amounts, totals that do not add up. Not how a clear value was read, nor the small print. Empty when everything is clear'),
 });
 
 export type InvoiceExtraction = Omit<z.infer<typeof invoiceExtractionSchema>, 'issuer' | 'recipient'> & { issuer: InvoiceParty; recipient: InvoiceParty };

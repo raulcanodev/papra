@@ -11,7 +11,7 @@ import { cn } from '@/modules/shared/style/cn';
 import { Button } from '@/modules/ui/components/button';
 import { SimpleCheckbox } from '@/modules/ui/components/simple-checkbox';
 import { createToast } from '@/modules/ui/components/sonner';
-import { compareLineWithTariff } from '../purchases.models';
+import { compareLineWithTariff, getPurchaseUnitPrice } from '../purchases.models';
 import { getPurchaseInvoicesQueryKey, matchPurchaseProducts } from '../purchases.services';
 
 // Typing a description waits this long before the lines are matched again
@@ -33,6 +33,8 @@ export function SupplierTariffCheck(props: {
   const { t, getLocale } = useI18n();
   const { getErrorMessage } = useI18nApiErrors();
   const money = (minor: number) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency: props.currency }).format(minor / 100);
+  // A price beyond the cent is shown as printed (0,365 €), not rounded
+  const unitPrice = (item: PurchaseInvoiceItemInput) => new Intl.NumberFormat(getLocale(), { style: 'currency', currency: props.currency, maximumFractionDigits: 6 }).format(getPurchaseUnitPrice(item));
 
   const productsQuery = useQuery(() => ({
     queryKey: [...getProductsQueryKey({ organizationId: props.organizationId }), { contactId: props.supplierId }],
@@ -238,7 +240,7 @@ export function SupplierTariffCheck(props: {
                             })}
                             label={<span class="truncate">{line.description}</span>}
                           />
-                          <span class="shrink-0 text-muted-foreground tabular-nums">{money(line.item.unitPriceMinor)}</span>
+                          <span class="shrink-0 text-muted-foreground tabular-nums">{unitPrice(line.item)}</span>
                         </li>
                       )}
                     </For>

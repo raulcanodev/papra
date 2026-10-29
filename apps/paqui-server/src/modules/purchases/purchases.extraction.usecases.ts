@@ -34,11 +34,12 @@ export type InvoiceReader = (input: InvoiceReaderInput) => Promise<InvoiceExtrac
 const READER_INSTRUCTIONS = `You read invoices, tickets and delivery notes (albaranes), mostly Spanish and European, for an accounting app.
 They come as PDF text or as phone photos that can be skewed, folded, blurry or partly handwritten.
 Extract exactly what is printed, never invent values: use null (or 0 for rates and prices) when something is not on the paper.
-Amounts are decimals in the document currency. Unit prices are before VAT and before discounts: when only VAT-included prices are printed (tickets), compute the price before VAT from the rate.
+Amounts are decimals in the document currency. Unit prices are before VAT and before discounts: when only VAT-included prices are printed (tickets), compute the price before VAT from the rate. Keep every printed decimal of a unit price (0.365 stays 0.365).
 The issuer is who sends and charges the document (its header, logo, tax id), the recipient is who receives the goods or has to pay.
 Read the payment terms when printed, in any wording: the payment method and every due date ("vencimiento 15/11", "a 30 días", "30/60/90 días", a table of instalments with their amounts).
 Anything useful printed that has no dedicated field goes to metadata, with a short label, instead of being lost.
-Report in warnings anything the reviewer should double check.`;
+Report in warnings only what the reviewer has to check or correct before saving: an amount or date that may be misread, a total that does not add up, something important that is missing.
+Do not explain how you read what is clear, and ignore the small print (legal, privacy and registry notices).`;
 
 function getLanguageName({ locale }: { locale: string }) {
   try {
