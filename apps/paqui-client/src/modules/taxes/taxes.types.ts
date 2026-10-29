@@ -6,7 +6,17 @@ export type IncomeTaxMethod = 'direct_simplified' | 'direct_normal' | 'modules';
 export type Quarter = 1 | 2 | 3 | 4;
 export type TaxModel = '303' | '130' | '111' | '115' | '202';
 
-type WithholdingsReturn = { payeesCount: number; baseMinor: number; amountMinor: number };
+/** What was withheld to one supplier over the quarter, with the invoices it comes from */
+export type WithholdingPayee = {
+  supplierId: string;
+  name: string;
+  taxId: string | null;
+  baseMinor: number;
+  amountMinor: number;
+  invoices: { id: string; number: string; issueDate: Date; baseMinor: number; rateBps: number; amountMinor: number }[];
+};
+
+type WithholdingsReturn = { payeesCount: number; baseMinor: number; amountMinor: number; payees: WithholdingPayee[] };
 
 export type QuarterlyTaxReport = {
   year: number;

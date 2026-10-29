@@ -158,16 +158,26 @@ export async function buildSummaryPdf({ data, organizationName }: { data: Quarte
     row('Resultado', money(report.incomeTax130.resultMinor), { bold: true });
   }
 
+  // What was withheld to each supplier, the figures asked per payee
+  const payeeRows = (payees: typeof report.professionals111.payees) => {
+    for (const payee of payees) {
+      const invoices = payee.invoices.length === 1 ? '1 factura' : `${payee.invoices.length} facturas`;
+      row(`    ${payee.name}${payee.taxId !== null && payee.taxId !== '' ? ` · ${payee.taxId}` : ''} (${invoices})`, money(payee.amountMinor));
+    }
+  };
+
   if (report.applicable[111]) {
     section('Retenciones a profesionales · Modelo 111');
     row(`Perceptores: ${report.professionals111.payeesCount}, base`, money(report.professionals111.baseMinor));
     row('Retenciones', money(report.professionals111.amountMinor), { bold: true });
+    payeeRows(report.professionals111.payees);
   }
 
   if (report.applicable[115]) {
     section('Retenciones de alquileres · Modelo 115');
     row(`Perceptores: ${report.rents115.payeesCount}, base`, money(report.rents115.baseMinor));
     row('Retenciones', money(report.rents115.amountMinor), { bold: true });
+    payeeRows(report.rents115.payees);
   }
 
   doc.moveDown(1.5).font('Helvetica').fontSize(8).fillColor('#6b7280').text('Estimación calculada a partir de las facturas registradas en Paqui. No sustituye la revisión de tu gestor: no incluye otros gastos (cuota de autónomos, nóminas, amortizaciones...).', 48, doc.y, { width: 499 });

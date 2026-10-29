@@ -6,6 +6,7 @@ import { useI18n } from '@/modules/i18n/i18n.provider';
 import { downloadFile } from '@/modules/shared/files/download';
 import { useI18nApiErrors } from '@/modules/shared/http/composables/i18n-api-errors';
 import { QuarterlyTaxModels } from '@/modules/taxes/components/quarterly-tax-models.component';
+import { WithholdingsByPayee } from '@/modules/taxes/components/withholdings-by-payee.component';
 import { getDefaultTaxPeriod } from '@/modules/taxes/taxes.models';
 import { Button } from '@/modules/ui/components/button';
 import { SimpleSelect } from '@/modules/ui/components/simple-select';
@@ -75,6 +76,7 @@ export function ClientTaxesPage() {
               <p class="mb-3 text-sm text-muted-foreground">{t('taxes.counts', { issued: getReport().counts.issuedInvoices, received: getReport().counts.purchaseInvoices })}</p>
 
               <QuarterlyTaxModels report={getReport()} />
+              <WithholdingsByPayee report={getReport()} />
 
               <section class="mt-8 border-t pt-6">
                 <div class="flex flex-wrap items-start justify-between gap-4">

@@ -41,7 +41,7 @@ import { miscHandlers } from './misc/demo-misc';
 import { pricingHandlers } from './pricing/demo-pricing';
 import { pricingImportHandlers } from './pricing/demo-pricing-import';
 import { productScannerHandlers } from './product-scanner/demo-product-scanner';
-import { buildDemoExtraction, listDemoPurchaseInvoices, purchasesHandlers } from './purchases/demo-purchases';
+import { buildDemoExtraction, listDemoPurchaseInvoices, listDemoPurchaseInvoicesWithSupplier, purchasesHandlers } from './purchases/demo-purchases';
 import { generatePropertyKey, searchDemoDocuments } from './search/demo.search.services';
 import { demoUser } from './seed/users.fixtures';
 import { computeDemoQuarterlyTaxReport } from './taxes/demo-taxes';
@@ -224,7 +224,8 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
     handler: async ({ params: { organizationId, year, quarter }, query }) => {
       const [{ invoices }, purchaseInvoices, profile] = await Promise.all([
         getDemoInvoicingRecords({ organizationId }),
-        listDemoPurchaseInvoices({ organizationId }),
+        // With the supplier name, for the withholdings by supplier
+        listDemoPurchaseInvoicesWithSupplier({ organizationId }),
         getDemoFiscalProfile({ organizationId }),
       ]);
       const simulateBaseMinor = Number(get(query, ['simulateBaseMinor']));

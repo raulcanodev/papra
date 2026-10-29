@@ -142,10 +142,36 @@ describe('taxes models', () => {
         ],
       });
 
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         professionals111: { payeesCount: 1, baseMinor: 150_000, amountMinor: 22_500 },
         rents115: { payeesCount: 1, baseMinor: 80_000, amountMinor: 15_200 },
       });
+    });
+
+    test('what was withheld to each supplier over the quarter, with its invoices, the largest first', () => {
+      const period = getQuarterPeriod({ year: 2026, quarter: 3 });
+      // An advisory fee of 190 € with 15 % IRPF: 28,50 € withheld every month
+      const advisory = (date: string, number: string) => ({ ...purchase(date, 190, { withholdingRateBps: 1_500, category: 'professional_services', supplierId: 'ctc_advisory' }), id: `pin_${number}`, number, withholdingRateBps: 1_500, supplierName: 'Asesoría Losada, C.B.', supplierTaxId: 'E73881773' });
+      const designer = { ...purchase('2026-08-10', 100, { withholdingRateBps: 700, category: 'professional_services', supplierId: 'ctc_designer' }), id: 'pin_d1', number: 'D-1', withholdingRateBps: 700, supplierName: 'Diseño Ana', supplierTaxId: null };
+
+      const { professionals111 } = computeWithholdingsReturns({ period, purchaseInvoices: [advisory('2026-07-31', '1/1901'), designer, advisory('2026-08-31', '1/2079'), advisory('2026-09-30', '1/2250')] });
+
+      expect(professionals111.amountMinor).toBe(9_250);
+      expect(professionals111.payees).toEqual([
+        {
+          supplierId: 'ctc_advisory',
+          name: 'Asesoría Losada, C.B.',
+          taxId: 'E73881773',
+          baseMinor: 57_000,
+          amountMinor: 8_550,
+          invoices: [
+            { id: 'pin_1/1901', number: '1/1901', issueDate: new Date('2026-07-31T00:00:00.000Z'), baseMinor: 19_000, rateBps: 1_500, amountMinor: 2_850 },
+            { id: 'pin_1/2079', number: '1/2079', issueDate: new Date('2026-08-31T00:00:00.000Z'), baseMinor: 19_000, rateBps: 1_500, amountMinor: 2_850 },
+            { id: 'pin_1/2250', number: '1/2250', issueDate: new Date('2026-09-30T00:00:00.000Z'), baseMinor: 19_000, rateBps: 1_500, amountMinor: 2_850 },
+          ],
+        },
+        { supplierId: 'ctc_designer', name: 'Diseño Ana', taxId: null, baseMinor: 10_000, amountMinor: 700, invoices: [{ id: 'pin_d1', number: 'D-1', issueDate: new Date('2026-08-10T00:00:00.000Z'), baseMinor: 10_000, rateBps: 700, amountMinor: 700 }] },
+      ]);
     });
   });
 });

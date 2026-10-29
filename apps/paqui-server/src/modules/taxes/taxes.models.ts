@@ -8,8 +8,19 @@ type Line = { quantityMillis: number; unitPriceMinor: number; discountRateBps: n
 /** An issued invoice counted as income (issued, sent or paid) */
 export type TaxableIssuedInvoice = { issueDate: Date; withholdingMinor: number; equivalenceSurcharge?: boolean; items: Line[] };
 
-/** A received invoice counted as expense */
-export type TaxablePurchaseInvoice = { issueDate: Date; category: ExpenseCategory; supplierId: string; withholdingMinor: number; items: (Line & { deductibleRateBps: number })[] };
+/** A received invoice counted as expense. The identifying fields list it in the withholdings by supplier (a simulated purchase has none) */
+export type TaxablePurchaseInvoice = {
+  issueDate: Date;
+  category: ExpenseCategory;
+  supplierId: string;
+  withholdingMinor: number;
+  items: (Line & { deductibleRateBps: number })[];
+  id?: string;
+  number?: string;
+  withholdingRateBps?: number;
+  supplierName?: string;
+  supplierTaxId?: string | null;
+};
 
 export type TaxProfile = { legalForm: LegalForm | null; vatRegime: VatRegime; incomeTaxMethod: IncomeTaxMethod; lastCorporateTaxQuotaMinor: number | null };
 
@@ -141,10 +152,33 @@ export function computeIncomeTaxInstalment({ issuedInvoices, purchaseInvoices, y
 export function computeWithholdingsReturns({ purchaseInvoices, period }: { purchaseInvoices: TaxablePurchaseInvoice[]; period: { start: Date; end: Date } }) {
   const withWithholding = purchaseInvoices.filter(({ issueDate, withholdingMinor }) => isWithin(issueDate, period) && withholdingMinor > 0);
 
+  const baseOf = (invoice: TaxablePurchaseInvoice) => invoice.items.reduce((sum, item) => sum + getLineAmounts(item).netMinor, 0);
+
+  // The tax agency asks what was withheld to each payee: the quarter total of every supplier, with its invoices,
+  // so nobody has to go through them one by one when filing (and the yearly model 190 gets the same figures)
+  const byPayee = (invoices: TaxablePurchaseInvoice[]) => [...Map.groupBy(invoices, ({ supplierId }) => supplierId).entries()]
+    .map(([supplierId, payeeInvoices]) => ({
+      supplierId,
+      name: payeeInvoices[0]?.supplierName ?? '',
+      taxId: payeeInvoices[0]?.supplierTaxId ?? null,
+      baseMinor: payeeInvoices.reduce((sum, invoice) => sum + baseOf(invoice), 0),
+      amountMinor: payeeInvoices.reduce((sum, { withholdingMinor }) => sum + withholdingMinor, 0),
+      invoices: payeeInvoices.map(invoice => ({
+        id: invoice.id ?? '',
+        number: invoice.number ?? '',
+        issueDate: invoice.issueDate,
+        baseMinor: baseOf(invoice),
+        rateBps: invoice.withholdingRateBps ?? 0,
+        amountMinor: invoice.withholdingMinor,
+      })),
+    }))
+    .toSorted((a, b) => b.amountMinor - a.amountMinor || a.name.localeCompare(b.name));
+
   const summarize = (invoices: TaxablePurchaseInvoice[]) => ({
     payeesCount: new Set(invoices.map(({ supplierId }) => supplierId)).size,
-    baseMinor: invoices.flatMap(({ items }) => items).reduce((sum, item) => sum + getLineAmounts(item).netMinor, 0),
+    baseMinor: invoices.reduce((sum, invoice) => sum + baseOf(invoice), 0),
     amountMinor: invoices.reduce((sum, { withholdingMinor }) => sum + withholdingMinor, 0),
+    payees: byPayee(invoices),
   });
 
   return {

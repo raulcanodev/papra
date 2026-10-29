@@ -4,7 +4,7 @@ import type { Quarter, QuarterlyTaxReport, SimulatedPurchase } from '../../taxes
 // and rules as the server taxes module (2026 rules)
 type Line = { quantityMillis: number; unitPriceMinor: number; discountRateBps: number; discountMinor?: number; taxRateBps: number; deductibleRateBps?: number };
 type DemoIssued = { status: string; currency: string; issueDate: string; withholdingMinor?: number; items: Line[] };
-type DemoPurchase = { currency: string; issueDate: string; category: string; supplierId: string; withholdingMinor?: number; items: Line[] };
+type DemoPurchase = { currency: string; issueDate: string; category: string; supplierId: string; withholdingMinor?: number; items: Line[]; id?: string; number?: string; withholdingRateBps?: number; supplierName?: string; supplierTaxId?: string | null };
 type DemoProfile = { currency?: string; legalForm?: 'self_employed' | 'company' | null; vatRegime?: 'general' | 'equivalence_surcharge' | 'exempt'; incomeTaxMethod?: 'direct_simplified' | 'direct_normal' | 'modules'; lastCorporateTaxQuotaMinor?: number | null; accountantEmail?: string | null } | null;
 
 const BILLED_STATUSES = ['issued', 'sent', 'paid'];
@@ -63,10 +63,22 @@ export function computeDemoQuarterlyTaxReport({ issuedInvoices, purchaseInvoices
 
     const withholdingsOf = (rent: boolean) => {
       const invoices = quarterPurchases.filter(purchase => (purchase.withholdingMinor ?? 0) > 0 && (purchase.category === 'rent') === rent);
+      const baseOf = (purchase: DemoPurchase) => purchase.items.reduce((sum, item) => sum + lineAmounts(item).netMinor, 0);
+      const payees = [...Map.groupBy(invoices.toSorted((a, b) => a.issueDate.localeCompare(b.issueDate)), purchase => purchase.supplierId).entries()]
+        .map(([supplierId, payeeInvoices]) => ({
+          supplierId,
+          name: payeeInvoices[0]?.supplierName ?? '',
+          taxId: payeeInvoices[0]?.supplierTaxId ?? null,
+          baseMinor: payeeInvoices.reduce((sum, purchase) => sum + baseOf(purchase), 0),
+          amountMinor: payeeInvoices.reduce((sum, purchase) => sum + (purchase.withholdingMinor ?? 0), 0),
+          invoices: payeeInvoices.map(purchase => ({ id: purchase.id ?? '', number: purchase.number ?? '', issueDate: new Date(purchase.issueDate), baseMinor: baseOf(purchase), rateBps: purchase.withholdingRateBps ?? 0, amountMinor: purchase.withholdingMinor ?? 0 })),
+        }))
+        .toSorted((a, b) => b.amountMinor - a.amountMinor || a.name.localeCompare(b.name));
       return {
-        payeesCount: new Set(invoices.map(purchase => purchase.supplierId)).size,
-        baseMinor: invoices.flatMap(purchase => purchase.items).reduce((sum, item) => sum + lineAmounts(item).netMinor, 0),
-        amountMinor: invoices.reduce((sum, purchase) => sum + (purchase.withholdingMinor ?? 0), 0),
+        payeesCount: payees.length,
+        baseMinor: payees.reduce((sum, payee) => sum + payee.baseMinor, 0),
+        amountMinor: payees.reduce((sum, payee) => sum + payee.amountMinor, 0),
+        payees,
       };
     };
 

@@ -4,6 +4,10 @@ import { apiClient } from '../shared/http/api-client';
 
 const basePath = ({ organizationId, year, quarter }: { organizationId: string; year: number; quarter: Quarter }) => `/api/organizations/${organizationId}/taxes/${year}/${quarter}`;
 
+function withPayeeDates(withholdings: QuarterlyTaxReport['professionals111']): QuarterlyTaxReport['professionals111'] {
+  return { ...withholdings, payees: withholdings.payees.map(payee => ({ ...payee, invoices: payee.invoices.map(invoice => ({ ...invoice, issueDate: new Date(invoice.issueDate) })) })) };
+}
+
 export function toReport(dto: AsDto<QuarterlyTaxReport>): QuarterlyTaxReport {
   const report = dto as unknown as QuarterlyTaxReport;
 
@@ -12,6 +16,8 @@ export function toReport(dto: AsDto<QuarterlyTaxReport>): QuarterlyTaxReport {
     period: { start: new Date(dto.period.start), end: new Date(dto.period.end) },
     corporateTax202: report.corporateTax202.map(instalment => ({ ...instalment, dueDate: new Date(instalment.dueDate) })),
     deadlines: report.deadlines.map(deadline => ({ ...deadline, dueDate: new Date(deadline.dueDate) })),
+    professionals111: withPayeeDates(report.professionals111),
+    rents115: withPayeeDates(report.rents115),
   };
 }
 

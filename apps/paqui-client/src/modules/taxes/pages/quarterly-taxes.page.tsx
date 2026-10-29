@@ -15,8 +15,9 @@ import { SimpleCheckbox } from '@/modules/ui/components/simple-checkbox';
 import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { createToast } from '@/modules/ui/components/sonner';
 import { TextField } from '@/modules/ui/components/textfield';
-import { getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
+import { getOrganizationRouteChildHref, getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
 import { QuarterlyTaxModels } from '../components/quarterly-tax-models.component';
+import { WithholdingsByPayee } from '../components/withholdings-by-payee.component';
 import { getDefaultTaxPeriod } from '../taxes.models';
 import { downloadAccountantPack, fetchQuarterlyTaxReport, sendAccountantPack } from '../taxes.services';
 
@@ -126,6 +127,8 @@ export function QuarterlyTaxesPage() {
             <p class="mb-3 text-sm text-muted-foreground">{t('taxes.counts', { issued: getReport().counts.issuedInvoices, received: getReport().counts.purchaseInvoices })}</p>
 
             <QuarterlyTaxModels report={getReport()} fiscalProfileHref={fiscalProfileHref()} />
+
+            <WithholdingsByPayee report={getReport()} purchaseHref={purchaseInvoiceId => getOrganizationRouteChildHref({ organizationId: params.organizationId, routeId: 'purchases', childPath: `${purchaseInvoiceId}/edit` })} />
 
             <div class="mt-8 grid gap-8 border-t pt-6 lg:grid-cols-2">
               {/* "If I buy now, how much do I save?" */}
