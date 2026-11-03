@@ -101,7 +101,7 @@ function PartyLines(props: { party?: Party | null; name?: string }) {
 export function InvoicePreview(props: {
   number: string;
   issueDate: string;
-  dueDate: string;
+  dueDate: string | null;
   currency: string;
   items: InvoiceItemInput[];
   withholdingRateBps: number;
@@ -180,7 +180,9 @@ export function InvoicePreview(props: {
         </div>
 
         <div class="mt-8 text-sm font-medium text-zinc-900">
-          {t('invoicing.preview.due-by', { amount: money(amountDue()), date: formatDate(props.dueDate, getLocale()) })}
+          {props.dueDate === null
+            ? t('invoicing.preview.to-pay', { amount: money(amountDue()) })
+            : t('invoicing.preview.due-by', { amount: money(amountDue()), date: formatDate(props.dueDate, getLocale()) })}
         </div>
 
         <table class="mt-5 w-full">

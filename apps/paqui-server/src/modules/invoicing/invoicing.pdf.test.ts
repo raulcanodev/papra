@@ -29,6 +29,28 @@ describe('invoice PDF', () => {
     expect(repeatedPdf.equals(pdf)).toBe(true);
   });
 
+  test('an invoice without a due date renders too', async () => {
+    const pdf = await renderInvoicePdf({
+      number: 'INV-0002',
+      issueDate: new Date('2026-10-13T00:00:00.000Z'),
+      dueDate: null,
+      currency: 'EUR',
+      subtotalMinor: 10_000,
+      taxMinor: 2_100,
+      totalMinor: 12_100,
+      withholdingRateBps: 0,
+      withholdingMinor: 0,
+      notes: null,
+      terms: null,
+      templateId: 'minimal',
+      sellerSnapshot: JSON.stringify({ legalName: 'Paqui SL', taxId: 'B12345678', locale: 'es-ES' }),
+      customerSnapshot: JSON.stringify({ name: 'Acme SA' }),
+      items: [{ description: 'Service', quantityMillis: 1_000, unitPriceMinor: 10_000, taxRateBps: 2_100, discountRateBps: 0 }],
+    });
+
+    expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+  });
+
   test('keeps a short VERI*FACTU invoice with an IRPF withholding on one page', async () => {
     const pdf = await renderInvoicePdf({
       number: 'F-2026-0001',

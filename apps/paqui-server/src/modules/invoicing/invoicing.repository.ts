@@ -222,7 +222,7 @@ async function ensureInvoiceContacts({ db, organizationId, draft }: { db: Databa
   return { customer };
 }
 
-// The due dates to collect: those typed by the user, or the whole amount on the due date
+// The due dates to collect: those typed by the user, the whole amount on the due date, or none without one
 async function saveInvoiceInstalments({ db, organizationId, invoiceId, draft, payableMinor }: { db: Database; organizationId: string; invoiceId: string; draft: InvoiceDraftInput; payableMinor: number }) {
   await createDueDatesRepository({ db }).saveSourceInstalments({
     organizationId,
@@ -230,8 +230,15 @@ async function saveInvoiceInstalments({ db, organizationId, invoiceId, draft, pa
     contactId: draft.customerId,
     currency: draft.currency,
     paymentMethod: draft.paymentMethod ?? null,
-    instalments: draft.instalments !== undefined && draft.instalments.length > 0 ? draft.instalments : [{ dueDate: draft.dueDate, amountMinor: payableMinor }],
+    instalments: getDraftInstalments({ draft, payableMinor }),
   });
+}
+
+function getDraftInstalments({ draft, payableMinor }: { draft: InvoiceDraftInput; payableMinor: number }) {
+  if (draft.instalments !== undefined && draft.instalments.length > 0) {
+    return draft.instalments;
+  }
+  return draft.dueDate === null ? [] : [{ dueDate: draft.dueDate, amountMinor: payableMinor }];
 }
 
 async function createInvoice({ db, organizationId, draft, userId }: { db: Database; organizationId: string; draft: InvoiceDraftInput; userId: string }) {

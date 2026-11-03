@@ -23,7 +23,7 @@ type BrandingSnapshot = { accentColor?: string; footerText?: string | null; paym
 export type PdfInvoice = {
   number: string | null;
   issueDate: Date;
-  dueDate: Date;
+  dueDate: Date | null;
   currency: string;
   subtotalMinor: number;
   taxMinor: number;
@@ -134,7 +134,9 @@ function drawHeader({ doc, invoice, seller, customer, accent, muted, line, verif
   const detailsWidth = verifactuQr === null ? 197 : 170;
   doc.font('Helvetica-Bold').fontSize(11).fillColor(accent).text(invoice.number ?? 'DRAFT', detailsX, PAGE.margin + 3, { width: detailsWidth, align: 'right' });
   doc.font('Helvetica').fontSize(9).fillColor(muted).text(`Issued ${formatDate(invoice.issueDate, seller.locale)}`, detailsX, PAGE.margin + 23, { width: detailsWidth, align: 'right' });
-  doc.text(`Due ${formatDate(invoice.dueDate, seller.locale)}`, detailsX, PAGE.margin + 38, { width: detailsWidth, align: 'right' });
+  if (invoice.dueDate !== null) {
+    doc.text(`Due ${formatDate(invoice.dueDate, seller.locale)}`, detailsX, PAGE.margin + 38, { width: detailsWidth, align: 'right' });
+  }
   if (verifactuQr !== null) {
     doc.font('Helvetica-Bold').fontSize(7).fillColor(muted).text('QR tributario:', 431, 20, { width: 116, align: 'center' });
     doc.image(verifactuQr, 445, 29, { fit: [88, 88] });

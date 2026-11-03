@@ -52,7 +52,8 @@ export async function invoiceDeliveryNotes({ db, organizationId, deliveryNoteIds
   });
   const label = locale.toLowerCase().startsWith('es') ? 'Albaranes' : 'Delivery notes';
   const issueDate = startOfUtcDay(now);
-  const termsDays = customer?.paymentTermsDays ?? profile?.paymentTermsDays ?? 30;
+  // Only a customer with its own payment terms gets a due date, as in the invoice editor
+  const termsDays = customer?.paymentTermsDays ?? null;
 
   const { invoice } = await invoicingRepository.createInvoice({
     organizationId,
@@ -60,7 +61,7 @@ export async function invoiceDeliveryNotes({ db, organizationId, deliveryNoteIds
     draft: {
       customerId,
       issueDate,
-      dueDate: new Date(issueDate.getTime() + termsDays * DAY_MS),
+      dueDate: termsDays === null ? null : new Date(issueDate.getTime() + termsDays * DAY_MS),
       currency: customer?.currency ?? profile?.currency ?? 'EUR',
       templateId: profile?.templateId === 'classic' ? 'classic' : 'minimal',
       withholdingRateBps: profile?.defaultWithholdingRateBps ?? 0,

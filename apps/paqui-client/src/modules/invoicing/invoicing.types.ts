@@ -95,7 +95,7 @@ export type InvoiceDraftInput = {
   seriesId?: string | null;
   salesRepresentativeId?: string | null;
   issueDate: Date;
-  dueDate: Date;
+  dueDate: Date | null;
   currency: string;
   notes?: string | null;
   terms?: string | null;
@@ -128,7 +128,7 @@ export type Invoice = {
   status: InvoiceStatus;
   number: string | null;
   issueDate: Date;
-  dueDate: Date;
+  dueDate: Date | null;
   currency: string;
   subtotalMinor: number;
   taxMinor: number;

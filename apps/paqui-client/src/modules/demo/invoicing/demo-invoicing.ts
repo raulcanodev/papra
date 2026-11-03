@@ -394,7 +394,7 @@ async function buildInvoiceFromDraft({ organizationId, draft, existing }: { orga
     status: 'draft',
     number: null,
     issueDate: new Date(draft.issueDate).toISOString(),
-    dueDate: new Date(draft.dueDate).toISOString(),
+    dueDate: draft.dueDate ? new Date(draft.dueDate).toISOString() : null,
     paymentMethod: draft.paymentMethod ?? null,
     currency: draft.currency,
     ...calculateTotals({ items, withholdingRateBps: draft.withholdingRateBps, equivalenceSurcharge: draft.equivalenceSurcharge ?? customer.equivalenceSurcharge ?? false }),
@@ -692,7 +692,7 @@ export const invoicingHandlers = {
         withholdingRateBps: draft.withholdingRateBps ?? 0,
         number: issuingSeries ? `${issuingSeries.prefix}${String(issuingSeries.nextNumber).padStart(issuingSeries.padding, '0')}` : null,
         issueDate: new Date(draft.issueDate).toISOString(),
-        dueDate: new Date(draft.dueDate).toISOString(),
+        dueDate: draft.dueDate ? new Date(draft.dueDate).toISOString() : null,
         customer,
         customerName: customer!.name,
       };

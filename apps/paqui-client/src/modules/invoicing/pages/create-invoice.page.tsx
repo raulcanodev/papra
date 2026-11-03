@@ -24,8 +24,10 @@ import { EditorBar } from '@/modules/ui/components/editor-bar';
 import { SimpleCheckbox } from '@/modules/ui/components/simple-checkbox';
 import { SimpleSelect } from '@/modules/ui/components/simple-select';
 import { createToast } from '@/modules/ui/components/sonner';
+import { Switch, SwitchControl, SwitchLabel, SwitchThumb } from '@/modules/ui/components/switch';
 import { TextArea } from '@/modules/ui/components/textarea';
 import { TextField } from '@/modules/ui/components/textfield';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/modules/ui/components/tooltip';
 import { getOrganizationRouteHref } from '@/modules/ui/navigation/organization-navigation';
 import { useReturnHref } from '@/modules/ui/navigation/return-to';
 import { FormField, SaveButton } from '../components/catalog-page';
@@ -99,6 +101,7 @@ export function CreateInvoicePage() {
   const [seriesId, setSeriesId] = createSignal('');
   const [salesRepresentativeId, setSalesRepresentativeId] = createSignal('');
   const [issueDate, setIssueDate] = createSignal(today());
+  const [hasDueDate, setHasDueDate] = createSignal(false);
   const [dueDate, setDueDate] = createSignal(plusDays(30));
   const [paymentMethod, setPaymentMethod] = createSignal<PaymentMethod | null>(null);
   const [currency, setCurrency] = createSignal('EUR');
@@ -123,7 +126,7 @@ export function CreateInvoicePage() {
 
   // Leaving a draft with changes asks first
   const leaveGuard = useUnsavedChangesGuard({
-    snapshot: () => ({ customerId: customerId(), seriesId: seriesId(), salesRepresentativeId: salesRepresentativeId(), issueDate: issueDate(), dueDate: dueDate(), paymentMethod: paymentMethod(), currency: currency(), templateId: templateId(), withholdingRateBps: withholdingRateBps(), equivalenceSurcharge: equivalenceSurcharge(), notes: notes(), items: items(), deliveryNotes: deliveryNotes().map(({ id }) => id) }),
+    snapshot: () => ({ customerId: customerId(), seriesId: seriesId(), salesRepresentativeId: salesRepresentativeId(), issueDate: issueDate(), dueDate: hasDueDate() ? dueDate() : null, paymentMethod: paymentMethod(), currency: currency(), templateId: templateId(), withholdingRateBps: withholdingRateBps(), equivalenceSurcharge: equivalenceSurcharge(), notes: notes(), items: items(), deliveryNotes: deliveryNotes().map(({ id }) => id) }),
   });
 
   let loadedInvoiceId: string | undefined;
@@ -138,7 +141,8 @@ export function CreateInvoicePage() {
     setSeriesId(invoice.seriesId ?? '');
     setSalesRepresentativeId(invoice.salesRepresentativeId ?? '');
     setIssueDate(invoice.issueDate.toISOString().slice(0, 10));
-    setDueDate(invoice.dueDate.toISOString().slice(0, 10));
+    setHasDueDate(invoice.dueDate !== null);
+    setDueDate(invoice.dueDate?.toISOString().slice(0, 10) ?? plusDays(30));
     setPaymentMethod(invoice.paymentMethod ?? null);
     setCurrency(invoice.currency);
     setTemplateId(invoice.templateId);
@@ -229,6 +233,8 @@ export function CreateInvoicePage() {
     setCurrency(customer.currency);
     // A customer without payment terms takes the ones of the fiscal profile
     setDueDate(plusDays(customer.paymentTermsDays ?? profileQuery.data?.profile?.paymentTermsDays ?? 30));
+    // A due date is opt-in, unless this customer has payment terms of its own
+    setHasDueDate(current => current || (customer.paymentTermsDays ?? null) !== null);
   };
 
   // A new invoice opened from a customer's page (?customerId=) starts with that customer chosen
@@ -267,7 +273,7 @@ export function CreateInvoicePage() {
     seriesId: seriesId() || null,
     salesRepresentativeId: salesRepresentativeId() || null,
     issueDate: new Date(`${issueDate()}T00:00:00.000Z`),
-    dueDate: new Date(`${dueDate()}T00:00:00.000Z`),
+    dueDate: hasDueDate() ? new Date(`${dueDate()}T00:00:00.000Z`) : null,
     paymentMethod: paymentMethod(),
     currency: currency(),
     templateId: templateId(),
@@ -390,7 +396,7 @@ export function CreateInvoicePage() {
     });
   };
 
-  const canSubmit = () => Boolean((!params.invoiceId || !invoiceQuery.isLoading) && customerId() && items().length && items().every(item => item.description.trim() && item.quantityMillis > 0));
+  const canSubmit = () => Boolean((!params.invoiceId || !invoiceQuery.isLoading) && customerId() && (!hasDueDate() || dueDate()) && items().length && items().every(item => item.description.trim() && item.quantityMillis > 0));
   const canIssue = () => canSubmit() && Boolean(profileQuery.data?.profile);
 
   leaveGuard.setSave({ label: t('invoicing.editor.save-draft'), canSave: canSubmit, run: async () => mutation.mutateAsync({ issue: false }) });
@@ -649,7 +655,28 @@ export function CreateInvoicePage() {
             <SectionTitle>{t('invoicing.editor.details')}</SectionTitle>
             <div class="grid gap-4 sm:grid-cols-2">
               <FormField label={t('invoicing.editor.issue-date')}><TextField class="h-10" type="date" value={issueDate()} onInput={event => setIssueDate(event.currentTarget.value)} /></FormField>
-              <FormField label={t('invoicing.editor.due-date')}><TextField class="h-10" type="date" value={dueDate()} onInput={event => setDueDate(event.currentTarget.value)} /></FormField>
+              <div class="text-sm">
+                <div class="mb-1.5 flex items-center gap-1.5">
+                  <Switch class="flex items-center gap-2" checked={hasDueDate()} onChange={setHasDueDate}>
+                    <SwitchControl><SwitchThumb /></SwitchControl>
+                    <SwitchLabel class="font-medium">{t('invoicing.editor.due-date')}</SwitchLabel>
+                  </Switch>
+                  <Tooltip>
+                    <TooltipTrigger
+                      as="button"
+                      type="button"
+                      aria-label={t('invoicing.editor.due-date.hint')}
+                      class="flex shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <div class="i-tabler-info-circle size-4" />
+                    </TooltipTrigger>
+                    <TooltipContent class="max-w-64">{t('invoicing.editor.due-date.hint')}</TooltipContent>
+                  </Tooltip>
+                </div>
+                <Show when={hasDueDate()}>
+                  <TextField class="h-10" type="date" aria-label={t('invoicing.editor.due-date')} value={dueDate()} onInput={event => setDueDate(event.currentTarget.value)} />
+                </Show>
+              </div>
             </div>
 
             {/* The rest of the details keep sensible defaults, so they stay folded until needed */}
@@ -759,7 +786,7 @@ export function CreateInvoicePage() {
           <InvoicePreview
             number={invoiceNumber() ?? t('invoicing.status.draft')}
             issueDate={issueDate()}
-            dueDate={dueDate()}
+            dueDate={hasDueDate() ? dueDate() : null}
             currency={currency()}
             items={items()}
             withholdingRateBps={effectiveWithholdingRateBps()}

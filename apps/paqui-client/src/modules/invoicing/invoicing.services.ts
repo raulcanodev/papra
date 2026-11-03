@@ -158,7 +158,7 @@ export function coerceInvoice(invoice: AsDto<Invoice>): Invoice {
   return {
     ...invoice,
     issueDate: new Date(invoice.issueDate),
-    dueDate: new Date(invoice.dueDate),
+    dueDate: invoice.dueDate === null ? null : new Date(invoice.dueDate),
     createdAt: new Date(invoice.createdAt),
     updatedAt: new Date(invoice.updatedAt),
     issuedAt: invoice.issuedAt ? new Date(invoice.issuedAt) : null,

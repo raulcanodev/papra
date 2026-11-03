@@ -36,7 +36,7 @@ export async function renderDemoInvoicePdf({ invoice, seller, branding, watermar
   doc.setFontSize(11).setTextColor(17, 24, 39).text(invoice.number ?? '', right, y, { align: 'right' });
   y += 18;
   doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(107, 114, 128);
-  doc.text(`${date(invoice.issueDate)}  ·  ${locale === 'es' ? 'Vence' : 'Due'} ${date(invoice.dueDate)}`, right, y, { align: 'right' });
+  doc.text([date(invoice.issueDate), invoice.dueDate ? `${locale === 'es' ? 'Vence' : 'Due'} ${date(invoice.dueDate)}` : null].filter(Boolean).join('  ·  '), right, y, { align: 'right' });
 
   y += 36;
   doc.setFontSize(8).setTextColor(107, 114, 128).text(locale === 'es' ? 'EMISOR' : 'FROM', left, y).text(locale === 'es' ? 'CLIENTE' : 'BILL TO', 320, y);

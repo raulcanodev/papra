@@ -90,7 +90,8 @@ export const invoiceDraftSchema = z.object({
   seriesId: z.string().trim().min(1).optional().nullable(),
   salesRepresentativeId: z.string().trim().min(1).optional().nullable(),
   issueDate: z.coerce.date(),
-  dueDate: z.coerce.date(),
+  // Without one the invoice is simply paid whenever: nothing to collect on a date, nothing overdue
+  dueDate: z.coerce.date().nullable().default(null),
   currency: currencySchema.default('EUR'),
   notes: z.string().trim().max(5_000).optional().nullable(),
   terms: z.string().trim().max(5_000).optional().nullable(),
@@ -105,7 +106,7 @@ export const invoiceDraftSchema = z.object({
   instalments: instalmentsInputSchema.optional(),
   // The delivery notes of the customer the invoice covers; absent leaves them as they are
   deliveryNoteIds: z.array(z.string().trim().min(1).max(64)).max(100).optional(),
-}).refine(value => value.dueDate >= value.issueDate, {
+}).refine(value => value.dueDate === null || value.dueDate >= value.issueDate, {
   message: 'Due date must not be before issue date',
   path: ['dueDate'],
 });

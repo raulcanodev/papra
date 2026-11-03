@@ -33,6 +33,7 @@ import { contactBankAccountMigration } from './list/0030-contact-bank-account.mi
 import { importedIssuedInvoicesMigration } from './list/0031-imported-issued-invoices.migration';
 import { readOnlyImpersonationsMigration } from './list/0032-read-only-impersonations.migration';
 import { purchaseItemPreciseUnitPriceMigration } from './list/0033-purchase-item-precise-unit-price.migration';
+import { optionalInvoiceDueDateMigration } from './list/0034-optional-invoice-due-date.migration';
 
 export const migrations: Migration[] = [
   postgresInitialSchemaMigration,
@@ -68,4 +69,5 @@ export const migrations: Migration[] = [
   importedIssuedInvoicesMigration,
   readOnlyImpersonationsMigration,
   purchaseItemPreciseUnitPriceMigration,
+  optionalInvoiceDueDateMigration,
 ];

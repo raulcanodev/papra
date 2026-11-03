@@ -6,6 +6,7 @@ import { createContactsRepository } from '../contacts/contacts.repository';
 import { createTestContactInput } from '../contacts/contacts.test-utils';
 import { createDocumentFoldersRepository } from '../documents/document-folders.repository';
 import { createDocumentsRepository } from '../documents/documents.repository';
+import { createDueDatesRepository } from '../due-dates/due-dates.repository';
 import { organizationsTable } from '../organizations/organizations.table';
 import { usersTable } from '../users/users.table';
 import { createInvoicingRepository } from './invoicing.repository';
@@ -190,6 +191,25 @@ describe('invoicing repository', () => {
 
     const { invoice: removed } = await invoicing.updateInvoice({ organizationId: 'organization-1', invoiceId: invoice!.id, userId: 'user-1', draft: { ...draft, equivalenceSurcharge: false } });
     expect(removed).toMatchObject({ equivalenceSurcharge: false, equivalenceSurchargeMinor: 0, totalMinor: 12_100 });
+  });
+
+  test('an invoice without a due date has nothing to collect on a date, and adding one and taking it off again follows', async () => {
+    const { db } = await createTestDatabase();
+    const invoicing = createInvoicingRepository({ db });
+    const dueDates = createDueDatesRepository({ db });
+    const { contact: customer } = await createContactsRepository({ db }).createContact({ organizationId: 'organization-1', contact: createTestContactInput({ name: 'Bar Pepe', isCustomer: true }) });
+    const draft = { customerId: customer.id, issueDate: new Date('2026-10-13T00:00:00.000Z'), dueDate: null, currency: 'EUR', notes: null, terms: null, templateId: 'minimal' as const, withholdingRateBps: 0, items: [{ description: 'Bancada', quantityMillis: 2_350, unitPriceMinor: 10_000, taxRateBps: 2_100, discountRateBps: 0 }] };
+    const countInstalments = async (invoiceId: string) => (await dueDates.listInstalments({ organizationId: 'organization-1', source: { direction: 'receivable', invoiceId } })).instalments.length;
+
+    const { invoice } = await invoicing.createInvoice({ organizationId: 'organization-1', userId: 'user-1', draft });
+    expect(invoice?.dueDate).toBe(null);
+    expect(await countInstalments(invoice!.id)).toBe(0);
+
+    await invoicing.updateInvoice({ organizationId: 'organization-1', invoiceId: invoice!.id, userId: 'user-1', draft: { ...draft, dueDate: new Date('2026-11-12T00:00:00.000Z') } });
+    expect(await countInstalments(invoice!.id)).toBe(1);
+
+    await invoicing.updateInvoice({ organizationId: 'organization-1', invoiceId: invoice!.id, userId: 'user-1', draft });
+    expect(await countInstalments(invoice!.id)).toBe(0);
   });
 });
 

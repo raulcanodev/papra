@@ -105,7 +105,7 @@ export const invoicesTable = pgTable('invoices', {
   status: text('status').notNull().default('draft'),
   number: text('number'),
   issueDate: timestamp('issue_date', { mode: 'date', withTimezone: true, precision: 3 }).notNull(),
-  dueDate: timestamp('due_date', { mode: 'date', withTimezone: true, precision: 3 }).notNull(),
+  dueDate: timestamp('due_date', { mode: 'date', withTimezone: true, precision: 3 }),
   currency: text('currency').notNull().default('EUR'),
   customerSnapshot: text('customer_snapshot'),
   sellerSnapshot: text('seller_snapshot'),
