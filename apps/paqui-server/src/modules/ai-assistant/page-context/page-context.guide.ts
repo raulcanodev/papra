@@ -7,7 +7,7 @@ export const PAGE_GUIDE: Record<string, string> = {
   'documents/deleted': 'Documents in the trash, which can be restored.',
   'ai-assistant': 'The full-screen version of this assistant.',
   'calendar': 'Fiscal calendar: Spanish tax deadlines (AEAT) and regional holidays. Tool: get_calendar.',
-  'sales': 'Sales (ventas): the invoices the organization issues. List by status, create a new one, open one to edit (drafts), issue, send or mark as paid. Purchases have their own page. Tools: list_invoices, create_invoice_draft, issue_invoice.',
+  'sales': 'Sales (ventas): the invoices the organization issues. List by status, create a new one, open one to edit (drafts), issue, send or mark as paid. An external invoice registered by mistake can be removed with delete_imported_invoice; invoices issued by Paqui cannot. Purchases have their own page. Tools: list_invoices, create_invoice_draft, issue_invoice, delete_imported_invoice.',
   'purchases': 'Purchases (compras): what suppliers send (expenses), each tagged with its type: invoice, ticket (simplified invoice) or delivery note, filterable by type. Register one by hand or from an uploaded file read by AI. Tools: list_purchase_invoices, create_purchase_invoice, extract_purchase_from_document.',
   'contacts/customers': 'Address book filtered to customers, the people and companies that receive invoices. Tools: list_contacts, create_contact, update_contact.',
   'contacts/suppliers': 'Address book filtered to suppliers, who send invoices to the organization. Tools: list_contacts, create_contact.',

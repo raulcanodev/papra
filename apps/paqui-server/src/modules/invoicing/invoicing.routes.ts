@@ -197,6 +197,13 @@ function setupInvoiceRoutes(routeContext: RouteDefinitionContext) {
     return context.body(null, 204);
   });
 
+  app.delete('/api/organizations/:organizationId/invoicing/invoices/:resourceId/imported', requireAuthentication({ apiKeyPermissions: ['invoices:delete'] }), legacyValidateParams(resourceParams), async (context) => {
+    const { organizationId, resourceId: invoiceId } = context.req.valid('param');
+    await authorizeMember({ context, db, organizationId });
+    await createInvoicingRepository({ db }).deleteImportedInvoice({ organizationId, invoiceId });
+    return context.body(null, 204);
+  });
+
   app.post('/api/organizations/:organizationId/invoicing/invoices/:resourceId/issue', requireAuthentication({ apiKeyPermissions: ['invoices:update'] }), legacyValidateParams(resourceParams), async (context) => {
     const { organizationId, resourceId: invoiceId } = context.req.valid('param');
     const { userId } = getUser({ context });

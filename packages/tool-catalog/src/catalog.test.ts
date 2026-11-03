@@ -73,6 +73,7 @@ describe('toolCatalog', () => {
       'create_invoice_draft',
       'update_invoice_draft',
       'delete_draft_invoice',
+      'delete_imported_invoice',
       'create_purchase_invoice',
       'update_purchase_invoice',
       'delete_purchase_invoice',
@@ -89,6 +90,7 @@ describe('toolCatalog', () => {
   test('irreversible fiscal actions are flagged destructive', () => {
     expect(getTool('issue_invoice').risk).toBe('destructive');
     expect(getTool('send_invoice_email').risk).toBe('destructive');
+    expect(getTool('delete_imported_invoice').risk).toBe('destructive');
     expect(getTool('delete_contact').risk).toBe('destructive');
   });
 
@@ -146,6 +148,18 @@ describe('invoice tools', () => {
 
     expect(calls[1]).toMatchObject({ method: 'PUT' });
     expect(calls[1]?.body).toMatchObject({ dueDate: '2026-04-15', items: [{ description: 'Hosting', quantityMillis: 1_000, unitPriceMinor: 5_000, taxRateBps: 2_100 }] });
+  });
+
+  test('draft and imported invoice deletion use separate protected endpoints', async () => {
+    const { api, calls } = createFakeApi();
+
+    await getTool('delete_draft_invoice').run({ invoiceId: 'inv_draft' }, { api, organizationId: 'org_1' });
+    await getTool('delete_imported_invoice').run({ invoiceId: 'inv_imported' }, { api, organizationId: 'org_1' });
+
+    expect(calls).toEqual([
+      { method: 'DELETE', path: '/api/organizations/org_1/invoicing/invoices/inv_draft', body: undefined },
+      { method: 'DELETE', path: '/api/organizations/org_1/invoicing/invoices/inv_imported/imported', body: undefined },
+    ]);
   });
 });
 

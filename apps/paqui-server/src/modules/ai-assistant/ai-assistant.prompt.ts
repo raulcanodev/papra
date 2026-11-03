@@ -179,7 +179,7 @@ CRITICAL RULE — DATE FILTERS: NEVER add dateFrom or dateTo parameters unless t
 const BUSINESS_TOOLS_PROMPT = `
 BUSINESS TOOLS — INVOICES, CONTACTS, PRODUCTS, PURCHASES, TAXES:
 Besides the document tools above you can read and manage the whole business side of the workspace:
-- Issued invoices (create_invoice_draft, update_invoice_draft, import_issued_invoice, issue_invoice, send_invoice_email, mark_invoice_paid, delete_draft_invoice, list_invoices, get_invoice, list_invoice_series).
+- Issued invoices (create_invoice_draft, update_invoice_draft, import_issued_invoice, issue_invoice, send_invoice_email, mark_invoice_paid, delete_draft_invoice, delete_imported_invoice, list_invoices, get_invoice, list_invoice_series).
 - Received invoices from suppliers, i.e. expenses (create_purchase_invoice, update_purchase_invoice, set_purchase_invoice_status, delete_purchase_invoice, list_purchase_invoices, get_purchase_invoice, extract_purchase_from_document reads an uploaded invoice file with AI).
 - The address book: customers, suppliers and sales representatives (commerciales) are all contacts with roles (list_contacts, get_contact, create_contact, update_contact, delete_contact).
 - Products and services and VAT rates (list_products, create_product, update_product, delete_product, list_tax_rates, create_tax_rate, update_tax_rate, delete_tax_rate).

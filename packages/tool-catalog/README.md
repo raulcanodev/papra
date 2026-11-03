@@ -52,6 +52,7 @@ Because both go through the REST API, every rule (membership, validation, number
 | `import_issued_invoice` | write | `invoices:create` | Register an invoice the organization already issued outside the app, from its uploaded paper (keeps its number, no Verifactu). |
 | `update_invoice_draft` | write | `invoices:update` | Change a DRAFT invoice. |
 | `delete_draft_invoice` | destructive | `invoices:delete` | Delete an invoice that is still a draft. |
+| `delete_imported_invoice` | destructive | `invoices:delete` | Remove an invoice that was imported from an external document and registered as a sale by mistake. |
 | `issue_invoice` | destructive | `invoices:update` | Make a draft FINAL: it gets the next number of its series, is archived as a PDF and registered for Verifactu when enabled. |
 | `send_invoice_email` | destructive | `invoices:update` | Email the invoice PDF to the customer (issues it first if it is still a draft). |
 | `mark_invoice_paid` | write | `invoices:update` | Record that the customer has paid an issued invoice. |

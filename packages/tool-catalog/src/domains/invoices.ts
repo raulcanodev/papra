@@ -205,11 +205,20 @@ export const invoiceTools = [
   defineOrganizationTool({
     name: 'delete_draft_invoice',
     title: 'Delete draft invoice',
-    description: 'Delete an invoice that is still a draft. Issued invoices cannot be deleted by law.',
+    description: 'Delete an invoice that is still a draft. Use delete_imported_invoice instead for an external invoice paper registered by mistake. Invoices issued by Paqui cannot be deleted.',
     risk: 'destructive',
     permission: API_KEY_PERMISSIONS.INVOICES.DELETE,
     input: invoiceIdInput,
     run: ({ invoiceId }, { api, organizationId }) => api.request('DELETE', invoicePath(organizationId, invoiceId)),
+  }),
+  defineOrganizationTool({
+    name: 'delete_imported_invoice',
+    title: 'Delete imported invoice',
+    description: 'Remove an invoice that was imported from an external document and registered as a sale by mistake. It disappears from sales and tax calculations, but its original file stays in Documents and can be imported again. Only invoices with importedAt can be removed this way; invoices issued by Paqui cannot be deleted.',
+    risk: 'destructive',
+    permission: API_KEY_PERMISSIONS.INVOICES.DELETE,
+    input: invoiceIdInput,
+    run: ({ invoiceId }, { api, organizationId }) => api.request('DELETE', invoicePath(organizationId, invoiceId, '/imported')),
   }),
   defineOrganizationTool({
     name: 'issue_invoice',

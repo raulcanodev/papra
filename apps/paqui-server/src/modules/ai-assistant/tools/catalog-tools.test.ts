@@ -28,6 +28,7 @@ describe('catalog assistant tools', () => {
     expect(names).not.to.include('list_tags');
     expect(names).not.to.include('list_documents');
     expect(names).to.include('create_invoice_draft');
+    expect(names).to.include('delete_imported_invoice');
   });
 
   test('read tools run immediately against the current organization', async () => {

@@ -7,7 +7,8 @@ import { RowActions } from '@/modules/ui/components/row-actions';
 import { createToast } from '@/modules/ui/components/sonner';
 import { getOrganizationRouteChildHref } from '@/modules/ui/navigation/organization-navigation';
 import { useLinkWithReturn } from '@/modules/ui/navigation/return-to';
-import { deleteDraftInvoice, downloadInvoicePdf, markInvoicePaid, sendInvoice } from '../invoicing.services';
+import { deleteDraftInvoice, deleteImportedInvoice, downloadInvoicePdf, markInvoicePaid, sendInvoice } from '../invoicing.services';
+import { canDeleteInvoice } from './invoice-row-actions.models';
 
 /**
  * Opening an issued invoice from a table: a draft opens in the editor; an issued invoice is a legal record, it opens as
@@ -46,12 +47,14 @@ export function InvoiceRowActions(props: { organizationId: string; invoice: Invo
     onError: () => createToast({ type: 'error', message: t('invoicing.invoices.toast.send-error') }),
   }));
   const deleteMutation = createMutation(() => ({
-    mutationFn: (invoiceId: string) => deleteDraftInvoice({ organizationId: props.organizationId, invoiceId }),
+    mutationFn: (invoiceId: string) => props.invoice.importedAt
+      ? deleteImportedInvoice({ organizationId: props.organizationId, invoiceId })
+      : deleteDraftInvoice({ organizationId: props.organizationId, invoiceId }),
     onSuccess: async () => {
-      createToast({ type: 'success', message: t('invoicing.invoices.toast.deleted') });
+      createToast({ type: 'success', message: t(props.invoice.importedAt ? 'invoicing.invoices.toast.imported-deleted' : 'invoicing.invoices.toast.deleted') });
       await refresh();
     },
-    onError: () => createToast({ type: 'error', message: t('invoicing.invoices.toast.delete-error') }),
+    onError: () => createToast({ type: 'error', message: t(props.invoice.importedAt ? 'invoicing.invoices.toast.imported-delete-error' : 'invoicing.invoices.toast.delete-error') }),
   }));
   const paidMutation = createMutation(() => ({ mutationFn: (invoiceId: string) => markInvoicePaid({ organizationId: props.organizationId, invoiceId }), onSuccess: refresh }));
 
@@ -63,10 +66,12 @@ export function InvoiceRowActions(props: { organizationId: string; invoice: Invo
         ...(props.invoice.status !== 'draft' && props.invoice.status !== 'issuing' ? [{ label: t('invoicing.invoices.actions.download'), icon: 'i-tabler-download', onSelect: () => void downloadInvoicePdf({ organizationId: props.organizationId, invoiceId: props.invoice.id, filename: props.invoice.number ?? props.invoice.id }) }] : []),
         ...(props.invoice.status === 'issued' || props.invoice.status === 'sent' ? [{ label: t('invoicing.invoices.actions.mark-paid'), icon: 'i-tabler-check', onSelect: () => paidMutation.mutate(props.invoice.id) }] : []),
       ]}
-      // An issued invoice is a legal record: it is corrected with a credit note, never edited nor deleted
+      // Paqui-issued invoices are legal records. An imported one is only an external paper registered as a sale,
+      // so its mistaken registration can be removed while the source file stays in Documents.
       onEdit={props.invoice.status === 'draft' ? () => navigate(editHref(props.invoice)) : undefined}
       onDelete={() => deleteMutation.mutateAsync(props.invoice.id)}
-      deleteDisabled={props.invoice.status !== 'draft'}
+      deleteDisabled={!canDeleteInvoice(props.invoice)}
+      deleteMessage={props.invoice.importedAt ? t('invoicing.invoices.delete-imported-message') : undefined}
     />
   );
 }

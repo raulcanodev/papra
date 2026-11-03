@@ -1,7 +1,7 @@
 /* eslint-disable style/max-statements-per-line */
 import type { Database } from '../app/database/database.types';
 import type { FiscalProfileInput, ImportedInvoiceInput, InvoiceBrandingInput, InvoiceDraftInput, InvoiceSeriesInput, ProductInput, TaxRateInput } from './invoicing.models';
-import { and, asc, desc, eq, inArray, isNull, notInArray, or } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, notInArray, or } from 'drizzle-orm';
 import { createContactNotFoundError } from '../contacts/contacts.errors';
 import { createContactsRepository } from '../contacts/contacts.repository';
 import { contactsTable } from '../contacts/contacts.table';
@@ -10,7 +10,7 @@ import { createDocumentNotFoundError } from '../documents/documents.errors';
 import { documentsTable } from '../documents/documents.table';
 import { createDueDatesRepository } from '../due-dates/due-dates.repository';
 import { purchaseInvoicesTable } from '../purchases/purchases.tables';
-import { createFiscalProfileRequiredError, createInvoiceDeliveryNotesUnavailableError, createInvoiceDocumentAlreadyRegisteredError, createInvoiceNotEditableError, createInvoiceNotFoundError, createInvoiceNotIssuableError, createInvoiceNumberTakenError } from './invoicing.errors';
+import { createFiscalProfileRequiredError, createInvoiceDeliveryNotesUnavailableError, createInvoiceDocumentAlreadyRegisteredError, createInvoiceNotEditableError, createInvoiceNotFoundError, createInvoiceNotImportedError, createInvoiceNotIssuableError, createInvoiceNumberTakenError } from './invoicing.errors';
 import { calculateInvoiceTotals, formatInvoiceNumber } from './invoicing.models';
 import { invoiceEventsTable, invoiceItemsTable, invoiceSeriesTable, invoicesTable, invoicingBrandingTable, invoicingProductsTable, invoicingProfilesTable, invoicingTaxRatesTable } from './invoicing.tables';
 
@@ -42,6 +42,7 @@ export function createInvoicingRepository({ db }: { db: Database }) {
     markInvoiceSent: async (args: { organizationId: string; invoiceId: string; userId: string; recipient: string }) => markInvoiceSent({ db, ...args }),
     markInvoicePaid: async (args: { organizationId: string; invoiceId: string; userId: string }) => markInvoicePaid({ db, ...args }),
     deleteDraft: async (args: { organizationId: string; invoiceId: string }) => deleteDraft({ db, ...args }),
+    deleteImportedInvoice: async (args: { organizationId: string; invoiceId: string }) => deleteImportedInvoice({ db, ...args }),
   };
 }
 
@@ -478,6 +479,17 @@ async function deleteDraft({ db, organizationId, invoiceId }: { db: Database; or
     .returning();
   if (!deleted) {
     throw createInvoiceNotEditableError();
+  }
+}
+
+// Paqui only registered this external paper: it did not assign its legal number or send it to VERI*FACTU.
+// Removing the sales record deliberately leaves the source file in Documents, ready for a corrected re-import.
+async function deleteImportedInvoice({ db, organizationId, invoiceId }: { db: Database; organizationId: string; invoiceId: string }) {
+  const [deleted] = await db.delete(invoicesTable)
+    .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.organizationId, organizationId), isNotNull(invoicesTable.importedAt)))
+    .returning();
+  if (!deleted) {
+    throw createInvoiceNotImportedError();
   }
 }
 

@@ -18,6 +18,12 @@ export const createInvoiceNotEditableError = createErrorFactory({
   statusCode: 409,
 });
 
+export const createInvoiceNotImportedError = createErrorFactory({
+  code: 'invoicing.invoice_not_imported',
+  message: 'Only invoices imported from a document can be removed from the sales register',
+  statusCode: 409,
+});
+
 export const createInvoiceDeliveryNotesUnavailableError = createErrorFactory({
   code: 'invoicing.delivery_notes_unavailable',
   message: 'A delivery note is not a pending one of this customer',

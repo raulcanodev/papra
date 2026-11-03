@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import { createInMemoryDatabase } from '../app/database/database.test-utils';
 import { createContactsRepository } from '../contacts/contacts.repository';
 import { createTestContactInput } from '../contacts/contacts.test-utils';
+import { documentsTable } from '../documents/documents.table';
 import { purchaseInvoicesTable } from '../purchases/purchases.tables';
 import { createInvoicingRepository } from './invoicing.repository';
 import { invoicesTable, verifactuRecordsTable } from './invoicing.tables';
@@ -34,7 +35,7 @@ async function setup() {
     },
   });
 
-  return { db, customer, importInvoice };
+  return { db, customer, repository, importInvoice };
 }
 
 describe('importing an issued invoice', () => {
@@ -75,5 +76,37 @@ describe('importing an issued invoice', () => {
     const { importInvoice } = await setup();
 
     await expect(importInvoice({ documentId: 'doc_unknown' })).rejects.toMatchObject({ code: 'document.not_found' });
+  });
+
+  test('a mistaken import can be removed without deleting its source document, then imported again corrected', async () => {
+    const { db, repository, importInvoice } = await setup();
+    const { invoice } = await importInvoice();
+
+    await repository.deleteImportedInvoice({ organizationId: ORG_ID, invoiceId: invoice!.id });
+
+    expect((await repository.getInvoice({ organizationId: ORG_ID, invoiceId: invoice!.id })).invoice).toBeNull();
+    expect(await db.select({ id: documentsTable.id, isDeleted: documentsTable.isDeleted }).from(documentsTable).where(eq(documentsTable.id, 'doc_1'))).toEqual([{ id: 'doc_1', isDeleted: false }]);
+    await expect(importInvoice({ number: 'F-2025-031-R' })).resolves.toMatchObject({ invoice: { number: 'F-2025-031-R', documentId: 'doc_1' } });
+  });
+
+  test('an invoice issued by Paqui remains protected from deletion', async () => {
+    const { db, customer, repository } = await setup();
+    const { invoice } = await repository.createInvoice({
+      organizationId: ORG_ID,
+      userId: 'usr_1',
+      draft: {
+        customerId: customer.id,
+        issueDate: new Date('2025-11-03T00:00:00.000Z'),
+        dueDate: new Date('2025-12-03T00:00:00.000Z'),
+        currency: 'EUR',
+        templateId: 'minimal',
+        withholdingRateBps: 0,
+        items: [{ description: 'Consultoría', quantityMillis: 1_000, unitPriceMinor: 100_000, taxRateBps: 2_100, discountRateBps: 0 }],
+      },
+    });
+    await db.update(invoicesTable).set({ status: 'issued', number: 'F-2025-099', issuedAt: new Date() }).where(eq(invoicesTable.id, invoice!.id));
+
+    await expect(repository.deleteImportedInvoice({ organizationId: ORG_ID, invoiceId: invoice!.id })).rejects.toMatchObject({ code: 'invoicing.invoice_not_imported' });
+    expect((await repository.getInvoice({ organizationId: ORG_ID, invoiceId: invoice!.id })).invoice).not.toBeNull();
   });
 });

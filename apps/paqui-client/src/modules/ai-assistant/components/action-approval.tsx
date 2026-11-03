@@ -27,6 +27,7 @@ const ACTION_PRESENTATIONS: Record<string, ActionPresentation> = {
   create_invoice_draft: { icon: 'i-tabler-file-invoice', labelKey: 'ai-assistant.action.create-invoice-draft' },
   update_invoice_draft: { icon: 'i-tabler-file-invoice', labelKey: 'ai-assistant.action.update-invoice-draft' },
   delete_draft_invoice: { icon: 'i-tabler-file-x', labelKey: 'ai-assistant.action.delete-draft-invoice', ...DESTRUCTIVE },
+  delete_imported_invoice: { icon: 'i-tabler-file-x', labelKey: 'ai-assistant.action.delete-imported-invoice', ...DESTRUCTIVE },
   issue_invoice: { icon: 'i-tabler-file-certificate', labelKey: 'ai-assistant.action.issue-invoice', ...DESTRUCTIVE },
   send_invoice_email: { icon: 'i-tabler-mail-forward', labelKey: 'ai-assistant.action.send-invoice-email', ...DESTRUCTIVE },
   mark_invoice_paid: { icon: 'i-tabler-cash', labelKey: 'ai-assistant.action.mark-invoice-paid' },

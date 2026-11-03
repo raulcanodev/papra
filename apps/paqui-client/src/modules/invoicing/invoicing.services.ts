@@ -76,9 +76,13 @@ export async function saveInvoiceBranding({ organizationId, branding }: { organi
   return apiClient<{ branding: AsDto<InvoiceBranding> }>({ path: `${basePath(organizationId)}/branding`, method: 'PUT', body: branding });
 }
 
-/** Only drafts can be deleted: an issued invoice is a legal record */
 export async function deleteDraftInvoice({ organizationId, invoiceId }: { organizationId: string; invoiceId: string }) {
   await apiClient({ path: `${basePath(organizationId)}/invoices/${invoiceId}`, method: 'DELETE' });
+}
+
+/** Removes the sales registration only; the external source document is deliberately preserved. */
+export async function deleteImportedInvoice({ organizationId, invoiceId }: { organizationId: string; invoiceId: string }) {
+  await apiClient({ path: `${basePath(organizationId)}/invoices/${invoiceId}/imported`, method: 'DELETE' });
 }
 
 export async function fetchInvoices({ organizationId }: { organizationId: string }) {
