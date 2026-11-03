@@ -18,6 +18,7 @@ import { cn } from '@/modules/shared/style/cn';
 import { useUnsavedChangesGuard } from '@/modules/shared/unsaved-changes';
 import { Badge } from '@/modules/ui/components/badge';
 import { Button } from '@/modules/ui/components/button';
+import { DecimalField } from '@/modules/ui/components/decimal-field';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/modules/ui/components/dialog';
 import { EditorBar } from '@/modules/ui/components/editor-bar';
 import { SimpleCheckbox } from '@/modules/ui/components/simple-checkbox';
@@ -534,12 +535,12 @@ export function CreateInvoicePage() {
 
                       <div class="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-end gap-2">
                         <FormField label={t('invoicing.editor.item.quantity')}>
-                          <TextField class="no-spinner h-10" type="number" min="0.001" step="0.001" value={item().quantityMillis / 1_000} onInput={event => updateItem(index, { quantityMillis: Math.round(Number(event.currentTarget.value) * 1_000) })} />
+                          <DecimalField class="h-10" maxDecimals={3} value={item().quantityMillis / 1_000} onValueChange={value => updateItem(index, { quantityMillis: Math.round(value * 1_000) })} />
                         </FormField>
                         <span class="pb-2.5 text-sm text-muted-foreground">×</span>
                         <FormField label={t('invoicing.editor.item.price')}>
                           <div class="relative">
-                            <TextField class="no-spinner h-10 pr-11" type="number" min="0" step="0.01" value={item().unitPriceMinor / 100} onInput={event => updateItem(index, { unitPriceMinor: Math.round(Number(event.currentTarget.value) * 100) })} />
+                            <DecimalField class="h-10 pr-11" maxDecimals={2} value={item().unitPriceMinor / 100} onValueChange={value => updateItem(index, { unitPriceMinor: Math.round(value * 100) })} />
                             <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{currency()}</span>
                           </div>
                         </FormField>

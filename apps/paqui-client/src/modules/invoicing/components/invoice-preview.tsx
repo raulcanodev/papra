@@ -2,6 +2,7 @@ import type { FiscalProfile, InvoiceBranding, InvoiceItemInput } from '../invoic
 import type { Contact } from '@/modules/contacts/contacts.types';
 import { createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
+import { formatDecimal } from '@/modules/ui/components/decimal-field';
 import { getEquivalenceSurchargeRateBps } from '../invoicing.models';
 
 function getLineGrossMinor(item: InvoiceItemInput) {
@@ -204,7 +205,7 @@ export function InvoicePreview(props: {
                       </div>
                     </Show>
                   </td>
-                  <td class="whitespace-nowrap py-2 pl-3 text-right tabular-nums">{item.quantityMillis / 1_000}</td>
+                  <td class="whitespace-nowrap py-2 pl-3 text-right tabular-nums">{formatDecimal(item.quantityMillis / 1_000, { maxDecimals: 3 })}</td>
                   <td class="whitespace-nowrap py-2 pl-3 text-right tabular-nums">{money(item.unitPriceMinor)}</td>
                   <td class="whitespace-nowrap py-2 pl-3 text-right tabular-nums">{`${item.taxRateBps / 100}%`}</td>
                   <td class="whitespace-nowrap py-2 pl-3 text-right tabular-nums text-zinc-900">{money(getLineNetMinor(item))}</td>

@@ -18,6 +18,7 @@ import { queryClient } from '@/modules/shared/query/query-client';
 import { cn } from '@/modules/shared/style/cn';
 import { useUnsavedChangesGuard } from '@/modules/shared/unsaved-changes';
 import { Button } from '@/modules/ui/components/button';
+import { DecimalField } from '@/modules/ui/components/decimal-field';
 import { EditorBar } from '@/modules/ui/components/editor-bar';
 import { PageSection, PageSections } from '@/modules/ui/components/page-section';
 import { SimpleSelect } from '@/modules/ui/components/simple-select';
@@ -410,7 +411,7 @@ export function DeliveryNoteEditorPage() {
                               onChange={(name, product) => applyProduct(index, name, product)}
                               onCreate={createLineProduct}
                             />
-                            <TextField class="no-spinner h-11 text-right text-base font-medium" type="number" inputMode="decimal" min="0.001" step="0.001" aria-label={t('delivery-notes.editor.line.quantity')} value={item().quantityMillis / 1_000} onInput={event => updateItem(index, { quantityMillis: Math.round(Number(event.currentTarget.value) * 1_000) })} />
+                            <DecimalField class="h-11 text-base font-medium" maxDecimals={3} aria-label={t('delivery-notes.editor.line.quantity')} value={item().quantityMillis / 1_000} onValueChange={value => updateItem(index, { quantityMillis: Math.round(value * 1_000) })} />
                             <Button type="button" variant="ghost" size="icon-sm" class="text-muted-foreground" aria-label={t('delivery-notes.editor.line.remove')} disabled={items().length === 1} onClick={() => setItems(current => current.filter((_, itemIndex) => itemIndex !== index))}>
                               <div class="i-tabler-x size-4" />
                             </Button>
