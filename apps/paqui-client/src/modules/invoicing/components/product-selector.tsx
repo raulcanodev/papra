@@ -3,6 +3,7 @@ import { createEffect, createMemo, createSignal, createUniqueId, For, Show } fro
 import { getDocumentLocale } from '@/modules/i18n/document-locale';
 import { useI18n } from '@/modules/i18n/i18n.provider';
 import { cn } from '@/modules/shared/style/cn';
+import { EntityIcon } from '@/modules/ui/components/entity-icon';
 import { TextField } from '@/modules/ui/components/textfield';
 import { createProductSearchIndex, normalizeProductSearch, rankProductSearchIndex } from './product-selector.models';
 
@@ -175,9 +176,7 @@ export function ProductSelector(props: {
                     onMouseDown={event => event.preventDefault()}
                     onClick={() => selectProduct(product)}
                   >
-                    <span class="grid size-8 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground">
-                      <div class={cn(product.icon ?? 'i-tabler-package', 'size-4')} />
-                    </span>
+                    <EntityIcon icon={product.icon} color={product.iconColor} fallback="i-tabler-package" />
                     <span class="min-w-0 flex-1">
                       <span class="block truncate text-sm font-medium">{product.name}</span>
                       <span class="block truncate text-xs text-muted-foreground">

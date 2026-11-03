@@ -50,11 +50,16 @@ function getMatchScore(candidate: ProductSearchCandidate, normalizedQuery: strin
   return null;
 }
 
+// Our own catalog always comes before the products of a supplier or a customer, keeping the order within each
+function putOwnProductsFirst(products: readonly InvoicingProduct[]) {
+  return [...products.filter(({ contactId }) => contactId === null), ...products.filter(({ contactId }) => contactId !== null)];
+}
+
 /** Name matches come first; description/reference and owner still make a product discoverable. */
 export function rankProductSearchIndex(index: readonly ProductSearchCandidate[], query: string) {
   const normalizedQuery = normalizeProductSearch(query);
   if (normalizedQuery === '') {
-    return index.map(({ product }) => product);
+    return putOwnProductsFirst(index.map(({ product }) => product));
   }
 
   const queryWords = normalizedQuery.split(' ');
@@ -65,7 +70,7 @@ export function rankProductSearchIndex(index: readonly ProductSearchCandidate[],
       buckets[score]!.push(candidate.product);
     }
   }
-  return buckets.flat();
+  return putOwnProductsFirst(buckets.flat());
 }
 
 export function rankProducts(products: readonly InvoicingProduct[], query: string) {

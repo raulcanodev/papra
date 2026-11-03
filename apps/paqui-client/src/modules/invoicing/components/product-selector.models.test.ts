@@ -2,7 +2,7 @@ import type { InvoicingProduct } from '../invoicing.types';
 import { describe, expect, test } from 'vitest';
 import { hasExactProductName, rankProducts } from './product-selector.models';
 
-function product(id: string, name: string, description: string | null = null): InvoicingProduct {
+function product(id: string, name: string, description: string | null = null, contactId: string | null = null): InvoicingProduct {
   return {
     id,
     organizationId: 'org_1',
@@ -14,7 +14,7 @@ function product(id: string, name: string, description: string | null = null): I
     taxRateBps: 2_100,
     icon: null,
     iconColor: null,
-    contactId: null,
+    contactId,
     contactName: null,
     imageDocumentId: null,
     archivedAt: null,
@@ -33,6 +33,14 @@ describe('product selector search', () => {
   test('ranks exact and prefix name matches ahead of other searchable fields', () => {
     expect(rankProducts(products, 'mesa').map(({ id }) => id)).toEqual(['1']);
     expect(rankProducts(products, 'ref me').map(({ id }) => id)).toEqual(['1', '2']);
+  });
+
+  test('our own products always come before those of a contact, with or without a search', () => {
+    const catalog = [product('1', 'Foam 2 mm', null, 'supplier'), product('2', 'Metros bancada'), product('3', 'Foam 3 mm')];
+
+    expect(rankProducts(catalog, '').map(({ id }) => id)).toEqual(['2', '3', '1']);
+    expect(rankProducts(catalog, 'foam').map(({ id }) => id)).toEqual(['3', '1']);
+    expect(rankProducts([product('1', 'Bancada', null, 'supplier'), product('2', 'Bancada de roble')], 'bancada').map(({ id }) => id)).toEqual(['2', '1']);
   });
 
   test('ignores accents and case when deciding whether the product already exists', () => {
