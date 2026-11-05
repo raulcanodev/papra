@@ -122,6 +122,8 @@ export function InvoicePreview(props: {
   const total = () => subtotal() + tax() + surchargeRows().reduce((sum, { amountMinor }) => sum + amountMinor, 0);
   const withholding = () => getWithholdingMinor({ subtotalMinor: subtotal(), withholdingRateBps: props.withholdingRateBps });
   const amountDue = () => total() - withholding();
+  // Empty without a due date, and also while its field is empty or half typed: the sentence never ends in nothing
+  const dueDateLabel = () => formatDate(props.dueDate ?? '', getLocale());
   const accent = () => props.branding?.accentColor ?? '#18181b';
   const visibleItems = () => props.items.filter(item => item.description.trim() || item.unitPriceMinor > 0);
   const issuerName = () => props.profile?.legalName ?? t('invoicing.preview.your-company');
@@ -192,9 +194,9 @@ export function InvoicePreview(props: {
         </div>
 
         <div class="mt-8 text-sm font-medium text-zinc-900">
-          {props.dueDate === null
+          {dueDateLabel() === ''
             ? t('invoicing.preview.to-pay', { amount: money(amountDue()) })
-            : t('invoicing.preview.due-by', { amount: money(amountDue()), date: formatDate(props.dueDate, getLocale()) })}
+            : t('invoicing.preview.due-by', { amount: money(amountDue()), date: dueDateLabel() })}
         </div>
 
         <table class="mt-5 w-full">
