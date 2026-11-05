@@ -65,6 +65,8 @@ export function SupplierTariffCheck(props: {
   const [rejected, setRejected] = createSignal<Set<string>>(new Set());
   // New lines the user unticked before saving them as products
   const [unticked, setUnticked] = createSignal<Set<string>>(new Set());
+  // Kept here: the block is rebuilt every time the lines are matched again
+  const [isNewLinesOpen, setIsNewLinesOpen] = createSignal(false);
 
   const lines = createMemo(() => props.items.map((item, index) => {
     const description = normalizeDescription(item.description);
@@ -212,49 +214,50 @@ export function SupplierTariffCheck(props: {
           </Show>
 
           <Show when={isSettled() && newLines().length > 0}>
-            <div class="rounded-xl border bg-muted/40 p-4 text-sm">
-              <div class="flex items-start gap-3">
-                <div class="i-tabler-package-import mt-0.5 size-5 shrink-0 text-muted-foreground" />
-                <div class="min-w-0 flex-1">
-                  <p class="font-medium">
-                    {products().length === 0
-                      ? t('purchases.editor.tariff.new.no-products', { supplier: props.supplierName })
-                      : t('purchases.editor.tariff.new.title', { count: newLines().length, supplier: props.supplierName })}
-                  </p>
-                  <p class="text-muted-foreground">{t('purchases.editor.tariff.new.hint')}</p>
-                  <ul class="mt-2 divide-y">
-                    <For each={newLines()}>
-                      {line => (
-                        <li class="flex items-start gap-3 py-2">
-                          <SimpleCheckbox
-                            class="min-w-0 flex-1 items-start [&_label]:min-w-0"
-                            checked={!unticked().has(line.description)}
-                            onChange={checked => setUnticked((current) => {
-                              const next = new Set(current);
-                              if (checked) {
-                                next.delete(line.description);
-                              } else {
-                                next.add(line.description);
-                              }
-                              return next;
-                            })}
-                            label={<span class="line-clamp-2 break-words">{line.description}</span>}
-                          />
-                          <span class="shrink-0 pt-px text-muted-foreground tabular-nums">{unitPrice(line.item)}</span>
-                        </li>
-                      )}
-                    </For>
-                  </ul>
-                  <Button size="sm" class="mt-2 max-w-full gap-1.5" disabled={linesToSave().length === 0} isLoading={saveProductsMutation.isPending} onClick={() => saveProductsMutation.mutate()}>
-                    <div class="i-tabler-device-floppy size-4" />
-                    {t('purchases.editor.tariff.new.save', { count: linesToSave().length })}
-                  </Button>
-                  <Show when={matchesQuery.data?.isModelUnavailable && products().length > 0}>
-                    <p class="mt-2 text-xs text-muted-foreground">{t('purchases.editor.tariff.no-ai')}</p>
-                  </Show>
-                </div>
+            <details open={isNewLinesOpen()} onToggle={event => setIsNewLinesOpen(event.currentTarget.open)} class="group text-sm">
+              <summary class="flex cursor-pointer list-none items-center gap-2 text-muted-foreground select-none hover:text-foreground [&::-webkit-details-marker]:hidden">
+                <div class="i-tabler-package-import size-4 shrink-0" />
+                <span class="min-w-0 flex-1 truncate">
+                  {products().length === 0
+                    ? t('purchases.editor.tariff.new.no-products', { supplier: props.supplierName })
+                    : t('purchases.editor.tariff.new.title', { count: newLines().length, supplier: props.supplierName })}
+                </span>
+                <span class="i-tabler-chevron-down size-4 shrink-0 transition-transform group-open:rotate-180" />
+              </summary>
+              <div class="mt-2 pl-6">
+                <p class="text-muted-foreground">{t('purchases.editor.tariff.new.hint')}</p>
+                <ul class="mt-2 divide-y">
+                  <For each={newLines()}>
+                    {line => (
+                      <li class="flex items-start gap-3 py-2">
+                        <SimpleCheckbox
+                          class="min-w-0 flex-1 items-start [&_label]:min-w-0"
+                          checked={!unticked().has(line.description)}
+                          onChange={checked => setUnticked((current) => {
+                            const next = new Set(current);
+                            if (checked) {
+                              next.delete(line.description);
+                            } else {
+                              next.add(line.description);
+                            }
+                            return next;
+                          })}
+                          label={<span class="line-clamp-2 break-words">{line.description}</span>}
+                        />
+                        <span class="shrink-0 pt-px text-muted-foreground tabular-nums">{unitPrice(line.item)}</span>
+                      </li>
+                    )}
+                  </For>
+                </ul>
+                <Button size="sm" variant="outline" class="mt-2 max-w-full gap-1.5" disabled={linesToSave().length === 0} isLoading={saveProductsMutation.isPending} onClick={() => saveProductsMutation.mutate()}>
+                  <div class="i-tabler-device-floppy size-4" />
+                  {t('purchases.editor.tariff.new.save', { count: linesToSave().length })}
+                </Button>
+                <Show when={matchesQuery.data?.isModelUnavailable && products().length > 0}>
+                  <p class="mt-2 text-xs text-muted-foreground">{t('purchases.editor.tariff.no-ai')}</p>
+                </Show>
               </div>
-            </div>
+            </details>
           </Show>
 
           <Show when={matchesQuery.isError}>
