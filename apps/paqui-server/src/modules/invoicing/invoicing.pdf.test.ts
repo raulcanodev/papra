@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { renderInvoicePdf } from './invoicing.pdf';
+import { getProformaLabels, renderInvoicePdf } from './invoicing.pdf';
 
 describe('invoice PDF', () => {
   test('renders a valid PDF and supports multiple line items', async () => {
@@ -27,6 +27,31 @@ describe('invoice PDF', () => {
     expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
     expect(pdf.byteLength).toBeGreaterThan(2_000);
     expect(repeatedPdf.equals(pdf)).toBe(true);
+  });
+
+  test('a proforma renders without a number, in the language of the issuer', async () => {
+    const pdf = await renderInvoicePdf({
+      number: null,
+      isProforma: true,
+      issueDate: new Date('2026-10-13T00:00:00.000Z'),
+      dueDate: null,
+      currency: 'EUR',
+      subtotalMinor: 10_000,
+      taxMinor: 2_100,
+      totalMinor: 12_100,
+      withholdingRateBps: 0,
+      withholdingMinor: 0,
+      notes: null,
+      terms: null,
+      templateId: 'minimal',
+      sellerSnapshot: JSON.stringify({ legalName: 'Paqui SL', taxId: 'B12345678', locale: 'es-ES' }),
+      customerSnapshot: JSON.stringify({ name: 'Acme SA' }),
+      items: [{ description: 'Service', quantityMillis: 1_000, unitPriceMinor: 10_000, taxRateBps: 2_100, discountRateBps: 0 }],
+    });
+
+    expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(getProformaLabels({ locale: 'es-ES' }).title).toBe('FACTURA PROFORMA');
+    expect(getProformaLabels({ locale: 'en' }).title).toBe('PROFORMA INVOICE');
   });
 
   test('an invoice without a due date renders too', async () => {

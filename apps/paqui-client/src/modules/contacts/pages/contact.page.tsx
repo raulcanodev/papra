@@ -11,6 +11,7 @@ import { InvoiceRowActions, useOpenInvoice } from '@/modules/invoicing/component
 import { InvoiceStatusBadge } from '@/modules/invoicing/components/invoice-status-badge';
 import { getProductsQueryKey, ProductForm } from '@/modules/invoicing/components/product-form';
 import { ProductsTable } from '@/modules/invoicing/components/products-table';
+import { ContactProformas } from '@/modules/invoicing/components/proformas-table';
 import { getInvoicePayableMinor } from '@/modules/invoicing/invoicing.models';
 import { deleteProduct, fetchInvoices, fetchProducts } from '@/modules/invoicing/invoicing.services';
 import { ContactPriceListField, getContactPricesQueryKey } from '@/modules/pricing/components/contact-price-list-field';
@@ -64,7 +65,7 @@ function CopyableValue(props: { value: string }) {
   );
 }
 
-const CONTACT_TABS = ['invoices', 'delivery-notes', 'products', 'price-lists'] as const;
+const CONTACT_TABS = ['invoices', 'proformas', 'delivery-notes', 'products', 'price-lists'] as const;
 
 /** One contact with its details, invoices, products and price list. */
 export function ContactPage() {
@@ -213,6 +214,10 @@ export function ContactPage() {
                 </TabsTrigger>
                 {/* Handed with the goods: only customers get delivery notes */}
                 <Show when={getContact().isCustomer}>
+                  <TabsTrigger value="proformas" class="h-9 gap-2 px-3 sm:px-4">
+                    <div class="i-tabler-file-description size-4 max-sm:hidden" />
+                    {t('contacts.detail.tabs.proformas')}
+                  </TabsTrigger>
                   <TabsTrigger value="delivery-notes" class="h-9 gap-2 px-3 sm:px-4">
                     <div class="i-tabler-truck-delivery size-4 max-sm:hidden" />
                     {t('contacts.detail.tabs.delivery-notes')}
@@ -290,6 +295,10 @@ export function ContactPage() {
                     </PageSection>
                   </Show>
                 </PageSections>
+              </TabsContent>
+
+              <TabsContent value="proformas" class="mt-0">
+                <ContactProformas organizationId={params.organizationId} contactId={getContact().id} />
               </TabsContent>
 
               <TabsContent value="delivery-notes" class="mt-0">

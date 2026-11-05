@@ -106,6 +106,8 @@ export const invoiceDraftSchema = z.object({
   instalments: instalmentsInputSchema.optional(),
   // The delivery notes of the customer the invoice covers; absent leaves them as they are
   deliveryNoteIds: z.array(z.string().trim().min(1).max(64)).max(100).optional(),
+  // A new proforma instead of a draft invoice; an existing one stays what it is
+  isProforma: z.boolean().optional(),
 }).refine(value => value.dueDate === null || value.dueDate >= value.issueDate, {
   message: 'Due date must not be before issue date',
   path: ['dueDate'],

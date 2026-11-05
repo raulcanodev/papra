@@ -32,10 +32,16 @@ export async function renderDemoInvoicePdf({ invoice, seller, branding, watermar
   const right = 595 - 48;
   let y = 64;
 
-  doc.setFont('helvetica', 'bold').setFontSize(22).setTextColor(...accent).text(locale === 'es' ? 'Factura' : 'Invoice', left, y);
+  const isProforma = invoice.status === 'proforma' || invoice.isProforma === true;
+  const invoiceTitle = locale === 'es' ? 'Factura' : 'Invoice';
+  const proformaTitle = locale === 'es' ? 'Factura proforma' : 'Proforma invoice';
+  doc.setFont('helvetica', 'bold').setFontSize(22).setTextColor(...accent).text(isProforma ? proformaTitle : invoiceTitle, left, y);
   doc.setFontSize(11).setTextColor(17, 24, 39).text(invoice.number ?? '', right, y, { align: 'right' });
   y += 18;
   doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(107, 114, 128);
+  if (isProforma) {
+    doc.text(locale === 'es' ? 'Documento sin validez fiscal. No es una factura.' : 'This document has no tax value. It is not an invoice.', left, y);
+  }
   doc.text([date(invoice.issueDate), invoice.dueDate ? `${locale === 'es' ? 'Vence' : 'Due'} ${date(invoice.dueDate)}` : null].filter(Boolean).join('  ·  '), right, y, { align: 'right' });
 
   y += 36;

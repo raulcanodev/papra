@@ -2,6 +2,7 @@ import type { FiscalProfile, InvoiceBranding, InvoiceItemInput } from '../invoic
 import type { Contact } from '@/modules/contacts/contacts.types';
 import { createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { useI18n } from '@/modules/i18n/i18n.provider';
+import { cn } from '@/modules/shared/style/cn';
 import { formatDecimal } from '@/modules/ui/components/decimal-field';
 import { getEquivalenceSurchargeRateBps } from '../invoicing.models';
 
@@ -107,6 +108,8 @@ export function InvoicePreview(props: {
   withholdingRateBps: number;
   equivalenceSurcharge?: boolean;
   notes: string;
+  /** Titled as a proforma, without a number and saying it has no tax value */
+  isProforma?: boolean;
   customer?: Party | null;
   profile?: FiscalProfile | null;
   branding?: InvoiceBranding | null;
@@ -156,12 +159,21 @@ export function InvoicePreview(props: {
             <span class="flex size-8 items-center justify-center rounded-full text-sm font-semibold text-white" style={{ background: accent() }}>
               {issuerName().trim().charAt(0).toUpperCase()}
             </span>
-            <span class="text-lg font-medium text-zinc-900">{t('invoicing.preview.invoice')}</span>
+            <div>
+              <div class="text-lg font-medium text-zinc-900">{props.isProforma ? t('invoicing.proformas.preview.title') : t('invoicing.preview.invoice')}</div>
+              <Show when={props.isProforma}>
+                <div class="text-[10px]">{t('invoicing.proformas.preview.legend')}</div>
+              </Show>
+            </div>
           </div>
-          <div class="grid grid-cols-2 gap-x-4 text-[10px]">
-            <span class="font-medium text-zinc-900">{t('invoicing.preview.number')}</span>
+          <div class={cn('grid gap-x-4 text-[10px]', props.isProforma ? 'grid-cols-1' : 'grid-cols-2')}>
+            <Show when={!props.isProforma}>
+              <span class="font-medium text-zinc-900">{t('invoicing.preview.number')}</span>
+            </Show>
             <span class="font-medium text-zinc-900">{t('invoicing.preview.issue-date')}</span>
-            <span>{props.number}</span>
+            <Show when={!props.isProforma}>
+              <span>{props.number}</span>
+            </Show>
             <span>{formatDate(props.issueDate, getLocale())}</span>
           </div>
         </div>

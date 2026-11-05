@@ -90,6 +90,16 @@ export async function fetchInvoices({ organizationId }: { organizationId: string
   return { invoices: invoices.map(coerceInvoice) };
 }
 
+// Proformas are not invoices: they are only listed when asked for
+export async function fetchProformas({ organizationId }: { organizationId: string }) {
+  const { invoices } = await apiClient<{ invoices: AsDto<Invoice>[] }>({ path: `${basePath(organizationId)}/invoices`, method: 'GET', query: { status: 'proforma' } });
+  return { proformas: invoices.map(coerceInvoice) };
+}
+
+export function getProformasQueryKey({ organizationId }: { organizationId: string }) {
+  return ['invoicing', organizationId, 'invoices', 'proformas'];
+}
+
 export async function fetchInvoice({ organizationId, invoiceId }: { organizationId: string; invoiceId: string }) {
   const { invoice } = await apiClient<{ invoice: AsDto<Invoice> }>({ path: `${basePath(organizationId)}/invoices/${invoiceId}`, method: 'GET' });
   return { invoice: coerceInvoice(invoice) };
@@ -110,6 +120,12 @@ export async function createInvoice({ organizationId, invoice }: { organizationI
 
 export async function updateInvoice({ organizationId, invoiceId, invoice }: { organizationId: string; invoiceId: string; invoice: InvoiceDraftInput }) {
   const result = await apiClient<{ invoice: AsDto<Invoice> }>({ path: `${basePath(organizationId)}/invoices/${invoiceId}`, method: 'PUT', body: invoice });
+  return { invoice: coerceInvoice(result.invoice) };
+}
+
+// The draft invoice made from a proforma, to review and issue
+export async function convertProforma({ organizationId, invoiceId }: { organizationId: string; invoiceId: string }) {
+  const result = await apiClient<{ invoice: AsDto<Invoice> }>({ path: `${basePath(organizationId)}/invoices/${invoiceId}/convert`, method: 'POST' });
   return { invoice: coerceInvoice(result.invoice) };
 }
 

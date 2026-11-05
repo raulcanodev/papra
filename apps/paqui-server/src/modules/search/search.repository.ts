@@ -74,7 +74,7 @@ async function searchInvoices({ db, organizationId, query, limit }: SearchArgs):
   return rows.map(({ invoice, customerName, customerTaxId }) => ({
     kind: 'invoice',
     id: invoice.id,
-    title: invoice.number ?? 'Draft invoice',
+    title: invoice.number ?? (invoice.status === 'proforma' ? 'Proforma' : 'Draft invoice'),
     subtitle: `${customerName} · ${invoice.status} · ${(invoice.totalMinor / 100).toFixed(2)} ${invoice.currency}`,
     matchedOn: findMatchedField({ query, fields: { number: invoice.number, customer: customerName, customerTaxId, notes: invoice.notes } }) ?? 'line item',
   }));

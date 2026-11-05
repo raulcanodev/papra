@@ -256,7 +256,11 @@ export const routes: RouteDefinition[] = [
                       },
                       {
                         path: [getOrganizationEntityRoutePath('newInvoice'), getOrganizationEntityRoutePath('editInvoice')],
-                        component: CreateInvoicePage,
+                        component: () => <CreateInvoicePage />,
+                      },
+                      {
+                        path: getOrganizationEntityRoutePath('newProforma'),
+                        component: () => <CreateInvoicePage isProforma />,
                       },
                       {
                         path: getOrganizationEntityRoutePath('importInvoice'),

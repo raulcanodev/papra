@@ -21,8 +21,8 @@ import { collectStreamToFile } from '../shared/streams/stream.convertion';
 import { legacyValidateJsonBody, legacyValidateParams, legacyValidateQuery } from '../shared/validation/validation.legacy';
 import { createInvoiceEmailRequiredError, createInvoiceNotFoundError, createInvoiceNotIssuableError } from './invoicing.errors';
 import { getInvoicePayableMinor } from './invoicing.models';
-import { renderInvoicePdf } from './invoicing.pdf';
-import { renderInvoicePreviewPdf } from './invoicing.preview';
+import { getProformaLabels, renderInvoicePdf } from './invoicing.pdf';
+import { renderInvoicePreviewPdf, renderProformaPdf } from './invoicing.preview';
 import { createInvoicingRepository } from './invoicing.repository';
 import { fiscalProfileSchema, importedInvoiceSchema, invoiceBrandingSchema, invoiceDraftSchema, invoiceListQuerySchema, invoiceSeriesSchema, productBodySchema, productListQuerySchema, taxRateSchema } from './invoicing.schemas';
 import { createVerifactuRepository } from './verifactu.repository';
@@ -151,7 +151,7 @@ function setupInvoiceRoutes(routeContext: RouteDefinitionContext) {
     const { pdf, number } = await renderInvoicePreviewPdf({ db, organizationId, draft: context.req.valid('json') });
     return context.body(new Uint8Array(pdf), 200, {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${safeFileName(`${number ?? 'invoice'}-preview.pdf`)}"`,
+      'Content-Disposition': `attachment; filename="${safeFileName(`${number ?? (context.req.valid('json').isProforma === true ? 'proforma' : 'invoice')}-preview.pdf`)}"`,
       'Cache-Control': 'private, no-store',
     });
   });
@@ -204,6 +204,14 @@ function setupInvoiceRoutes(routeContext: RouteDefinitionContext) {
     return context.body(null, 204);
   });
 
+  // The draft invoice of a proforma, returned to be reviewed and issued
+  app.post('/api/organizations/:organizationId/invoicing/invoices/:resourceId/convert', requireAuthentication({ apiKeyPermissions: ['invoices:create'] }), legacyValidateParams(resourceParams), async (context) => {
+    const { organizationId, resourceId: invoiceId } = context.req.valid('param');
+    const { userId } = getUser({ context });
+    await authorizeMember({ context, db, organizationId });
+    return context.json(await createInvoicingRepository({ db }).convertProforma({ organizationId, invoiceId, userId }), 201);
+  });
+
   app.post('/api/organizations/:organizationId/invoicing/invoices/:resourceId/issue', requireAuthentication({ apiKeyPermissions: ['invoices:update'] }), legacyValidateParams(resourceParams), async (context) => {
     const { organizationId, resourceId: invoiceId } = context.req.valid('param');
     const { userId } = getUser({ context });
@@ -247,12 +255,15 @@ function setupInvoiceRoutes(routeContext: RouteDefinitionContext) {
     }
     const { file } = await getInvoiceFile({ routeContext, organizationId, invoice: invoice! });
     const number = invoice!.number ?? invoice!.id;
-    const { sender } = await getInvoiceSender({ db, organizationId, fromEmail: routeContext.config.emails.fromEmail });
+    const { sender, locale } = await getInvoiceSender({ db, organizationId, fromEmail: routeContext.config.emails.fromEmail });
+    const isProforma = invoice!.status === 'proforma';
     await routeContext.emailsServices.sendEmail({
       ...sender,
       to: recipient,
-      subject: `Invoice ${number}`,
-      html: buildInvoiceEmail({ customerName: invoice!.customer?.name ?? '', number, amountDueMinor: getInvoicePayableMinor(invoice!), currency: invoice!.currency }),
+      subject: isProforma ? getProformaLabels({ locale }).title : `Invoice ${number}`,
+      html: isProforma
+        ? buildProformaEmail({ customerName: invoice!.customer?.name ?? '', amountDueMinor: getInvoicePayableMinor(invoice!), currency: invoice!.currency, locale })
+        : buildInvoiceEmail({ customerName: invoice!.customer?.name ?? '', number, amountDueMinor: getInvoicePayableMinor(invoice!), currency: invoice!.currency }),
       attachments: [{ filename: safeFileName(file.filename), content: file.content, contentType: file.contentType }],
     });
     return context.json(await repository.markInvoiceSent({ organizationId, invoiceId, userId, recipient }));
@@ -271,6 +282,10 @@ type StoredInvoice = NonNullable<Awaited<ReturnType<ReturnType<typeof createInvo
 // The file of an issued invoice: the PDF rendered from its data, or the original paper of an imported one
 async function getInvoiceFile({ routeContext, organizationId, invoice }: { routeContext: RouteDefinitionContext; organizationId: string; invoice: StoredInvoice }) {
   const number = invoice.number ?? invoice.id;
+
+  if (invoice.status === 'proforma') {
+    return { file: { content: await renderProformaPdf({ db: routeContext.db, organizationId, invoice }), contentType: 'application/pdf', filename: `proforma-${invoice.customer?.name ?? invoice.id}.pdf` } };
+  }
 
   if (invoice.importedAt !== null && invoice.documentId !== null) {
     const { document } = await createDocumentsRepository({ db: routeContext.db }).getDocumentById({ documentId: invoice.documentId, organizationId });
@@ -373,6 +388,7 @@ async function getInvoiceSender({ db, organizationId, fromEmail }: { db: Databas
       from: formatSenderAddress({ fromEmail, displayName: [profile?.legalName, organization?.name].find(name => (name ?? '').trim() !== '') }),
       replyTo: replyTo === undefined || replyTo === '' ? undefined : replyTo,
     },
+    locale: profile?.locale,
   };
 }
 
@@ -381,6 +397,15 @@ function buildInvoiceEmail({ customerName, number, amountDueMinor, currency }: {
   const safeNumber = escapeHtml(number);
   const total = new Intl.NumberFormat('en', { style: 'currency', currency }).format(amountDueMinor / 100);
   return `<p>Hello ${safeName},</p><p>Your invoice <strong>${safeNumber}</strong> for <strong>${escapeHtml(total)}</strong> is attached.</p><p>Thank you.</p>`;
+}
+
+function buildProformaEmail({ customerName, amountDueMinor, currency, locale }: { customerName: string; amountDueMinor: number; currency: string; locale: string | undefined }) {
+  const safeName = escapeHtml(customerName);
+  const isSpanish = (locale ?? '').toLowerCase().startsWith('es');
+  const total = escapeHtml(new Intl.NumberFormat(isSpanish ? 'es' : 'en', { style: 'currency', currency }).format(amountDueMinor / 100));
+  return isSpanish
+    ? `<p>Hola ${safeName},</p><p>Te adjuntamos la factura proforma por <strong>${total}</strong>. Es un documento sin validez fiscal, no una factura.</p><p>Gracias.</p>`
+    : `<p>Hello ${safeName},</p><p>Your proforma invoice for <strong>${total}</strong> is attached. It has no tax value, it is not an invoice.</p><p>Thank you.</p>`;
 }
 
 function escapeHtml(value: string) {

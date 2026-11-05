@@ -1,9 +1,12 @@
 import type { Database } from '../app/database/database.types';
 import type { InvoiceDraftInput } from './invoicing.models';
 import { createContactsRepository } from '../contacts/contacts.repository';
+import { createFiscalProfileRequiredError } from './invoicing.errors';
 import { calculateInvoiceTotals, formatInvoiceNumber } from './invoicing.models';
 import { renderInvoicePdf } from './invoicing.pdf';
 import { createInvoicingRepository } from './invoicing.repository';
+
+type StoredProforma = NonNullable<Awaited<ReturnType<ReturnType<typeof createInvoicingRepository>['getInvoice']>>['invoice']>;
 
 // Across a preview: what it says in the language of the invoice
 export function getPreviewWatermark({ locale }: { locale: string | null | undefined }) {
@@ -28,8 +31,8 @@ export async function renderInvoicePreviewPdf({ db, organizationId, draft }: { d
     invoicingRepository.listSeries({ organizationId }),
   ]);
 
-  // The series it would be issued in, without creating the default one as issuing does
-  const issuingSeries = series.find(({ id }) => id === draft.seriesId) ?? series.find(({ isDefault }) => isDefault) ?? series[0];
+  // The series it would be issued in, without creating the default one as issuing does; a proforma takes no number
+  const issuingSeries = draft.isProforma === true ? undefined : series.find(({ id }) => id === draft.seriesId) ?? series.find(({ isDefault }) => isDefault) ?? series[0];
   const equivalenceSurcharge = draft.equivalenceSurcharge ?? customer.equivalenceSurcharge ?? false;
   const totals = calculateInvoiceTotals({ items: draft.items, withholdingRateBps: draft.withholdingRateBps, equivalenceSurcharge });
 
@@ -43,7 +46,8 @@ export async function renderInvoicePreviewPdf({ db, organizationId, draft }: { d
     notes: draft.notes ?? profile?.defaultNotes ?? null,
     terms: draft.terms ?? profile?.defaultTerms ?? null,
     templateId: draft.templateId,
-    watermark: getPreviewWatermark({ locale: profile?.locale }),
+    watermark: draft.isProforma === true ? null : getPreviewWatermark({ locale: profile?.locale }),
+    isProforma: draft.isProforma === true,
     sellerSnapshot: profile ? JSON.stringify(profile) : null,
     customerSnapshot: JSON.stringify(customer),
     salesRepresentativeSnapshot: salesRepresentative ? JSON.stringify(salesRepresentative) : null,
@@ -52,4 +56,31 @@ export async function renderInvoicePreviewPdf({ db, organizationId, draft }: { d
   });
 
   return { pdf, number: issuingSeries ? formatInvoiceNumber(issuingSeries) : null };
+}
+
+/**
+ * The PDF of a saved proforma. Nothing is frozen on it, it can still change until it has its invoice: it is drawn with
+ * the seller and the customer as they are now, so it needs the fiscal profile to say who it comes from.
+ */
+export async function renderProformaPdf({ db, organizationId, invoice }: { db: Database; organizationId: string; invoice: StoredProforma }) {
+  const invoicingRepository = createInvoicingRepository({ db });
+  const [{ profile }, { branding }, salesRepresentative] = await Promise.all([
+    invoicingRepository.getFiscalProfile({ organizationId }),
+    invoicingRepository.getBranding({ organizationId }),
+    invoice.salesRepresentativeId === null ? null : createContactsRepository({ db }).getContact({ organizationId, contactId: invoice.salesRepresentativeId }),
+  ]);
+
+  if (!profile) {
+    throw createFiscalProfileRequiredError();
+  }
+
+  return renderInvoicePdf({
+    ...invoice,
+    number: null,
+    isProforma: true,
+    sellerSnapshot: JSON.stringify(profile),
+    customerSnapshot: JSON.stringify(invoice.customer),
+    salesRepresentativeSnapshot: salesRepresentative?.contact ? JSON.stringify(salesRepresentative.contact) : null,
+    brandingSnapshot: branding ? JSON.stringify(branding) : null,
+  });
 }

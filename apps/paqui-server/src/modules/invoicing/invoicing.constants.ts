@@ -7,7 +7,9 @@ export const TAX_RATE_ID_PREFIX = 'tax';
 export const VERIFACTU_RECORD_ID_PREFIX = 'vfr';
 export const VERIFACTU_ATTEMPT_ID_PREFIX = 'vfa';
 
-export const INVOICE_STATUSES = ['draft', 'issuing', 'issued', 'sent', 'paid', 'void'] as const;
+// A proforma stays 'proforma' for good: it never takes a number nor reaches VERI*FACTU, and whatever counts as billed
+// lists its statuses, so it is left out of taxes, sales and collections
+export const INVOICE_STATUSES = ['draft', 'issuing', 'issued', 'sent', 'paid', 'void', 'proforma'] as const;
 export type InvoiceStatus = typeof INVOICE_STATUSES[number];
 
 export const INVOICE_TEMPLATE_IDS = ['minimal', 'classic'] as const;

@@ -78,12 +78,13 @@ function SectionTitle(props: { children?: string }) {
   return <h2 class="mb-3 text-[15px] font-semibold">{props.children}</h2>;
 }
 
-export function CreateInvoicePage() {
+// Also the editor of proformas: the same lines and totals, without what only an invoice needs (series, due date,
+// delivery notes) and saved instead of issued
+export function CreateInvoicePage(props: { isProforma?: boolean }) {
   const { t } = useI18n();
   const params = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { returnHref } = useReturnHref(() => getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'invoices' }));
 
   const contactsQuery = useQuery(() => ({ queryKey: getContactsQueryKey({ organizationId: params.organizationId }), queryFn: () => fetchContacts({ organizationId: params.organizationId }) }));
   const profileQuery = useQuery(() => ({ queryKey: ['invoicing', params.organizationId, 'profile'], queryFn: () => fetchFiscalProfile({ organizationId: params.organizationId }) }));
@@ -96,6 +97,8 @@ export function CreateInvoicePage() {
     queryFn: () => fetchInvoice({ organizationId: params.organizationId, invoiceId: params.invoiceId }),
     enabled: Boolean(params.invoiceId),
   }));
+  const isProforma = () => props.isProforma === true || invoiceQuery.data?.invoice.status === 'proforma';
+  const { returnHref } = useReturnHref(() => `${getOrganizationRouteHref({ organizationId: params.organizationId, routeId: 'invoices' })}${isProforma() ? '?tab=proformas' : ''}`);
 
   const [customerId, setCustomerId] = createSignal('');
   const [seriesId, setSeriesId] = createSignal('');
@@ -212,6 +215,10 @@ export function CreateInvoicePage() {
     return series.find(item => item.id === seriesId()) ?? series.find(item => item.isDefault) ?? series[0];
   };
   const invoiceNumber = () => {
+    if (isProforma()) {
+      return null;
+    }
+
     const number = invoiceQuery.data?.invoice.number;
     if (number) {
       return number;
@@ -219,6 +226,14 @@ export function CreateInvoicePage() {
 
     const series = selectedSeries();
     return series ? `${series.prefix}${String(series.nextNumber).padStart(series.padding, '0')}` : null;
+  };
+
+  const editorTitle = () => {
+    if (isProforma()) {
+      return params.invoiceId ? t('invoicing.status.proforma') : t('invoicing.proformas.new');
+    }
+
+    return invoiceNumber() ?? t('invoicing.editor.new-title');
   };
 
   const selectCustomer = (customer: Contact) => {
@@ -270,10 +285,11 @@ export function CreateInvoicePage() {
 
   const buildDraft = (): InvoiceDraftInput => ({
     customerId: customerId(),
-    seriesId: seriesId() || null,
+    isProforma: isProforma(),
+    seriesId: isProforma() ? null : seriesId() || null,
     salesRepresentativeId: salesRepresentativeId() || null,
     issueDate: new Date(`${issueDate()}T00:00:00.000Z`),
-    dueDate: hasDueDate() ? new Date(`${dueDate()}T00:00:00.000Z`) : null,
+    dueDate: !isProforma() && hasDueDate() ? new Date(`${dueDate()}T00:00:00.000Z`) : null,
     paymentMethod: paymentMethod(),
     currency: currency(),
     templateId: templateId(),
@@ -281,11 +297,11 @@ export function CreateInvoicePage() {
     equivalenceSurcharge: equivalenceSurcharge(),
     notes: notes() || null,
     items: items(),
-    deliveryNoteIds: deliveryNotes().map(deliveryNote => deliveryNote.id),
+    deliveryNoteIds: isProforma() ? undefined : deliveryNotes().map(deliveryNote => deliveryNote.id),
   });
 
   const previewMutation = createMutation(() => ({
-    mutationFn: async () => downloadInvoicePreview({ organizationId: params.organizationId, invoice: buildDraft(), filename: `${invoiceNumber() ?? t('invoicing.editor.new-title')}-${t('invoicing.editor.preview.suffix')}` }),
+    mutationFn: async () => downloadInvoicePreview({ organizationId: params.organizationId, invoice: buildDraft(), filename: isProforma() ? t('invoicing.proformas.preview.filename') : `${invoiceNumber() ?? t('invoicing.editor.new-title')}-${t('invoicing.editor.preview.suffix')}` }),
     onError: () => createToast({ type: 'error', message: t('invoicing.editor.preview.error') }),
   }));
 
@@ -304,7 +320,7 @@ export function CreateInvoicePage() {
         setIssuedInvoice(invoice);
         return;
       }
-      createToast({ type: 'success', message: t('invoicing.editor.toast.draft-saved') });
+      createToast({ type: 'success', message: t(isProforma() ? 'invoicing.proformas.toast.saved' : 'invoicing.editor.toast.draft-saved') });
       leaveGuard.afterSave(() => navigate(returnHref()));
     },
     onError: () => createToast({ type: 'error', message: t('invoicing.editor.toast.error') }),
@@ -396,10 +412,18 @@ export function CreateInvoicePage() {
     });
   };
 
-  const canSubmit = () => Boolean((!params.invoiceId || !invoiceQuery.isLoading) && customerId() && (!hasDueDate() || dueDate()) && items().length && items().every(item => item.description.trim() && item.quantityMillis > 0));
+  const canSubmit = () => Boolean((!params.invoiceId || !invoiceQuery.isLoading) && customerId() && (isProforma() || !hasDueDate() || dueDate()) && items().length && items().every(item => item.description.trim() && item.quantityMillis > 0));
   const canIssue = () => canSubmit() && Boolean(profileQuery.data?.profile);
 
-  leaveGuard.setSave({ label: t('invoicing.editor.save-draft'), canSave: canSubmit, run: async () => mutation.mutateAsync({ issue: false }) });
+  const saveLabel = () => t(isProforma() ? 'invoicing.proformas.save' : 'invoicing.editor.save-draft');
+
+  leaveGuard.setSave({
+    get label() {
+      return saveLabel();
+    },
+    canSave: canSubmit,
+    run: async () => mutation.mutateAsync({ issue: false }),
+  });
 
   return (
     <div class="w-full px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:py-8">
@@ -409,16 +433,18 @@ export function CreateInvoicePage() {
         class="md:hidden"
         backHref={returnHref()}
         backLabel={t('invoicing.editor.back')}
-        title={invoiceNumber() ?? t('invoicing.editor.new-title')}
+        title={editorTitle()}
         secondaryActions={[{ label: t('invoicing.editor.preview'), icon: 'i-tabler-eye', disabled: !canSubmit(), isLoading: previewMutation.isPending, onSelect: () => previewMutation.mutate() }]}
         actions={(
           <>
             <Button type="button" size="sm" disabled={!canSubmit()} isLoading={mutation.isPending && !mutation.variables?.issue} onClick={() => mutation.mutate({ issue: false })}>
-              {t('invoicing.editor.save-draft')}
+              {saveLabel()}
             </Button>
-            <Button type="button" size="sm" disabled={!canIssue()} isLoading={mutation.isPending && mutation.variables?.issue} onClick={() => mutation.mutate({ issue: true })}>
-              {t('invoicing.editor.issue')}
-            </Button>
+            <Show when={!isProforma()}>
+              <Button type="button" size="sm" disabled={!canIssue()} isLoading={mutation.isPending && mutation.variables?.issue} onClick={() => mutation.mutate({ issue: true })}>
+                {t('invoicing.editor.issue')}
+              </Button>
+            </Show>
           </>
         )}
       />
@@ -430,8 +456,10 @@ export function CreateInvoicePage() {
               <Button as={A} href={returnHref()} variant="ghost" size="icon-sm" class="-ml-2 text-muted-foreground" aria-label={t('invoicing.editor.back')}>
                 <div class="i-tabler-arrow-left size-4" />
               </Button>
-              <h1 class="truncate text-[28px] font-semibold tracking-tight">{invoiceNumber() ?? t('invoicing.editor.new-title')}</h1>
-              <Badge variant="secondary">{t('invoicing.status.draft')}</Badge>
+              <h1 class="truncate text-[28px] font-semibold tracking-tight">{editorTitle()}</h1>
+              <Show when={!isProforma()}>
+                <Badge variant="secondary">{t('invoicing.status.draft')}</Badge>
+              </Show>
             </div>
             <SimpleSelect
               aria-label={t('invoicing.common.currency')}
@@ -493,7 +521,7 @@ export function CreateInvoicePage() {
                 {t('invoicing.editor.item.add')}
               </Button>
             </div>
-            <Show when={customerId()}>
+            <Show when={customerId() && !isProforma()}>
               <InvoiceDeliveryNotesField
                 organizationId={params.organizationId}
                 customerId={customerId()}
@@ -655,28 +683,30 @@ export function CreateInvoicePage() {
             <SectionTitle>{t('invoicing.editor.details')}</SectionTitle>
             <div class="grid gap-4 sm:grid-cols-2">
               <FormField label={t('invoicing.editor.issue-date')}><TextField class="h-10" type="date" value={issueDate()} onInput={event => setIssueDate(event.currentTarget.value)} /></FormField>
-              <div class="text-sm">
-                <div class="mb-1.5 flex items-center gap-1.5">
-                  <Switch class="flex items-center gap-2" checked={hasDueDate()} onChange={setHasDueDate}>
-                    <SwitchControl><SwitchThumb /></SwitchControl>
-                    <SwitchLabel class="font-medium">{t('invoicing.editor.due-date')}</SwitchLabel>
-                  </Switch>
-                  <Tooltip>
-                    <TooltipTrigger
-                      as="button"
-                      type="button"
-                      aria-label={t('invoicing.editor.due-date.hint')}
-                      class="flex shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <div class="i-tabler-info-circle size-4" />
-                    </TooltipTrigger>
-                    <TooltipContent class="max-w-64">{t('invoicing.editor.due-date.hint')}</TooltipContent>
-                  </Tooltip>
+              <Show when={!isProforma()}>
+                <div class="text-sm">
+                  <div class="mb-1.5 flex items-center gap-1.5">
+                    <Switch class="flex items-center gap-2" checked={hasDueDate()} onChange={setHasDueDate}>
+                      <SwitchControl><SwitchThumb /></SwitchControl>
+                      <SwitchLabel class="font-medium">{t('invoicing.editor.due-date')}</SwitchLabel>
+                    </Switch>
+                    <Tooltip>
+                      <TooltipTrigger
+                        as="button"
+                        type="button"
+                        aria-label={t('invoicing.editor.due-date.hint')}
+                        class="flex shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <div class="i-tabler-info-circle size-4" />
+                      </TooltipTrigger>
+                      <TooltipContent class="max-w-64">{t('invoicing.editor.due-date.hint')}</TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Show when={hasDueDate()}>
+                    <TextField class="h-10" type="date" aria-label={t('invoicing.editor.due-date')} value={dueDate()} onInput={event => setDueDate(event.currentTarget.value)} />
+                  </Show>
                 </div>
-                <Show when={hasDueDate()}>
-                  <TextField class="h-10" type="date" aria-label={t('invoicing.editor.due-date')} value={dueDate()} onInput={event => setDueDate(event.currentTarget.value)} />
-                </Show>
-              </div>
+              </Show>
             </div>
 
             {/* The rest of the details keep sensible defaults, so they stay folded until needed */}
@@ -690,7 +720,7 @@ export function CreateInvoicePage() {
                 <div class="min-w-0 flex-1">
                   <div class="text-sm font-medium">{t('invoicing.editor.more-details')}</div>
                   <Show when={!isMoreDetailsOpen()}>
-                    <div class="truncate text-xs text-muted-foreground">{t('invoicing.editor.more-details.description')}</div>
+                    <div class="truncate text-xs text-muted-foreground">{t(isProforma() ? 'invoicing.proformas.more-details.description' : 'invoicing.editor.more-details.description')}</div>
                   </Show>
                 </div>
                 <div class={cn('i-tabler-chevron-down size-4 shrink-0 text-muted-foreground transition-transform', isMoreDetailsOpen() && 'rotate-180')} />
@@ -705,17 +735,19 @@ export function CreateInvoicePage() {
                       options={[{ value: '', label: t('due-dates.schedule.method.none') }, ...PAYMENT_METHODS.map(method => ({ value: method, label: t(PAYMENT_METHOD_LABEL_I18N_KEYS[method]) }))]}
                     />
                   </FormField>
-                  <FormField label={t('invoicing.editor.series')}>
-                    <SimpleSelect
-                      triggerClass="h-10"
-                      value={seriesId()}
-                      onChange={setSeriesId}
-                      options={[
-                        { value: '', label: t('invoicing.editor.series.default') },
-                        ...(seriesQuery.data?.series ?? []).map(series => ({ value: series.id, label: `${series.name} · ${series.prefix}` })),
-                      ]}
-                    />
-                  </FormField>
+                  <Show when={!isProforma()}>
+                    <FormField label={t('invoicing.editor.series')}>
+                      <SimpleSelect
+                        triggerClass="h-10"
+                        value={seriesId()}
+                        onChange={setSeriesId}
+                        options={[
+                          { value: '', label: t('invoicing.editor.series.default') },
+                          ...(seriesQuery.data?.series ?? []).map(series => ({ value: series.id, label: `${series.name} · ${series.prefix}` })),
+                        ]}
+                      />
+                    </FormField>
+                  </Show>
                   <FormField label={t('invoicing.editor.sales-representative')}>
                     <SimpleSelect
                       triggerClass="h-10"
@@ -770,23 +802,26 @@ export function CreateInvoicePage() {
               {t('invoicing.editor.preview')}
             </Button>
             <Button type="button" size="sm" disabled={!canSubmit()} isLoading={mutation.isPending && !mutation.variables?.issue} onClick={() => mutation.mutate({ issue: false })}>
-              {t('invoicing.editor.save-draft')}
+              {saveLabel()}
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              disabled={!canIssue()}
-              title={canIssue() ? undefined : t('invoicing.editor.issue-requirements')}
-              isLoading={mutation.isPending && mutation.variables?.issue}
-              onClick={() => mutation.mutate({ issue: true })}
-            >
-              {t('invoicing.editor.issue')}
-            </Button>
+            <Show when={!isProforma()}>
+              <Button
+                type="button"
+                size="sm"
+                disabled={!canIssue()}
+                title={canIssue() ? undefined : t('invoicing.editor.issue-requirements')}
+                isLoading={mutation.isPending && mutation.variables?.issue}
+                onClick={() => mutation.mutate({ issue: true })}
+              >
+                {t('invoicing.editor.issue')}
+              </Button>
+            </Show>
           </div>
           <InvoicePreview
             number={invoiceNumber() ?? t('invoicing.status.draft')}
             issueDate={issueDate()}
-            dueDate={hasDueDate() ? dueDate() : null}
+            dueDate={!isProforma() && hasDueDate() ? dueDate() : null}
+            isProforma={isProforma()}
             currency={currency()}
             items={items()}
             withholdingRateBps={effectiveWithholdingRateBps()}

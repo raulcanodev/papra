@@ -30,6 +30,18 @@ export const createInvoiceDeliveryNotesUnavailableError = createErrorFactory({
   statusCode: 409,
 });
 
+export const createInvoiceNotProformaError = createErrorFactory({
+  code: 'invoicing.invoice_not_proforma',
+  message: 'Only a proforma can be converted to an invoice',
+  statusCode: 409,
+});
+
+export const createProformaAlreadyConvertedError = createErrorFactory({
+  code: 'invoicing.proforma_already_converted',
+  message: 'This proforma already has its invoice',
+  statusCode: 409,
+});
+
 export const createInvoiceNotIssuableError = createErrorFactory({
   code: 'invoicing.invoice_not_issuable',
   message: 'This invoice cannot be issued',

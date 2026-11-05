@@ -3,7 +3,7 @@ import type { PaymentMethod } from '../due-dates/due-dates.types';
 import type { IncomeTaxMethod, LegalForm, VatRegime } from '../taxes/taxes.types';
 import type { EntityIconColor } from '../ui/components/entity-icon.constants';
 
-export type InvoiceStatus = 'draft' | 'issuing' | 'issued' | 'sent' | 'paid' | 'void';
+export type InvoiceStatus = 'draft' | 'issuing' | 'issued' | 'sent' | 'paid' | 'void' | 'proforma';
 export type InvoiceTemplateId = 'minimal' | 'classic';
 export type VerifactuMode = 'disabled' | 'test' | 'production' | 'not_applicable';
 
@@ -107,6 +107,8 @@ export type InvoiceDraftInput = {
   items: InvoiceItemInput[];
   /** How the customer pays; the due dates are collected in the due dates page */
   paymentMethod?: PaymentMethod | null;
+  /** A new proforma instead of a draft invoice; an existing one stays what it is */
+  isProforma?: boolean;
   /** The delivery notes of the customer the invoice covers; absent leaves them as they are */
   deliveryNoteIds?: string[];
 };
@@ -148,6 +150,8 @@ export type Invoice = {
   paidAt: Date | null;
   paymentMethod?: PaymentMethod | null;
   voidedAt: Date | null;
+  /** On a proforma, the invoice made from it */
+  convertedInvoiceId: string | null;
   /** Issued before (or outside) the app and registered from its paper: its document is the original */
   importedAt?: Date | null;
   createdAt: Date;

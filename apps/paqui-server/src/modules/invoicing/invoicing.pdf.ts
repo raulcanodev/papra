@@ -38,6 +38,8 @@ export type PdfInvoice = {
   verifactuQrUrl?: string | null;
   /** Printed big across every page of a preview, so it is never taken for the real invoice */
   watermark?: string | null;
+  /** Titled as a proforma, without a number and saying it has no tax value */
+  isProforma?: boolean;
   sellerSnapshot: string | null;
   customerSnapshot: string | null;
   salesRepresentativeSnapshot?: string | null;
@@ -54,6 +56,13 @@ export type PdfInvoice = {
 
 const PAGE = { width: 595.28, height: 841.89, margin: 48 };
 
+// What marks a proforma, in the language of the issuer
+export function getProformaLabels({ locale }: { locale: string | null | undefined }) {
+  return (locale ?? '').toLowerCase().startsWith('es')
+    ? { title: 'FACTURA PROFORMA', legend: 'Documento sin validez fiscal. No es una factura.' }
+    : { title: 'PROFORMA INVOICE', legend: 'This document has no tax value. It is not an invoice.' };
+}
+
 export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
   const seller = parseSnapshot(invoice.sellerSnapshot);
   const customer = parseSnapshot(invoice.customerSnapshot);
@@ -69,7 +78,7 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
     margin: PAGE.margin,
     bufferPages: true,
     info: {
-      Title: `Invoice ${invoice.number ?? ''}`,
+      Title: invoice.isProforma === true ? getProformaLabels({ locale }).title : `Invoice ${invoice.number ?? ''}`,
       Author: seller.legalName ?? seller.name ?? 'Paqui',
       Creator: 'Paqui',
       Producer: 'Paqui',
@@ -129,10 +138,16 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
 }
 
 function drawHeader({ doc, invoice, seller, customer, accent, muted, line, verifactuQr }: { doc: PDFKit.PDFDocument; invoice: PdfInvoice; seller: PartySnapshot; customer: PartySnapshot; accent: string; muted: string; line: string; verifactuQr: Buffer | null }) {
-  doc.font('Helvetica-Bold').fontSize(25).fillColor(accent).text('INVOICE', PAGE.margin, PAGE.margin);
+  const proformaLabels = invoice.isProforma === true ? getProformaLabels({ locale: seller.locale }) : null;
+  doc.font('Helvetica-Bold').fontSize(25).fillColor(accent).text(proformaLabels?.title ?? 'INVOICE', PAGE.margin, PAGE.margin);
+  if (proformaLabels !== null) {
+    doc.font('Helvetica').fontSize(9).fillColor(muted).text(proformaLabels.legend, PAGE.margin, PAGE.margin + 32);
+  }
   const detailsX = verifactuQr === null ? 350 : 245;
   const detailsWidth = verifactuQr === null ? 197 : 170;
-  doc.font('Helvetica-Bold').fontSize(11).fillColor(accent).text(invoice.number ?? 'DRAFT', detailsX, PAGE.margin + 3, { width: detailsWidth, align: 'right' });
+  if (proformaLabels === null) {
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(accent).text(invoice.number ?? 'DRAFT', detailsX, PAGE.margin + 3, { width: detailsWidth, align: 'right' });
+  }
   doc.font('Helvetica').fontSize(9).fillColor(muted).text(`Issued ${formatDate(invoice.issueDate, seller.locale)}`, detailsX, PAGE.margin + 23, { width: detailsWidth, align: 'right' });
   if (invoice.dueDate !== null) {
     doc.text(`Due ${formatDate(invoice.dueDate, seller.locale)}`, detailsX, PAGE.margin + 38, { width: detailsWidth, align: 'right' });

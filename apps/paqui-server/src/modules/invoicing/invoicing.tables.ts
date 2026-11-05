@@ -1,3 +1,4 @@
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { boolean, index, integer, pgTable, text, timestamp, unique } from 'drizzle-orm/pg-core';
 import { contactsTable } from '../contacts/contacts.table';
 import { documentsTable } from '../documents/documents.table';
@@ -133,6 +134,8 @@ export const invoicesTable = pgTable('invoices', {
   importedAt: timestamp('imported_at', { mode: 'date', withTimezone: true, precision: 3 }),
   // How the customer pays; the due dates themselves are in payment_instalments
   paymentMethod: text('payment_method', { enum: PAYMENT_METHODS }),
+  // On a proforma, the invoice made from it; deleting that draft lets it be converted again
+  convertedInvoiceId: text('converted_invoice_id').references((): AnyPgColumn => invoicesTable.id, { onDelete: 'set null', onUpdate: 'cascade' }),
 }, table => [
   index('invoices_organization_id_index').on(table.organizationId),
   index('invoices_customer_id_index').on(table.customerId),

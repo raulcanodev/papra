@@ -220,6 +220,7 @@ const settingsNavigation: readonly NavigationSectionDefinition[] = [
 export const organizationEntityRoutes = {
   document: { path: 'documents/:documentId', label: 'Document viewer' },
   newInvoice: { path: 'sales/new', label: 'New issued invoice' },
+  newProforma: { path: 'sales/proformas/new', label: 'New proforma invoice: like an invoice without a number or tax value, converted to an invoice afterwards' },
   editInvoice: { path: 'sales/:invoiceId/edit', label: 'Issued invoice editor' },
   importInvoice: { path: 'sales/import', label: 'Register an invoice the organization issued before or outside the app, from its uploaded paper' },
   newPurchaseInvoice: { path: 'purchases/new', label: 'New purchase (received invoice, ticket or delivery note)' },

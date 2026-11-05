@@ -84,7 +84,7 @@ export const MobileQuickActions: Component<{ open: boolean; onOpenChange: (open:
     void promptImport();
   };
 
-  const getEntityHref = (routeId: 'newDeliveryNote' | 'newInvoice') => `/organizations/${params.organizationId}/${organizationEntityRoutes[routeId].path}`;
+  const getEntityHref = (routeId: 'newDeliveryNote' | 'newInvoice' | 'newProforma') => `/organizations/${params.organizationId}/${organizationEntityRoutes[routeId].path}`;
 
   const getPurchaseOptions = (): { icon: string; label: string; description: string; isHighlighted?: boolean; onSelect?: () => void; href?: string }[] => [
     { icon: 'i-tabler-upload', label: t('purchases.add.upload.title'), description: t('purchases.add.upload.description'), isHighlighted: true, onSelect: purchaseUpload.openFilePicker },
@@ -98,6 +98,7 @@ export const MobileQuickActions: Component<{ open: boolean; onOpenChange: (open:
           // Filled on the spot when the goods leave: customer, products and quantities, then printed to sign
           { icon: 'i-tabler-truck-delivery', label: t('layout.mobile.quick-actions.new-delivery-note'), description: t('layout.mobile.quick-actions.new-delivery-note.description'), href: getEntityHref('newDeliveryNote') },
           { icon: 'i-tabler-receipt', label: t('layout.mobile.quick-actions.new-invoice'), description: t('layout.mobile.quick-actions.new-invoice.description'), href: getEntityHref('newInvoice') },
+          { icon: 'i-tabler-file-description', label: t('layout.mobile.quick-actions.new-proforma'), description: t('layout.mobile.quick-actions.new-proforma.description'), href: getEntityHref('newProforma') },
           { icon: 'i-tabler-truck', label: t('layout.mobile.quick-actions.new-purchase'), description: t('layout.mobile.quick-actions.new-purchase.description'), onSelect: () => setStep('purchase') },
         ]
       : []),

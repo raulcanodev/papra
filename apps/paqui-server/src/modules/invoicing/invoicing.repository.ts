@@ -1,7 +1,7 @@
 /* eslint-disable style/max-statements-per-line */
 import type { Database } from '../app/database/database.types';
 import type { FiscalProfileInput, ImportedInvoiceInput, InvoiceBrandingInput, InvoiceDraftInput, InvoiceSeriesInput, ProductInput, TaxRateInput } from './invoicing.models';
-import { and, asc, desc, eq, inArray, isNotNull, isNull, notInArray, or } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, notInArray, or } from 'drizzle-orm';
 import { createContactNotFoundError } from '../contacts/contacts.errors';
 import { createContactsRepository } from '../contacts/contacts.repository';
 import { contactsTable } from '../contacts/contacts.table';
@@ -10,9 +10,11 @@ import { createDocumentNotFoundError } from '../documents/documents.errors';
 import { documentsTable } from '../documents/documents.table';
 import { createDueDatesRepository } from '../due-dates/due-dates.repository';
 import { purchaseInvoicesTable } from '../purchases/purchases.tables';
-import { createFiscalProfileRequiredError, createInvoiceDeliveryNotesUnavailableError, createInvoiceDocumentAlreadyRegisteredError, createInvoiceNotEditableError, createInvoiceNotFoundError, createInvoiceNotImportedError, createInvoiceNotIssuableError, createInvoiceNumberTakenError } from './invoicing.errors';
+import { createFiscalProfileRequiredError, createInvoiceDeliveryNotesUnavailableError, createInvoiceDocumentAlreadyRegisteredError, createInvoiceNotEditableError, createInvoiceNotFoundError, createInvoiceNotImportedError, createInvoiceNotIssuableError, createInvoiceNotProformaError, createInvoiceNumberTakenError, createProformaAlreadyConvertedError } from './invoicing.errors';
 import { calculateInvoiceTotals, formatInvoiceNumber } from './invoicing.models';
 import { invoiceEventsTable, invoiceItemsTable, invoiceSeriesTable, invoicesTable, invoicingBrandingTable, invoicingProductsTable, invoicingProfilesTable, invoicingTaxRatesTable } from './invoicing.tables';
+
+const DAY_MS = 24 * 60 * 60 * 1_000;
 
 export function createInvoicingRepository({ db }: { db: Database }) {
   return {
@@ -41,6 +43,7 @@ export function createInvoicingRepository({ db }: { db: Database }) {
     finalizeInvoice: async (args: { organizationId: string; invoiceId: string; documentId: string; userId: string }) => finalizeInvoice({ db, ...args }),
     markInvoiceSent: async (args: { organizationId: string; invoiceId: string; userId: string; recipient: string }) => markInvoiceSent({ db, ...args }),
     markInvoicePaid: async (args: { organizationId: string; invoiceId: string; userId: string }) => markInvoicePaid({ db, ...args }),
+    convertProforma: async (args: { organizationId: string; invoiceId: string; userId: string; now?: Date }) => convertProforma({ db, ...args }),
     deleteDraft: async (args: { organizationId: string; invoiceId: string }) => deleteDraft({ db, ...args }),
     deleteImportedInvoice: async (args: { organizationId: string; invoiceId: string }) => deleteImportedInvoice({ db, ...args }),
   };
@@ -188,7 +191,8 @@ async function listInvoices({ db, organizationId, status }: { db: Database; orga
   const invoices = await db.select({ invoice: invoicesTable, customerName: contactsTable.name, customerEmail: contactsTable.email, customerIcon: contactsTable.icon, customerIconColor: contactsTable.iconColor })
     .from(invoicesTable)
     .innerJoin(contactsTable, eq(invoicesTable.customerId, contactsTable.id))
-    .where(and(eq(invoicesTable.organizationId, organizationId), status !== undefined && status !== '' ? eq(invoicesTable.status, status) : undefined))
+    // Proformas are not invoices: they are only listed when asked for
+    .where(and(eq(invoicesTable.organizationId, organizationId), status !== undefined && status !== '' ? eq(invoicesTable.status, status) : ne(invoicesTable.status, 'proforma')))
     .orderBy(desc(invoicesTable.issueDate), desc(invoicesTable.createdAt));
   return { invoices: invoices.map(({ invoice, ...customer }) => ({ ...invoice, ...customer })) };
 }
@@ -241,7 +245,14 @@ function getDraftInstalments({ draft, payableMinor }: { draft: InvoiceDraftInput
   return draft.dueDate === null ? [] : [{ dueDate: draft.dueDate, amountMinor: payableMinor }];
 }
 
-async function createInvoice({ db, organizationId, draft, userId }: { db: Database; organizationId: string; draft: InvoiceDraftInput; userId: string }) {
+// What a proforma leaves out of an invoice: no series, nothing to collect and no delivery notes taken from the pending ones
+function getProformaDraft(draft: InvoiceDraftInput): InvoiceDraftInput {
+  return { ...draft, seriesId: null, dueDate: null, instalments: undefined, deliveryNoteIds: undefined };
+}
+
+async function createInvoice({ db, organizationId, draft: rawDraft, userId }: { db: Database; organizationId: string; draft: InvoiceDraftInput; userId: string }) {
+  const isProforma = rawDraft.isProforma === true;
+  const draft = isProforma ? getProformaDraft(rawDraft) : rawDraft;
   const { customer } = await ensureInvoiceContacts({ db, organizationId, draft });
   const { profile } = await getFiscalProfile({ db, organizationId });
   const effectiveDraft = {
@@ -251,11 +262,13 @@ async function createInvoice({ db, organizationId, draft, userId }: { db: Databa
     terms: draft.terms ?? profile?.defaultTerms ?? null,
   };
   const totals = calculateInvoiceTotals(effectiveDraft);
-  const { items: invoiceItems, instalments: _instalments, deliveryNoteIds, ...invoiceDraft } = effectiveDraft;
+  const { items: invoiceItems, instalments: _instalments, deliveryNoteIds, isProforma: _isProforma, ...invoiceDraft } = effectiveDraft;
   const invoiceId = await db.transaction(async (tx) => {
-    const [invoice] = await tx.insert(invoicesTable).values({ organizationId, ...invoiceDraft, ...totals, paymentMethod: draft.paymentMethod ?? null, seriesId: draft.seriesId ?? null, salesRepresentativeId: draft.salesRepresentativeId ?? null }).returning();
+    const [invoice] = await tx.insert(invoicesTable).values({ organizationId, ...invoiceDraft, ...totals, status: isProforma ? 'proforma' : 'draft', paymentMethod: draft.paymentMethod ?? null, seriesId: draft.seriesId ?? null, salesRepresentativeId: draft.salesRepresentativeId ?? null }).returning();
     await tx.insert(invoiceItemsTable).values(invoiceItems.map((item, position) => ({ invoiceId: invoice!.id, ...item, position })));
-    await saveInvoiceInstalments({ db: tx as unknown as Database, organizationId, invoiceId: invoice!.id, draft, payableMinor: totals.totalMinor - totals.withholdingMinor });
+    if (!isProforma) {
+      await saveInvoiceInstalments({ db: tx as unknown as Database, organizationId, invoiceId: invoice!.id, draft, payableMinor: totals.totalMinor - totals.withholdingMinor });
+    }
     if (deliveryNoteIds !== undefined) {
       await setInvoiceDeliveryNotes({ db: tx as unknown as Database, organizationId, invoiceId: invoice!.id, customerId: draft.customerId, deliveryNoteIds });
     }
@@ -314,20 +327,25 @@ async function importIssuedInvoice({ db, organizationId, input, userId }: { db: 
   return getInvoice({ db, organizationId, invoiceId });
 }
 
-async function updateInvoice({ db, organizationId, invoiceId, draft, userId }: { db: Database; organizationId: string; invoiceId: string; draft: InvoiceDraftInput; userId: string }) {
+async function updateInvoice({ db, organizationId, invoiceId, draft: rawDraft, userId }: { db: Database; organizationId: string; invoiceId: string; draft: InvoiceDraftInput; userId: string }) {
   const { invoice: existing } = await getInvoice({ db, organizationId, invoiceId });
   if (!existing) {
     throw createInvoiceNotFoundError();
   }
-  if (existing.status !== 'draft') {
+  const isProforma = existing.status === 'proforma';
+  // A proforma stays editable even once sent, until it has its invoice
+  if (existing.status !== 'draft' && !(isProforma && existing.convertedInvoiceId === null)) {
     throw createInvoiceNotEditableError();
   }
+  const draft = isProforma ? getProformaDraft(rawDraft) : rawDraft;
   await ensureInvoiceContacts({ db, organizationId, draft });
   const effectiveDraft = { ...draft, equivalenceSurcharge: draft.equivalenceSurcharge ?? existing.equivalenceSurcharge };
   const totals = calculateInvoiceTotals(effectiveDraft);
-  const { items: invoiceItems, instalments: _instalments, deliveryNoteIds, ...invoiceDraft } = effectiveDraft;
+  const { items: invoiceItems, instalments: _instalments, deliveryNoteIds, isProforma: _isProforma, ...invoiceDraft } = effectiveDraft;
   await db.transaction(async (tx) => {
-    await saveInvoiceInstalments({ db: tx as unknown as Database, organizationId, invoiceId, draft, payableMinor: totals.totalMinor - totals.withholdingMinor });
+    if (!isProforma) {
+      await saveInvoiceInstalments({ db: tx as unknown as Database, organizationId, invoiceId, draft, payableMinor: totals.totalMinor - totals.withholdingMinor });
+    }
     await tx.update(invoicesTable).set({ ...invoiceDraft, ...totals, paymentMethod: draft.paymentMethod ?? null, seriesId: draft.seriesId ?? null, salesRepresentativeId: draft.salesRepresentativeId ?? null, updatedAt: new Date() }).where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.organizationId, organizationId)));
     await tx.delete(invoiceItemsTable).where(eq(invoiceItemsTable.invoiceId, invoiceId));
     await tx.insert(invoiceItemsTable).values(invoiceItems.map((item, position) => ({ invoiceId, ...item, position })));
@@ -451,10 +469,11 @@ async function markInvoiceSent({ db, organizationId, invoiceId, userId, recipien
   if (!existing) {
     throw createInvoiceNotFoundError();
   }
-  if (!['issued', 'sent', 'paid'].includes(existing.status)) {
+  if (!['issued', 'sent', 'paid', 'proforma'].includes(existing.status)) {
     throw createInvoiceNotIssuableError();
   }
-  const [invoice] = await db.update(invoicesTable).set({ status: existing.status === 'paid' ? 'paid' : 'sent', sentAt: now, updatedAt: now }).where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.organizationId, organizationId))).returning();
+  // A paid invoice and a proforma stay what they are, only the date of the sending changes
+  const [invoice] = await db.update(invoicesTable).set({ status: existing.status === 'paid' || existing.status === 'proforma' ? existing.status : 'sent', sentAt: now, updatedAt: now }).where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.organizationId, organizationId))).returning();
   if (!invoice) {
     throw createInvoiceNotFoundError();
   }
@@ -480,9 +499,59 @@ async function markInvoicePaid({ db, organizationId, invoiceId, userId }: { db: 
   return getInvoice({ db, organizationId, invoiceId });
 }
 
+// A proforma becomes a new draft invoice with its lines, reviewed before it is issued. The proforma stays as the customer
+// saw it, linked to that draft: deleting the draft lets it be converted again
+async function convertProforma({ db, organizationId, invoiceId, userId, now = new Date() }: { db: Database; organizationId: string; invoiceId: string; userId: string; now?: Date }) {
+  const { invoice: proforma } = await getInvoice({ db, organizationId, invoiceId });
+  if (!proforma) {
+    throw createInvoiceNotFoundError();
+  }
+  if (proforma.status !== 'proforma') {
+    throw createInvoiceNotProformaError();
+  }
+  if (proforma.convertedInvoiceId !== null) {
+    throw createProformaAlreadyConvertedError();
+  }
+
+  const issueDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  // Only a customer with its own payment terms gets a due date, as in the invoice editor
+  const termsDays = proforma.customer?.paymentTermsDays ?? null;
+
+  const convertedInvoiceId = await db.transaction(async (tx) => {
+    const { invoice } = await createInvoice({
+      db: tx as unknown as Database,
+      organizationId,
+      userId,
+      draft: {
+        customerId: proforma.customerId,
+        salesRepresentativeId: proforma.salesRepresentativeId,
+        issueDate,
+        dueDate: termsDays === null ? null : new Date(issueDate.getTime() + termsDays * DAY_MS),
+        currency: proforma.currency,
+        notes: proforma.notes,
+        terms: proforma.terms,
+        templateId: proforma.templateId === 'classic' ? 'classic' : 'minimal',
+        withholdingRateBps: proforma.withholdingRateBps,
+        equivalenceSurcharge: proforma.equivalenceSurcharge,
+        paymentMethod: proforma.paymentMethod,
+        items: proforma.items.map(({ productId, description, quantityMillis, unitPriceMinor, taxRateBps, discountRateBps, discountMinor }) => ({ productId, description, quantityMillis, unitPriceMinor, taxRateBps, discountRateBps, discountMinor })),
+      },
+    });
+    // Two conversions at once: only one links, the other rolls its invoice back
+    const [linked] = await tx.update(invoicesTable).set({ convertedInvoiceId: invoice!.id, updatedAt: now }).where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.organizationId, organizationId), eq(invoicesTable.status, 'proforma'), isNull(invoicesTable.convertedInvoiceId))).returning({ id: invoicesTable.id });
+    if (!linked) {
+      throw createProformaAlreadyConvertedError();
+    }
+    await tx.insert(invoiceEventsTable).values({ invoiceId, organizationId, userId, type: 'converted', metadata: JSON.stringify({ invoiceId: invoice!.id }), createdAt: now });
+    return invoice!.id;
+  });
+
+  return getInvoice({ db, organizationId, invoiceId: convertedInvoiceId });
+}
+
 async function deleteDraft({ db, organizationId, invoiceId }: { db: Database; organizationId: string; invoiceId: string }) {
   const [deleted] = await db.delete(invoicesTable)
-    .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.organizationId, organizationId), eq(invoicesTable.status, 'draft')))
+    .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.organizationId, organizationId), inArray(invoicesTable.status, ['draft', 'proforma'])))
     .returning();
   if (!deleted) {
     throw createInvoiceNotEditableError();

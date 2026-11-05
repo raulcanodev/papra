@@ -14,7 +14,7 @@ import { gestoriaClientsTable, gestoriaInvitationsTable, gestoriaMembersTable, g
 export type GestoriasRepository = ReturnType<typeof createGestoriasRepository>;
 
 // Invoices a gestoría never sees: drafts are not on the books yet, and an invoice being issued is not final
-export const GESTORIA_HIDDEN_INVOICE_STATUSES = ['draft', 'issuing'];
+export const GESTORIA_HIDDEN_INVOICE_STATUSES = ['draft', 'issuing', 'proforma'];
 
 export function createGestoriasRepository({ db }: { db: Database }) {
   return injectArguments(

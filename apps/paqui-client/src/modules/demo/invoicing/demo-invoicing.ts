@@ -380,6 +380,7 @@ async function buildInvoiceFromDraft({ organizationId, draft, existing }: { orga
     discountMinor: item.discountMinor ?? 0,
   }));
   const id = existing?.id ?? createId({ prefix: 'inv' });
+  const isProforma = existing === undefined ? draft.isProforma === true : existing.status === 'proforma';
 
   return {
     id,
@@ -388,13 +389,13 @@ async function buildInvoiceFromDraft({ organizationId, draft, existing }: { orga
     customerName: customer.name,
     customerEmail: customer.email,
     customer,
-    seriesId: draft.seriesId ?? null,
+    seriesId: isProforma ? null : draft.seriesId ?? null,
     salesRepresentativeId: draft.salesRepresentativeId ?? null,
     documentId: null,
-    status: 'draft',
+    status: isProforma ? 'proforma' : 'draft',
     number: null,
     issueDate: new Date(draft.issueDate).toISOString(),
-    dueDate: draft.dueDate ? new Date(draft.dueDate).toISOString() : null,
+    dueDate: !isProforma && draft.dueDate ? new Date(draft.dueDate).toISOString() : null,
     paymentMethod: draft.paymentMethod ?? null,
     currency: draft.currency,
     ...calculateTotals({ items, withholdingRateBps: draft.withholdingRateBps, equivalenceSurcharge: draft.equivalenceSurcharge ?? customer.equivalenceSurcharge ?? false }),
@@ -403,9 +404,10 @@ async function buildInvoiceFromDraft({ organizationId, draft, existing }: { orga
     templateId: draft.templateId as InvoiceTemplateId,
     items,
     issuedAt: null,
-    sentAt: null,
+    sentAt: existing?.sentAt ?? null,
     paidAt: null,
     voidedAt: null,
+    convertedInvoiceId: null,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
@@ -563,7 +565,8 @@ export const invoicingHandlers = {
     method: 'GET',
     handler: async ({ params: { organizationId }, query }) => {
       const status = (query as Stored | undefined)?.status as string | undefined;
-      const invoices = (await getValues(db().invoices)).filter(invoice => invoice.organizationId === organizationId && (!status || invoice.status === status));
+      // Proformas are not invoices: they are only listed when asked for
+      const invoices = (await getValues(db().invoices)).filter(invoice => invoice.organizationId === organizationId && (status ? invoice.status === status : invoice.status !== 'proforma'));
       const hydrated = await Promise.all(invoices.map(hydrateInvoice));
       return { invoices: hydrated.sort((a, b) => String(b.issueDate).localeCompare(String(a.issueDate))) };
     },
@@ -576,7 +579,7 @@ export const invoicingHandlers = {
       const invoice = await buildInvoiceFromDraft({ organizationId, draft });
       await db().invoices.setItem(invoice.id, invoice);
       try {
-        if (draft.deliveryNoteIds !== undefined) {
+        if (draft.deliveryNoteIds !== undefined && invoice.status !== 'proforma') {
           await setDemoInvoiceDeliveryNotes({ organizationId, invoiceId: invoice.id, customerId: draft.customerId, deliveryNoteIds: draft.deliveryNoteIds });
         }
       } catch (error) {
@@ -616,12 +619,12 @@ export const invoicingHandlers = {
     method: 'PUT',
     handler: async ({ params: { organizationId, resourceId }, body }) => {
       const existing = await getInvoiceOrFail(resourceId);
-      if (existing.status !== 'draft') {
+      if (existing.status !== 'draft' && !(existing.status === 'proforma' && !existing.convertedInvoiceId)) {
         fail('Only draft invoices can be edited', 409);
       }
       const draft = body as InvoiceDraftInput;
       const invoice = await buildInvoiceFromDraft({ organizationId, draft, existing });
-      if (draft.deliveryNoteIds !== undefined) {
+      if (draft.deliveryNoteIds !== undefined && invoice.status !== 'proforma') {
         await setDemoInvoiceDeliveryNotes({ organizationId, invoiceId: invoice.id, customerId: draft.customerId, deliveryNoteIds: draft.deliveryNoteIds });
       }
       await db().invoices.setItem(invoice.id, invoice);
@@ -633,10 +636,30 @@ export const invoicingHandlers = {
     method: 'DELETE',
     handler: async ({ params: { resourceId } }) => {
       const existing = await getInvoiceOrFail(resourceId);
-      if (existing.status !== 'draft') {
+      if (existing.status !== 'draft' && existing.status !== 'proforma') {
         fail('Only draft invoices can be deleted', 409);
       }
       await db().invoices.removeItem(resourceId);
+      // Its proforma can be converted again
+      const proformas = (await getValues(db().invoices)).filter(invoice => invoice.convertedInvoiceId === resourceId);
+      await Promise.all(proformas.map(proforma => db().invoices.setItem(proforma.id, { ...proforma, convertedInvoiceId: null })));
+    },
+  }),
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/invoicing/invoices/:resourceId/convert',
+    method: 'POST',
+    handler: async ({ params: { organizationId, resourceId } }) => {
+      const proforma = await getInvoiceOrFail(resourceId);
+      if (proforma.status !== 'proforma') {
+        fail('Only a proforma can be converted to an invoice', 409);
+      }
+      if (proforma.convertedInvoiceId) {
+        fail('This proforma already has its invoice', 409);
+      }
+      const invoice = await buildInvoiceFromDraft({ organizationId, draft: { ...proforma, issueDate: new Date(), dueDate: null, isProforma: false } as unknown as InvoiceDraftInput });
+      await db().invoices.setItem(invoice.id, invoice);
+      await db().invoices.setItem(proforma.id, { ...proforma, convertedInvoiceId: invoice.id });
+      return { invoice: await hydrateInvoice(invoice) };
     },
   }),
   ...defineHandler({
@@ -655,7 +678,7 @@ export const invoicingHandlers = {
       }
       // No email leaves the browser: the demo only flips the status.
       const now = new Date().toISOString();
-      invoice = { ...invoice, status: invoice.status === 'paid' ? 'paid' : 'sent', sentAt: now, updatedAt: now };
+      invoice = { ...invoice, status: invoice.status === 'paid' || invoice.status === 'proforma' ? invoice.status : 'sent', sentAt: now, updatedAt: now };
       await db().invoices.setItem(invoice.id, invoice);
       return { invoice: await hydrateInvoice(invoice) };
     },
@@ -690,14 +713,14 @@ export const invoicingHandlers = {
         ...draft,
         ...totals,
         withholdingRateBps: draft.withholdingRateBps ?? 0,
-        number: issuingSeries ? `${issuingSeries.prefix}${String(issuingSeries.nextNumber).padStart(issuingSeries.padding, '0')}` : null,
+        number: issuingSeries && !draft.isProforma ? `${issuingSeries.prefix}${String(issuingSeries.nextNumber).padStart(issuingSeries.padding, '0')}` : null,
         issueDate: new Date(draft.issueDate).toISOString(),
         dueDate: draft.dueDate ? new Date(draft.dueDate).toISOString() : null,
         customer,
         customerName: customer!.name,
       };
       const { renderDemoInvoicePdf } = await import('./demo-invoice-pdf');
-      return renderDemoInvoicePdf({ invoice, seller, branding: branding ?? demoBranding, watermark: String(seller.locale ?? 'es').startsWith('es') ? 'BORRADOR' : 'DRAFT' });
+      return renderDemoInvoicePdf({ invoice, seller, branding: branding ?? demoBranding, watermark: draft.isProforma ? undefined : String(seller.locale ?? 'es').startsWith('es') ? 'BORRADOR' : 'DRAFT' });
     },
   }),
   ...defineHandler({

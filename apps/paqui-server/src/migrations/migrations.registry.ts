@@ -34,6 +34,7 @@ import { importedIssuedInvoicesMigration } from './list/0031-imported-issued-inv
 import { readOnlyImpersonationsMigration } from './list/0032-read-only-impersonations.migration';
 import { purchaseItemPreciseUnitPriceMigration } from './list/0033-purchase-item-precise-unit-price.migration';
 import { optionalInvoiceDueDateMigration } from './list/0034-optional-invoice-due-date.migration';
+import { proformaInvoicesMigration } from './list/0035-proforma-invoices.migration';
 
 export const migrations: Migration[] = [
   postgresInitialSchemaMigration,
@@ -70,4 +71,5 @@ export const migrations: Migration[] = [
   readOnlyImpersonationsMigration,
   purchaseItemPreciseUnitPriceMigration,
   optionalInvoiceDueDateMigration,
+  proformaInvoicesMigration,
 ];
