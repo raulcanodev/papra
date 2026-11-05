@@ -11,6 +11,7 @@ import { createUsersRepository } from './users.repository';
 export function registerUsersRoutes(context: RouteDefinitionContext) {
   setupGetCurrentUserRoute(context);
   setupUpdateUserRoute(context);
+  setupChangelogSeenRoute(context);
   setupSetPasswordRoute(context);
 }
 
@@ -46,6 +47,7 @@ function setupGetCurrentUserRoute({ app, db }: RouteDefinitionContext) {
               'createdAt',
               'updatedAt',
               'twoFactorEnabled',
+              'lastSeenChangelogId',
             ],
           ),
 
@@ -74,6 +76,25 @@ function setupUpdateUserRoute({ app, db }: RouteDefinitionContext) {
       const { user } = await usersRepository.updateUser({ userId, name, phone: phone === undefined ? undefined : (phone === null || phone === '' ? null : phone) });
 
       return context.json({ user });
+    },
+  );
+}
+
+// An admin acting as the user must not use up the news meant for them
+function setupChangelogSeenRoute({ app, db }: RouteDefinitionContext) {
+  app.put(
+    '/api/users/me/changelog-seen',
+    requireAuthentication(),
+    forbidDuringImpersonation(),
+    legacyValidateJsonBody(z.object({
+      entryId: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    })),
+    async (context) => {
+      const { userId } = getUser({ context });
+
+      await createUsersRepository({ db }).setLastSeenChangelog({ userId, entryId: context.req.valid('json').entryId });
+
+      return context.body(null, 204);
     },
   );
 }

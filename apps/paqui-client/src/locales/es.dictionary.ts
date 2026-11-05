@@ -3278,6 +3278,10 @@ export const translations: Partial<TranslationsDictionary> = {
   'layout.mobile.quick-actions.new-invoice.description': 'Emitir a un cliente',
   'layout.mobile.quick-actions.new-proforma': 'Nueva proforma',
   'layout.mobile.quick-actions.new-proforma.description': 'Antes de facturar, sin validez fiscal',
+
+  // Changelog
+  'changelog.title': 'Novedades de Paqui',
+  'changelog.close': 'Venga, gracias Paqui',
   'layout.mobile.quick-actions.new-purchase': 'Factura recibida',
   'layout.mobile.quick-actions.new-purchase.description': 'Registrar un gasto de proveedor',
   'layout.mobile.quick-actions.ask-paqui': 'Pedírselo a Paqui',

@@ -11,6 +11,17 @@ Every language model call gets its model from `getAiModel({ config, db, feature 
 
 Never import `@ai-sdk/anthropic|openai|google|xai` or pass a model id string to `generateText`/`streamText`/`generateObject` elsewhere: `ai-usage.guard.test.ts` fails.
 
+## Changelog: Novedades de Paqui
+
+The changelog is [`apps/paqui-client/src/modules/changelog/changelog.md`](apps/paqui-client/src/modules/changelog/changelog.md). Users see what is new in a dialog when they enter the app, once, as if Paqui told them. Any new entry reaches everyone on the next deploy.
+
+**After a change a user would notice (a new feature, a new option, a change in how something works), add it to that file in the same commit.** Bug fixes, small tweaks, refactors and back office or internal work do not go in.
+
+- Newest first: `## YYYY-MM-DD` with today's date (reuse the heading if it is already there), then one `- ` line per novelty. Each line is one speech bubble.
+- In Spanish, in Paqui's voice: a neighbour telling you the news. Easy to understand, with some humour, one or two short sentences, at most 200 characters. What it means for the user, never how it was built. `**bold**` for the name of the thing; no images, links or other markdown.
+
+`changelog.test.ts` fails if the file does not follow this format.
+
 ## Layout: no cards
 
 Content sits straight on the page background. Never wrap a form, a group of fields or a section in a card (`rounded-xl border bg-card p-4`, `<Card>`): it doubles the padding (the page already has its own, which costs the most on phones) and looks generated.

@@ -21,6 +21,7 @@ function createUsersRepository({ db }: { db: Database }) {
       getUserById,
       getUserByIdOrThrow,
       updateUser,
+      setLastSeenChangelog,
       getUserCount,
       listUsers,
     },
@@ -76,6 +77,10 @@ async function updateUser({ userId, name, phone, db }: { userId: string; name: s
   const [user] = await db.update(usersTable).set(phone === undefined ? { name } : { name, phone }).where(eq(usersTable.id, userId)).returning();
 
   return { user };
+}
+
+async function setLastSeenChangelog({ userId, entryId, db }: { userId: string; entryId: string; db: Database }) {
+  await db.update(usersTable).set({ lastSeenChangelogId: entryId }).where(eq(usersTable.id, userId));
 }
 
 export async function getUserCount({ db }: { db: Database }) {

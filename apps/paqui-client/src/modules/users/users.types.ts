@@ -12,4 +12,6 @@ export type User = {
 export type UserMe = User & {
   phone?: string | null;
   permissions: string[];
+  /** The newest entry of the changelog this user has read */
+  lastSeenChangelogId?: string | null;
 };

@@ -3276,6 +3276,10 @@ export const translations = {
   'layout.mobile.quick-actions.new-invoice.description': 'Issue it to a customer',
   'layout.mobile.quick-actions.new-proforma': 'New proforma',
   'layout.mobile.quick-actions.new-proforma.description': 'Before invoicing, no tax value',
+
+  // Changelog
+  'changelog.title': 'News from Paqui',
+  'changelog.close': 'Thanks, Paqui',
   'layout.mobile.quick-actions.new-purchase': 'Received invoice',
   'layout.mobile.quick-actions.new-purchase.description': 'Record an expense from a supplier',
   'layout.mobile.quick-actions.ask-paqui': 'Ask Paqui',

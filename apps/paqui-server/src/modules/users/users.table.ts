@@ -16,6 +16,8 @@ export const usersTable = pgTable(
     twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),
     onboardingCompletedAt: timestamp('onboarding_completed_at', { mode: 'date', withTimezone: true, precision: 3 }),
     onboardingStep: text('onboarding_step'),
+    // The newest entry of the changelog this user has read (its date, as in changelog.md)
+    lastSeenChangelogId: text('last_seen_changelog_id'),
   },
   table => [
     index('users_email_index').on(table.email),

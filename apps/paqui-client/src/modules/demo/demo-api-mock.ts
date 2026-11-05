@@ -202,6 +202,25 @@ function getMetricsInstant({ year, now = new Date() }: { year: number; now?: Dat
 // Name of the demo user, changeable from the settings until the page reloads
 let demoUserName = demoUser.name;
 
+// Kept in the browser, so a reload of the demo does not tell the news again
+const DEMO_CHANGELOG_SEEN_KEY = 'demo:changelog-seen';
+
+function readDemoChangelogSeen() {
+  try {
+    return localStorage.getItem(DEMO_CHANGELOG_SEEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function saveDemoChangelogSeen(entryId: string) {
+  try {
+    localStorage.setItem(DEMO_CHANGELOG_SEEN_KEY, entryId);
+  } catch {
+    // Storage blocked: the news come back on the next visit
+  }
+}
+
 // Step of a previewed onboarding flow, kept until the page reloads
 let demoOnboardingStep: string | null = null;
 
@@ -345,8 +364,14 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
     path: '/api/users/me',
     method: 'GET',
     handler: () => ({
-      user: { ...demoUser, name: demoUserName },
+      user: { ...demoUser, name: demoUserName, lastSeenChangelogId: readDemoChangelogSeen() },
     }),
+  }),
+
+  ...defineHandler({
+    path: '/api/users/me/changelog-seen',
+    method: 'PUT',
+    handler: ({ body }) => saveDemoChangelogSeen((body as { entryId: string }).entryId),
   }),
 
   // The name can be changed for the visit; reloading brings back the demo user

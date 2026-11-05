@@ -20,6 +20,14 @@ export async function updateUser({ name, phone }: { name: string; phone?: string
   return { user };
 }
 
+export async function markChangelogSeen({ entryId }: { entryId: string }) {
+  await apiClient({
+    path: '/api/users/me/changelog-seen',
+    method: 'PUT',
+    body: { entryId },
+  });
+}
+
 export async function setPassword({ newPassword }: { newPassword: string }) {
   await apiClient({
     path: '/api/users/me/password',

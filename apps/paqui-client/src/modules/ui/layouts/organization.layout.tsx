@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/solid-query';
 import { createEffect, createMemo, createSignal, on, Show } from 'solid-js';
 import { AiAssistantPanelProvider, useAiAssistantPanel } from '@/modules/ai-assistant/ai-assistant-panel.provider';
 import { AiAssistant } from '@/modules/ai-assistant/pages/ai-assistant.page';
+import { ChangelogDialog } from '@/modules/changelog/components/changelog-dialog';
 import { useCommandPalette } from '@/modules/command-palette/command-palette.provider';
 import { useConfig } from '@/modules/config/config.provider';
 import { DocumentUploadProvider } from '@/modules/documents/components/document-import-status.component';
@@ -306,6 +307,7 @@ export const OrganizationLayout: ParentComponent = (props) => {
         <OrganizationWorkspaceShell organizationName={query.data?.organization.name}>
           {props.children}
         </OrganizationWorkspaceShell>
+        <ChangelogDialog />
       </AiAssistantPanelProvider>
     </DocumentUploadProvider>
   );
