@@ -35,6 +35,10 @@ export async function renderDemoInvoicePdf({ invoice, seller, branding, watermar
   const isProforma = invoice.status === 'proforma' || invoice.isProforma === true;
   const invoiceTitle = locale === 'es' ? 'Factura' : 'Invoice';
   const proformaTitle = locale === 'es' ? 'Factura proforma' : 'Proforma invoice';
+  const proformaAmountLabel = locale === 'es' ? 'Total neto' : 'Net total';
+  const invoiceAmountLabel = locale === 'es' ? 'Total a pagar' : 'Amount due';
+  const amountDueLabel = isProforma ? proformaAmountLabel : invoiceAmountLabel;
+  const pageWatermark = isProforma ? 'PROFORMA' : watermark;
   doc.setFont('helvetica', 'bold').setFontSize(22).setTextColor(...accent).text(isProforma ? proformaTitle : invoiceTitle, left, y);
   doc.setFontSize(11).setTextColor(17, 24, 39).text(invoice.number ?? '', right, y, { align: 'right' });
   y += 18;
@@ -42,7 +46,7 @@ export async function renderDemoInvoicePdf({ invoice, seller, branding, watermar
   if (isProforma) {
     doc.text(locale === 'es' ? 'Documento sin validez fiscal. No es una factura.' : 'This document has no tax value. It is not an invoice.', left, y);
   }
-  doc.text([date(invoice.issueDate), invoice.dueDate ? `${locale === 'es' ? 'Vence' : 'Due'} ${date(invoice.dueDate)}` : null].filter(Boolean).join('  ·  '), right, y, { align: 'right' });
+  doc.text([date(invoice.issueDate), invoice.dueDate && !isProforma ? `${locale === 'es' ? 'Vence' : 'Due'} ${date(invoice.dueDate)}` : null].filter(Boolean).join('  ·  '), right, y, { align: 'right' });
 
   y += 36;
   doc.setFontSize(8).setTextColor(107, 114, 128).text(locale === 'es' ? 'EMISOR' : 'FROM', left, y).text(locale === 'es' ? 'CLIENTE' : 'BILL TO', 320, y);
@@ -90,7 +94,7 @@ export async function renderDemoInvoicePdf({ invoice, seller, branding, watermar
       ? [
           ['Total', money(invoice.totalMinor), false] as [string, string, boolean],
           [`${locale === 'es' ? 'Retención IRPF' : 'IRPF withholding'} (${invoice.withholdingRateBps / 100}%)`, `-${money(invoice.withholdingMinor)}`, false] as [string, string, boolean],
-          [locale === 'es' ? 'Total a pagar' : 'Amount due', money(getInvoicePayableMinor({ totalMinor: invoice.totalMinor, withholdingMinor: invoice.withholdingMinor })), true] as [string, string, boolean],
+          [amountDueLabel, money(getInvoicePayableMinor({ totalMinor: invoice.totalMinor, withholdingMinor: invoice.withholdingMinor })), true] as [string, string, boolean],
         ]
       : [['Total', money(invoice.totalMinor), true] as [string, string, boolean]]),
   ];
@@ -113,10 +117,10 @@ export async function renderDemoInvoicePdf({ invoice, seller, branding, watermar
   doc.setFontSize(8).text(branding.footerText ?? 'Demo · documento generado en tu navegador, sin valor fiscal', left, 800);
 
   // A preview: big, horizontal and half transparent across the middle of the page, like the server draws it
-  if (watermark) {
+  if (pageWatermark) {
     doc.saveGraphicsState();
     doc.setGState(doc.GState({ opacity: 0.22 }));
-    doc.setFont('helvetica', 'bold').setFontSize(110).setTextColor(156, 163, 175).text(watermark, 595 / 2, 842 / 2 + 38, { align: 'center' });
+    doc.setFont('helvetica', 'bold').setFontSize(isProforma ? 90 : 110).setTextColor(156, 163, 175).text(pageWatermark, 595 / 2, 842 / 2 + 38, { align: 'center' });
     doc.restoreGraphicsState();
   }
 

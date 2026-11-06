@@ -1,5 +1,9 @@
 # Novedades de Paqui
 
+## 2026-11-06
+
+- Al guardar una **proforma** te pregunto qué hacemos: la envío por email, la descargas o la dejamos guardada. Y ahora lleva su marca bien grande, que nadie la confunda con una factura.
+
 ## 2026-11-05
 
 - **Facturas proforma**, que me las habéis pedido. Como una factura, pero sin número ni valor fiscal. Están en Ventas y, cuando el cliente diga que sí, la conviertes en factura de un toque.

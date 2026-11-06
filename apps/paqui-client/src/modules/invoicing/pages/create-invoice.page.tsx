@@ -118,6 +118,7 @@ export function CreateInvoicePage(props: { isProforma?: boolean }) {
   const [deliveryNotesAddedToItems, setDeliveryNotesAddedToItems] = createSignal<string[]>([]);
   const [isMoreDetailsOpen, setIsMoreDetailsOpen] = createSignal(false);
   const [isCustomerDialogOpen, setIsCustomerDialogOpen] = createSignal(false);
+  const [isProformaSaveOpen, setIsProformaSaveOpen] = createSignal(false);
   const [newCustomer, setNewCustomer] = createSignal(emptyContact({ isCustomer: true }));
   // The lines whose discount field is open: a line with a discount always shows it
   const [discountLines, setDiscountLines] = createSignal<number[]>([]);
@@ -305,12 +306,16 @@ export function CreateInvoicePage(props: { isProforma?: boolean }) {
     onError: () => createToast({ type: 'error', message: t('invoicing.editor.preview.error') }),
   }));
 
+  const saveDraft = async () => {
+    const draft = buildDraft();
+    return params.invoiceId
+      ? updateInvoice({ organizationId: params.organizationId, invoiceId: params.invoiceId, invoice: draft })
+      : createInvoice({ organizationId: params.organizationId, invoice: draft });
+  };
+
   const mutation = createMutation(() => ({
     mutationFn: async ({ issue }: { issue: boolean }) => {
-      const draft = buildDraft();
-      const { invoice } = params.invoiceId
-        ? await updateInvoice({ organizationId: params.organizationId, invoiceId: params.invoiceId, invoice: draft })
-        : await createInvoice({ organizationId: params.organizationId, invoice: draft });
+      const { invoice } = await saveDraft();
       return issue ? issueInvoice({ organizationId: params.organizationId, invoiceId: invoice.id }) : { invoice };
     },
     onSuccess: ({ invoice }, variables) => {
@@ -323,6 +328,29 @@ export function CreateInvoicePage(props: { isProforma?: boolean }) {
       createToast({ type: 'success', message: t(isProforma() ? 'invoicing.proformas.toast.saved' : 'invoicing.editor.toast.draft-saved') });
       leaveGuard.afterSave(() => navigate(returnHref()));
     },
+    onError: () => createToast({ type: 'error', message: t('invoicing.editor.toast.error') }),
+  }));
+
+  const finishProformaMutation = createMutation(() => ({
+    mutationFn: async (finish: 'send' | 'download' | 'save') => {
+      const { invoice } = await saveDraft();
+      // It is saved from here on: whatever fails next the page leaves, or saving again would create it twice
+      void queryClient.invalidateQueries({ queryKey: ['invoicing', params.organizationId, 'invoices'] });
+      leaveGuard.markSaved();
+      try {
+        if (finish === 'send') {
+          await sendInvoice({ organizationId: params.organizationId, invoiceId: invoice.id });
+          void queryClient.invalidateQueries({ queryKey: ['invoicing', params.organizationId, 'invoices'] });
+        }
+        if (finish === 'download') {
+          await downloadInvoicePdf({ organizationId: params.organizationId, invoiceId: invoice.id, filename: t('invoicing.proformas.preview.filename') });
+        }
+        createToast({ type: 'success', message: t(finish === 'send' ? 'invoicing.proformas.toast.sent' : 'invoicing.proformas.toast.saved') });
+      } catch {
+        createToast({ type: 'error', message: t(finish === 'send' ? 'invoicing.proformas.toast.send-error' : 'invoicing.proformas.toast.download-error') });
+      }
+    },
+    onSuccess: () => leaveGuard.afterSave(() => navigate(returnHref())),
     onError: () => createToast({ type: 'error', message: t('invoicing.editor.toast.error') }),
   }));
 
@@ -416,6 +444,13 @@ export function CreateInvoicePage(props: { isProforma?: boolean }) {
   const canIssue = () => canSubmit() && Boolean(profileQuery.data?.profile);
 
   const saveLabel = () => t(isProforma() ? 'invoicing.proformas.save' : 'invoicing.editor.save-draft');
+  const startSave = () => {
+    if (isProforma()) {
+      setIsProformaSaveOpen(true);
+      return;
+    }
+    mutation.mutate({ issue: false });
+  };
 
   leaveGuard.setSave({
     get label() {
@@ -437,7 +472,7 @@ export function CreateInvoicePage(props: { isProforma?: boolean }) {
         secondaryActions={[{ label: t('invoicing.editor.preview'), icon: 'i-tabler-eye', disabled: !canSubmit(), isLoading: previewMutation.isPending, onSelect: () => previewMutation.mutate() }]}
         actions={(
           <>
-            <Button type="button" size="sm" disabled={!canSubmit()} isLoading={mutation.isPending && !mutation.variables?.issue} onClick={() => mutation.mutate({ issue: false })}>
+            <Button type="button" size="sm" disabled={!canSubmit()} isLoading={mutation.isPending && !mutation.variables?.issue} onClick={startSave}>
               {saveLabel()}
             </Button>
             <Show when={!isProforma()}>
@@ -801,7 +836,7 @@ export function CreateInvoicePage(props: { isProforma?: boolean }) {
               <div class="i-tabler-eye size-4" />
               {t('invoicing.editor.preview')}
             </Button>
-            <Button type="button" size="sm" disabled={!canSubmit()} isLoading={mutation.isPending && !mutation.variables?.issue} onClick={() => mutation.mutate({ issue: false })}>
+            <Button type="button" size="sm" disabled={!canSubmit()} isLoading={mutation.isPending && !mutation.variables?.issue} onClick={startSave}>
               {saveLabel()}
             </Button>
             <Show when={!isProforma()}>
@@ -876,6 +911,46 @@ export function CreateInvoicePage(props: { isProforma?: boolean }) {
               </>
             )}
           </Show>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isProformaSaveOpen()}
+        onOpenChange={(open) => {
+          if (!finishProformaMutation.isPending) {
+            setIsProformaSaveOpen(open);
+          }
+        }}
+      >
+        <DialogContent class="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('invoicing.proformas.save-dialog.title')}</DialogTitle>
+            <DialogDescription>{t('invoicing.proformas.save-dialog.description')}</DialogDescription>
+          </DialogHeader>
+          <div class="flex flex-col gap-2">
+            <IssuedChoice
+              icon={finishProformaMutation.isPending && finishProformaMutation.variables === 'send' ? 'i-tabler-loader-2 animate-spin' : 'i-tabler-send'}
+              primary
+              disabled={!selectedCustomer()?.email || finishProformaMutation.isPending}
+              onClick={() => finishProformaMutation.mutate('send')}
+            >
+              {selectedCustomer()?.email ? t('invoicing.proformas.save-dialog.send', { email: selectedCustomer()!.email! }) : t('invoicing.proformas.save-dialog.no-email')}
+            </IssuedChoice>
+            <IssuedChoice
+              icon={finishProformaMutation.isPending && finishProformaMutation.variables === 'download' ? 'i-tabler-loader-2 animate-spin' : 'i-tabler-download'}
+              disabled={finishProformaMutation.isPending}
+              onClick={() => finishProformaMutation.mutate('download')}
+            >
+              {t('invoicing.proformas.save-dialog.download')}
+            </IssuedChoice>
+            <IssuedChoice
+              icon={finishProformaMutation.isPending && finishProformaMutation.variables === 'save' ? 'i-tabler-loader-2 animate-spin' : 'i-tabler-device-floppy'}
+              disabled={finishProformaMutation.isPending}
+              onClick={() => finishProformaMutation.mutate('save')}
+            >
+              {t('invoicing.proformas.save-dialog.only-save')}
+            </IssuedChoice>
+          </div>
         </DialogContent>
       </Dialog>
 

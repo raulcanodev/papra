@@ -124,6 +124,13 @@ export function InvoicePreview(props: {
   const amountDue = () => total() - withholding();
   // Empty without a due date, and also while its field is empty or half typed: the sentence never ends in nothing
   const dueDateLabel = () => formatDate(props.dueDate ?? '', getLocale());
+  // A proforma asks nobody to pay yet: it ends on its total
+  const amountDueLabel = () => {
+    if (!props.isProforma) {
+      return t('invoicing.preview.amount-due');
+    }
+    return withholding() > 0 ? t('invoicing.proformas.preview.net-total') : t('invoicing.preview.total');
+  };
   const accent = () => props.branding?.accentColor ?? '#18181b';
   const visibleItems = () => props.items.filter(item => item.description.trim() || item.unitPriceMinor > 0);
   const issuerName = () => props.profile?.legalName ?? t('invoicing.preview.your-company');
@@ -153,9 +160,14 @@ export function InvoicePreview(props: {
     >
       <div
         ref={pageRef}
-        class="flex origin-top-left flex-col p-12 text-[11px] leading-relaxed text-zinc-500"
+        class="relative flex origin-top-left flex-col p-12 text-[11px] leading-relaxed text-zinc-500"
         style={{ 'width': `${PAGE_WIDTH}px`, 'min-height': `${PAGE_HEIGHT}px`, 'transform': `scale(${scale()})` }}
       >
+        <Show when={props.isProforma}>
+          <div aria-hidden="true" class="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 select-none text-center text-[96px] font-bold leading-none text-zinc-400/25">
+            PROFORMA
+          </div>
+        </Show>
         <div class="flex items-start justify-between gap-6">
           <div class="flex items-center gap-2.5">
             <span class="flex size-8 items-center justify-center rounded-full text-sm font-semibold text-white" style={{ background: accent() }}>
@@ -193,13 +205,15 @@ export function InvoicePreview(props: {
           </div>
         </div>
 
-        <div class="mt-8 text-sm font-medium text-zinc-900">
-          {dueDateLabel() === ''
-            ? t('invoicing.preview.to-pay', { amount: money(amountDue()) })
-            : t('invoicing.preview.due-by', { amount: money(amountDue()), date: dueDateLabel() })}
-        </div>
+        <Show when={!props.isProforma}>
+          <div class="mt-8 text-sm font-medium text-zinc-900">
+            {dueDateLabel() === ''
+              ? t('invoicing.preview.to-pay', { amount: money(amountDue()) })
+              : t('invoicing.preview.due-by', { amount: money(amountDue()), date: dueDateLabel() })}
+          </div>
+        </Show>
 
-        <table class="mt-5 w-full">
+        <table class={cn('w-full', props.isProforma ? 'mt-8' : 'mt-5')}>
           <thead>
             <tr class="border-b border-zinc-200 text-left text-[10px] text-zinc-900">
               <th class="pb-2 font-medium">{t('invoicing.preview.table.item')}</th>
@@ -259,7 +273,7 @@ export function InvoicePreview(props: {
             </div>
           </Show>
           <div class="flex justify-between border-t border-zinc-200 pt-2.5 text-sm font-semibold text-zinc-900">
-            <span>{t('invoicing.preview.amount-due')}</span>
+            <span>{amountDueLabel()}</span>
             <span class="tabular-nums">{money(amountDue())}</span>
           </div>
         </div>

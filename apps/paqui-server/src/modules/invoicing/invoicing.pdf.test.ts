@@ -51,6 +51,8 @@ describe('invoice PDF', () => {
 
     expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
     expect(getProformaLabels({ locale: 'es-ES' }).title).toBe('FACTURA PROFORMA');
+    expect(getProformaLabels({ locale: 'es-ES' }).watermark).toBe('PROFORMA');
+    expect(getProformaLabels({ locale: 'es-ES' }).netTotal).toBe('Total neto');
     expect(getProformaLabels({ locale: 'en' }).title).toBe('PROFORMA INVOICE');
   });
 

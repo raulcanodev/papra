@@ -59,8 +59,8 @@ const PAGE = { width: 595.28, height: 841.89, margin: 48 };
 // What marks a proforma, in the language of the issuer
 export function getProformaLabels({ locale }: { locale: string | null | undefined }) {
   return (locale ?? '').toLowerCase().startsWith('es')
-    ? { title: 'FACTURA PROFORMA', legend: 'Documento sin validez fiscal. No es una factura.' }
-    : { title: 'PROFORMA INVOICE', legend: 'This document has no tax value. It is not an invoice.' };
+    ? { title: 'FACTURA PROFORMA', legend: 'Documento sin validez fiscal. No es una factura.', watermark: 'PROFORMA', netTotal: 'Total neto' }
+    : { title: 'PROFORMA INVOICE', legend: 'This document has no tax value. It is not an invoice.', watermark: 'PROFORMA', netTotal: 'Net total' };
 }
 
 export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
@@ -128,8 +128,10 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
     if (branding.footerText !== null && branding.footerText !== undefined && branding.footerText !== '') {
       doc.font('Helvetica').fontSize(8).fillColor(muted).text(branding.footerText, PAGE.margin, PAGE.height - PAGE.margin - 10, { width: PAGE.width - PAGE.margin * 2 - 55, lineBreak: false });
     }
-    if (invoice.watermark !== null && invoice.watermark !== undefined && invoice.watermark !== '') {
-      drawWatermark(doc, invoice.watermark);
+    // A proforma always carries its own, so it never passes for an invoice
+    const watermark = invoice.isProforma === true ? getProformaLabels({ locale }).watermark : invoice.watermark;
+    if (watermark !== null && watermark !== undefined && watermark !== '') {
+      drawWatermark(doc, watermark);
     }
   }
 
@@ -149,7 +151,7 @@ function drawHeader({ doc, invoice, seller, customer, accent, muted, line, verif
     doc.font('Helvetica-Bold').fontSize(11).fillColor(accent).text(invoice.number ?? 'DRAFT', detailsX, PAGE.margin + 3, { width: detailsWidth, align: 'right' });
   }
   doc.font('Helvetica').fontSize(9).fillColor(muted).text(`Issued ${formatDate(invoice.issueDate, seller.locale)}`, detailsX, PAGE.margin + 23, { width: detailsWidth, align: 'right' });
-  if (invoice.dueDate !== null) {
+  if (proformaLabels === null && invoice.dueDate !== null) {
     doc.text(`Due ${formatDate(invoice.dueDate, seller.locale)}`, detailsX, PAGE.margin + 38, { width: detailsWidth, align: 'right' });
   }
   if (verifactuQr !== null) {
@@ -250,7 +252,7 @@ function drawTotals({ doc, invoice, y, accent, muted, line, locale }: { doc: PDF
   doc.font('Helvetica').fillColor(muted).text(`IRPF withholding (${invoice.withholdingRateBps / 100}%)`, labelX, totalsY + 34, { width: 100 });
   doc.text(`-${formatMoney(invoice.withholdingMinor, invoice.currency, locale)}`, valueX, totalsY + 34, { width: 94, align: 'right' });
   doc.moveTo(labelX, totalsY + 59).lineTo(539, totalsY + 59).strokeColor(line).stroke();
-  doc.font('Helvetica-Bold').fontSize(12).fillColor(accent).text('Amount due', labelX, totalsY + 71, { width: 90 });
+  doc.font('Helvetica-Bold').fontSize(12).fillColor(accent).text(invoice.isProforma === true ? getProformaLabels({ locale }).netTotal : 'Amount due', labelX, totalsY + 71, { width: 90 });
   doc.text(formatMoney(getInvoicePayableMinor(invoice), invoice.currency, locale), valueX, totalsY + 71, { width: 94, align: 'right' });
 
   return { bottom: totalsY + 87 };
